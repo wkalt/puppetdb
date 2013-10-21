@@ -1,0 +1,13 @@
+Source: classifier
+Section: utils
+Priority: optional
+Maintainer: Puppet Labs <info@puppetlabs.com>
+Build-Depends: debhelper (>= 7.0.0~), cdbs
+Standards-Version: 3.9.1
+Homepage: http://puppetlabs.com
+
+Package: classifier
+Architecture: all
+Depends: ${misc:Depends},  java6-runtime-headless, adduser
+Suggests: postgresql
+Description: Puppet Labs version-checking backend.
