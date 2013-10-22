@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.core
   (:require [ring.adapter.jetty :as jetty]
-            [puppetlabs.classifier.http :as http]))
+            [puppetlabs.classifier.http :as http])
+  (:gen-class))
 
 
 (defn -main
