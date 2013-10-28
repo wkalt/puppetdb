@@ -59,6 +59,8 @@ start() {
     rh_status_q
     [ -x $JAVA_BIN ] || exit 5
     [ -f $config ] || exit 6
+    mkdir -p /var/log/classifier
+    chown -R $USER /var/log/classifier
     # Move any heap dumps aside
     echo -n $"Starting $prog: "
     daemon --user $USER --pidfile $PIDFILE "$EXEC >> /var/log/classifier/classifier-daemon.log 2>&1 &"
