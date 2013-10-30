@@ -9,6 +9,12 @@
 %global open_jdk          java-1.6.0-openjdk
 %endif
 
+%if 0%{?fedora} >= 17
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['vendorlibdir']")
+%else
+%global puppet_libdir     %(ruby -rrbconfig -e "puts Config::CONFIG['sitelibdir']")
+%endif
+
 # These macros are not always defined on much older rpm-based systems
 %global  _sharedstatedir /var/lib
 %global  _realsysconfdir /etc
@@ -38,6 +44,13 @@ Requires:      %{open_jdk}
 %description
 Puppet Labs version-checking backend.
 
+%package terminus
+Summary: Puppet terminus files to connect to PuppetDB
+Group: Development/Libraries
+Requires: puppet >= 3.3
+
+%description terminus
+A Puppet Node Terminus for the classifier
 
 %prep
 %setup -q -n %{realname}-%{realversion}
@@ -58,6 +71,9 @@ install -p -m0644 ext/default %{buildroot}/%{_sysconfdir}/sysconfig/classifier
 mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
 
 install -p -m0755 ext/redhat/init %{buildroot}%{_initddir}/classifier
+
+mkdir -p $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirection/node
+install -p -m0644 puppet/lib/puppet/indirection/node/classifier.rb $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirection/node
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -127,7 +143,11 @@ fi
 %{_sysconfdir}/sysconfig/%{name}
 %ghost %{_rundir}/%{name}
 
+%files terminus
+%defattr(-, root, root)
+%{puppet_libdir}/puppet/indirection/node/classifier.rb
 
 %changelog
 * <%= Time.now.strftime("%a %b %d %Y") %> Puppet Labs Release <info@puppetlabs.com> -  <%= @rpmversion %>-<%= @rpmrelease %>
 - Build for <%= @version %>
+

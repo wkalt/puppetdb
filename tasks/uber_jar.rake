@@ -1,5 +1,7 @@
 # Task for building the jar file containing all the things
 
+JAR_FILE_V = "classifier-#{@version}-standalone.jar"
+
 desc "Build the uberjar"
 task :uberjar => [  ] do
   if `which lein`

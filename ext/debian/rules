@@ -3,8 +3,14 @@
 include /usr/share/cdbs/1/rules/debhelper.mk
 
 BUILD_ROOT=$(CURDIR)/debian/$(cdbs_curpkg)
+TERMINUS_ROOT=$(BUILD_ROOT)/usr/lib/ruby/vendor_ruby/puppet/indirection/node
 
 install/classifier::
 	mkdir -p $(BUILD_ROOT)
 	mkdir -p $(BUILD_ROOT)/usr/share/classifier
 	install classifier.jar $(BUILD_ROOT)/usr/share/classifier
+
+install/classifier-terminus::
+	mkdir -p $(BUILD_ROOT)
+	mkdir -p $(TERMINUS_ROOT)
+	install puppet/lib/puppet/indirection/node/classifier.rb $(TERMINUS_ROOT)

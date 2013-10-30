@@ -10,4 +10,9 @@ Package: classifier
 Architecture: all
 Depends: ${misc:Depends},  java6-runtime-headless, adduser
 Suggests: postgresql
-Description: Puppet Labs version-checking backend.
+Description: Puppet Labs node classifier
+
+Package: classifier-terminus
+Architecture: all
+Depends: ${misc:Depends}, puppet (>> 3.3.0)
+Description: Node Terminus for Puppet Classifier

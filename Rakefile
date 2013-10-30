@@ -16,7 +16,7 @@ end
 # contains all the special java snowflake magicks, so we have to clear the
 # packaging repo's. We also want to use classifier's clean task, since it has so
 # much more clean than the packaging repo knows about
-['package:tar', 'clean'].each do |task|
+['clean'].each do |task|
   Rake::Task[task].clear if Rake::Task.task_defined?(task)
 end
 
