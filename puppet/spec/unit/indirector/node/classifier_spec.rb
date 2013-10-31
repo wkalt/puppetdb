@@ -6,17 +6,10 @@ require 'puppet/indirector/node/classifier'
 describe Puppet::Node::Classifier do
   before(:each) do
     Puppet::Node.indirection.terminus_class = :classifier
-  end
-
-  it "uses the classifier_{server,port} settings from the puppet settings" do
-    server = "test_server.localdomain"
-    port = 8256
-    Puppet[:classifier_server] = server
-    Puppet[:classifier_port] = port
-
-    Puppet::Network::HTTP::Connection.expects(:new).with(server, port).returns(stub 'connection', :get=>nil)
-
-    Puppet::Node.indirection.find('test')
+    Puppet::Node.indirection.terminus.stubs(:config).returns({
+      :server => 'classifier',
+      :port => '9000'
+    })
   end
 
   it "makes a GET request to /v1/node/nodename" do
