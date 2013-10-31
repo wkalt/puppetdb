@@ -270,6 +270,11 @@ module ClassifierExtensions
     EOS
     apply_manifest_on(host, manifest)
     install_terminus_puppet_conf(host, database)
+    create_remote_file(host, "#{host['puppet_path']}/classifier.yaml",
+                      "---\n"
+                      "server: #{master}\n"
+                      "port: #{CLASSIFIER_PORT}")
+
   end
 
 
@@ -842,24 +847,6 @@ module ClassifierExtensions
       }
       create_remote_file host, puppetconf, conf.to_s
     end
-  end
-
-  def install_terminus_puppet_conf(host, classifier)
-    puppetconf = File.join(host['puppetpath'], 'puppet.conf')
-
-    on host, "mkdir -p #{host['puppetpath']}"
-
-    conf = IniFile.new
-    conf['agent'] = {
-      'server' => master,
-    }
-    conf['master'] = {
-      'pidfile' => '/var/run/puppet/master.pid',
-      'node_terminus' => 'classifier',
-      'classifier_server' => classifier,
-      'classifier_port' => CLASSIFIER_PORT,
-    }
-    create_remote_file(host, puppetconf, conf.to_s)
   end
 
   def install_puppet
