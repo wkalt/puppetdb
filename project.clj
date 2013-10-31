@@ -18,7 +18,8 @@
   :description "Node classifier"
   :dependencies [[org.clojure/clojure "1.5.1"]
                  [ring/ring-jetty-adapter "1.2.0"]
-                 [compojure "1.1.5"]]
+                 [compojure "1.1.5"]
+                 [cheshire "5.2.0"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]]}}
   :aot [puppetlabs.classifier.core]
   :main puppetlabs.classifier.core)

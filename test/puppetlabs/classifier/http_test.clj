@@ -8,4 +8,4 @@
   (is (= (app (request :get "/v1/node/testy"))
          {:status 200
           :headers {"content-type" "text/plain"}
-          :body "node: testy\nclass: Foo"}))))
+          :body "{\"node\":\"testy\",\"class\":\"Foo\"}"}))))
