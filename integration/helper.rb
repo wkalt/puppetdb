@@ -269,12 +269,11 @@ module ClassifierExtensions
     }
     EOS
     apply_manifest_on(host, manifest)
-    install_terminus_puppet_conf(host, database)
-    create_remote_file(host, "#{host['puppet_path']}/classifier.yaml",
-                      "---\n"
-                      "server: #{master}\n"
+    create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
+                      "---\n" +
+                      "server: #{master}\n" +
                       "port: #{CLASSIFIER_PORT}")
-
+    on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
 
 
