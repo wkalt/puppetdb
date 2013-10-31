@@ -9,3 +9,7 @@ pom.xml.asc
 /.nrepl-port
 /pkg
 /ext/packaging
+Gemfile.lock
+Vagrantfile
+/log
+/.vagrant
