@@ -7,5 +7,8 @@
   (GET "/v1/node/:node" [node]
     {:status 200
      :headers {"content-type" "text/plain"}
-     :body (generate-string {:node node :class "Foo"})})
+     :body (generate-string {:name node
+                             :classes ["foo"]
+                             :environment "production"
+                             :parameters {}})})
   )
