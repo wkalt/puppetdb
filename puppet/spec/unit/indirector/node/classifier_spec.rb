@@ -1,7 +1,7 @@
 require 'json'
 require 'spec_helper'
 require 'puppet'
-require 'puppet/indirection/node/classifier'
+require 'puppet/indirector/node/classifier'
 
 describe Puppet::Node::Classifier do
   before(:each) do

@@ -72,8 +72,8 @@ mkdir -p $RPM_BUILD_ROOT/%{_rundir}/%{name}
 
 install -p -m0755 ext/redhat/init %{buildroot}%{_initddir}/classifier
 
-mkdir -p $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirection/node
-install -p -m0644 puppet/lib/puppet/indirection/node/classifier.rb $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirection/node
+mkdir -p $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirector/node
+install -p -m0644 puppet/lib/puppet/indirector/node/classifier.rb $RPM_BUILD_ROOT/%{puppet_libdir}/puppet/indirector/node
 
 %clean
 rm -rf $RPM_BUILD_ROOT
@@ -145,7 +145,7 @@ fi
 
 %files terminus
 %defattr(-, root, root)
-%{puppet_libdir}/puppet/indirection/node/classifier.rb
+%{puppet_libdir}/puppet/indirector/node/classifier.rb
 
 %changelog
 * <%= Time.now.strftime("%a %b %d %Y") %> Puppet Labs Release <info@puppetlabs.com> -  <%= @rpmversion %>-<%= @rpmrelease %>
