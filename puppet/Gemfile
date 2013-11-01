@@ -13,4 +13,3 @@ end
 gem "puppet", *location_for(ENV['PUPPET_LOCATION'] || '~> 3.0')
 gem "mocha"
 gem "rspec"
-gem "puppetlabs_spec_helper"
