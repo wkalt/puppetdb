@@ -2,8 +2,6 @@ require 'puppet'
 require 'puppet/test/test_helper'
 
 RSpec.configure do |config|
-  config.mock_with(:mocha)
-
   Puppet::Test::TestHelper.initialize
 
   config.before(:all) do
