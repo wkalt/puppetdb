@@ -8,7 +8,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
   def find(request)
     connection = new_connection
 
-    response = connection.get("/v1/node/#{request.key}")
+    response = connection.get("/v1/classified/nodes/#{request.key}")
 
     if response.is_a? Net::HTTPSuccess
       result = PSON.parse(response.body)

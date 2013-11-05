@@ -12,11 +12,13 @@ describe Puppet::Node::Classifier do
     }}
   end
 
-  it "makes a GET request to /v1/node/nodename" do
+  NODE_BASE = '/v1/classified/nodes'
+
+  it "makes a GET request to #{NODE_BASE}/nodename" do
     node = 'test'
     connection = double 'connection'
     expect(Puppet::Network::HTTP::Connection).to receive(:new) { connection }
-    expect(connection).to receive(:get).with("/v1/node/#{node}")
+    expect(connection).to receive(:get).with("#{NODE_BASE}/#{node}")
     Puppet::Node.indirection.find(node)
   end
 
@@ -26,7 +28,7 @@ describe Puppet::Node::Classifier do
     allow(response).to receive(:body) { node_json }
     connection = double 'connection'
     expect(Puppet::Network::HTTP::Connection).to receive(:new) { connection }
-    expect(connection).to receive(:get).with("/v1/node/test") { response }
+    expect(connection).to receive(:get).with("#{NODE_BASE}/test") { response }
 
     node = Puppet::Node.indirection.find('test')
 

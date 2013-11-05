@@ -5,7 +5,7 @@
 
 (deftest routes
   (testing "retrieves a node"
-  (is (= (app (request :get "/v1/node/testy"))
+  (is (= (app (request :get "/v1/classified/nodes/testy"))
          {:status 200
           :headers {"content-type" "text/plain"}
           :body "{\"name\":\"testy\",\"classes\":[\"foo\"],\"environment\":\"production\",\"parameters\":{}}"}))))

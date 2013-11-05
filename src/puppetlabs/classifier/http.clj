@@ -4,7 +4,7 @@
             [cheshire.core :refer [generate-string]]))
 
 (defroutes app
-  (GET "/v1/node/:node" [node]
+  (GET "/v1/classified/nodes/:node" [node]
     {:status 200
      :headers {"content-type" "text/plain"}
      :body (generate-string {:name node
