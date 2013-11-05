@@ -7,5 +7,5 @@
   (testing "retrieves a node"
   (is (= (app (request :get "/v1/classified/nodes/testy"))
          {:status 200
-          :headers {"content-type" "text/plain"}
+          :headers {"content-type" "application/json"}
           :body "{\"name\":\"testy\",\"classes\":[\"foo\"],\"environment\":\"production\",\"parameters\":{}}"}))))

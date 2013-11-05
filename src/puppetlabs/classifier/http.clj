@@ -6,7 +6,7 @@
 (defroutes app
   (GET "/v1/classified/nodes/:node" [node]
     {:status 200
-     :headers {"content-type" "text/plain"}
+     :headers {"content-type" "application/json"}
      :body (generate-string {:name node
                              :classes ["foo"]
                              :environment "production"
