@@ -8,7 +8,8 @@
   (routes
     (PUT "/v1/nodes/:node" [node]
       (storage/create-node db node)
-      {:status 200})
+      {:status 201
+       :body (generate-string {:name node})})
 
     (GET "/v1/nodes/:node" [node]
       (let [node (storage/get-node db node)]
