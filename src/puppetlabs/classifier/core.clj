@@ -1,20 +1,17 @@
 (ns puppetlabs.classifier.core
   (:require [ring.adapter.jetty :as jetty]
             [puppetlabs.classifier.http :as http]
-            [puppetlabs.classifier.storage :as storage])
+            [puppetlabs.classifier.storage.postgres :refer :all])
   (:gen-class))
 
-
-(def nodb
-  (reify
-    storage/Storage
-
-    (create-node [this node] (if (= "addone" node) "addone" nil))
-    (get-node [this node] (if (= "addone" node) "addone" nil))
-    )
-  )
+(def db-spec {:subprotocol "postgresql"
+              :subname "classifier"
+              :user "classifier"
+              :passwd "classifier"})
 
 (defn -main
   "I don't do a whole lot."
   [& args]
-    (jetty/run-jetty (http/app (storage/memory)) {:port 8080 :join? true}))
+  (let [database (puppetlabs.classifier.storage.postgres.Postgres. db-spec)]
+    ; (init-schema db-spec)
+    (jetty/run-jetty (http/app database) {:port 8080 :join? true})))
