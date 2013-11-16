@@ -23,5 +23,8 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [cheshire "5.2.0"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]]}}
+  :test-selectors {:default (complement :database)
+                   :database :database
+                   :all (constantly true)}
   :aot [puppetlabs.classifier.core]
   :main puppetlabs.classifier.core)

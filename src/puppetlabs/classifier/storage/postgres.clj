@@ -5,12 +5,14 @@
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn init-schema [db]
-  (jdbc/with-connection db
-    (jdbc/do-commands
-      db
-      (ddl/create-table
-        :nodes
-        ["name" "TEXT" "PRIMARY KEY"]))))
+  (jdbc/db-do-commands
+    db false
+    (ddl/create-table
+      :nodes
+      ["name" "TEXT" "PRIMARY KEY"])
+    (ddl/create-table
+      :groups
+      ["name" "TEXT" "PRIMARY KEY"])))
 
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))
@@ -19,10 +21,11 @@
   Storage
   
   (create-node [_ node]
-    (jdbc/with-connection db
-      (jdbc/insert! db :nodes {:name node})))
+    (jdbc/insert! db :nodes {:name node}))
   
   (get-node [_ node]
-    (jdbc/with-connection db
-      (let [result (jdbc/query db (select-node node))]
-        (:name (first result))))))
+    (let [result (jdbc/query db (select-node node))]
+      (:name (first result)))))
+
+(defn new-db [spec]
+  (Postgres. spec))
