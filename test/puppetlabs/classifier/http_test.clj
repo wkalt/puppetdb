@@ -12,22 +12,31 @@
           :body "{\"name\":\"testy\",\"classes\":[\"foo\"],\"environment\":\"production\",\"parameters\":{}}"})))
   )
 
-(deftest add-nodes
+(defn is-http-status
+  "Assert an http status code"
+  [status response]
+  (is (= status (:status response))))
+
+(defn node-request
+  [method node]
+  (request method (str "/v1/nodes/" node)))
+
+(deftest nodes
   (let [empty-storage (reify storage/Storage
                         (get-node [_ _] nil))]
 
     (testing "returns 404 when storage returns nil"
-      (is (= 404 (:status ((app empty-storage) (request :get "/v1/nodes/addone")))))))
+      (is-http-status 404 ((app empty-storage) (node-request :get "addone")))))
 
   (let [mock-db (reify storage/Storage
                    (get-node [_ node]
                      (is (= node "addone"))
                      "addone"))]
     (testing "asks storage for the node and returns 200 if it exists"
-      (is (= 200 (:status ((app mock-db) (request :get "/v1/nodes/addone")))))))
+      (is-http-status 200 ((app mock-db) (node-request :get "addone")))))
 
   (let [mock-db (reify storage/Storage
                    (create-node [_ node]
                      (is (= node "addone"))))]
     (testing "tells storage to create the node and returns 201"
-      (is (= 201 (:status ((app mock-db) (request :put "/v1/nodes/addone"))))))))
+      (is-http-status 201 ((app mock-db) (node-request :put "addone"))))))
