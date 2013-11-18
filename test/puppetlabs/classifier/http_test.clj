@@ -13,12 +13,19 @@
   )
 
 (deftest add-nodes
-  (let [mock-db (storage/memory)]
+  (let [empty-storage (reify storage/Storage
+                        (get-node [_ _] nil))]
 
-  (testing "the node is not present"
-    (is (= 404 (:status ((app mock-db) (request :get "/v1/nodes/addone"))))))
+    (testing "the node is not present"
+      (is (= 404 (:status ((app empty-storage) (request :get "/v1/nodes/addone")))))))
 
-  (testing "add one node"
-
-    (is (= 201 (:status ((app mock-db) (request :put "/v1/nodes/addone")))))
-    (is (= 200 (:status ((app mock-db) (request :get "/v1/nodes/addone"))))))))
+  (let [node-storage (ref #{})
+        mock-db (reify storage/Storage
+                  (create-node [_ node]
+                    (dosync (alter node-storage conj node)))
+                  (get-node [_ node]
+                    (if (contains? (deref node-storage) node) node nil))
+                  )]
+    (testing "add one node"
+      (is (= 201 (:status ((app mock-db) (request :put "/v1/nodes/addone")))))
+      (is (= 200 (:status ((app mock-db) (request :get "/v1/nodes/addone"))))))))
