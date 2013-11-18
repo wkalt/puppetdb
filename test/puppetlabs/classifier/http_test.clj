@@ -16,16 +16,18 @@
   (let [empty-storage (reify storage/Storage
                         (get-node [_ _] nil))]
 
-    (testing "the node is not present"
+    (testing "returns 404 when storage returns nil"
       (is (= 404 (:status ((app empty-storage) (request :get "/v1/nodes/addone")))))))
 
-  (let [node-storage (ref #{})
-        mock-db (reify storage/Storage
-                  (create-node [_ node]
-                    (dosync (alter node-storage conj node)))
-                  (get-node [_ node]
-                    (if (contains? (deref node-storage) node) node nil))
-                  )]
-    (testing "add one node"
-      (is (= 201 (:status ((app mock-db) (request :put "/v1/nodes/addone")))))
-      (is (= 200 (:status ((app mock-db) (request :get "/v1/nodes/addone"))))))))
+  (let [mock-db (reify storage/Storage
+                   (get-node [_ node]
+                     (is (= node "addone"))
+                     "addone"))]
+    (testing "asks storage for the node and returns 200 if it exists"
+      (is (= 200 (:status ((app mock-db) (request :get "/v1/nodes/addone")))))))
+
+  (let [mock-db (reify storage/Storage
+                   (create-node [_ node]
+                     (is (= node "addone"))))]
+    (testing "tells storage to create the node and returns 201"
+      (is (= 201 (:status ((app mock-db) (request :put "/v1/nodes/addone"))))))))
