@@ -43,3 +43,10 @@
   (testing "inserts nodes"
     (create-node (new-db test-db) "test")
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
+
+(deftest ^:database groups
+  (testing "insert a group"
+    (create-group (new-db test-db) "test")
+    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
+  (testing "retrieves a group"
+    (is (= "test" (get-group (new-db test-db) "test")))))

@@ -17,14 +17,24 @@
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))
 
+(defn select-group [group]
+  (sql/select :name :groups (sql/where {:name group})))
+
 (deftype Postgres [db]
   Storage
   
   (create-node [_ node]
     (jdbc/insert! db :nodes {:name node}))
-  
+
   (get-node [_ node]
     (let [result (jdbc/query db (select-node node))]
+      (:name (first result))))
+
+  (create-group [_ group]
+    (jdbc/insert! db :groups {:name group}))
+
+  (get-group [_ group]
+    (let [result (jdbc/query db (select-group group))]
       (:name (first result)))))
 
 (defn new-db [spec]
