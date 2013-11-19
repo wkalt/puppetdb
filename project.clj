@@ -21,6 +21,7 @@
                  [compojure "1.1.5"]
                  [org.clojure/java.jdbc "0.3.0-beta1"]
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
+                 [liberator "0.10.0"]
                  [cheshire "5.2.0"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]]}}
   :test-selectors {:default (complement :database)

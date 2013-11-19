@@ -32,13 +32,12 @@
   (let [mock-db (reify Storage
                    (get-node [_ node]
                      (is (= node "addone"))
-                     "addone"))]
-    (testing "asks storage for the node and returns 200 if it exists"
-      (is-http-status 200 ((app mock-db) (node-request :get "addone")))))
-
-  (let [mock-db (reify Storage
+                     "addone")
                    (create-node [_ node]
                      (is (= node "addone"))))]
+    (testing "asks storage for the node and returns 200 if it exists"
+      (is-http-status 200 ((app mock-db) (node-request :get "addone"))))
+
     (testing "tells storage to create the node and returns 201"
       (is-http-status 201 ((app mock-db) (node-request :put "addone"))))))
 
@@ -50,19 +49,17 @@
   (let [mock-db (reify Storage
                    (get-group [_ group]
                      (is (= group "agroup"))
-                     "agroup"))]
-
+                     "agroup")
+                   (create-group [_ group]
+                     (is (= group "agroup"))))]
     (testing "asks storage for the group and returns 200 if it exists"
       (is-http-status 200 ((app mock-db) (group-request :get "agroup"))))
 
     (testing "returns the group name in json"
       (let [response ((app mock-db) (group-request :get "agroup"))]
         (is (= "agroup"
-             ((parse-string (:body response)) "name"))))))
+             ((parse-string (:body response)) "name")))))
 
-  (let [mock-db (reify Storage
-                   (create-group [_ group]
-                     (is (= group "agroup"))))]
     (testing "tells storage to create the group and returns 201"
       (is-http-status 201 ((app mock-db) (group-request :put "agroup"))))
 
