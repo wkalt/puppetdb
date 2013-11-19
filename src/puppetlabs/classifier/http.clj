@@ -19,6 +19,16 @@
           {:status 200
            :body (generate-string {:name node})})))
 
+    (PUT "/v1/groups/:group" [group]
+      (storage/create-group db group)
+      {:status 201
+       :body (generate-string {:name group})})
+
+    (GET "/v1/groups/:group" [group]
+      (if-let [group (storage/get-group db group)]
+        {:status 200
+         :body (generate-string {:name group})}))
+
     (GET "/v1/classified/nodes/:node" [node]
       {:status 200
        :headers {"content-type" "application/json"}
