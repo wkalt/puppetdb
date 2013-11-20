@@ -22,7 +22,7 @@
   "Drops all public tables in a database. Super dangerous."
   [db]
   (if-let [tables (seq (public-tables db))]
-    (apply jdbc/db-do-commands db (map ddl/drop-table (seq tables)))))
+    (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
 
 (defn with-test-db
   "Fixture that sets up a cleanly initialized and migrated database"
@@ -31,13 +31,34 @@
   (init-schema test-db)
   (f))
 
-(use-fixtures :each with-test-db)
+(defn throw-next-exception
+  [ex]
+  (prn ex)
+  (cond (.getCause ex) (throw-next-exception (.getCause ex))
+        (.getNextException ex) (throw-next-exception (.getNextException ex))
+        :else (throw ex)))
+
+(defn expand-sql-exceptions
+  [f]
+  (try
+    (f)
+    (catch Throwable t
+      (throw-next-exception t))))
+
+(def db-fixtures
+  (compose-fixtures expand-sql-exceptions with-test-db))
+
+(use-fixtures :each db-fixtures)
 
 (deftest ^:database test-migration
   (testing "creates a groups table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "creates a nodes table"
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
+  (testing "creates a classes table"
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes"])))))
+  (testing "creates a class parameters table"
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM class_parameters"]))))))
 
 (deftest ^:database test-node
   (testing "inserts nodes"
