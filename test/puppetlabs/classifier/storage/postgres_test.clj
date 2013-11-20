@@ -37,16 +37,24 @@
   (testing "creates a groups table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "creates a nodes table"
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"]))))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
 (deftest ^:database test-node
   (testing "inserts nodes"
     (create-node (new-db test-db) "test")
-    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
+    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
+  (testing "retrieves a node"
+    (is (= "test" (get-node (new-db test-db) "test"))))
+  (testing "deletes a node"
+    (delete-node (new-db test-db) "test")
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
 (deftest ^:database groups
   (testing "insert a group"
     (create-group (new-db test-db) "test")
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "retrieves a group"
-    (is (= "test" (get-group (new-db test-db) "test")))))
+    (is (= "test" (get-group (new-db test-db) "test"))))
+  (testing "deletes a group"
+    (delete-group (new-db test-db) "test")
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"]))))))

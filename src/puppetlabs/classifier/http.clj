@@ -17,7 +17,9 @@
            :handle-ok (fn [ctx] {:name (get ctx :node)})
            :put! (fn [ctx]
                    (storage/create-node db node))
-           :handle-created (fn [ctx] {:name node})))
+           :handle-created (fn [ctx] {:name node})
+           :handle-delete (fn [ctx]
+                            (storage/delete-node db node))))
 
     (ANY "/v1/groups/:group" [group]
          (resource
@@ -30,7 +32,8 @@
            :put! (fn [ctx]
                    (storage/create-group db group)
                    )
-           :handle-created (fn [ctx] {:name group})))
+           :handle-created (fn [ctx] {:name group})
+           :handle-delete (fn [ctx] (storage/delete-group db group))))
 
     (GET "/v1/classified/nodes/:node" [node]
       {:status 200

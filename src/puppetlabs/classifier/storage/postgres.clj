@@ -30,12 +30,18 @@
     (let [result (jdbc/query db (select-node node))]
       (:name (first result))))
 
+  (delete-node [_ node]
+    (jdbc/delete! db :nodes (sql/where {:name node})))
+
   (create-group [_ group]
     (jdbc/insert! db :groups {:name group}))
 
   (get-group [_ group]
     (let [result (jdbc/query db (select-group group))]
-      (:name (first result)))))
+      (:name (first result))))
+
+  (delete-group [_ group]
+    (jdbc/delete! db :groups (sql/where {:name group}))))
 
 (defn new-db [spec]
   (Postgres. spec))
