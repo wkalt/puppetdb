@@ -6,4 +6,6 @@
   (delete-node [this node] "Deletes a node")
   (create-group [this group] "Creates a new group")
   (get-group [this group] "Retrieves a group")
-  (delete-group [this group] "Deletes a group"))
+  (delete-group [this group] "Deletes a group")
+  (get-class [this class-name] "Retrieves a class specification")
+  (create-class [this class] "Creates a class specification"))

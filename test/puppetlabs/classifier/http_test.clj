@@ -1,6 +1,6 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
-            [cheshire.core :refer [parse-string]]
+            [cheshire.core :refer [parse-string generate-string]]
             [puppetlabs.classifier.http :refer [app]]
             [ring.mock.request :refer [request]]
             [puppetlabs.classifier.storage :refer [Storage]]))
@@ -67,3 +67,27 @@
       (let [response ((app mock-db) (group-request :put "agroup"))]
         (is (= {"name" "agroup"}
              (parse-string (:body response))))))))
+
+(defn class-request
+  ([method class-name]
+   (request method (str "/v1/classes/" class-name)))
+  ([method class-name body]
+   (request method (str "/v1/classes/" class-name) (generate-string body))))
+
+(deftest classes
+  (let [myclass {:name "myclass",
+                 :params {:param1 "value"}} 
+        mock-db (reify Storage
+                  (get-class [_ class-name] myclass)
+                  (create-class [_ class]
+                    (is (= class myclass))))]
+    (testing "returns class with its parameters"
+      (let [response ((app mock-db) (class-request :get "myclass"))]
+        (is-http-status 200 response)
+        (is (= {"name" "myclass"
+                "params" {"param1" "value"}}
+               (parse-string (:body response))))))
+
+    (testing "tells the storage layer to store the class map"
+      (let [response ((app mock-db) (class-request :put "myclass" myclass))]
+        (is-http-status 201 response)))))
