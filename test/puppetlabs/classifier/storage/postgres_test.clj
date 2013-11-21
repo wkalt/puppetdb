@@ -79,3 +79,22 @@
   (testing "deletes a group"
     (delete-group (new-db test-db) "test")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"]))))))
+
+(deftest ^:database classes
+  (testing "store a class with no parameters"
+    (create-class (new-db test-db) {:name "myclass" :parameters {}}))
+    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
+  (testing "store a class with multiple parameters"
+    (create-class (new-db test-db) {:name "classtwo"
+                                    :parameters {:param1 "value1"
+                                                 :param2 "value2"}})
+    (is (= 2 (count (jdbc/query test-db
+      ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
+  (testing "retrieve a class with no parameters"
+    (let [testclass {:name "noclass" :parameters {}}]
+      (create-class (new-db test-db) testclass)
+      (is (= testclass (get-class (new-db test-db) "noclass")))))
+  (testing "retrieve a class with parameters"
+    (let [testclass {:name "testclass" :parameters {"p1" "v1" "p2" "v2"}}]
+      (create-class (new-db test-db) testclass)
+      (is (= testclass (get-class (new-db test-db) "testclass"))))))

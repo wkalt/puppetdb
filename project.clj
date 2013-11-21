@@ -23,7 +23,9 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]]
-  :profiles {:dev {:dependencies [[ring-mock "0.1.5"]]}}
+  :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
+                                  [spyscope "0.1.3"]]
+                   :injections [(require 'spyscope.core)]}}
   :test-selectors {:default (complement :database)
                    :database :database
                    :all (constantly true)}

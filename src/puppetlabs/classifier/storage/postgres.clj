@@ -61,6 +61,32 @@
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
+(defn create-class* [{db :db} {:keys [name parameters]}]
+  (jdbc/db-transaction
+    [t-db db]
+    (jdbc/insert! t-db :classes {:name name})
+    (doseq [[param value] parameters]
+      (jdbc/insert! t-db :class_parameters
+                    [:class_name :parameter :default_value]
+                    [name (clojure.core/name param) value]))))
+
+(defn extract-parameters [result]
+    (let [parameters
+          (into {} (map (juxt :parameter :default_value) result))]
+      (if (= parameters {nil nil})
+             {}
+             parameters)))
+
+(defn get-class* [{db :db} class-name]
+  (when-let [result (seq (jdbc/query db
+                  [(str
+                    "SELECT * FROM classes c"
+                    " LEFT OUTER JOIN class_parameters cp"
+                    " ON c.name = cp.class_name"
+                    " WHERE c.name = ?")
+                  class-name]))]
+    {:name class-name :parameters (extract-parameters result)}))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -74,5 +100,7 @@
    :delete-node delete-node*
    :create-group create-group*
    :get-group get-group*
-   :delete-group delete-group*})
+   :delete-group delete-group*
+   :create-class create-class*
+   :get-class get-class*})
 
