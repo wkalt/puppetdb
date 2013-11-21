@@ -50,20 +50,18 @@
   (request method (str "/v1/groups/" group)))
 
 (deftest groups
-  (let [mock-db (reify Storage
+  (let [test-group {:name "agroup"}
+        mock-db (reify Storage
                    (get-group [_ group]
                      (is (= group "agroup"))
-                     "agroup")
+                     test-group)
                    (create-group [_ group]
-                     (is (= group "agroup"))))
+                     (is (= group test-group))))
         app (app mock-db)]
-    (testing "asks storage for the group and returns 200 if it exists"
-      (is-http-status 200 (app (group-request :get "agroup"))))
-
-    (testing "returns the group name in json"
+    (testing "returns the group if it exists"
       (let [response (app (group-request :get "agroup"))]
-        (is (= "agroup"
-             ((parse-string (:body response)) "name")))))
+        (is-http-status 200 (app (group-request :get "agroup")))
+        (is (= (generate-string test-group) (:body response)))))
 
     (testing "tells storage to create the group and returns 201"
       (is-http-status 201 (app (group-request :put "agroup"))))

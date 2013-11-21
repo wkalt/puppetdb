@@ -35,19 +35,19 @@
            :handle-delete (fn [ctx]
                             (storage/delete-node db node-name))))
 
-    (ANY "/v1/groups/:group" [group]
+    (ANY "/v1/groups/:group-name" [group-name]
          (resource
            :allowed-methods [:put :get]
            :available-media-types ["application/json"]
            :exists? (fn [ctx]
-                      (if-let [group (storage/get-group db group)]
-                        {:group group}))
-           :handle-ok (fn [ctx] {:name (get ctx :group)})
-           :put! (fn [ctx]
-                   (storage/create-group db group)
-                   )
-           :handle-created (fn [ctx] {:name group})
-           :handle-delete (fn [ctx] (storage/delete-group db group))))
+                      (if-let [group (storage/get-group db group-name)]
+                        {::group group}))
+           :handle-ok ::group
+           :put! (fn [ctx] (let [group {:name group-name}]
+                             (storage/create-group db group)
+                             {::group group}))
+           :handle-created ::group
+           :handle-delete (fn [ctx] (storage/delete-group db group-name))))
 
     (ANY "/v1/classes/:class-name" [class-name]
          (resource
