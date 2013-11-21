@@ -20,19 +20,20 @@
 
 (defn app [db]
   (routes
-    (ANY "/v1/nodes/:node" [node]
+    (ANY "/v1/nodes/:node-name" [node-name]
          (resource
            :allowed-methods [:put :get]
            :available-media-types ["application/json"]
            :exists? (fn [ctx]
-                      (if-let [node (storage/get-node db node)]
-                        {:node node}))
-           :handle-ok (fn [ctx] {:name (get ctx :node)})
-           :put! (fn [ctx]
-                   (storage/create-node db node))
-           :handle-created (fn [ctx] {:name node})
+                      (if-let [node (storage/get-node db node-name)]
+                        {::node node}))
+           :handle-ok ::node
+           :put! (fn [ctx] (let [node {:name node-name}]
+                             (storage/create-node db node)
+                             {::node node}))
+           :handle-created ::node
            :handle-delete (fn [ctx]
-                            (storage/delete-node db node))))
+                            (storage/delete-node db node-name))))
 
     (ANY "/v1/groups/:group" [group]
          (resource

@@ -29,17 +29,21 @@
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 ((app empty-storage) (node-request :get "addone")))))
 
-  (let [mock-db (reify Storage
+  (let [test-node {:name "addone"}
+        mock-db (reify Storage
                    (get-node [_ node]
                      (is (= node "addone"))
-                     "addone")
+                     test-node)
                    (create-node [_ node]
-                     (is (= node "addone"))))]
-    (testing "asks storage for the node and returns 200 if it exists"
-      (is-http-status 200 ((app mock-db) (node-request :get "addone"))))
+                     (is (= node test-node))))
+        app (app mock-db)]
+    (testing "asks storage for the node and returns it if it exists"
+      (let [response (app (node-request :get "addone"))]
+        (is-http-status 200 response)
+        (is (= (generate-string test-node) (:body response)))))
 
     (testing "tells storage to create the node and returns 201"
-      (is-http-status 201 ((app mock-db) (node-request :put "addone"))))))
+      (is-http-status 201 (app (node-request :put "addone"))))))
 
 (defn group-request
   [method group]
@@ -51,20 +55,21 @@
                      (is (= group "agroup"))
                      "agroup")
                    (create-group [_ group]
-                     (is (= group "agroup"))))]
+                     (is (= group "agroup"))))
+        app (app mock-db)]
     (testing "asks storage for the group and returns 200 if it exists"
-      (is-http-status 200 ((app mock-db) (group-request :get "agroup"))))
+      (is-http-status 200 (app (group-request :get "agroup"))))
 
     (testing "returns the group name in json"
-      (let [response ((app mock-db) (group-request :get "agroup"))]
+      (let [response (app (group-request :get "agroup"))]
         (is (= "agroup"
              ((parse-string (:body response)) "name")))))
 
     (testing "tells storage to create the group and returns 201"
-      (is-http-status 201 ((app mock-db) (group-request :put "agroup"))))
+      (is-http-status 201 (app (group-request :put "agroup"))))
 
     (testing "when creating the group returns the group as json"
-      (let [response ((app mock-db) (group-request :put "agroup"))]
+      (let [response (app (group-request :put "agroup"))]
         (is (= {"name" "agroup"}
              (parse-string (:body response))))))))
 
@@ -80,14 +85,15 @@
         mock-db (reify Storage
                   (get-class [_ class-name] myclass)
                   (create-class [_ class]
-                    (is (= class myclass))))]
+                    (is (= class myclass))))
+        app (app mock-db)]
     (testing "returns class with its parameters"
-      (let [response ((app mock-db) (class-request :get "myclass"))]
+      (let [response (app (class-request :get "myclass"))]
         (is-http-status 200 response)
         (is (= {"name" "myclass"
                 "params" {"param1" "value"}}
                (parse-string (:body response))))))
 
     (testing "tells the storage layer to store the class map"
-      (let [response ((app mock-db) (class-request :put "myclass" myclass))]
+      (let [response (app (class-request :put "myclass" myclass))]
         (is-http-status 201 response)))))
