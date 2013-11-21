@@ -29,34 +29,50 @@
 (defn select-group [group]
   (sql/select :name :groups (sql/where {:name group})))
 
-(deftype Postgres [db]
-  Storage
 
-  (create-node [_ node]
-    {:pre [(map? node)]}
-    (jdbc/insert! db :nodes node))
+;;; Storage protocol implementation
+;;;
+;;; Functions here are referred to below when calling extend. This indirection
+;;; lets us use pre- and post-conditions as well as schema.
 
-  (get-node [_ node-name]
-    {:pre [(string? node-name)]
-     :post [map?]}
-    (let [result (jdbc/query db (select-node node-name))]
-      (first result)))
+(defn create-node* [{db :db} node]
+  {:pre [(map? node)]}
+  (jdbc/insert! db :nodes node))
 
-  (delete-node [_ node-name]
-    {:pre [(string? node-name)]}
-    (jdbc/delete! db :nodes (sql/where {:name node-name})))
+(defn get-node* [{db :db} node-name]
+  {:pre [(string? node-name)]
+   :post [map?]}
+  (let [result (jdbc/query db (select-node node-name))]
+    (first result)))
 
-  (create-group [_ group]
-    {:pre [(map? group)]}
-    (jdbc/insert! db :groups group))
+(defn delete-node* [{db :db} node-name]
+  {:pre [(string? node-name)]}
+  (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
-  (get-group [_ group-name]
-    {:pre [(string? group-name)]}
-    (let [result (jdbc/query db (select-group group-name))]
-      (first result)))
+(defn create-group* [{db :db} group]
+  {:pre [(map? group)]}
+  (jdbc/insert! db :groups group))
 
-  (delete-group [_ group-name]
-    (jdbc/delete! db :groups (sql/where {:name group-name}))))
+(defn get-group* [{db :db} group-name]
+  {:pre [(string? group-name)]}
+  (let [result (jdbc/query db (select-group group-name))]
+    (first result)))
+
+(defn delete-group* [{db :db} group-name]
+  (jdbc/delete! db :groups (sql/where {:name group-name})))
+
+(defrecord Postgres [db])
 
 (defn new-db [spec]
   (Postgres. spec))
+
+(extend Postgres
+  Storage
+
+  {:create-node create-node*
+   :get-node get-node*
+   :delete-node delete-node*
+   :create-group create-group*
+   :get-group get-group*
+   :delete-group delete-group*})
+
