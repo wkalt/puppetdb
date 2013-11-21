@@ -31,7 +31,7 @@
 
 (deftype Postgres [db]
   Storage
-  
+
   (create-node [_ node]
     (jdbc/insert! db :nodes {:name node}))
 

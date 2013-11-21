@@ -11,7 +11,7 @@
   "Returns true for well-formed json along with a map storing the parse result
   in :data. Returns false for malformed json."
   [body]
-  (try 
+  (try
     (if-let [data (keywordize-keys (parse-string (slurp body)))]
       [false {:data data}]
       true)
