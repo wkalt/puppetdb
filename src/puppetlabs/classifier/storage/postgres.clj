@@ -33,24 +33,30 @@
   Storage
 
   (create-node [_ node]
-    (jdbc/insert! db :nodes {:name node}))
+    {:pre [(map? node)]}
+    (jdbc/insert! db :nodes node))
 
-  (get-node [_ node]
-    (let [result (jdbc/query db (select-node node))]
-      (:name (first result))))
+  (get-node [_ node-name]
+    {:pre [(string? node-name)]
+     :post [map?]}
+    (let [result (jdbc/query db (select-node node-name))]
+      (first result)))
 
-  (delete-node [_ node]
-    (jdbc/delete! db :nodes (sql/where {:name node})))
+  (delete-node [_ node-name]
+    {:pre [(string? node-name)]}
+    (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
   (create-group [_ group]
-    (jdbc/insert! db :groups {:name group}))
+    {:pre [(map? group)]}
+    (jdbc/insert! db :groups group))
 
-  (get-group [_ group]
-    (let [result (jdbc/query db (select-group group))]
-      (:name (first result))))
+  (get-group [_ group-name]
+    {:pre [(string? group-name)]}
+    (let [result (jdbc/query db (select-group group-name))]
+      (first result)))
 
-  (delete-group [_ group]
-    (jdbc/delete! db :groups (sql/where {:name group}))))
+  (delete-group [_ group-name]
+    (jdbc/delete! db :groups (sql/where {:name group-name}))))
 
 (defn new-db [spec]
   (Postgres. spec))
