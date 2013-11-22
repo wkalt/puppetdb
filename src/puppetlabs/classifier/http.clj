@@ -9,14 +9,14 @@
 
 (defn malformed-or-parse
   "Returns true for well-formed json along with a map storing the parse result
-  in :data. Returns false for malformed json."
+  in ::data. Returns false for malformed json."
   [body]
   (try
     (if-let [data (keywordize-keys (parse-string (slurp body)))]
-      [false {:data data}]
+      [false {::data data}]
       true)
     (catch Exception e
-      [true {:error e}])))
+      [true {::error e}])))
 
 (defn app [db]
   (routes
@@ -55,15 +55,15 @@
            :available-media-types ["application/json"]
            :exists? (fn [_]
                       (if-let [class (storage/get-class db class-name)]
-                        {:class class}))
-           :handle-ok :class
+                        {::class class}))
+           :handle-ok ::class
            :malformed? (fn [ctx]
                          (if-let [body (get-in ctx [:request :body])]
                            (malformed-or-parse body)
                            false))
            :handle-malformed (fn [ctx] (format "Body not valid JSON: %s" (get ctx :body)))
            :put! (fn [ctx]
-                   (storage/create-class db (get ctx :data)))
+                   (storage/create-class db (get ctx ::data)))
            :handle-created :data))
 
     (GET "/v1/classified/nodes/:node" [node]
