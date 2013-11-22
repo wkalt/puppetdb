@@ -18,10 +18,10 @@
       ["name" "TEXT" "PRIMARY KEY"])
     (ddl/create-table
       :class_parameters
-      ; Need to add a composite key on parameter, class_name
       ["parameter" "TEXT"]
       ["default_value" "TEXT"]
-      ["class_name" "TEXT" "REFERENCES classes(name)" "ON DELETE CASCADE"])))
+      ["class_name" "TEXT" "REFERENCES classes(name)" "ON DELETE CASCADE"]
+      ["PRIMARY KEY(class_name, parameter)"])))
 
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))
