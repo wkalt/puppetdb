@@ -88,10 +88,9 @@
     (testing "returns class with its parameters"
       (let [response (app (class-request :get "myclass"))]
         (is-http-status 200 response)
-        (is (= {"name" "myclass"
-                "params" {"param1" "value"}}
-               (parse-string (:body response))))))
+        (is (= (generate-string myclass) (:body response)))))
 
     (testing "tells the storage layer to store the class map"
       (let [response (app (class-request :put "myclass" myclass))]
-        (is-http-status 201 response)))))
+        (is-http-status 201 response)
+        (is (= (generate-string myclass) (:body response)))))))

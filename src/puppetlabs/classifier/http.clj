@@ -64,7 +64,7 @@
            :handle-malformed (fn [ctx] (format "Body not valid JSON: %s" (get ctx :body)))
            :put! (fn [ctx]
                    (storage/create-class db (get ctx ::data)))
-           :handle-created :data))
+           :handle-created ::data))
 
     (GET "/v1/classified/nodes/:node" [node]
       {:status 200
