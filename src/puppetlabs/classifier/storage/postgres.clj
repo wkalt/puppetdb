@@ -87,6 +87,9 @@
                   class-name]))]
     {:name class-name :parameters (extract-parameters result)}))
 
+(defn delete-class* [{db :db} class-name]
+  (jdbc/delete! db :classes (sql/where {:name class-name})))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -102,5 +105,6 @@
    :get-group get-group*
    :delete-group delete-group*
    :create-class create-class*
-   :get-class get-class*})
+   :get-class get-class*
+   :delete-class delete-class*})
 

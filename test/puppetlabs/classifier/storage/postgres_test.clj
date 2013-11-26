@@ -97,4 +97,12 @@
   (testing "retrieve a class with parameters"
     (let [testclass {:name "testclass" :parameters {"p1" "v1" "p2" "v2"}}]
       (create-class (new-db test-db) testclass)
-      (is (= testclass (get-class (new-db test-db) "testclass"))))))
+      (is (= testclass (get-class (new-db test-db) "testclass")))))
+  (testing "deletes a class with no paramters"
+    (delete-class (new-db test-db) "noclass")
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
+  (testing "deletes a class with parameters"
+    (delete-class (new-db test-db) "testclass")
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
+    (is (= 0 (count (jdbc/query test-db
+      ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))

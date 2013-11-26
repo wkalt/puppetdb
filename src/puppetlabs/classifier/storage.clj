@@ -8,4 +8,5 @@
   (get-group [this group] "Retrieves a group")
   (delete-group [this group] "Deletes a group")
   (get-class [this class-name] "Retrieves a class specification")
-  (create-class [this class] "Creates a class specification"))
+  (create-class [this class] "Creates a class specification")
+  (delete-class [this class-name] "Deletes a class specification"))
