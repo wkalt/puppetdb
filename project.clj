@@ -25,7 +25,7 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
-                 [puppetlabs/trapperkeeper "0.1.0-SNAPSHOT"]]
+                 [puppetlabs/trapperkeeper "0.1.0-20131205.214040-1"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]]
                    :injections [(require 'spyscope.core)]}}
@@ -34,5 +34,4 @@
   :test-selectors {:default (complement :database)
                    :database :database
                    :all (constantly true)}
-  :main puppetlabs.trapperkeeper.main
-  )
+  :main puppetlabs.trapperkeeper.main)
