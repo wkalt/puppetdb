@@ -305,61 +305,14 @@ module ClassifierExtensions
 
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
+    manifest = <<-EOS
+    class { 'postgresql::server': }
 
-
-    ############################################################################
-    # NOTE: A lot of the differences between the PE and FOSS manifests here is 
-    #   only necessary because the classifier::database::postgresql module
-    #   doesn't parameterize things like the service name. It would be nice
-    #   to simplify this once we've added more paramters to the module.
-    ############################################################################
-
-    if host.is_pe?
-      service_name = "pe-postgresql"
-      db_name = "pe-classifier"
-      db_user = "mYpdBu3r"
-      db_pass = '~!@#$%^*-/ aZ'
-      manifest = <<-EOS
-      # get the pg server up and running
-      $version = '9.2'
-      class { 'postgresql':
-        client_package_name => 'pe-postgresql',
-        server_package_name => 'pe-postgresql-server',
-        devel_package_name  => 'pe-postgresql-devel',
-        java_package_name   => 'pe-postgresql-jdbc',
-        datadir             => "/opt/puppet/var/lib/pgsql/${version}/data",
-        confdir             => "/opt/puppet/var/lib/pgsql/${version}/data",
-        bindir              => '/opt/puppet/bin',
-        service_name        => 'pe-postgresql',
-        user                => 'pe-postgres',
-        group               => 'pe-postgres',
-        locale              => 'en_US.UTF8',
-        charset             => 'UTF8',
-        run_initdb          => true,
-        version             => $version
-      } ->
-      class { '::postgresql::server':
-        service_name => #{service_name},
-        config_hash => {
-          # TODO: make this stuff configurable
-          'ip_mask_allow_all_users' => '0.0.0.0/0',
-          'manage_redhat_firewall'  => false,
-        },
-      }
-      # create the classifier database
-      class { 'classifier::database::postgresql_db': 
-        database_name     => #{db_name},
-        database_username => #{db_user},
-        database_password => '#{db_pass}',
-      }
-      EOS
-    else
-      manifest = <<-EOS
-      class { 'classifier::database::postgresql':
-        manage_redhat_firewall => false,
-      }
-      EOS
-    end
+    postgresql::server::db { 'classifier':
+      user => 'classifier',
+      password => 'classifier',
+    }
+    EOS
     apply_manifest_on(host, manifest)
   end
 

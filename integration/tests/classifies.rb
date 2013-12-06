@@ -15,6 +15,9 @@ master_opts = {
   'master' => {
     'node_terminus' => 'classifier',
     'manifest' => "#{testdir}/site.pp",
+    'verbose' => true,
+    'debug' => true,
+    'trace' => true
   }
 }
 
