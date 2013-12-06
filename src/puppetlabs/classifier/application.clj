@@ -9,18 +9,25 @@
               :subname "classifier"
               :user "classifier"
               :passwd "classifier"})
+
 (defn on-shutdown
   []
   (log/info "Classifier service shutting down."))
+
+(defn- add-url-prefix
+  "Puts the application in an optional url prefix. If none is given just
+  returns the original handler."
+  [prefix app]
+  (if (seq prefix)
+    (context prefix [] app)
+    app))
 
 (defservice classifier-service
    {:depends [[:config-service get-config]
               [:webserver-service add-ring-handler]]
     :provides [shutdown]}
    (let [database     (postgres/new-db db-spec)
-         context-path "/classifier"
-         ;; TODO: wondering if we should add a function "add-compojure-app"
-         ;;  that deals with the wrapping with compojure.core/context here
-         context-app  (context context-path [] (http/app database))]
-     (add-ring-handler context-app context-path))
+         context-path (get-in (get-config) [:classifier :url-prefix] "")
+         app          (add-url-prefix context-path (http/app database))]
+     (add-ring-handler app context-path))
    {:shutdown on-shutdown})
