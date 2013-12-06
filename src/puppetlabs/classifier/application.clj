@@ -8,7 +8,7 @@
 (def db-spec {:subprotocol "postgresql"
               :subname "classifier"
               :user "classifier"
-              :passwd "classifier"})
+              :password "classifier"})
 
 (defn on-shutdown
   []

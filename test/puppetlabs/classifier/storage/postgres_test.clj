@@ -9,7 +9,7 @@
 (def test-db {:subprotocol "postgresql"
               :subname "classifier_test"
               :user "classifier_test"
-              :passwd "classifier_test"})
+              :password "classifier_test"})
 
 (defn public-tables
   "Get the names of all public tables in a database"
