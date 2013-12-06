@@ -9,6 +9,8 @@ install/classifier::
 	mkdir -p $(BUILD_ROOT)
 	mkdir -p $(BUILD_ROOT)/usr/share/classifier
 	install classifier.jar $(BUILD_ROOT)/usr/share/classifier
+	mkdir -p $(BUILD_ROOT)/etc/classifier
+	install ext/classifier.conf $(BUILD_ROOT)/etc/classifier
 
 install/classifier-terminus::
 	mkdir -p $(BUILD_ROOT)

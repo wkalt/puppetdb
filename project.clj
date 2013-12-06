@@ -18,17 +18,20 @@
   :description "Node classifier"
   :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [ring/ring-jetty-adapter "1.2.0"]
-                 [compojure "1.1.5"]
+                 [compojure "1.1.6" :exclusions [[clj-time]]]
+                 ;; Logging
+                 [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/java.jdbc "0.3.0-beta1"]
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
-                 [cheshire "5.2.0"]]
+                 [cheshire "5.2.0"]
+                 [puppetlabs/trapperkeeper "0.1.0-20131205.214040-1"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
-                                  [spyscope "0.1.3"]]
+                                  [spyscope "0.1.3" :exclusions [[clj-time]]]]
                    :injections [(require 'spyscope.core)]}}
+  :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
+                 ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :test-selectors {:default (complement :database)
                    :database :database
                    :all (constantly true)}
-  :aot [puppetlabs.classifier.core]
-  :main puppetlabs.classifier.core)
+  :main puppetlabs.trapperkeeper.main)

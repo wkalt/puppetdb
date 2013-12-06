@@ -30,7 +30,7 @@ JARFILE="classifier.jar"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
-JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} "
+JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} --config ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
 
 # Exit if the package is not installed

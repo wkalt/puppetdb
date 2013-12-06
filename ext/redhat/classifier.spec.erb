@@ -64,6 +64,9 @@ mkdir -p $RPM_BUILD_ROOT/%{_initddir}
 install -d -m0755 %{buildroot}/%{_datadir}/classifier
 install -p -m0644 classifier.jar %{buildroot}/%{_datadir}/classifier
 
+install -d -m0755 %{buildroot}/%{_sysconfdir}/%{name}
+install -p -m0644 ext/classifier.conf %{buildroot}/%{_sysconfdir}/%{name}/%{name}.conf
+
 install -d -m0755 %{buildroot}/%{_sysconfdir}/sysconfig
 install -p -m0644 ext/default %{buildroot}/%{_sysconfdir}/sysconfig/classifier
 
@@ -139,6 +142,8 @@ fi
 %doc *.md
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
+%dir %{_sysconfdir}/%{name}
+%config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %{_sysconfdir}/sysconfig/%{name}
 %ghost %{_rundir}/%{name}
 
