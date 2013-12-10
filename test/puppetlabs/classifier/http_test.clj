@@ -94,3 +94,21 @@
       (let [response (app (class-request :put "myclass" myclass))]
         (is-http-status 201 response)
         (is (= (generate-string myclass) (:body response)))))))
+
+(defn rule-request
+  [method rule]
+  (request method "/v1/rules" (generate-string rule)))
+
+(deftest rules
+  (let [simple-rule {:when ["=" "name" "foo"]
+                     :classes ["puppet::stuff" "food"]}
+        rule-id "3kf8"
+        mock-db (reify Storage
+                  (create-rule [_ rule]
+                    rule-id))
+        app (app mock-db)]
+    (testing "returns a key when storing a rule"
+      (let [response (app (rule-request :post simple-rule))]
+        (is-http-status 201 response)
+        (is (= (str "/v1/rules/" rule-id)
+               ((response :headers) "Location")))))))

@@ -67,6 +67,21 @@
            :handle-created ::data
            :handle-delete (fn [ctx] (storage/delete-class db class-name))))
 
+    (ANY "/v1/rules" []
+         (resource
+           :allowed-methods [:post :get]
+           :available-media-types ["application/json"]
+           :handle-ok ::data
+           :malformed? (fn [ctx]
+                         (if-let [body (get-in ctx [:request :body])]
+                           (malformed-or-parse body)
+                           false))
+           :handle-malformed (fn [ctx] (format "Body not valid JSON: %s" (get ctx :body)))
+           :post! (fn [ctx]
+                   (let [rule-id (storage/create-rule db (get ctx ::data))]
+                     {::location (str "/v1/rules/" rule-id)}))
+           :location ::location))
+
     (GET "/v1/classified/nodes/:node" [node]
       {:status 200
        :headers {"content-type" "application/json"}
