@@ -101,7 +101,7 @@
 
 (deftest rules
   (let [simple-rule {:when ["=" "name" "foo"]
-                     :classes ["puppet::stuff" "food"]}
+                     :groups ["food"]}
         rule-id "3kf8"
         mock-db (reify Storage
                   (create-rule [_ rule]
