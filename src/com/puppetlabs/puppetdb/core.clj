@@ -17,7 +17,8 @@
             [clojure.tools.namespace :as ns]
             [clojure.tools.logging :as log]
             [com.puppetlabs.puppetdb.utils :as utils]
-            [spyscope.core])
+            [spyscope.core]
+            [clojure.java.classpath :as cp])
   (:use [clojure.string :only (split)])
   (:gen-class))
 
@@ -27,6 +28,7 @@
   "Return a set of namespaces underneath the .cli parent"
   []
   {:post [(set? %)]}
+  #spy/d (map str (cp/classpath))
   #spy/d (set (for [namespace #spy/d (ns/find-namespaces-on-classpath)
              :let [ns-str (name namespace)]
              :when (.startsWith ns-str ns-prefix)]
