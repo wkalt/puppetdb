@@ -64,7 +64,8 @@
                  [ring/ring-core "1.1.8"]
                  [ring/ring-jetty-adapter "1.1.8"]
                  [org.apache.commons/commons-compress "1.4.1"]
-                 [puppetlabs/kitchensink "0.1.0"]]
+                 [puppetlabs/kitchensink "0.1.0"]
+                 [spyscope "0.1.3"]]
 
   ;;The below test-selectors is basically using the PUPPETDB_DBTYPE
   ;;environment variable to be the test selector.  The selector below

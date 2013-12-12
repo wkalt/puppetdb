@@ -16,7 +16,8 @@
             [com.puppetlabs.utils.logging :as logging-utils]
             [clojure.tools.namespace :as ns]
             [clojure.tools.logging :as log]
-            [com.puppetlabs.puppetdb.utils :as utils])
+            [com.puppetlabs.puppetdb.utils :as utils]
+            [spyscope.core])
   (:use [clojure.string :only (split)])
   (:gen-class))
 
@@ -26,7 +27,7 @@
   "Return a set of namespaces underneath the .cli parent"
   []
   {:post [(set? %)]}
-  (set (for [namespace (ns/find-namespaces-on-classpath)
+  #spy/d (set (for [namespace (ns/find-namespaces-on-classpath)
              :let [ns-str (name namespace)]
              :when (.startsWith ns-str ns-prefix)]
          namespace)))
@@ -49,7 +50,7 @@
   "Return the set of available subcommands for this application"
   []
   {:post [(set? %)]}
-  (set (for [namespace (cli-namespaces)
+  #spy/d (set (for [namespace (cli-namespaces)
              :let [ns-str (name namespace)
                    subcmd (last (split ns-str #"\."))]]
          subcmd)))
@@ -57,7 +58,7 @@
 (defn usage
   "Display help text to the user"
   []
-  (let [cmds (sort (for [cmd (available-subcommands)]
+  (let [cmds #spy/d (sort (for [cmd (available-subcommands)]
                      [cmd (var-from-ns (str ns-prefix cmd) "cli-description")]))]
     (println "Available subcommands:\n")
     (doseq [[subcommand description] cmds]
@@ -76,7 +77,7 @@
     (utils/alert-deprecated-jdk)
 
     ;; Bad invokation
-    (when-not (allowed? subcommand)
+    (when-not #spy/d (allowed? subcommand)
       (usage)
       (fail-fn))
 
