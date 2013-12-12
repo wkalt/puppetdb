@@ -27,7 +27,7 @@
   "Return a set of namespaces underneath the .cli parent"
   []
   {:post [(set? %)]}
-  #spy/d (set (for [namespace (ns/find-namespaces-on-classpath)
+  #spy/d (set (for [namespace #spy/d (ns/find-namespaces-on-classpath)
              :let [ns-str (name namespace)]
              :when (.startsWith ns-str ns-prefix)]
          namespace)))
