@@ -10,4 +10,5 @@
   (get-class [this class-name] "Retrieves a class specification")
   (create-class [this class] "Creates a class specification")
   (delete-class [this class-name] "Deletes a class specification")
-  (create-rule [this rule] "Creates a rule"))
+  (create-rule [this rule] "Creates a rule")
+  (get-rules [this] "Retrieve all rules"))

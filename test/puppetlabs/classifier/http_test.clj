@@ -5,14 +5,6 @@
             [ring.mock.request :refer [request]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
-(deftest routes
-  (testing "retrieves a node"
-  (is (= ((app nil) (request :get "/v1/classified/nodes/testy"))
-         {:status 200
-          :headers {"content-type" "application/json"}
-          :body "{\"name\":\"testy\",\"classes\":[\"foo\"],\"environment\":\"production\",\"parameters\":{}}"})))
-  )
-
 (defn is-http-status
   "Assert an http status code"
   [status response]
@@ -104,11 +96,17 @@
                      :groups ["food"]}
         rule-id "3kf8"
         mock-db (reify Storage
+                  (get-node [_ _] nil)
                   (create-rule [_ rule]
-                    rule-id))
+                    rule-id)
+                  (get-rules [_]
+                    [simple-rule]))
         app (app mock-db)]
     (testing "returns a key when storing a rule"
       (let [response (app (rule-request :post simple-rule))]
         (is-http-status 201 response)
         (is (= (str "/v1/rules/" rule-id)
-               ((response :headers) "Location")))))))
+               ((response :headers) "Location")))))
+    (testing "classifies a node using the simple rule"
+      (let [response (app (request :get "/v1/classified/nodes/foo"))]
+        (is (= ["food"] ((parse-string (:body response)) "groups")))))))

@@ -6,6 +6,6 @@
   (testing "simplest classification"
     (let [node {:name "foo"}
           rule {:when ["=" "name" "foo"]
-                :then {:environment "bar"}}
-          expected {:environment "bar"}]
-      (is (= (apply-rule rule node) expected)))))
+                :groups ["bar"]}
+          expected ["bar"]]
+      (is (= (apply-rule node rule) expected)))))

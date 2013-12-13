@@ -4,8 +4,9 @@
             [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :refer [generate-string]]
             [liberator.core :refer [resource]]
+            [cheshire.core :refer [parse-string]]
             [puppetlabs.classifier.storage :as storage]
-            [cheshire.core :refer [parse-string]]))
+            [puppetlabs.classifier.rules :as rules]))
 
 (defn malformed-or-parse
   "Returns true for well-formed json along with a map storing the parse result
@@ -82,12 +83,15 @@
                      {::location (str "/v1/rules/" rule-id)}))
            :location ::location))
 
-    (GET "/v1/classified/nodes/:node" [node]
-      {:status 200
-       :headers {"content-type" "application/json"}
-       :body (generate-string {:name node
-                               :classes ["foo"]
-                               :environment "production"
-                               :parameters {}})})
+    (ANY "/v1/classified/nodes/:node-name" [node-name]
+         (resource
+           :allowed-methods [:get]
+           :available-media-types ["application/json"]
+           :exists? true
+           :handle-ok (fn [ctx]
+                        (let [node (merge {:name node-name} (storage/get-node db node-name))
+                              rules (storage/get-rules db)
+                              groups (mapcat (partial rules/apply-rule node) rules)]
+                          (merge node {:groups groups})))))
 
     (route/not-found "Not found")))
