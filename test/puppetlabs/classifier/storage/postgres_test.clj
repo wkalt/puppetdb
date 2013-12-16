@@ -7,9 +7,9 @@
             [clojure.java.jdbc.ddl :as ddl]))
 
 (def test-db {:subprotocol "postgresql"
-              :subname "classifier_test"
-              :user "classifier_test"
-              :password "classifier_test"})
+              :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
+              :user (or (System/getenv "CLASSIFIER_DBUSER") "classifier_test")
+              :password (or (System/getenv "CLASSIFIER_DBPASS") "classifier_test")})
 
 (defn public-tables
   "Get the names of all public tables in a database"
