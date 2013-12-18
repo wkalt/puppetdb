@@ -31,3 +31,11 @@
          app          (add-url-prefix context-path (http/app database))]
      (add-ring-handler app context-path))
    {:shutdown on-shutdown})
+
+(defservice initdb
+  {:depends [[:config-service get-config]
+             [:shutdown-service request-shutdown]]}
+  (postgres/drop-public-tables db-spec)
+  (postgres/init-schema db-spec)
+  (request-shutdown)
+  {})

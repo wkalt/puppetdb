@@ -34,4 +34,5 @@
   :test-selectors {:default (complement :database)
                    :database :database
                    :all (constantly true)}
+  :aliases {"initdb" ["run" "--bootstrap-config" "resources/initdb.cfg"]}
   :main puppetlabs.trapperkeeper.main)

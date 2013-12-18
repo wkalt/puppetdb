@@ -4,6 +4,19 @@
             [clojure.java.jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
+(defn public-tables
+  "Get the names of all public tables in a database"
+  [db]
+  (let [query "SELECT table_name FROM information_schema.tables WHERE LOWER(table_schema) = 'public'"
+        results (jdbc/query db [query])]
+    (map :table_name results)))
+
+(defn drop-public-tables
+  "Drops all public tables in a database. Super dangerous."
+  [db]
+  (if-let [tables (seq (public-tables db))]
+    (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
+
 (defn init-schema [db]
   (jdbc/db-do-commands
     db false
