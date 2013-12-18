@@ -15,7 +15,7 @@
   "Fixture that sets up a cleanly initialized and migrated database"
   [f]
   (drop-public-tables test-db)
-  (init-schema test-db)
+  (migrate test-db)
   (f))
 
 (defn throw-next-exception

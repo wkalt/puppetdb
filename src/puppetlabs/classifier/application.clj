@@ -29,6 +29,7 @@
    (let [database     (postgres/new-db db-spec)
          context-path (get-in (get-config) [:classifier :url-prefix] "")
          app          (add-url-prefix context-path (http/app database))]
+     (postgres/migrate db-spec)
      (add-ring-handler app context-path))
    {:shutdown on-shutdown})
 
@@ -36,6 +37,6 @@
   {:depends [[:config-service get-config]
              [:shutdown-service request-shutdown]]}
   (postgres/drop-public-tables db-spec)
-  (postgres/init-schema db-spec)
+  (postgres/migrate db-spec)
   (request-shutdown)
   {})

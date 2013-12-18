@@ -2,7 +2,8 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.java.jdbc.ddl :as ddl]
             [clojure.java.jdbc.sql :as sql]
-            [puppetlabs.classifier.storage :refer [Storage]]))
+            [puppetlabs.classifier.storage :refer [Storage]]
+            [migratus.core :as migratus]))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -17,24 +18,10 @@
   (if-let [tables (seq (public-tables db))]
     (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
 
-(defn init-schema [db]
-  (jdbc/db-do-commands
-    db false
-    (ddl/create-table
-      :nodes
-      ["name" "TEXT" "PRIMARY KEY"])
-    (ddl/create-table
-      :groups
-      ["name" "TEXT" "PRIMARY KEY"])
-    (ddl/create-table
-      :classes
-      ["name" "TEXT" "PRIMARY KEY"])
-    (ddl/create-table
-      :class_parameters
-      ["parameter" "TEXT"]
-      ["default_value" "TEXT"]
-      ["class_name" "TEXT" "REFERENCES classes(name)" "ON DELETE CASCADE"]
-      ["PRIMARY KEY(class_name, parameter)"])))
+(defn migrate [db]
+  (migratus/migrate {:store :database
+                     :migration-dir "migrations"
+                     :db db}))
 
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))

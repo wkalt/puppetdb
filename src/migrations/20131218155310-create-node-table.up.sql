@@ -1,0 +1,1 @@
+CREATE TABLE nodes (name TEXT PRIMARY KEY);
