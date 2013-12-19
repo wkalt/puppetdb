@@ -26,7 +26,8 @@
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
                  [puppetlabs/trapperkeeper "0.1.0-20131205.214040-1"]
-                 [migratus "0.6.0"]]
+                 [clj-sql-up "0.3.0"]]
+  :plugins [[clj-sql-up "0.3.0"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]]
                    :injections [(require 'spyscope.core)]}}

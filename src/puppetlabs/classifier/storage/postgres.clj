@@ -3,7 +3,7 @@
             [clojure.java.jdbc.ddl :as ddl]
             [clojure.java.jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [migratus.core :as migratus]))
+            [clj-sql-up.migrate :as migrate]))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -19,9 +19,7 @@
     (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
 
 (defn migrate [db]
-  (migratus/migrate {:store :database
-                     :migration-dir "migrations"
-                     :db db}))
+  (migrate/migrate db))
 
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))
