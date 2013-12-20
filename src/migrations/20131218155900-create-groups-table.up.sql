@@ -1,0 +1,1 @@
+CREATE TABLE groups (name TEXT PRIMARY KEY);
