@@ -306,6 +306,10 @@ module ClassifierExtensions
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
     manifest = <<-EOS
+    class { 'postgresql::globals':
+      manage_package_repo => true,
+      version => '9.2',
+    } ->
     class { 'postgresql::server': }
 
     postgresql::server::db { 'classifier':
