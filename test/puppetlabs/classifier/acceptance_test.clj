@@ -4,7 +4,7 @@
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
             [clj-http.client :as http]
-            [me.raynes.conch.low-level :refer [proc] :rename {proc sh}]
+            [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
             [puppetlabs.classifier.util :as util])
   (:import [java.util.concurrent TimeoutException TimeUnit]))
 
@@ -63,6 +63,8 @@
       ;; If it doesn't start within that time, exit nonzero.
       (try
         (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
+        (future (stream-to-out server-proc :out))
+        (future (stream-to-out server-proc :err))
         (catch TimeoutException e
           (future-cancel server-blocker)
           (binding [*out* *err*]
@@ -108,7 +110,7 @@
             rule-resp  (http/post (str base-url "/v1/rules")
                                   {:content-type :json
                                    :body (json/generate-string {:when ["=" "name" "foo"]
-                                                                :groups ["foogroup"]})})
+                                                                :groups ["test-group"]})})
             node-resp  (http/get (str base-url "/v1/classified/nodes/foo")
                                  {:accept :json})]
         (is (= 201 (:status group-resp)))
