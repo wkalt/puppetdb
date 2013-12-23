@@ -5,7 +5,8 @@
             [cheshire.core :as json]
             [me.raynes.conch.low-level :refer [proc] :rename {proc sh}]
             puppetlabs.trapperkeeper.core
-            [clj-http.client :as http]))
+            [clj-http.client :as http])
+  (:import [java.util.concurrent TimeoutException TimeUnit]))
 
 (def test-config
   "Path from the root of the repo to the configuration file to use for the tests
@@ -14,10 +15,17 @@
 
 (defn- base-url
   [config-path]
-  (let [app-config (#'puppetlabs.trapperkeeper.core/parse-config-file config-path)]
-    (str "http://" (get-in app-config [:webserver :host])
+  (let [app-config (#'puppetlabs.trapperkeeper.core/parse-config-file config-path)
+        host (get-in app-config [:webserver :host])]
+    (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
                    (get-in app-config [:clasifier :url-prefix]))))
+
+(defn- block-until-ready
+  [server-process]
+  (let [err-lines (-> (:err server-process) io/reader line-seq)]
+    (dorun (take-while #(not (re-find #"ContextHandler:started" %))
+                         err-lines))))
 
 (defn start!
   [config-path]
@@ -33,14 +41,22 @@
       (throw (new RuntimeException
                   (str "Could not initialize database! initdb service says: "
                        (if-not (empty? initdb-err) initdb-err initdb-out)))))
-    (let [proc-map (sh "lein" "trampoline" "run"
-                       "-b" "resources/bootstrap.cfg"
-                       "-c" config-path)
-          server-err-lines (-> (:err proc-map) io/reader line-seq)]
-      ;; block on the server until it starts
-      (dorun (take-while #(not (re-find #"AbstractConnector:Started" %))
-                         server-err-lines))
-      proc-map)))
+    (let [server-proc (sh "lein" "trampoline" "run"
+                          "-b" "resources/bootstrap.cfg"
+                          "-c" config-path)
+          timeout-ms 30000
+          server-blocker (future (block-until-ready server-proc))]
+      ;; Block on the server starting for up to thirty seconds.
+      ;; If it doesn't start within that time, exit nonzero.
+      (try
+        (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
+        (catch TimeoutException e
+          (future-cancel server-blocker)
+          (binding [*out* *err*]
+            (println "Server did not start within the allotted time"
+                     (str "(" timeout-ms " ms)")))
+          (System/exit 1)))
+      server-proc)))
 
 (defn stop!
   [process-map]
