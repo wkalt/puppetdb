@@ -26,7 +26,9 @@
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
                  [puppetlabs/trapperkeeper "0.1.0-20131205.214040-1"]
-                 [migratus "0.6.0"]]
+                 [migratus "0.6.0"]
+                 [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
+                 [clj-http "0.7.8"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]]
                    :injections [(require 'spyscope.core)]}}
@@ -34,6 +36,7 @@
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
   :test-selectors {:default (complement :database)
                    :database :database
+                   :acceptance :acceptance
                    :all (constantly true)}
   :aliases {"initdb" ["run" "--bootstrap-config" "resources/initdb.cfg"]}
   :main puppetlabs.trapperkeeper.main)
