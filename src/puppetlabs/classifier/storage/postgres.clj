@@ -3,7 +3,8 @@
             [clojure.java.jdbc.ddl :as ddl]
             [clojure.java.jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [migratus.core :as migratus]))
+            [migratus.core :as migratus]
+            [cheshire.core :as json]))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -90,6 +91,16 @@
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
 
+(defn create-rule*
+  [{db :db}
+   {:keys [when groups]}]
+  (jdbc/db-transaction
+    [t-db db]
+    (let [rule (jdbc/insert! t-db :rules {:match (json/generate-string when)})
+          rule-id (:id (first rule))]
+      (doseq [group groups]
+        (jdbc/insert! t-db :rule_groups {:rule_id rule-id :group_name group})))))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -106,5 +117,6 @@
    :delete-group delete-group*
    :create-class create-class*
    :get-class get-class*
-   :delete-class delete-class*})
+   :delete-class delete-class*
+   :create-rule create-rule*})
 

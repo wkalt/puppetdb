@@ -92,7 +92,7 @@
 
 (use-fixtures :once with-classifier-instance)
 
-(deftest ^{:database true, :acceptance true} smoke
+(deftest ^:acceptance smoke
   (let [base-url (base-url test-config)]
     (testing "can create a new node"
       (let [resp (http/put (str base-url "/v1/nodes/test-node"))]

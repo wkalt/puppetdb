@@ -45,7 +45,9 @@
   (testing "creates a classes table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes"])))))
   (testing "creates a class parameters table"
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM class_parameters"]))))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM class_parameters"])))))
+  (testing "creates a rules table"
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
 
 (deftest ^:database test-node
   (testing "inserts nodes"
@@ -93,3 +95,18 @@
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
     (is (= 0 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
+
+(deftest ^:database rules
+  (testing "creates a rule"
+    (let [test-rule {:when ["=" "name" "test"]
+                     :groups []}]
+      (create-rule (new-db test-db) test-rule)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
+  (testing "creates a rule with groups"
+    (let [test-rule {:when ["=" "name" "bar"]
+                     :groups ["hello" "goodbye"]}]
+      (create-group (new-db test-db) {:name "hello"})
+      (create-group (new-db test-db) {:name "goodbye"})
+      (create-rule (new-db test-db) test-rule)
+      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM rule_groups"]))))))
+  )
