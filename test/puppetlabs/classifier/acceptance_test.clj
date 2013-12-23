@@ -3,9 +3,9 @@
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
+            [clj-http.client :as http]
             [me.raynes.conch.low-level :refer [proc] :rename {proc sh}]
-            puppetlabs.trapperkeeper.core
-            [clj-http.client :as http])
+            [puppetlabs.classifier.util :as util])
   (:import [java.util.concurrent TimeoutException TimeUnit]))
 
 (def test-config
@@ -15,7 +15,7 @@
 
 (defn- base-url
   [config-path]
-  (let [app-config (#'puppetlabs.trapperkeeper.core/parse-config-file config-path)
+  (let [app-config (util/ini->map config-path)
         host (get-in app-config [:webserver :host])]
     (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
@@ -32,18 +32,31 @@
   "Initialize the database and then start a classifier server using the given
   config file, returning a conch process map describing the server instance
   process."
-  (let [{initdb-stat :exit
+  (let [base-config (util/ini->map config-path)
+        test-db {:subprotocol "postgresql"
+                 :subname (or (System/getenv "CLASSIFIER_DBNAME")
+                              "classifier_test")
+                 :user (or (System/getenv "CLASSIFIER_DBUSER")
+                           "classifier_test")
+                 :password (or (System/getenv "CLASSIFIER_DBPASS")
+                               "classifier_test")}
+        config-with-db (assoc base-config :database test-db)
+        test-config-file (java.io.File/createTempFile "classifier-test-" "conf")
+        test-config-path (.getAbsolutePath test-config-file)
+        _ (util/write-map-as-ini! config-with-db test-config-path)
+        {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
                                        "-b" "resources/initdb.cfg"
-                                       "-c" config-path)]
+                                       "-c" test-config-path)]
     (when-not (= initdb-stat 0)
-      (throw (new RuntimeException
-                  (str "Could not initialize database! initdb service says: "
-                       (if-not (empty? initdb-err) initdb-err initdb-out)))))
+      (binding [*out* *err*]
+        (println "Could not initialize database! initdb service says:"
+                 (if-not (empty? initdb-err) initdb-err initdb-out))
+        (System/exit 1)))
     (let [server-proc (sh "lein" "trampoline" "run"
                           "-b" "resources/bootstrap.cfg"
-                          "-c" config-path)
+                          "-c" test-config-path)
           timeout-ms 30000
           server-blocker (future (block-until-ready server-proc))]
       ;; Block on the server starting for up to thirty seconds.
@@ -55,7 +68,7 @@
           (binding [*out* *err*]
             (println "Server did not start within the allotted time"
                      (str "(" timeout-ms " ms)")))
-          (System/exit 1)))
+          (System/exit 2)))
       server-proc)))
 
 (defn stop!
