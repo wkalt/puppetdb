@@ -98,3 +98,19 @@
       (let [resp (http/put (str base-url "/v1/nodes/test-node"))]
         (is (= 201 (:status resp)))
         (is (= {"name" "test-node"} (json/parse-string (:body resp))))))))
+
+(deftest ^:acceptance simple-classification
+  (let [base-url (base-url test-config)]
+    (testing "classify a static group with one class"
+      (let [group-resp (http/put (str base-url "/v1/groups/test-group")
+                                 {:content-type :json
+                                  :body (json/generate-string {:classes ["foo"]})})
+            rule-resp  (http/post (str base-url "/v1/rules")
+                                  {:content-type :json
+                                   :body (json/generate-string {:when ["=" "name" "foo"]
+                                                                :groups ["foogroup"]})})
+            node-resp  (http/get (str base-url "/v1/classified/nodes/foo")
+                                 {:accept :json})]
+        (is (= 201 (:status group-resp)))
+        (is (= 201 (:status rule-resp)))
+        (is (= ["foo"] ((json/parse-string (:body node-resp) "groups"))))))))
