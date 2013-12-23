@@ -69,6 +69,9 @@
             (println "Server did not start within the allotted time"
                      (str "(" timeout-ms " ms)")))
           (System/exit 2)))
+      ;; The config file has already been read by the test instance, so we can
+      ;; delete it.
+      (.delete test-config-file)
       server-proc)))
 
 (defn stop!
