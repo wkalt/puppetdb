@@ -3,84 +3,98 @@
             [compojure.route :as route]
             [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :refer [generate-string]]
-            [liberator.core :refer [resource]]
+            [liberator.core :refer [defresource resource]]
             [cheshire.core :refer [parse-string]]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]))
 
 (defn malformed-or-parse
-  "Returns true for well-formed json along with a map storing the parse result
-  in ::data. Returns false for malformed json."
+  "Returns false (i.e. not malformed) for well-formed json string `body`, along
+  with a map storing the parse result in ::data. Returns true (i.e. malformed)
+  for `body` string that causes an exception to be thrown during parsing, along
+  with a map storing the exception in ::error and the body as a string in
+  ::request-body."
   [body]
   (try
-    (if-let [data (keywordize-keys (parse-string (slurp body)))]
+    (if-let [data (keywordize-keys (parse-string body))]
       [false {::data data}]
       true)
     (catch Exception e
-      [true {::error e}])))
+      [true {::error e, ::request-body body}])))
+
+(defn parse-if-body
+  "If the request in ctx has a non-empty body, tries to parse it with
+  malformed-or-parse; otherwise, returns false."
+  [ctx]
+  (if-let [body (get-in ctx [:request :body])]
+    (let [body-string (slurp body)]
+      (if-not (empty? body-string)
+        (malformed-or-parse body-string)
+        false))
+    false))
+
+(defresource classifier-resource
+  ;; action-fns is a map that mush have :get, :put, and :delete keys.
+  ;; The values of those keys should be functions of the context, and if they
+  ;; put a resource in the context, the key they put it in under should be
+  ;; `:puppetlabs.classifier.http/resource` (i.e. ::resource in this namespace).
+  [action-fns]
+  :allowed-methods [:put :get]
+  :available-media-types ["application/json"]
+  :exists? (:get action-fns)
+  :handle-ok ::resource
+  :put! (:put action-fns)
+  :handle-created ::resource
+  :delete! (:delete action-fns)
+  :malformed? parse-if-body
+  :handle-malformed (fn [ctx] (format "Body is not valid JSON: %s"
+                                      (::request-body ctx))))
 
 (defn app [db]
   (routes
     (ANY "/v1/nodes/:node-name" [node-name]
-         (resource
-           :allowed-methods [:put :get]
-           :available-media-types ["application/json"]
-           :exists? (fn [ctx]
-                      (if-let [node (storage/get-node db node-name)]
-                        {::node node}))
-           :handle-ok ::node
-           :put! (fn [ctx] (let [node {:name node-name}]
-                             (storage/create-node db node)
-                             {::node node}))
-           :handle-created ::node
-           :handle-delete (fn [ctx]
-                            (storage/delete-node db node-name))))
+         (classifier-resource
+           {:get (fn [_]
+                   (if-let [node (storage/get-node db node-name)]
+                     {::resource node}))
+            :put (fn [_]
+                   (let [node {:name node-name}]
+                     (storage/create-node db node)
+                     {::resource node}))
+            :delete (fn [_] (storage/delete-node db node-name))}))
 
     (ANY "/v1/groups/:group-name" [group-name]
-         (resource
-           :allowed-methods [:put :get]
-           :available-media-types ["application/json"]
-           :exists? (fn [ctx]
-                      (if-let [group (storage/get-group db group-name)]
-                        {::group group}))
-           :handle-ok ::group
-           :put! (fn [ctx] (let [group {:name group-name}]
-                             (storage/create-group db group)
-                             {::group group}))
-           :handle-created ::group
-           :handle-delete (fn [ctx] (storage/delete-group db group-name))))
+         (classifier-resource
+           {:get (fn [_]
+                   (if-let [group (storage/get-group db group-name)]
+                     {::resource group}))
+            :put (fn [_]
+                   (let [group {:name group-name}]
+                     (storage/create-group db group)
+                     {::resource group}))
+            :delete (fn [_] (storage/delete-group db group-name))}))
 
     (ANY "/v1/classes/:class-name" [class-name]
-         (resource
-           :allowed-methods [:put :get]
-           :available-media-types ["application/json"]
-           :exists? (fn [_]
-                      (if-let [class (storage/get-class db class-name)]
-                        {::class class}))
-           :handle-ok ::class
-           :malformed? (fn [ctx]
-                         (if-let [body (get-in ctx [:request :body])]
-                           (malformed-or-parse body)
-                           false))
-           :handle-malformed (fn [ctx] (format "Body not valid JSON: %s" (get ctx :body)))
-           :put! (fn [ctx]
-                   (storage/create-class db (get ctx ::data)))
-           :handle-created ::data
-           :handle-delete (fn [ctx] (storage/delete-class db class-name))))
+         (classifier-resource
+           {:get (fn [_]
+                   (if-let [class (storage/get-class db class-name)]
+                     {::resource class}))
+            :put (fn [ctx] (let [class (::data ctx)]
+                             (storage/create-class db class)
+                             {::resource class}))
+            :delete (fn [_] (storage/delete-class db class-name))}))
 
     (ANY "/v1/rules" []
          (resource
            :allowed-methods [:post :get]
            :available-media-types ["application/json"]
            :handle-ok ::data
-           :malformed? (fn [ctx]
-                         (if-let [body (get-in ctx [:request :body])]
-                           (malformed-or-parse body)
-                           false))
-           :handle-malformed (fn [ctx] (format "Body not valid JSON: %s" (get ctx :body)))
+           :malformed? parse-if-body
+           :handle-malformed (fn [ctx] (format "Body is not valid JSON: %s"
+                                               (::request-body ctx)))
            :post! (fn [ctx]
-                   (let [rule-id (storage/create-rule db (get ctx ::data))]
-                     {::location (str "/v1/rules/" rule-id)}))
+                    (let [rule-id (storage/create-rule db (::data ctx))]
+                      {::location (str "/v1/rules/" rule-id)}))
            :location ::location))
 
     (ANY "/v1/classified/nodes/:node-name" [node-name]
