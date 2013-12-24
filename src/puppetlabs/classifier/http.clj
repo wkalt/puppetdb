@@ -104,7 +104,8 @@
            :handle-ok (fn [ctx]
                         (let [node (merge {:name node-name} (storage/get-node db node-name))
                               rules (storage/get-rules db)
-                              groups (mapcat (partial rules/apply-rule node) rules)]
-                          (merge node {:groups groups})))))
+                              groups (mapcat (partial rules/apply-rule node) rules)
+                              classes (mapcat :classes (map (partial storage/get-group db) groups))]
+                          (assoc node :groups groups :classes classes)))))
 
     (route/not-found "Not found")))
