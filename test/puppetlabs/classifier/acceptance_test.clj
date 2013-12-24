@@ -104,7 +104,8 @@
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
-      (let [group-resp (http/put (str base-url "/v1/groups/test-group")
+      (let [class-resp (http/put (str base-url "/v1/classes/foo"))
+            group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
                                   :body (json/generate-string {:classes ["foo"]})})
             rule-resp  (http/post (str base-url "/v1/rules")
@@ -113,6 +114,8 @@
                                                                 :groups ["test-group"]})})
             node-resp  (http/get (str base-url "/v1/classified/nodes/foo")
                                  {:accept :json})]
+        (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
         (is (= 201 (:status rule-resp)))
-        (is (= ["foo"] ((json/parse-string (:body node-resp) "groups"))))))))
+        (is (= ["test-group"] ((json/parse-string (:body node-resp)) "groups")))
+        (is (= ["foo"] ((json/parse-string (:body node-resp)) "classes")))))))

@@ -52,12 +52,26 @@
 
 (defn create-group* [{db :db} group]
   {:pre [(map? group)]}
-  (jdbc/insert! db :groups group))
+  (jdbc/db-transaction
+    [t-db db]
+    (jdbc/insert! t-db :groups (select-keys group [:name]))
+    (doseq [class (:classes group)]
+      (jdbc/insert! t-db :group_classes [:group_name :class_name] [(:name group) class]))))
 
 (defn get-group* [{db :db} group-name]
   {:pre [(string? group-name)]}
-  (let [result (jdbc/query db (select-group group-name))]
-    (first result)))
+  (when-let [result (seq (jdbc/query db
+                  [(str
+                     "SELECT * FROM groups g"
+                     " LEFT OUTER JOIN group_classes gc"
+                     " ON g.name = gc.group_name"
+                     " WHERE g.name = ?")
+                   group-name]))]
+    {:name group-name
+     :classes (vec (for [r result
+                    :let [class (:class_name r)]
+                    :when class]
+                class))}))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))

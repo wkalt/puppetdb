@@ -64,11 +64,21 @@
   (testing "insert a group"
     (create-group (new-db test-db) {:name "test"})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
+  (testing "store a group with multiple classes"
+    (create-class (new-db test-db) {:name "hi"})
+    (create-class (new-db test-db) {:name "bye"})
+    (create-group (new-db test-db) {:name "group-two"
+                                    :classes ["hi", "bye"]})
+    (is (= 2 (count (jdbc/query test-db
+      ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "group-two"])))))
   (testing "retrieves a group"
-    (is (= {:name "test"} (get-group (new-db test-db) "test"))))
+    (is (= {:name "test" :classes []} (get-group (new-db test-db) "test"))))
+  (testing "retrieves a group with classes"
+    (is (= {:name "group-two" :classes ["hi" "bye"]}
+           (get-group (new-db test-db) "group-two"))))
   (testing "deletes a group"
     (delete-group (new-db test-db) "test")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"]))))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"]))))))
 
 (deftest ^:database classes
   (testing "store a class with no parameters"

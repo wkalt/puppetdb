@@ -100,7 +100,9 @@
                   (create-rule [_ rule]
                     rule-id)
                   (get-rules [_]
-                    [simple-rule]))
+                    [simple-rule])
+                  (get-group [_ _]
+                    {:name "food"}))
         app (app mock-db)]
     (testing "returns a key when storing a rule"
       (let [response (app (rule-request :post simple-rule))]

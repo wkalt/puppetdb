@@ -68,10 +68,9 @@
            {:get (fn [_]
                    (if-let [group (storage/get-group db group-name)]
                      {::resource group}))
-            :put (fn [_]
-                   (let [group {:name group-name}]
-                     (storage/create-group db group)
-                     {::resource group}))
+            :put (fn [ctx] (let [group (or (::data ctx) {})]
+                             (storage/create-group db (assoc group :name group-name))
+                             {::resource group}))
             :delete (fn [_] (storage/delete-group db group-name))}))
 
     (ANY "/v1/classes/:class-name" [class-name]
@@ -79,8 +78,8 @@
            {:get (fn [_]
                    (if-let [class (storage/get-class db class-name)]
                      {::resource class}))
-            :put (fn [ctx] (let [class (::data ctx)]
-                             (storage/create-class db class)
+            :put (fn [ctx] (let [class (or (::data ctx) {})]
+                             (storage/create-class db (assoc class :name class-name))
                              {::resource class}))
             :delete (fn [_] (storage/delete-class db class-name))}))
 
