@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.storage.postgres-test
   (:require [clojure.test :refer :all]
+            [clojure.set :refer [project]]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
             [clojure.java.jdbc :as jdbc]
@@ -97,16 +98,18 @@
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database rules
-  (testing "creates a rule"
-    (let [test-rule {:when ["=" "name" "test"]
-                     :groups []}]
-      (create-rule (new-db test-db) test-rule)
-      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
-  (testing "creates a rule with groups"
-    (let [test-rule {:when ["=" "name" "bar"]
+  (let [test-rule-1 {:when ["=" "name" "test"]
+                     :groups []}
+        test-rule-2 {:when ["=" "name" "bar"]
                      :groups ["hello" "goodbye"]}]
+    (testing "creates a rule"
+      (create-rule (new-db test-db) test-rule-1)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"])))))
+    (testing "creates a rule with groups"
       (create-group (new-db test-db) {:name "hello"})
       (create-group (new-db test-db) {:name "goodbye"})
-      (create-rule (new-db test-db) test-rule)
-      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM rule_groups"]))))))
-  )
+      (create-rule (new-db test-db) test-rule-2)
+      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM rule_groups"])))))
+    (testing "retrieves all rules"
+      (is (= #{test-rule-1 test-rule-2}
+             (project (get-rules (new-db test-db)) [:when :groups]))))))
