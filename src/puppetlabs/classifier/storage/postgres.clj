@@ -3,7 +3,8 @@
             [clojure.java.jdbc.ddl :as ddl]
             [clojure.java.jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [migratus.core :as migratus]))
+            [migratus.core :as migratus]
+            [cheshire.core :as json]))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -51,12 +52,26 @@
 
 (defn create-group* [{db :db} group]
   {:pre [(map? group)]}
-  (jdbc/insert! db :groups group))
+  (jdbc/db-transaction
+    [t-db db]
+    (jdbc/insert! t-db :groups (select-keys group [:name]))
+    (doseq [class (:classes group)]
+      (jdbc/insert! t-db :group_classes [:group_name :class_name] [(:name group) class]))))
 
 (defn get-group* [{db :db} group-name]
   {:pre [(string? group-name)]}
-  (let [result (jdbc/query db (select-group group-name))]
-    (first result)))
+  (let [result (jdbc/query db [(str
+                                 "SELECT * FROM groups g"
+                                 " LEFT OUTER JOIN group_classes gc"
+                                 " ON g.name = gc.group_name"
+                                 " WHERE g.name = ?")
+                               group-name])]
+    (if-not (empty? result)
+      {:name group-name
+       :classes (for [r result
+                      :let [class (:class_name r)]
+                      :when class]
+                  class)})))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
@@ -78,17 +93,39 @@
              parameters)))
 
 (defn get-class* [{db :db} class-name]
-  (when-let [result (seq (jdbc/query db
-                  [(str
-                    "SELECT * FROM classes c"
-                    " LEFT OUTER JOIN class_parameters cp"
-                    " ON c.name = cp.class_name"
-                    " WHERE c.name = ?")
-                  class-name]))]
-    {:name class-name :parameters (extract-parameters result)}))
+  (let [result (jdbc/query db [(str
+                                 "SELECT * FROM classes c"
+                                 " LEFT OUTER JOIN class_parameters cp"
+                                 " ON c.name = cp.class_name"
+                                 " WHERE c.name = ?")
+                               class-name])]
+    (if-not (empty? result)
+      {:name class-name :parameters (extract-parameters result)})))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
+
+(defn create-rule*
+  [{db :db}
+   {:keys [when groups]}]
+  (jdbc/db-transaction
+    [t-db db]
+    (let [rule (jdbc/insert! t-db :rules {:match (json/generate-string when)})
+          rule-id (:id (first rule))]
+      (doseq [group groups]
+        (jdbc/insert! t-db :rule_groups {:rule_id rule-id :group_name group})))))
+
+(defn- group-rule [[[rule-id match] records]]
+  (let [groups (map :group_name records)]
+    {:id rule-id
+     :when (json/parse-string match)
+     :groups (remove nil? groups)}))
+
+(defn get-rules* [{db :db}]
+  (let [result (jdbc/query db
+          ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])
+        rules (group-by (juxt :id :match) result)]
+    (map group-rule rules)))
 
 (defrecord Postgres [db])
 
@@ -106,5 +143,7 @@
    :delete-group delete-group*
    :create-class create-class*
    :get-class get-class*
-   :delete-class delete-class*})
+   :delete-class delete-class*
+   :create-rule create-rule*
+   :get-rules get-rules*})
 
