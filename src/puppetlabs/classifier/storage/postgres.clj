@@ -60,18 +60,18 @@
 
 (defn get-group* [{db :db} group-name]
   {:pre [(string? group-name)]}
-  (when-let [result (seq (jdbc/query db
-                  [(str
-                     "SELECT * FROM groups g"
-                     " LEFT OUTER JOIN group_classes gc"
-                     " ON g.name = gc.group_name"
-                     " WHERE g.name = ?")
-                   group-name]))]
-    {:name group-name
-     :classes (vec (for [r result
-                    :let [class (:class_name r)]
-                    :when class]
-                class))}))
+  (let [result (jdbc/query db [(str
+                                 "SELECT * FROM groups g"
+                                 " LEFT OUTER JOIN group_classes gc"
+                                 " ON g.name = gc.group_name"
+                                 " WHERE g.name = ?")
+                               group-name])]
+    (if-not (empty? result)
+      {:name group-name
+       :classes (for [r result
+                      :let [class (:class_name r)]
+                      :when class]
+                  class)})))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
@@ -93,14 +93,14 @@
              parameters)))
 
 (defn get-class* [{db :db} class-name]
-  (when-let [result (seq (jdbc/query db
-                  [(str
-                    "SELECT * FROM classes c"
-                    " LEFT OUTER JOIN class_parameters cp"
-                    " ON c.name = cp.class_name"
-                    " WHERE c.name = ?")
-                  class-name]))]
-    {:name class-name :parameters (extract-parameters result)}))
+  (let [result (jdbc/query db [(str
+                                 "SELECT * FROM classes c"
+                                 " LEFT OUTER JOIN class_parameters cp"
+                                 " ON c.name = cp.class_name"
+                                 " WHERE c.name = ?")
+                               class-name])]
+    (if-not (empty? result)
+      {:name class-name :parameters (extract-parameters result)})))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))

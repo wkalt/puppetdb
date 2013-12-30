@@ -68,7 +68,7 @@
            {:get (fn [_]
                    (if-let [group (storage/get-group db group-name)]
                      {::resource group}))
-            :put (fn [ctx] (let [group (or (::data ctx) {})]
+            :put (fn [ctx] (let [group (::data ctx {})]
                              (storage/create-group db (assoc group :name group-name))
                              {::resource group}))
             :delete (fn [_] (storage/delete-group db group-name))}))
@@ -78,7 +78,7 @@
            {:get (fn [_]
                    (if-let [class (storage/get-class db class-name)]
                      {::resource class}))
-            :put (fn [ctx] (let [class (or (::data ctx) {})]
+            :put (fn [ctx] (let [class (::data ctx {})]
                              (storage/create-class db (assoc class :name class-name))
                              {::resource class}))
             :delete (fn [_] (storage/delete-class db class-name))}))
@@ -105,7 +105,9 @@
                         (let [node (merge {:name node-name} (storage/get-node db node-name))
                               rules (storage/get-rules db)
                               groups (mapcat (partial rules/apply-rule node) rules)
-                              classes (mapcat :classes (map (partial storage/get-group db) groups))]
+                              classes (->> groups
+                                           (map (partial storage/get-group db))
+                                           (mapcat :classes))]
                           (assoc node :groups groups :classes classes)))))
 
     (route/not-found "Not found")))
