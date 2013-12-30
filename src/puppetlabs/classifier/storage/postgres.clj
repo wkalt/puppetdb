@@ -115,19 +115,16 @@
       (doseq [group groups]
         (jdbc/insert! t-db :rule_groups {:rule_id rule-id :group_name group})))))
 
-(defn- group-rule [[group-id records]]
-  (let [match (json/parse-string (:match (first records)))
-        groups (map :group_name records)]
-    {:id group-id
-     :when (vec match)
-     :groups (if (= '(nil) groups)
-               []
-               (vec groups))}))
+(defn- group-rule [[[rule-id match] records]]
+  (let [groups (map :group_name records)]
+    {:id rule-id
+     :when (json/parse-string match)
+     :groups (remove nil? groups)}))
 
 (defn get-rules* [{db :db}]
   (let [result (jdbc/query db
           ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])
-        rules (group-by :id result)]
+        rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
 
 (defrecord Postgres [db])
