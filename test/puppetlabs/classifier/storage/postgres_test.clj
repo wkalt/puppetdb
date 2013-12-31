@@ -3,9 +3,7 @@
             [clojure.set :refer [project]]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [clojure.java.jdbc :as jdbc]
-            [clojure.java.jdbc.sql :as sql]
-            [clojure.java.jdbc.ddl :as ddl]))
+            [clojure.java.jdbc :as jdbc]))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")

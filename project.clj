@@ -21,7 +21,8 @@
                  [compojure "1.1.6" :exclusions [[clj-time]]]
                  ;; Logging
                  [org.clojure/tools.logging "0.2.6"]
-                 [org.clojure/java.jdbc "0.3.0-beta1"]
+                 [org.clojure/java.jdbc "0.3.0"]
+                 [java-jdbc/dsl "0.1.0"]
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
