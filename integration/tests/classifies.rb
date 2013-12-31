@@ -30,7 +30,7 @@ class Classifier
   debug_output $stdout
 end
 
-Classifier.base_uri "#{database['ip']}:#{CLASSIFIER_PORT}"
+Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
 
 with_puppet_running_on(master, master_opts, testdir) do
   agents.each do |agent|
