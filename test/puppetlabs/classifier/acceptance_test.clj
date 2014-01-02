@@ -119,7 +119,9 @@
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
-      (let [class-resp (http/put (str base-url "/v1/classes/foo"))
+      (let [class-resp (http/put (str base-url "/v1/classes/foo")
+                                 {:content-type :json
+                                  :body (json/generate-string {:params {}})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
                                   :body (json/generate-string {:classes ["foo"]})})
