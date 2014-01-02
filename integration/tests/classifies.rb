@@ -46,7 +46,7 @@ with_puppet_running_on(master, master_opts, testdir) do
            "Received failure response when trying to create the group: " +
            "HTTP Code #{group_response.code}: #{group_response.message}")
 
-    rule_response = Classifier.put(
+    rule_response = Classifier.post(
       "/v1/rules",
       :body => {
         "when" => ["=", "name", agent.to_s],
