@@ -39,7 +39,9 @@ with_puppet_running_on(master, master_opts, testdir) do
            "Received failure response when trying to create the class: " +
            "HTTP Code #{class_response.code}: #{class_response.message}")
 
-    group_response = Classifier.put("/v1/groups/foogroup", :body => {"classes" => ["foo"]})
+    group_response = Classifier.put(
+      "/v1/groups/foogroup",
+      :body => {"classes" => ["foo"]}.to_json)
     assert(group_response.response.is_a?(Net::HTTPSuccess),
            "Received failure response when trying to create the group: " +
            "HTTP Code #{group_response.code}: #{group_response.message}")
@@ -49,7 +51,7 @@ with_puppet_running_on(master, master_opts, testdir) do
       :body => {
         "when" => ["=", "name", agent.to_s],
         "groups" => ["foogroup"]
-      })
+      }.to_json)
 
     assert(rule_response.response.is_a?(Net::HTTPSuccess),
            "Received failure response when trying to create the rule: " +
