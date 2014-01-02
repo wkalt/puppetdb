@@ -1,8 +1,8 @@
-require 'puppet/network/http/connection'
+require 'puppet/network/http_pool'
 
 class Puppet::Node::Classifier < Puppet::Indirector::Code
   def new_connection
-    Puppet::Network::HTTP::Connection.new(server, port, :use_ssl => false)
+    Puppet::Network::HttpPool.http_instance(server, port, false, false)
   end
 
   def find(request)
