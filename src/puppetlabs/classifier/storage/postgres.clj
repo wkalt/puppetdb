@@ -1,7 +1,6 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
-            [clojure.java.jdbc.ddl :as ddl]
-            [clojure.java.jdbc.sql :as sql]
+            [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer [Storage]]
             [migratus.core :as migratus]
             [cheshire.core :as json]))
@@ -52,7 +51,7 @@
 
 (defn create-group* [{db :db} group]
   {:pre [(map? group)]}
-  (jdbc/db-transaction
+  (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups (select-keys group [:name]))
     (doseq [class (:classes group)]
@@ -77,7 +76,7 @@
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
 (defn create-class* [{db :db} {:keys [name parameters]}]
-  (jdbc/db-transaction
+  (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :classes {:name name})
     (doseq [[param value] parameters]
@@ -108,7 +107,7 @@
 (defn create-rule*
   [{db :db}
    {:keys [when groups]}]
-  (jdbc/db-transaction
+  (jdbc/with-db-transaction
     [t-db db]
     (let [rule (jdbc/insert! t-db :rules {:match (json/generate-string when)})
           rule-id (:id (first rule))]
