@@ -108,7 +108,12 @@
                               classes (->> groups
                                            (map (partial storage/get-group db))
                                            (mapcat :classes))
+                              parameters {}
                               environment "production"]
-                          (assoc node :groups groups :classes classes :environment environment)))))
+                          (assoc node
+                                 :groups groups
+                                 :classes classes
+                                 :parameters parameters
+                                 :environment environment)))))
 
     (route/not-found "Not found")))

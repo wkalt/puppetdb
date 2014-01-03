@@ -10,10 +10,14 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
 
     response = connection.get("/v1/classified/nodes/#{request.key}")
 
+    node = nil
     if response.is_a? Net::HTTPSuccess
       result = PSON.parse(response.body)
-      Puppet::Node.from_pson(result)
+      node = Puppet::Node.from_pson(result)
+      node.fact_merge
     end
+
+    node
   end
 
   private
