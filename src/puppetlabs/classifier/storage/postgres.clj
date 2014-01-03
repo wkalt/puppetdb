@@ -1,9 +1,13 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
             [java-jdbc.sql :as sql]
-            [puppetlabs.classifier.storage :refer [Storage]]
+            [cheshire.core :as json]
             [migratus.core :as migratus]
-            [cheshire.core :as json]))
+            [schema.core :as sc]
+            [puppetlabs.classifier.schema :refer [Group Node Rule]]
+            [puppetlabs.classifier.storage :refer [Storage]]))
+
+(def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -36,28 +40,31 @@
 ;;; lets us use pre- and post-conditions as well as schema.
 
 (defn create-node* [{db :db} node]
-  {:pre [(map? node)]}
+  {:pre [sc/validate Node node]}
   (jdbc/insert! db :nodes node))
 
-(defn get-node* [{db :db} node-name]
-  {:pre [(string? node-name)]
-   :post [map?]}
-  (let [result (jdbc/query db (select-node node-name))]
-    (first result)))
+(sc/defn ^:always-validate get-node* :- (sc/maybe Node)
+  [{db :db} node-name]
+  {:pre [(string? node-name)]}
+  (let [[node] (jdbc/query db (select-node node-name))]
+    node))
 
 (defn delete-node* [{db :db} node-name]
   {:pre [(string? node-name)]}
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
 (defn create-group* [{db :db} group]
-  {:pre [(map? group)]}
+  {:pre [(sc/validate Group group)]}
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups (select-keys group [:name]))
     (doseq [class (:classes group)]
-      (jdbc/insert! t-db :group_classes [:group_name :class_name] [(:name group) class]))))
+      (jdbc/insert! t-db :group_classes
+                    [:group_name :class_name]
+                    [(:name group) class]))))
 
-(defn get-group* [{db :db} group-name]
+(sc/defn ^:always-validate get-group* :- (sc/maybe Group)
+  [{db :db} group-name]
   {:pre [(string? group-name)]}
   (let [result (jdbc/query db [(str
                                  "SELECT * FROM groups g"
@@ -75,7 +82,8 @@
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
-(defn create-class* [{db :db} {:keys [name parameters]}]
+(defn create-class* [{db :db} {:keys [name parameters] :as class}]
+  {:pre [(sc/validate PuppetClass class)]}
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :classes {:name name})
@@ -85,13 +93,13 @@
                     [name (clojure.core/name param) value]))))
 
 (defn extract-parameters [result]
-    (let [parameters
-          (into {} (map (juxt :parameter :default_value) result))]
-      (if (= parameters {nil nil})
-             {}
-             parameters)))
+  (into {} (for [[param default] (->> result
+                                   (map (juxt :parameter :default_value))
+                                   (remove (comp nil? first)))]
+             [(keyword param) default])))
 
-(defn get-class* [{db :db} class-name]
+(sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
+  [{db :db} class-name]
   (let [result (jdbc/query db [(str
                                  "SELECT * FROM classes c"
                                  " LEFT OUTER JOIN class_parameters cp"
@@ -105,12 +113,13 @@
   (jdbc/delete! db :classes (sql/where {:name class-name})))
 
 (defn create-rule*
-  [{db :db}
-   {:keys [when groups]}]
+  [{db :db}  {:keys [when groups] :as rule}]
+  {:pre [(sc/validate Rule rule)]}
   (jdbc/with-db-transaction
     [t-db db]
-    (let [rule (jdbc/insert! t-db :rules {:match (json/generate-string when)})
-          rule-id (:id (first rule))]
+    (let [storage-rule {:match (json/generate-string when)}
+          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
+          rule-id (:id inserted-rule)]
       (doseq [group groups]
         (jdbc/insert! t-db :rule_groups {:rule_id rule-id :group_name group})))))
 
@@ -120,7 +129,8 @@
      :when (json/parse-string match)
      :groups (remove nil? groups)}))
 
-(defn get-rules* [{db :db}]
+(sc/defn get-rules* :- [Rule]
+  [{db :db}]
   (let [result (jdbc/query db
           ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])
         rules (group-by (juxt :id :match) result)]
@@ -145,4 +155,3 @@
    :delete-class delete-class*
    :create-rule create-rule*
    :get-rules get-rules*})
-

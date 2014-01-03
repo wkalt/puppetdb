@@ -60,11 +60,11 @@
 
 (deftest ^:database groups
   (testing "insert a group"
-    (create-group (new-db test-db) {:name "test"})
+    (create-group (new-db test-db) {:name "test" :classes []})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "store a group with multiple classes"
-    (create-class (new-db test-db) {:name "hi"})
-    (create-class (new-db test-db) {:name "bye"})
+    (create-class (new-db test-db) {:name "hi" :parameters {}})
+    (create-class (new-db test-db) {:name "bye" :parameters {}})
     (create-group (new-db test-db) {:name "group-two"
                                     :classes ["hi", "bye"]})
     (is (= 2 (count (jdbc/query test-db
@@ -93,7 +93,7 @@
       (create-class (new-db test-db) testclass)
       (is (= testclass (get-class (new-db test-db) "noclass")))))
   (testing "retrieve a class with parameters"
-    (let [testclass {:name "testclass" :parameters {"p1" "v1" "p2" "v2"}}]
+    (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"}}]
       (create-class (new-db test-db) testclass)
       (is (= testclass (get-class (new-db test-db) "testclass")))))
   (testing "deletes a class with no paramters"
@@ -106,18 +106,25 @@
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database rules
-  (let [test-rule-1 {:when ["=" "name" "test"]
+  (let [db (new-db test-db)
+        hello-group {:name "hello" :classes ["salutation"]}
+        goodbye-group {:name "goodbye" :classes ["valediction"]}
+        salutation-class {:name "salutation" :parameters {}}
+        valediction-class {:name "valediction" :parameters {}}
+        test-rule-1 {:when ["=" "name" "test"]
                      :groups []}
         test-rule-2 {:when ["=" "name" "bar"]
                      :groups ["hello" "goodbye"]}]
     (testing "creates a rule"
-      (create-rule (new-db test-db) test-rule-1)
+      (create-rule db test-rule-1)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"])))))
     (testing "creates a rule with groups"
-      (create-group (new-db test-db) {:name "hello"})
-      (create-group (new-db test-db) {:name "goodbye"})
-      (create-rule (new-db test-db) test-rule-2)
+      (create-class db salutation-class)
+      (create-class db valediction-class)
+      (create-group db hello-group)
+      (create-group db goodbye-group)
+      (create-rule db test-rule-2)
       (is (= 2 (count (jdbc/query test-db ["SELECT * FROM rule_groups"])))))
     (testing "retrieves all rules"
       (is (= #{test-rule-1 test-rule-2}
-             (project (get-rules (new-db test-db)) [:when :groups]))))))
+             (project (get-rules db) [:when :groups]))))))

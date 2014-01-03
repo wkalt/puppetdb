@@ -101,10 +101,27 @@
         (is (= 201 (:status resp)))
         (is (= {"name" "test-node"} (json/parse-string (:body resp))))))))
 
+(deftest ^:acceptance object-validation
+  (let [base-url (base-url test-config)
+        quiet-put #(http/put % {:throw-exceptions false})]
+    (testing "schema-noncompliant objects in requests elicit a 400 response."
+      (let [resp (quiet-put (str base-url "/v1/classes/foo"))]
+        (is (= 400 (:status resp)))
+        (is (re-find #"Value does not match schema" (:body resp))))
+      (let [resp (quiet-put (str base-url "/v1/groups/test-group"))]
+        (is (= 400 (:status resp)))
+        (is (re-find #"Value does not match schema" (:body resp))))
+      (let [resp (http/post (str base-url "/v1/rules")
+                            {:throw-exceptions false})]
+        (is (= 400 (:status resp)))
+        (is (re-find #"Value does not match schema" (:body resp)))))))
+
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
-      (let [class-resp (http/put (str base-url "/v1/classes/foo"))
+      (let [class-resp (http/put (str base-url "/v1/classes/foo")
+                                 {:content-type :json
+                                  :body (json/generate-string {:parameters {}})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
                                   :body (json/generate-string {:classes ["foo"]})})

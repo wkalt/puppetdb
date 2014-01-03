@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [cheshire.core :refer [parse-string generate-string]]
             [puppetlabs.classifier.http :refer [app]]
-            [ring.mock.request :refer [request]]
+            [ring.mock.request :as mock :refer [request]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -38,11 +38,17 @@
       (is-http-status 201 (app (node-request :put "addone"))))))
 
 (defn group-request
-  [method group]
-  (request method (str "/v1/groups/" group)))
+  ([method group] (group-request method group nil))
+  ([method group body]
+   (let [req (request method (str "/v1/groups/" group))]
+     (if body
+       (mock/body req body)
+       req))))
 
 (deftest groups
-  (let [test-group {:name "agroup"}
+  (let [test-group {:name "agroup", :classes ["foo"]}
+        creation-req (group-request :put "agroup"
+                                    (generate-string (dissoc test-group :name)))
         mock-db (reify Storage
                    (get-group [_ group]
                      (is (= group "agroup"))
@@ -55,13 +61,13 @@
         (is-http-status 200 (app (group-request :get "agroup")))
         (is (= (generate-string test-group) (:body response)))))
 
-    (testing "tells storage to create the group and returns 201"
-      (is-http-status 201 (app (group-request :put "agroup"))))
+    (let [resp (app creation-req)]
+      (testing "tells storage to create the group and returns 201"
+        (is-http-status 201 resp))
 
-    (testing "when creating the group returns the group as json"
-      (let [response (app (group-request :put "agroup"))]
-        (is (= {"name" "agroup"}
-             (parse-string (:body response))))))))
+      (testing "when creating the group returns the group as json"
+        (is (= {"name" "agroup", "classes" ["foo"]}
+               (parse-string (:body resp))))))))
 
 (defn class-request
   ([method class-name]
@@ -71,7 +77,7 @@
 
 (deftest classes
   (let [myclass {:name "myclass",
-                 :params {:param1 "value"}}
+                 :parameters {:param1 "value"}}
         mock-db (reify Storage
                   (get-class [_ class-name] myclass)
                   (create-class [_ class]
