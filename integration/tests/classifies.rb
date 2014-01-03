@@ -34,7 +34,7 @@ Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
 
 with_puppet_running_on(master, master_opts, testdir) do
   agents.each do |agent|
-    node_name = on(agent, 'puppet agent --configprint node_name_value').strip
+    node_name = on(agent, 'puppet agent --configprint node_name_value').stdout.strip
 
     class_response = Classifier.put("/v1/classes/foo")
     assert(class_response.response.is_a?(Net::HTTPSuccess),
