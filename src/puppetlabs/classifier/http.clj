@@ -70,9 +70,9 @@
       {:allowed-methods [:put :get]
        :available-media-types ["application/json"]
        :exists? (:get implementation)
-       :handle-ok ::resource
+       :handle-ok ::retrieved
        :put! (:put implementation)
-       :handle-created ::resource
+       :handle-created ::created
        :delete! (:delete implementation)
        :malformed? parse-if-body
        :handle-malformed (fn [ctx]
@@ -86,35 +86,35 @@
            (classifier-resource
              {:get (fn [_]
                      (if-let [node (storage/get-node db node-name)]
-                       {::resource node}))
+                       {::retrieved node}))
               :put (fn [_]
                      (let [node (sc/validate Node {:name node-name})]
                        (storage/create-node db node)
-                       {::resource node}))
+                       {::created node}))
               :delete (fn [_] (storage/delete-node db node-name))}))
 
       (ANY "/v1/groups/:group-name" [group-name]
            (classifier-resource
              {:get (fn [_]
                      (if-let [group (storage/get-group db group-name)]
-                       {::resource group}))
+                       {::retrieved group}))
               :put (fn [ctx] (let [group (-> (::data ctx {})
                                              (assoc :name group-name))]
                                (sc/validate Group group)
                                (storage/create-group db group)
-                               {::resource group}))
+                               {::created group}))
               :delete (fn [_] (storage/delete-group db group-name))}))
 
       (ANY "/v1/classes/:class-name" [class-name]
            (classifier-resource
              {:get (fn [_]
                      (if-let [class (storage/get-class db class-name)]
-                       {::resource class}))
+                       {::retrieved class}))
               :put (fn [ctx] (let [class (-> (::data ctx {})
                                              (assoc :name class-name))]
                                (sc/validate PuppetClass class)
                                (storage/create-class db class)
-                               {::resource class}))
+                               {::created class}))
               :delete (fn [_] (storage/delete-class db class-name))}))
 
       (ANY "/v1/rules" []
