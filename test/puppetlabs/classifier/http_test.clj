@@ -77,7 +77,7 @@
 
 (deftest classes
   (let [myclass {:name "myclass",
-                 :params {:param1 "value"}}
+                 :parameters {:param1 "value"}}
         mock-db (reify Storage
                   (get-class [_ class-name] myclass)
                   (create-class [_ class]
