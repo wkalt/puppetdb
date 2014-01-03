@@ -144,7 +144,13 @@
                                 groups (mapcat (partial rules/apply-rule node) rules)
                                 classes (->> groups
                                              (map (partial storage/get-group db))
-                                             (mapcat :classes))]
-                            (assoc node :groups groups :classes classes)))))
+                                             (mapcat :classes))
+                                parameters {}
+                                environment "production"]
+                            (assoc node
+                                   :groups groups
+                                   :classes classes
+                                   :parameters parameters
+                                   :environment environment)))))
 
       (route/not-found "Not found"))))
