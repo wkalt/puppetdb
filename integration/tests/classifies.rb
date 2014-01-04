@@ -36,7 +36,9 @@ with_puppet_running_on(master, master_opts, testdir) do
   agents.each do |agent|
     node_name = on(agent, 'puppet agent --configprint node_name_value').stdout.strip
 
-    class_response = Classifier.put("/v1/classes/foo")
+    class_response = Classifier.put(
+      "/v1/classes/foo",
+      :body => {"parameters" => {}}.to_json)
     assert(class_response.response.is_a?(Net::HTTPSuccess),
            "Received failure response when trying to create the class: " +
            "HTTP Code #{class_response.code}: #{class_response.message}")
