@@ -23,7 +23,7 @@ describe Puppet::Node::Classifier do
   end
 
   it "returns a node with the environment and classes given by the remote classifier" do
-    node_json = {:name => 'test', :classes => ['main'], :parameters => [], :environment => :dev}.to_json
+    node_json = {:name => 'test', :classes => ['main'], :parameters => {}, :environment => :dev}.to_json
     response = Net::HTTPOK.new('1.1', 200, 'OK')
     allow(response).to receive(:body) { node_json }
     connection = double 'connection'
