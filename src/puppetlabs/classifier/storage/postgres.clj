@@ -129,7 +129,7 @@
      :when (json/parse-string match)
      :groups (remove nil? groups)}))
 
-(sc/defn get-rules* :- [Rule]
+(sc/defn ^:always-validate get-rules* :- [Rule]
   [{db :db}]
   (let [result (jdbc/query db
           ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])

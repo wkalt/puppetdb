@@ -3,6 +3,7 @@
             [cheshire.core :refer [parse-string generate-string]]
             [puppetlabs.classifier.http :refer [app]]
             [ring.mock.request :as mock :refer [request]]
+            [schema.test]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -13,6 +14,8 @@
 (defn node-request
   [method node]
   (request method (str "/v1/nodes/" node)))
+
+(use-fixtures :once schema.test/validate-schemas)
 
 (deftest nodes
   (let [empty-storage (reify Storage

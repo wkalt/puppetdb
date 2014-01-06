@@ -12,4 +12,5 @@
 
 (def Rule
   {(sc/required-key :when) [String]
-   (sc/required-key :groups) [String]})
+   (sc/required-key :groups) [String]
+   (sc/optional-key :id) Number})

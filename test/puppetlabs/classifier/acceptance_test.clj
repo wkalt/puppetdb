@@ -4,6 +4,7 @@
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
             [clj-http.client :as http]
+            [schema.test]
             [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
             [puppetlabs.classifier.util :as util])
   (:import [java.util.concurrent TimeoutException TimeUnit]))
@@ -92,7 +93,7 @@
     (f)
     (stop! app-process)))
 
-(use-fixtures :once with-classifier-instance)
+(use-fixtures :once with-classifier-instance schema.test/validate-schemas)
 
 (deftest ^:acceptance smoke
   (let [base-url (base-url test-config)]

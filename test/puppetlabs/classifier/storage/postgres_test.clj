@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.storage.postgres-test
   (:require [clojure.test :refer :all]
             [clojure.set :refer [project]]
+            [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
             [clojure.java.jdbc :as jdbc]))
@@ -35,6 +36,8 @@
   (compose-fixtures expand-sql-exceptions with-test-db))
 
 (use-fixtures :each db-fixtures)
+
+(use-fixtures :once schema.test/validate-schemas)
 
 (deftest ^:database test-migration
   (testing "creates a groups table"
