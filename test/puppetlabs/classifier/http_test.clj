@@ -1,9 +1,11 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
             [cheshire.core :refer [parse-string generate-string]]
-            [puppetlabs.classifier.http :refer [app]]
+            [puppetlabs.classifier.http :refer :all]
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
+            [schema.core :as sc]
+            [compojure.core :as compojure]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -16,6 +18,38 @@
   (request method (str "/v1/nodes/" node)))
 
 (use-fixtures :once schema.test/validate-schemas)
+
+(deftest crud
+  (let [test-obj-name "test-obj"
+        test-obj {:name "test-obj" :property "hello"}
+        bad-obj {:name "bad" :property 3}
+        schema {:name String
+                :property String}
+        storage-fns {:get (fn [_ obj-name]
+                            (if (= obj-name test-obj-name) test-obj))
+                     :create (fn [_ obj]
+                               nil)
+                     :delete (fn [_ obj-name])}
+        app (compojure/routes
+              (compojure/ANY "/objs/:obj-name" [obj-name]
+                             (crud-resource obj-name schema nil storage-fns)))]
+
+    (testing "returns 404 when storage returns nil"
+      (is-http-status 404 (app (request :get "/objs/nothing"))))
+
+    (testing "returns 200 with the object when it exists"
+      (let [response (app (request :get "/objs/test-obj"))]
+        (is-http-status 200 response)
+        (is (= (generate-string test-obj) (:body response)))))
+
+    (let [response (app (mock/body
+                          (request :put "/objs/test-obj")
+                          (generate-string test-obj)))]
+      (testing "returns the 201 on creation"
+        (is-http-status 201 response))
+
+      (testing "returns the created object"
+        (is (= (generate-string test-obj) (:body response)))))))
 
 (deftest nodes
   (let [empty-storage (reify Storage
