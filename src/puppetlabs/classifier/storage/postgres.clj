@@ -82,11 +82,13 @@
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
-(defn create-class* [{db :db} {:keys [name parameters] :as class}]
+(defn create-class*
+  [{db :db}
+   {:keys [name parameters environment] :as class}]
   {:pre [(sc/validate PuppetClass class)]}
   (jdbc/with-db-transaction
     [t-db db]
-    (jdbc/insert! t-db :classes {:name name})
+    (jdbc/insert! t-db :classes {:name name :environment_name environment})
     (doseq [[param value] parameters]
       (jdbc/insert! t-db :class_parameters
                     [:class_name :parameter :default_value]
@@ -107,7 +109,9 @@
                                  " WHERE c.name = ?")
                                class-name])]
     (if-not (empty? result)
-      {:name class-name :parameters (extract-parameters result)})))
+      {:name class-name
+       :environment (:environment_name (first result))
+       :parameters (extract-parameters result)})))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))

@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
+            [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :refer [parse-string generate-string]]
             [puppetlabs.classifier.http :refer :all]
             [ring.mock.request :as mock :refer [request]]
@@ -116,7 +117,8 @@
 
 (deftest classes
   (let [myclass {:name "myclass",
-                 :parameters {:param1 "value"}}
+                 :parameters {:param1 "value"}
+                 :environment "test"}
         mock-db (reify Storage
                   (get-class [_ class-name] myclass)
                   (create-class [_ class]
@@ -125,12 +127,12 @@
     (testing "returns class with its parameters"
       (let [response (app (class-request :get "myclass"))]
         (is-http-status 200 response)
-        (is (= (generate-string myclass) (:body response)))))
+        (is (= myclass (keywordize-keys (parse-string (:body response)))))))
 
     (testing "tells the storage layer to store the class map"
       (let [response (app (class-request :put "myclass" myclass))]
         (is-http-status 201 response)
-        (is (= (generate-string myclass) (:body response)))))))
+        (is (= myclass (keywordize-keys (parse-string (:body response)))))))))
 
 (defn rule-request
   [method rule]

@@ -11,6 +11,8 @@
               :user (or (System/getenv "CLASSIFIER_DBUSER") "classifier_test")
               :password (or (System/getenv "CLASSIFIER_DBPASS") "classifier_test")})
 
+(def db (new-db test-db))
+
 (defn with-test-db
   "Fixture that sets up a cleanly initialized and migrated database"
   [f]
@@ -53,67 +55,69 @@
 
 (deftest ^:database test-node
   (testing "inserts nodes"
-    (create-node (new-db test-db) {:name "test"})
+    (create-node db {:name "test"})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
   (testing "retrieves a node"
-    (is (= {:name "test"} (get-node (new-db test-db) "test"))))
+    (is (= {:name "test"} (get-node db "test"))))
   (testing "deletes a node"
-    (delete-node (new-db test-db) "test")
+    (delete-node db "test")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
 (deftest ^:database groups
   (testing "insert a group"
-    (create-group (new-db test-db) {:name "test" :classes []})
+    (create-group db {:name "test" :classes []})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "store a group with multiple classes"
-    (create-class (new-db test-db) {:name "hi" :parameters {}})
-    (create-class (new-db test-db) {:name "bye" :parameters {}})
-    (create-group (new-db test-db) {:name "group-two"
-                                    :classes ["hi", "bye"]})
+    (create-environment db {:name "test"})
+    (create-class db {:name "hi" :parameters {} :environment "test"})
+    (create-class db {:name "bye" :parameters {} :environment "test"})
+    (create-group db {:name "group-two"
+                      :classes ["hi", "bye"]})
     (is (= 2 (count (jdbc/query test-db
-      ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "group-two"])))))
+                                ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "group-two"])))))
   (testing "retrieves a group"
-    (is (= {:name "test" :classes []} (get-group (new-db test-db) "test"))))
+    (is (= {:name "test" :classes []} (get-group db "test"))))
   (testing "retrieves a group with classes"
     (is (= {:name "group-two" :classes ["hi" "bye"]}
-           (get-group (new-db test-db) "group-two"))))
+           (get-group db "group-two"))))
   (testing "deletes a group"
-    (delete-group (new-db test-db) "test")
+    (delete-group db "test")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"]))))))
 
 (deftest ^:database classes
+  (create-environment db {:name "test"})
   (testing "store a class with no parameters"
-    (create-class (new-db test-db) {:name "myclass" :parameters {}}))
+    (create-class db {:name "myclass" :parameters {} :environment "test"}))
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
   (testing "store a class with multiple parameters"
-    (create-class (new-db test-db) {:name "classtwo"
+    (create-class db {:name "classtwo"
                                     :parameters {:param1 "value1"
-                                                 :param2 "value2"}})
+                                                 :param2 "value2"}
+                                    :environment "test"})
     (is (= 2 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
   (testing "retrieve a class with no parameters"
-    (let [testclass {:name "noclass" :parameters {}}]
-      (create-class (new-db test-db) testclass)
-      (is (= testclass (get-class (new-db test-db) "noclass")))))
+    (let [testclass {:name "noclass" :parameters {} :environment "test"}]
+      (create-class db testclass)
+      (is (= testclass (get-class db "noclass")))))
   (testing "retrieve a class with parameters"
-    (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"}}]
-      (create-class (new-db test-db) testclass)
-      (is (= testclass (get-class (new-db test-db) "testclass")))))
+    (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"} :environment "test"}]
+      (create-class db testclass)
+      (is (= testclass (get-class db "testclass")))))
   (testing "deletes a class with no paramters"
-    (delete-class (new-db test-db) "noclass")
+    (delete-class db "noclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
   (testing "deletes a class with parameters"
-    (delete-class (new-db test-db) "testclass")
+    (delete-class db "testclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
     (is (= 0 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database rules
-  (let [db (new-db test-db)
-        hello-group {:name "hello" :classes ["salutation"]}
+  (let [hello-group {:name "hello" :classes ["salutation"]}
         goodbye-group {:name "goodbye" :classes ["valediction"]}
-        salutation-class {:name "salutation" :parameters {}}
-        valediction-class {:name "valediction" :parameters {}}
+        salutation-class {:name "salutation" :parameters {} :environment "production"}
+        valediction-class {:name "valediction" :parameters {} :environment "production"}
         test-rule-1 {:when ["=" "name" "test"]
                      :groups []}
         test-rule-2 {:when ["=" "name" "bar"]
@@ -122,6 +126,7 @@
       (create-rule db test-rule-1)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"])))))
     (testing "creates a rule with groups"
+      (create-environment db {:name "production"})
       (create-class db salutation-class)
       (create-class db valediction-class)
       (create-group db hello-group)
@@ -133,8 +138,7 @@
              (project (get-rules db) [:when :groups]))))))
 
 (deftest ^:database environments
-  (let [db (new-db test-db)
-        test-env {:name "test"}]
+  (let [test-env {:name "test"}]
     (testing "creates an environment"
       (create-environment db test-env)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM environments"])))))

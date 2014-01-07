@@ -8,7 +8,8 @@
 
 (def puppetlabs.classifier.schema/Class
   {(sc/required-key :name) String
-   (sc/required-key :parameters) {sc/Keyword String}})
+   (sc/required-key :parameters) {sc/Keyword String}
+   (sc/required-key :environment) String})
 
 (def Rule
   {(sc/required-key :when) [String]
