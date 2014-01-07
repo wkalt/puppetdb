@@ -79,8 +79,15 @@
                            (format "Body is not valid JSON: %s"
                                    (::request-body ctx)))})))
 
-(defn crud-resource
-  [resource-name schema storage storage-fns]
+(sc/defn crud-resource
+  "Create a basic CRUD endpoint for a resource, given a storage object and a
+  map of functions to store the resource."
+  [resource-name :- String
+   schema :- sc/Schema
+   storage :- (sc/protocol storage/Storage)
+   storage-fns :- {:get (sc/->FnSchema sc/Any sc/Any)
+                   :create (sc/->FnSchema sc/Any sc/Any)
+                   :delete (sc/->FnSchema sc/Any sc/Any)}]
   (classifier-resource
     {:get (fn [_]
             (if-let [resource ((:get storage-fns) storage resource-name)]
