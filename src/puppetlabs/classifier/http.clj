@@ -7,7 +7,7 @@
             [schema.core :as sc]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Group Node Rule]]))
+            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -115,6 +115,12 @@
              {:get storage/get-class
               :create storage/create-class
               :delete storage/delete-class}))
+
+      (ANY "/v1/environments/:environment-name" [environment-name]
+           (crud-resource environment-name Environment db
+             {:get storage/get-environment
+              :create storage/create-environment
+              :delete storage/delete-environment}))
 
       (ANY "/v1/rules" []
            (resource

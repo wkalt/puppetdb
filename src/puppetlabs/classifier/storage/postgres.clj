@@ -149,6 +149,10 @@
                                    (sql/where {:name environment-name})))]
     environment))
 
+(defn delete-environment* [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (jdbc/delete! db :environments (sql/where {:name environment-name})))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -169,4 +173,5 @@
    :create-rule create-rule*
    :get-rules get-rules*
    :create-environment create-environment*
-   :get-environment get-environment*})
+   :get-environment get-environment*
+   :delete-environment delete-environment*})

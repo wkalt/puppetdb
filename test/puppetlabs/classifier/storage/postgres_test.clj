@@ -139,4 +139,7 @@
       (create-environment db test-env)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM environments"])))))
     (testing "retrieves an environment"
-      (is (= test-env (get-environment db "test"))))))
+      (is (= test-env (get-environment db "test"))))
+    (testing "deletes an environment"
+      (delete-environment db "test")
+      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM environments"])))))))

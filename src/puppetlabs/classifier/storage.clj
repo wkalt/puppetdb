@@ -13,4 +13,5 @@
   (create-rule [this rule] "Creates a rule")
   (get-rules [this] "Retrieve all rules")
   (create-environment [this environment] "Creates an environment")
-  (get-environment [this environment-name] "Retrieves an environment"))
+  (get-environment [this environment-name] "Retrieves an environment")
+  (delete-environment [this environment-name] "Deletes an environment"))
