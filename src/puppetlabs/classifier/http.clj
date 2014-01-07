@@ -85,6 +85,7 @@
   [resource-name :- String
    schema :- sc/Schema
    storage :- (sc/protocol storage/Storage)
+   defaults :- {sc/Keyword sc/Any}
    storage-fns :- {:get (sc/->FnSchema sc/Any sc/Any)
                    :create (sc/->FnSchema sc/Any sc/Any)
                    :delete (sc/->FnSchema sc/Any sc/Any)}]
@@ -93,7 +94,7 @@
             (if-let [resource ((:get storage-fns) storage resource-name)]
               {::retrieved resource}))
      :put (fn [ctx]
-            (let [resource (-> (::data ctx {})
+            (let [resource (-> (merge defaults (::data ctx {}))
                                (assoc :name resource-name))]
               (sc/validate schema resource)
               ((:create storage-fns) storage resource)
@@ -106,25 +107,26 @@
   (wrap-schema-fail
     (routes
       (ANY "/v1/nodes/:node-name" [node-name]
-           (crud-resource node-name Node db
+           (crud-resource node-name Node db {}
              {:get storage/get-node
               :create storage/create-node
               :delete storage/delete-node}))
 
       (ANY "/v1/groups/:group-name" [group-name]
-           (crud-resource group-name Group db
+           (crud-resource group-name Group db {}
              {:get storage/get-group
               :create storage/create-group
               :delete storage/delete-group}))
 
       (ANY "/v1/classes/:class-name" [class-name]
            (crud-resource class-name PuppetClass db
+             {:environment "production"}
              {:get storage/get-class
               :create storage/create-class
               :delete storage/delete-class}))
 
       (ANY "/v1/environments/:environment-name" [environment-name]
-           (crud-resource environment-name Environment db
+           (crud-resource environment-name Environment db {}
              {:get storage/get-environment
               :create storage/create-environment
               :delete storage/delete-environment}))
