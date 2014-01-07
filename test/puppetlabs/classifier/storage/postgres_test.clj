@@ -126,7 +126,6 @@
       (create-rule db test-rule-1)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"])))))
     (testing "creates a rule with groups"
-      (create-environment db {:name "production"})
       (create-class db salutation-class)
       (create-class db valediction-class)
       (create-group db hello-group)
