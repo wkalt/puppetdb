@@ -131,3 +131,12 @@
     (testing "retrieves all rules"
       (is (= #{test-rule-1 test-rule-2}
              (project (get-rules db) [:when :groups]))))))
+
+(deftest ^:database environments
+  (let [db (new-db test-db)
+        test-env {:name "test"}]
+    (testing "creates an environment"
+      (create-environment db test-env)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM environments"])))))
+    (testing "retrieves an environment"
+      (is (= test-env (get-environment db "test"))))))

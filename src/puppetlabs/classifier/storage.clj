@@ -11,4 +11,6 @@
   (create-class [this class] "Creates a class specification")
   (delete-class [this class-name] "Deletes a class specification")
   (create-rule [this rule] "Creates a rule")
-  (get-rules [this] "Retrieve all rules"))
+  (get-rules [this] "Retrieve all rules")
+  (create-environment [this environment] "Creates an environment")
+  (get-environment [this environment-name] "Retrieves an environment"))

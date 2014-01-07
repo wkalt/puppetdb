@@ -14,3 +14,5 @@
   {(sc/required-key :when) [String]
    (sc/required-key :groups) [String]
    (sc/optional-key :id) Number})
+
+(def Environment {(sc/required-key :name) String})

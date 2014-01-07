@@ -4,7 +4,7 @@
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
-            [puppetlabs.classifier.schema :refer [Group Node Rule]]
+            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
@@ -136,6 +136,19 @@
         rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
 
+(defn create-environment*
+  [{db :db} environment]
+  {:pre [sc/validate Environment environment]}
+  (jdbc/insert! db :environments environment))
+
+(sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)
+  [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (let [[environment]
+        (jdbc/query db (sql/select :name :environments
+                                   (sql/where {:name environment-name})))]
+    environment))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -154,4 +167,6 @@
    :get-class get-class*
    :delete-class delete-class*
    :create-rule create-rule*
-   :get-rules get-rules*})
+   :get-rules get-rules*
+   :create-environment create-environment*
+   :get-environment get-environment*})
