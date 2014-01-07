@@ -4,7 +4,7 @@
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
-            [puppetlabs.classifier.schema :refer [Group Node Rule]]
+            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
@@ -82,11 +82,13 @@
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
-(defn create-class* [{db :db} {:keys [name parameters] :as class}]
+(defn create-class*
+  [{db :db}
+   {:keys [name parameters environment] :as class}]
   {:pre [(sc/validate PuppetClass class)]}
   (jdbc/with-db-transaction
     [t-db db]
-    (jdbc/insert! t-db :classes {:name name})
+    (jdbc/insert! t-db :classes {:name name :environment_name environment})
     (doseq [[param value] parameters]
       (jdbc/insert! t-db :class_parameters
                     [:class_name :parameter :default_value]
@@ -107,7 +109,9 @@
                                  " WHERE c.name = ?")
                                class-name])]
     (if-not (empty? result)
-      {:name class-name :parameters (extract-parameters result)})))
+      {:name class-name
+       :environment (:environment_name (first result))
+       :parameters (extract-parameters result)})))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
@@ -136,6 +140,23 @@
         rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
 
+(defn create-environment*
+  [{db :db} environment]
+  {:pre [sc/validate Environment environment]}
+  (jdbc/insert! db :environments environment))
+
+(sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)
+  [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (let [[environment]
+        (jdbc/query db (sql/select :name :environments
+                                   (sql/where {:name environment-name})))]
+    environment))
+
+(defn delete-environment* [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (jdbc/delete! db :environments (sql/where {:name environment-name})))
+
 (defrecord Postgres [db])
 
 (defn new-db [spec]
@@ -154,4 +175,7 @@
    :get-class get-class*
    :delete-class delete-class*
    :create-rule create-rule*
-   :get-rules get-rules*})
+   :get-rules get-rules*
+   :create-environment create-environment*
+   :get-environment get-environment*
+   :delete-environment delete-environment*})
