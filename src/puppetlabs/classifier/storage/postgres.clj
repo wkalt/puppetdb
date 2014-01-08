@@ -4,6 +4,7 @@
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
@@ -21,6 +22,28 @@
   [db]
   (if-let [tables (seq (public-tables db))]
     (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
+
+(defn convert-result-arrays
+  "Converts Java and JDBC arrays in a result set using the provided function
+  (eg. vec, set). Values which aren't arrays are unchanged."
+  ([result-set]
+     (convert-result-arrays vec result-set))
+  ([f result-set]
+     (let [convert #(cond
+                     (kitchensink/array? %) (f %)
+                     (isa? (class %) java.sql.Array) (f (.getArray %))
+                     :else %)]
+       (map #(kitchensink/mapvals convert %) result-set))))
+
+(defn query
+  "An implementation of query that returns a fully evaluated result (no
+  JDBCArray objects, etc)"
+  [db-spec sql-and-params]
+  (let [convert (fn [rs]
+                  (doall
+                    (convert-result-arrays (comp (partial remove nil?) vec)
+                                           (jdbc/result-set-seq rs))))]
+    (jdbc/db-query-with-resultset db-spec sql-and-params convert)))
 
 (defn migrate [db]
   (migratus/migrate {:store :database
@@ -67,22 +90,16 @@
                     [:group_name :class_name :environment_name]
                     [(:name group) class (:environment group)]))))
 
+(def select-group
+  "SELECT name, g.environment_name as environment, array_agg(class_name) as classes
+  FROM groups g LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
+  WHERE g.name = ? GROUP BY name")
+
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
-  [{db :db} group-name]
-  {:pre [(string? group-name)]}
-  (let [result (jdbc/query db [(str
-                                 "SELECT * FROM groups g"
-                                 " LEFT OUTER JOIN group_classes gc"
-                                 " ON g.name = gc.group_name"
-                                 " WHERE g.name = ?")
-                               group-name])]
-    (if-not (empty? result)
-      {:name group-name
-       :environment (:environment_name (first result))
-       :classes (for [r result
-                      :let [class (:class_name r)]
-                      :when class]
-                  class)})))
+  [{db :db}
+   group-name :- String]
+  (let [[result] (query db [select-group group-name])]
+    result))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
