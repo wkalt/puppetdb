@@ -7,7 +7,8 @@
             [schema.core :as sc]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]))
+            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]])
+  (:import com.fasterxml.jackson.core.JsonParseException))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -22,7 +23,7 @@
     (if-let [data (keywordize-keys (parse-string body))]
       [false {::data data}]
       true)
-    (catch Exception e ; FIXME: exception event horizon
+    (catch JsonParseException e
       [true {::error e, ::request-body body}])))
 
 (defn parse-if-body
