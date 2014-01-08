@@ -82,7 +82,12 @@
            (get-group db "group-two"))))
   (testing "deletes a group"
     (delete-group db "test")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"]))))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"])))))
+  (testing "storing and then retrieving group that has the same class listed multiple times results in a group with that class listed only once"
+    (create-class db {:name "ditto" :parameters {} :environment "test"})
+    (create-group db {:name "dittolover" :classes ["ditto" "ditto"]})
+    (let [retrieved-group (get-group db "dittolover")]
+      (is (= (:classes retrieved-group) ["ditto"])))))
 
 (deftest ^:database classes
   (create-environment db {:name "test"})

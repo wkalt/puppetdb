@@ -58,7 +58,7 @@
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups (select-keys group [:name]))
-    (doseq [class (:classes group)]
+    (doseq [class (set (:classes group))]
       (jdbc/insert! t-db :group_classes
                     [:group_name :class_name]
                     [(:name group) class]))))
