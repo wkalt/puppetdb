@@ -114,7 +114,8 @@
               :delete storage/delete-node}))
 
       (ANY "/v1/groups/:group-name" [group-name]
-           (crud-resource group-name Group db {}
+           (crud-resource group-name Group db
+             {:environment "production"}
              {:get storage/get-group
               :create storage/create-group
               :delete storage/delete-group}))

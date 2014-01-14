@@ -123,8 +123,7 @@
       (let [env-resp   (http/put (str base-url "/v1/environments/staging"))
             class-resp (http/put (str base-url "/v1/classes/foo")
                                  {:content-type :json
-                                  :body (json/generate-string {:parameters {}
-                                                               :environment "staging"})})
+                                  :body (json/generate-string {:parameters {}})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
                                   :body (json/generate-string {:classes ["foo"]})})

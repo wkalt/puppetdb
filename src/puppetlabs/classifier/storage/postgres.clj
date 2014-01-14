@@ -4,6 +4,7 @@
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
@@ -22,6 +23,28 @@
   (if-let [tables (seq (public-tables db))]
     (apply jdbc/db-do-commands db (map #(format "DROP TABLE %s CASCADE" %) (seq tables)))))
 
+(defn convert-result-arrays
+  "Converts Java and JDBC arrays in a result set using the provided function
+  (eg. vec, set). Values which aren't arrays are unchanged."
+  ([result-set]
+     (convert-result-arrays vec result-set))
+  ([f result-set]
+     (let [convert #(cond
+                     (kitchensink/array? %) (f %)
+                     (isa? (class %) java.sql.Array) (f (.getArray %))
+                     :else %)]
+       (map #(kitchensink/mapvals convert %) result-set))))
+
+(defn query
+  "An implementation of query that returns a fully evaluated result (no
+  JDBCArray objects, etc)"
+  [db-spec sql-and-params]
+  (let [convert (fn [rs]
+                  (doall
+                    (convert-result-arrays (comp (partial remove nil?) vec)
+                                           (jdbc/result-set-seq rs))))]
+    (jdbc/db-query-with-resultset db-spec sql-and-params convert)))
+
 (defn migrate [db]
   (migratus/migrate {:store :database
                      :migration-dir "migrations"
@@ -39,8 +62,9 @@
 ;;; Functions here are referred to below when calling extend. This indirection
 ;;; lets us use pre- and post-conditions as well as schema.
 
-(defn create-node* [{db :db} node]
-  {:pre [sc/validate Node node]}
+(sc/defn ^:always-validate create-node*
+  [{db :db}
+   node :- Node]
   (jdbc/insert! db :nodes node))
 
 (sc/defn ^:always-validate get-node* :- (sc/maybe Node)
@@ -53,46 +77,43 @@
   {:pre [(string? node-name)]}
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
-(defn create-group* [{db :db} group]
-  {:pre [(sc/validate Group group)]}
+(sc/defn ^:always-validate create-group*
+  [{db :db}
+   group :- Group]
   (jdbc/with-db-transaction
     [t-db db]
-    (jdbc/insert! t-db :groups (select-keys group [:name]))
+    (jdbc/insert! t-db :groups
+                  [:name :environment_name]
+                  ((juxt :name :environment) group))
     (doseq [class (set (:classes group))]
       (jdbc/insert! t-db :group_classes
-                    [:group_name :class_name]
-                    [(:name group) class]))))
+                    [:group_name :class_name :environment_name]
+                    [(:name group) class (:environment group)]))))
+
+(def select-group
+  "SELECT name, g.environment_name as environment, array_agg(class_name) as classes
+  FROM groups g LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
+  WHERE g.name = ? GROUP BY name")
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
-  [{db :db} group-name]
-  {:pre [(string? group-name)]}
-  (let [result (jdbc/query db [(str
-                                 "SELECT * FROM groups g"
-                                 " LEFT OUTER JOIN group_classes gc"
-                                 " ON g.name = gc.group_name"
-                                 " WHERE g.name = ?")
-                               group-name])]
-    (if-not (empty? result)
-      {:name group-name
-       :classes (for [r result
-                      :let [class (:class_name r)]
-                      :when class]
-                  class)})))
+  [{db :db}
+   group-name :- String]
+  (let [[result] (query db [select-group group-name])]
+    result))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
-(defn create-class*
+(sc/defn ^:always-validate create-class*
   [{db :db}
-   {:keys [name parameters environment] :as class}]
-  {:pre [(sc/validate PuppetClass class)]}
+   {:keys [name parameters environment] :as class} :- PuppetClass]
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :classes {:name name :environment_name environment})
     (doseq [[param value] parameters]
       (jdbc/insert! t-db :class_parameters
-                    [:class_name :parameter :default_value]
-                    [name (clojure.core/name param) value]))))
+                    [:class_name :parameter :default_value :environment_name]
+                    [name (clojure.core/name param) value environment]))))
 
 (defn extract-parameters [result]
   (into {} (for [[param default] (->> result
@@ -116,9 +137,9 @@
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
 
-(defn create-rule*
-  [{db :db}  {:keys [when groups] :as rule}]
-  {:pre [(sc/validate Rule rule)]}
+(sc/defn ^:always-validate create-rule*
+  [{db :db}
+   {:keys [when groups] :as rule} :- Rule]
   (jdbc/with-db-transaction
     [t-db db]
     (let [storage-rule {:match (json/generate-string when)}
@@ -140,9 +161,9 @@
         rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
 
-(defn create-environment*
-  [{db :db} environment]
-  {:pre [sc/validate Environment environment]}
+(sc/defn ^:always-validate create-environment*
+  [{db :db}
+   environment :- Environment]
   (jdbc/insert! db :environments environment))
 
 (sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)

@@ -86,7 +86,7 @@
        req))))
 
 (deftest groups
-  (let [test-group {:name "agroup", :classes ["foo"]}
+  (let [test-group {:name "agroup", :classes ["foo"], :environment "bar"}
         creation-req (group-request :put "agroup"
                                     (generate-string (dissoc test-group :name)))
         mock-db (reify Storage
@@ -106,7 +106,7 @@
         (is-http-status 201 resp))
 
       (testing "when creating the group returns the group as json"
-        (is (= {"name" "agroup", "classes" ["foo"]}
+        (is (= {"name" "agroup", "classes" ["foo"], "environment" "bar"}
                (parse-string (:body resp))))))))
 
 (defn class-request
