@@ -41,8 +41,8 @@ CREATE TABLE group_classes (
     class_name TEXT NOT NULL,
     environment_name TEXT NOT NULL,
     PRIMARY KEY (group_name, class_name),
-    FOREIGN KEY (group_name, environment_name) REFERENCES groups (name, environment_name) ON DELETE CASCADE,
-    FOREIGN KEY (class_name, environment_name) REFERENCES classes (name, environment_name) ON DELETE CASCADE
+    FOREIGN KEY (group_name, environment_name) REFERENCES groups (name, environment_name),
+    FOREIGN KEY (class_name, environment_name) REFERENCES classes (name, environment_name)
 );
 --;;
 CREATE UNIQUE INDEX ON group_classes (group_name, class_name, environment_name);
@@ -55,8 +55,8 @@ CREATE TABLE group_class_parameters (
     group_name TEXT NOT NULL,
     value TEXT NOT NULL,
     PRIMARY KEY (group_name, class_name, environment_name, parameter),
-    FOREIGN KEY (group_name, class_name, environment_name) REFERENCES group_classes (group_name, class_name, environment_name) ON DELETE CASCADE,
-    FOREIGN KEY (class_name, environment_name, parameter) REFERENCES class_parameters (class_name, environment_name, parameter) ON DELETE CASCADE
+    FOREIGN KEY (group_name, class_name, environment_name) REFERENCES group_classes (group_name, class_name, environment_name),
+    FOREIGN KEY (class_name, environment_name, parameter) REFERENCES class_parameters (class_name, environment_name, parameter)
 );
 --;;
 
