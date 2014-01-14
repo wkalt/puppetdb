@@ -57,11 +57,13 @@
   {:pre [(sc/validate Group group)]}
   (jdbc/with-db-transaction
     [t-db db]
-    (jdbc/insert! t-db :groups (select-keys group [:name]))
+    (jdbc/insert! t-db :groups
+                  [:name :environment_name]
+                  ((juxt :name :environment) group))
     (doseq [class (set (:classes group))]
       (jdbc/insert! t-db :group_classes
-                    [:group_name :class_name]
-                    [(:name group) class]))))
+                    [:group_name :class_name :environment_name]
+                    [(:name group) class (:environment group)]))))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
   [{db :db} group-name]
@@ -74,6 +76,7 @@
                                group-name])]
     (if-not (empty? result)
       {:name group-name
+       :environment (:environment_name (first result))
        :classes (for [r result
                       :let [class (:class_name r)]
                       :when class]
@@ -91,8 +94,8 @@
     (jdbc/insert! t-db :classes {:name name :environment_name environment})
     (doseq [[param value] parameters]
       (jdbc/insert! t-db :class_parameters
-                    [:class_name :parameter :default_value]
-                    [name (clojure.core/name param) value]))))
+                    [:class_name :parameter :default_value :environment_name]
+                    [name (clojure.core/name param) value environment]))))
 
 (defn extract-parameters [result]
   (into {} (for [[param default] (->> result

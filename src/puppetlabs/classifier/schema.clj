@@ -4,7 +4,8 @@
 (def Node {(sc/required-key :name) String})
 
 (def Group {(sc/required-key :name) String
-            (sc/required-key :classes) [String]})
+            (sc/required-key :classes) [String]
+            (sc/required-key :environment) String})
 
 (def puppetlabs.classifier.schema/Class
   {(sc/required-key :name) String
