@@ -30,7 +30,7 @@ CREATE TABLE class_parameters (
     default_value TEXT,
     environment_name TEXT NOT NULL,
     class_name TEXT NOT NULL,
-    PRIMARY KEY(class_name, parameter),
+    PRIMARY KEY(class_name, parameter, environment_name),
     FOREIGN KEY (class_name, environment_name) REFERENCES classes (name, environment_name) ON DELETE CASCADE
 );
 --;;
