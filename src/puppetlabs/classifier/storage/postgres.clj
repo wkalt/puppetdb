@@ -39,8 +39,9 @@
 ;;; Functions here are referred to below when calling extend. This indirection
 ;;; lets us use pre- and post-conditions as well as schema.
 
-(defn create-node* [{db :db} node]
-  {:pre [sc/validate Node node]}
+(sc/defn ^:always-validate create-node*
+  [{db :db}
+   node :- Node]
   (jdbc/insert! db :nodes node))
 
 (sc/defn ^:always-validate get-node* :- (sc/maybe Node)
@@ -53,8 +54,9 @@
   {:pre [(string? node-name)]}
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
-(defn create-group* [{db :db} group]
-  {:pre [(sc/validate Group group)]}
+(sc/defn ^:always-validate create-group*
+  [{db :db}
+   group :- Group]
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups
@@ -85,10 +87,9 @@
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
-(defn create-class*
+(sc/defn ^:always-validate create-class*
   [{db :db}
-   {:keys [name parameters environment] :as class}]
-  {:pre [(sc/validate PuppetClass class)]}
+   {:keys [name parameters environment] :as class} :- PuppetClass]
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :classes {:name name :environment_name environment})
@@ -119,9 +120,9 @@
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
 
-(defn create-rule*
-  [{db :db}  {:keys [when groups] :as rule}]
-  {:pre [(sc/validate Rule rule)]}
+(sc/defn ^:always-validate create-rule*
+  [{db :db}
+   {:keys [when groups] :as rule} :- Rule]
   (jdbc/with-db-transaction
     [t-db db]
     (let [storage-rule {:match (json/generate-string when)}
@@ -143,9 +144,9 @@
         rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
 
-(defn create-environment*
-  [{db :db} environment]
-  {:pre [sc/validate Environment environment]}
+(sc/defn ^:always-validate create-environment*
+  [{db :db}
+   environment :- Environment]
   (jdbc/insert! db :environments environment))
 
 (sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)
