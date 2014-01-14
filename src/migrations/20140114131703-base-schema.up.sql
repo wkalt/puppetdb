@@ -17,8 +17,9 @@ CREATE UNIQUE INDEX ON groups (name, environment_name);
 --;;
 
 CREATE TABLE classes (
-    name TEXT PRIMARY KEY,
-    environment_name TEXT NOT NULL REFERENCES environments(name)
+    name TEXT NOT NULL,
+    environment_name TEXT NOT NULL REFERENCES environments(name),
+    PRIMARY KEY (name, environment_name)
 );
 --;;
 CREATE UNIQUE INDEX ON classes (name, environment_name);
