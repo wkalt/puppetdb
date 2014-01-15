@@ -123,10 +123,17 @@
       (let [env-resp   (http/put (str base-url "/v1/environments/staging"))
             class-resp (http/put (str base-url "/v1/classes/foo")
                                  {:content-type :json
-                                  :body (json/generate-string {:parameters {}})})
+                                  :body (json/generate-string
+                                          {:parameters {:user "default"
+                                                        :home nil}
+                                           :environment "staging"})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
-                                  :body (json/generate-string {:classes ["foo"]})})
+                                  :body (json/generate-string
+                                          {:classes
+                                           {:foo {:user "testy"
+                                                  :home "/usr/home/testy"}}
+                                           :environment "staging"})})
             rule-resp  (http/post (str base-url "/v1/rules")
                                   {:content-type :json
                                    :body (json/generate-string {:when ["=" "name" "foo"]
@@ -137,4 +144,6 @@
         (is (= 201 (:status group-resp)))
         (is (= 201 (:status rule-resp)))
         (is (= ["test-group"] ((json/parse-string (:body node-resp)) "groups")))
-        (is (= ["foo"] ((json/parse-string (:body node-resp)) "classes")))))))
+        (is (= {"foo" {"user" "testy"
+                       "home" "/usr/home/testy"}}
+               ((json/parse-string (:body node-resp)) "classes")))))))

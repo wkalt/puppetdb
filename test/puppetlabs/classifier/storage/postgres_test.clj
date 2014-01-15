@@ -66,29 +66,48 @@
 (deftest ^:database groups
   (testing "insert a group"
     (create-environment db {:name "test"})
-    (create-group db {:name "test" :classes [] :environment "test"})
+    (create-group db {:name "test" :classes {} :environment "test"})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "store a group with multiple classes"
     (create-class db {:name "hi" :parameters {} :environment "test"})
     (create-class db {:name "bye" :parameters {} :environment "test"})
     (create-group db {:name "group-two"
-                      :classes ["hi", "bye"]
+                      :classes {:hi {} :bye {}}
                       :environment "test"})
     (is (= 2 (count (jdbc/query test-db
                                 ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "group-two"])))))
   (testing "retrieves a group"
-    (is (= {:name "test" :classes [] :environment "test"} (get-group db "test"))))
+    (is (= {:name "test" :classes {} :environment "test"} (get-group db "test"))))
   (testing "retrieves a group with classes"
-    (is (= {:name "group-two" :classes ["hi" "bye"] :environment "test"}
+    (is (= {:name "group-two" :classes {:hi {} :bye {}} :environment "test"}
            (get-group db "group-two"))))
   (testing "deletes a group"
     (delete-group db "test")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"])))))
-  (testing "storing and then retrieving group that has the same class listed multiple times results in a group with that class listed only once"
-    (create-class db {:name "ditto" :parameters {} :environment "test"})
-    (create-group db {:name "dittolover" :classes ["ditto" "ditto"] :environment "test"})
-    (let [retrieved-group (get-group db "dittolover")]
-      (is (= (:classes retrieved-group) ["ditto"])))))
+    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"]))))))
+
+(deftest ^:database complex-group
+  (create-environment db {:name "test"})
+  (testing "store a group with class parameters"
+    (create-class db {:name "first"
+                      :parameters {:one "one-def"
+                                   :two nil}
+                      :environment "test"})
+    (create-class db {:name "second"
+                      :parameters {:three nil
+                                   :four nil
+                                   :five "default"}
+                      :environment "test"})
+    (create-group db {:name "group-params"
+                      :classes {:first {:one "one-val"
+                                        :two "two-val"}
+                                :second {:three "three-val"}}
+                      :environment "test"})
+    (is (= (get-group db "group-params")
+           {:name "group-params"
+            :environment "test"
+            :classes {:first {:one "one-val"
+                              :two "two-val"}
+                      :second {:three "three-val"}}}))))
 
 (deftest ^:database classes
   (create-environment db {:name "test"})
@@ -120,8 +139,8 @@
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database rules
-  (let [hello-group {:name "hello" :classes ["salutation"] :environment "production"}
-        goodbye-group {:name "goodbye" :classes ["valediction"] :environment "production"}
+  (let [hello-group {:name "hello" :classes {:salutation {}}  :environment "production"}
+        goodbye-group {:name "goodbye" :classes {:valediction {}} :environment "production"}
         salutation-class {:name "salutation" :parameters {} :environment "production"}
         valediction-class {:name "valediction" :parameters {} :environment "production"}
         test-rule-1 {:when ["=" "name" "test"]
