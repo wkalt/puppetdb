@@ -1,14 +1,14 @@
 (ns puppetlabs.classifier.storage.sql-utils)
 
-(defn aggregate-into
-  "Aggregates a sequence of maps, grouping by the complement of group-keys and
-  merging the result into a map of the remaining keys under into-key"
-  [into-key group-keys results]
-  {:pre [(= 2 (count group-keys))]}
-  (for [group (group-by #(apply dissoc % group-keys) results)]
-    (let [[grouped all] group]
-      (assoc grouped into-key (->> all
-                                   (map (apply juxt group-keys))
-                                   (remove (comp nil? first))
-                                   (into {}))))))
+(defn aggregate-submap-by
+  "Given a sequence of maps in results where each map contains agg-key and
+  agg-val as keys, groups the maps that are identical except for the values in
+  agg-key or agg-val. The values of agg-key and agg-val are turned into a map
+  and stored in the resulting map under under-key."
+  [agg-key agg-val under-key results]
+  (for [[grouped all] (group-by #(dissoc % agg-key agg-val) results)]
+    (assoc grouped under-key (->> all
+                               (map (juxt agg-key agg-val))
+                               (remove (comp nil? first))
+                               (into {})))))
 

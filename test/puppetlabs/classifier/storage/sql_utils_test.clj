@@ -24,7 +24,7 @@
   (testing "handles nils"
     (is (= '({:a 1 :b 2 :cs {}})
            (->> '({:a 1 :b 2 :c nil :d nil})
-                (aggregate-into :cs [:c :d])))))
+                (aggregate-submap-by :c :d :cs)))))
   (testing "nested calls"
     (is (= '({:name "group-params"
             :environment "test"
@@ -32,6 +32,6 @@
                               :two "two-val"}
                       :second {:three "three-val"}}})
            (->> test-vals
-             (aggregate-into :parameters [:parameter :value])
-             (aggregate-into :classes [:class :parameters])
+             (aggregate-submap-by :parameter :value :parameters)
+             (aggregate-submap-by :class :parameters :classes)
              (keywordize-keys))))))

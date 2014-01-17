@@ -8,7 +8,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [puppetlabs.classifier.storage.sql-utils :as utils]))
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -80,7 +80,7 @@
 
 (sc/defn ^:always-validate create-group*
   [{db :db}
-   group :- Group]
+   {:keys [environment] group-name :name :as group} :- Group]
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups
@@ -90,12 +90,12 @@
       (let [[class-name class-params] class]
         (jdbc/insert! t-db :group_classes
                       [:group_name :class_name :environment_name]
-                      [(:name group) (name class-name) (:environment group)])
+                      [group-name (name class-name) environment])
         (doseq [class-param class-params]
           (let [[param value] class-param]
             (jdbc/insert! t-db :group_class_parameters
                           [:parameter :class_name :environment_name :group_name :value]
-                          [(name param) (name class-name) (:environment group) (:name group) value])))))))
+                          [(name param) (name class-name) environment group-name value])))))))
 
 (def select-group
   "SELECT name,
@@ -112,8 +112,8 @@
   [{db :db}
    group-name :- String]
   (let [[result] (->> (query db [select-group group-name])
-                   (utils/aggregate-into :parameters [:parameter :value])
-                   (utils/aggregate-into :classes [:class :parameters])
+                   (aggregate-submap-by :parameter :value :parameters)
+                   (aggregate-submap-by :class :parameters :classes)
                    (keywordize-keys))]
     result))
 
