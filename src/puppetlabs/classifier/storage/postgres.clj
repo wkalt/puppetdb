@@ -1,12 +1,14 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.walk :refer [keywordize-keys]]
             [java-jdbc.sql :as sql]
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
-            [puppetlabs.classifier.storage :refer [Storage]]))
+            [puppetlabs.classifier.storage :refer [Storage]]
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -56,7 +58,6 @@
 (defn select-group [group]
   (sql/select :name :groups (sql/where {:name group})))
 
-
 ;;; Storage protocol implementation
 ;;;
 ;;; Functions here are referred to below when calling extend. This indirection
@@ -79,26 +80,41 @@
 
 (sc/defn ^:always-validate create-group*
   [{db :db}
-   group :- Group]
+   {:keys [environment] group-name :name :as group} :- Group]
   (jdbc/with-db-transaction
     [t-db db]
     (jdbc/insert! t-db :groups
                   [:name :environment_name]
                   ((juxt :name :environment) group))
-    (doseq [class (set (:classes group))]
-      (jdbc/insert! t-db :group_classes
-                    [:group_name :class_name :environment_name]
-                    [(:name group) class (:environment group)]))))
+    (doseq [class (:classes group)]
+      (let [[class-name class-params] class]
+        (jdbc/insert! t-db :group_classes
+                      [:group_name :class_name :environment_name]
+                      [group-name (name class-name) environment])
+        (doseq [class-param class-params]
+          (let [[param value] class-param]
+            (jdbc/insert! t-db :group_class_parameters
+                          [:parameter :class_name :environment_name :group_name :value]
+                          [(name param) (name class-name) environment group-name value])))))))
 
 (def select-group
-  "SELECT name, g.environment_name as environment, array_agg(class_name) as classes
-  FROM groups g LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
-  WHERE g.name = ? GROUP BY name")
+  "SELECT name,
+          g.environment_name AS environment,
+          gc.class_name AS class,
+          gcp.parameter AS parameter,
+          gcp.value AS value
+  FROM groups g
+       LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
+       LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
+  WHERE g.name = ?")
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
   [{db :db}
    group-name :- String]
-  (let [[result] (query db [select-group group-name])]
+  (let [[result] (->> (query db [select-group group-name])
+                   (aggregate-submap-by :parameter :value :parameters)
+                   (aggregate-submap-by :class :parameters :classes)
+                   (keywordize-keys))]
     result))
 
 (defn delete-group* [{db :db} group-name]

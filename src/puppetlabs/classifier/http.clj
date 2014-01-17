@@ -159,8 +159,9 @@
                                 rules (storage/get-rules db)
                                 groups (mapcat (partial rules/apply-rule node) rules)
                                 classes (->> groups
-                                             (map (partial storage/get-group db))
-                                             (mapcat :classes))
+                                          (map (partial storage/get-group db))
+                                          (mapcat :classes)
+                                          (into {}))
                                 parameters {}
                                 environment "production"]
                             (assoc node

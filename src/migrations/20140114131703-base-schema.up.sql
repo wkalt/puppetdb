@@ -55,7 +55,7 @@ CREATE TABLE group_class_parameters (
     environment_name TEXT NOT NULL,
     group_name TEXT NOT NULL,
     value TEXT NOT NULL,
-    PRIMARY KEY (group_name, class_name, environment_name, parameter),
+    PRIMARY KEY (group_name, class_name, parameter),
     FOREIGN KEY (group_name, class_name, environment_name) REFERENCES group_classes (group_name, class_name, environment_name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
     FOREIGN KEY (class_name, environment_name, parameter) REFERENCES class_parameters (class_name, environment_name, parameter) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
 );

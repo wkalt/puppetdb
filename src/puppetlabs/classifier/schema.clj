@@ -4,12 +4,13 @@
 (def Node {(sc/required-key :name) String})
 
 (def Group {(sc/required-key :name) String
-            (sc/required-key :classes) [String]
+            (sc/required-key :classes) {sc/Keyword
+                                        {sc/Keyword (sc/maybe String)}}
             (sc/required-key :environment) String})
 
 (def puppetlabs.classifier.schema/Class
   {(sc/required-key :name) String
-   (sc/required-key :parameters) {sc/Keyword String}
+   (sc/required-key :parameters) {sc/Keyword (sc/maybe String)}
    (sc/required-key :environment) String})
 
 (def Rule
