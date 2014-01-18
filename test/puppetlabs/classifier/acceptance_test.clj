@@ -121,29 +121,26 @@
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
       (let [env-resp   (http/put (str base-url "/v1/environments/staging"))
-            class-resp (http/put (str base-url "/v1/classes/foo")
+            class-resp (http/put (str base-url "/v1/classes/noisyclass")
                                  {:content-type :json
-                                  :body (json/generate-string
-                                          {:parameters {:user "default"
-                                                        :home nil}
-                                           :environment "staging"})})
+                                  :body (json/generate-string {:parameters {:verbose "true"}
+                                                               :environment "staging"})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
-                                  :body (json/generate-string
-                                          {:classes
-                                           {:foo {:user "testy"
-                                                  :home "/usr/home/testy"}}
-                                           :environment "staging"})})
+                                  :body (json/generate-string {:classes {:noisyclass {:verbose "false"}}
+                                                               :environment "staging"})})
             rule-resp  (http/post (str base-url "/v1/rules")
                                   {:content-type :json
-                                   :body (json/generate-string {:when ["=" "name" "foo"]
+                                   :body (json/generate-string {:when ["=" "name" "thenode"]
                                                                 :groups ["test-group"]})})
-            node-resp  (http/get (str base-url "/v1/classified/nodes/foo")
-                                 {:accept :json})]
+            classification (-> (http/get (str base-url "/v1/classified/nodes/thenode")
+                                         {:accept :json})
+                             :body
+                             (json/parse-string true))]
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
         (is (= 201 (:status rule-resp)))
-        (is (= ["test-group"] ((json/parse-string (:body node-resp)) "groups")))
-        (is (= {"foo" {"user" "testy"
-                       "home" "/usr/home/testy"}}
-               ((json/parse-string (:body node-resp)) "classes")))))))
+        (is (= ["test-group"] (:groups classification)))
+        (is (= ["noisyclass"] (:classes classification)))
+        (is (= {:noisyclass {:verbose "false"}}
+               (:parameters classification)))))))

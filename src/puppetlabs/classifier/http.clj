@@ -1,5 +1,5 @@
 (ns puppetlabs.classifier.http
-  (:require [clojure.walk :refer [keywordize-keys]]
+  (:require [clojure.tools.logging :as log]
             [cheshire.core :refer [generate-string parse-string]]
             [compojure.core :refer [routes GET PUT ANY]]
             [compojure.route :as route]
@@ -20,7 +20,7 @@
   ::request-body."
   [body]
   (try
-    (if-let [data (keywordize-keys (parse-string body))]
+    (if-let [data (parse-string body true)]
       [false {::data data}]
       true)
     (catch JsonParseException e
@@ -157,17 +157,22 @@
                           (let [node (merge {:name node-name}
                                             (storage/get-node db node-name))
                                 rules (storage/get-rules db)
-                                groups (mapcat (partial rules/apply-rule node) rules)
+                                group-names (mapcat (partial rules/apply-rule node) rules)
+                                groups (map (partial storage/get-group db) group-names)
                                 classes (->> groups
-                                          (map (partial storage/get-group db))
-                                          (mapcat :classes)
-                                          (into {}))
-                                parameters {}
-                                environment "production"]
+                                          (mapcat #(-> % :classes keys))
+                                          set)
+                                parameters (->> groups
+                                             (map :classes)
+                                             (apply merge))
+                                environments (set (map :environment groups))]
+                            (when-not (= (count environments) 1)
+                              (log/warn "Node" node-name "is classified into groups" group-names
+                                        "with inconsistent environments" environments))
                             (assoc node
-                                   :groups groups
+                                   :groups group-names
                                    :classes classes
                                    :parameters parameters
-                                   :environment environment)))))
+                                   :environment (first environments))))))
 
       (route/not-found "Not found"))))
