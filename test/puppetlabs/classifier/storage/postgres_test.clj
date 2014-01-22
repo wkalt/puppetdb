@@ -64,30 +64,37 @@
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
 (deftest ^:database groups
-  (testing "insert a group"
-    (create-environment db {:name "test"})
-    (create-group db {:name "test" :classes {} :environment "test"})
-    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
-  (testing "store a group with multiple classes"
-    (create-class db {:name "hi" :parameters {} :environment "test"})
-    (create-class db {:name "bye" :parameters {} :environment "test"})
-    (create-group db {:name "group-two"
-                      :classes {:hi {} :bye {}}
-                      :environment "test"})
-    (is (= 2 (count (jdbc/query test-db
-                                ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "group-two"])))))
-  (testing "retrieves a group"
-    (is (= {:name "test" :classes {} :environment "test"} (get-group db "test"))))
-  (testing "retrieves a group with classes"
-    (is (= {:name "group-two" :classes {:hi {} :bye {}} :environment "test"}
-           (get-group db "group-two"))))
-  (testing "deletes a group"
-    (delete-group db "test")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "test"]))))))
+  (let [simplest-group {:name "simplest" :classes {} :environment "test" :variables {}}
+        group-with-classes {:name "with-classes"
+                            :classes {:hi {} :bye {}}
+                            :environment "test"
+                            :variables {}}]
+
+    (testing "inserts a group"
+      (create-environment db {:name "test"})
+      (create-group db simplest-group)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
+
+    (testing "stores a group with multiple classes"
+      (create-class db {:name "hi" :parameters {} :environment "test"})
+      (create-class db {:name "bye" :parameters {} :environment "test"})
+      (create-group db group-with-classes)
+      (is (= 2 (count (jdbc/query test-db
+                                  ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "with-classes"])))))
+
+    (testing "retrieves a group"
+      (is (= simplest-group (get-group db "simplest"))))
+
+    (testing "retrieves a group with classes"
+      (is (= group-with-classes (get-group db "with-classes"))))
+
+    (testing "deletes a group"
+      (delete-group db "simplest")
+      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"])))))))
 
 (deftest ^:database complex-group
   (create-environment db {:name "test"})
-  (testing "store a group with class parameters"
+  (testing "stores a group with class parameters and top-level variables"
     (create-class db {:name "first"
                       :parameters {:one "one-def"
                                    :two nil}
@@ -97,17 +104,17 @@
                                    :four nil
                                    :five "default"}
                       :environment "test"})
-    (create-group db {:name "group-params"
-                      :classes {:first {:one "one-val"
-                                        :two "two-val"}
-                                :second {:three "three-val"}}
-                      :environment "test"})
-    (is (= (get-group db "group-params")
-           {:name "group-params"
-            :environment "test"
-            :classes {:first {:one "one-val"
-                              :two "two-val"}
-                      :second {:three "three-val"}}}))))
+    (let [g {:name "complex-group"
+             :classes {:first {:one "one-val"
+                               :two "two-val"}
+                       :second {:three "three-val"}}
+             :environment "test"
+             :variables {:fqdn "www.example.com"
+                         :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
+                         :cluster_index 8
+                         :some_bool false}}]
+      (create-group db g)
+      (is (= (get-group db "complex-group") g)))))
 
 (deftest ^:database classes
   (create-environment db {:name "test"})
@@ -139,8 +146,8 @@
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database rules
-  (let [hello-group {:name "hello" :classes {:salutation {}}  :environment "production"}
-        goodbye-group {:name "goodbye" :classes {:valediction {}} :environment "production"}
+  (let [hello-group {:name "hello" :classes {:salutation {}}  :environment "production" :variables {}}
+        goodbye-group {:name "goodbye" :classes {:valediction {}} :environment "production" :variables {}}
         salutation-class {:name "salutation" :parameters {} :environment "production"}
         valediction-class {:name "valediction" :parameters {} :environment "production"}
         test-rule-1 {:when ["=" "name" "test"]
