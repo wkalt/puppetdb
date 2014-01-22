@@ -26,7 +26,7 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
-                 [puppetlabs/trapperkeeper "0.1.0-20131205.214040-1"]
+                 [puppetlabs/trapperkeeper "0.1.1"]
                  [migratus "0.7.0"]
                  [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                  [clj-http "0.7.8"]

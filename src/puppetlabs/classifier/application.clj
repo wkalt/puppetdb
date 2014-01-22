@@ -37,7 +37,8 @@
 
 (defservice initdb
   {:depends [[:config-service get-config]
-             [:shutdown-service request-shutdown]]}
+             [:shutdown-service request-shutdown]]
+   :provides []}
   (let [config (get-config)
         db-spec (get config :database fallback-db-spec)]
     (postgres/drop-public-tables db-spec)
