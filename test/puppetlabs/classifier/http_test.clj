@@ -88,7 +88,8 @@
 (deftest groups
   (let [test-group {:name "agroup"
                     :classes {:foo {:param "default"}}
-                    :environment "bar"}
+                    :environment "bar"
+                    :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
         creation-req (group-request :put "agroup"
                                     (generate-string (dissoc test-group :name)))
         mock-db (reify Storage
@@ -98,18 +99,18 @@
                    (create-group [_ group]
                      (is (= group test-group))))
         app (app mock-db)]
-    (testing "returns the group if it exists"
-      (let [response (app (group-request :get "agroup"))]
-        (is-http-status 200 (app (group-request :get "agroup")))
-        (is (= (generate-string test-group) (:body response)))))
 
-    (let [resp (app creation-req)]
+    (testing "returns the group if it exists"
+      (let [{body :body, :as resp} (app (group-request :get "agroup"))]
+        (is-http-status 200 resp)
+        (is (= test-group (parse-string body true)))))
+
+    (let [{body :body, :as resp} (app creation-req)]
       (testing "tells storage to create the group and returns 201"
         (is-http-status 201 resp))
 
       (testing "when creating the group returns the group as json"
-        (is (= {"name" "agroup", "classes" {"foo" {"param" "default"}} , "environment" "bar"}
-               (parse-string (:body resp))))))))
+        (is (= test-group (parse-string body true)))))))
 
 (defn class-request
   ([method class-name]

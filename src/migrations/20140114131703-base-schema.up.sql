@@ -16,6 +16,15 @@ CREATE TABLE groups (
 CREATE UNIQUE INDEX ON groups (name, environment_name);
 --;;
 
+CREATE TABLE group_variables (
+    variable TEXT NOT NULL,
+    group_name TEXT NOT NULL,
+    value TEXT NOT NULL,
+    PRIMARY KEY (variable, group_name),
+    FOREIGN KEY (group_name) REFERENCES groups (name) ON DELETE CASCADE ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED
+);
+--;;
+
 CREATE TABLE classes (
     name TEXT NOT NULL,
     environment_name TEXT NOT NULL REFERENCES environments(name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,

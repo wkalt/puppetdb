@@ -115,7 +115,8 @@
 
       (ANY "/v1/groups/:group-name" [group-name]
            (crud-resource group-name Group db
-             {:environment "production"}
+             {:environment "production"
+              :variables {}}
              {:get storage/get-group
               :create storage/create-group
               :delete storage/delete-group}))

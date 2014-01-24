@@ -86,6 +86,10 @@
     (jdbc/insert! t-db :groups
                   [:name :environment_name]
                   ((juxt :name :environment) group))
+    (doseq [[v-key v-val] (:variables group)]
+      (jdbc/insert! t-db :group_variables
+                    [:variable :group_name :value]
+                    [(name v-key) group-name (json/generate-string v-val)]))
     (doseq [class (:classes group)]
       (let [[class-name class-params] class]
         (jdbc/insert! t-db :group_classes
@@ -100,20 +104,35 @@
 (def select-group
   "SELECT name,
           g.environment_name AS environment,
-          gc.class_name AS class,
-          gcp.parameter AS parameter,
-          gcp.value AS value
+          gv.variable        AS variable,
+          gv.value           AS variable_value,
+          gc.class_name      AS class,
+          gcp.parameter      AS parameter,
+          gcp.value          AS parameter_value
   FROM groups g
        LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
        LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
+       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name
   WHERE g.name = ?")
+
+(defn- deserialize-variable-values
+  "This function expects a row map that has already had its variable-related
+  fields aggregated into a submap. It deserializes the values of the row's
+  variables submap (which are expected to be JSON)."
+  [row]
+  (update-in row [:variables]
+             (fn [variables]
+               (into {} (for [[k v] variables]
+                          [k (json/parse-string v)])))))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
   [{db :db}
    group-name :- String]
   (let [[result] (->> (query db [select-group group-name])
-                   (aggregate-submap-by :parameter :value :parameters)
+                   (aggregate-submap-by :parameter :parameter_value :parameters)
                    (aggregate-submap-by :class :parameters :classes)
+                   (aggregate-submap-by :variable :variable_value :variables)
+                   (map deserialize-variable-values)
                    (keywordize-keys))]
     result))
 
