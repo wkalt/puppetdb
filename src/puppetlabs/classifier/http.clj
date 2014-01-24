@@ -1,13 +1,14 @@
 (ns puppetlabs.classifier.http
   (:require [clojure.tools.logging :as log]
-            [cheshire.core :refer [generate-string parse-string]]
+            [cheshire.core :as json]
             [compojure.core :refer [routes GET PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
             [schema.core :as sc]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]])
+            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
+            [puppetlabs.classifier.util :refer [->client-explanation]])
   (:import com.fasterxml.jackson.core.JsonParseException))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
@@ -20,7 +21,7 @@
   ::request-body."
   [body]
   (try
-    (if-let [data (parse-string body true)]
+    (if-let [data (json/decode body true)]
       [false {::data data}]
       true)
     (catch JsonParseException e
@@ -40,7 +41,8 @@
 (defn wrap-schema-fail
   "This wraps a ring handler that could throw a schema validation error. If such
   an error is thrown, this function catches it and produces a 400 response whose
-  body is the full error message."
+  body is a JSON object describing the submitted object, the schema it failed to
+  validate against, and a description of the validation error."
   [handler]
   (fn [request]
     (try (handler request)
@@ -48,11 +50,13 @@
         ;; re-throw things that aren't schema validation errors
         (when-not (re-find #"Value does not match schema" (.getMessage e))
           (throw e))
-        {:status 400
-         :headers {"Content-Type" "text/plain"}
-         ;; TODO: should we process this error message to disguise its clojure
-         ;; origins by e.g. converting EDN representations to JSON?
-         :body (.toString e)}))))
+        (let [{:keys [schema value error]} (.getData e)]
+          {:status 400
+           :headers {"Content-Type" "application/json"}
+           :body (json/encode
+                   {:submitted value
+                    :schema (-> schema sc/explain ->client-explanation)
+                    :error (->client-explanation error)})})))))
 
 (def ResourceImplementation
   {(sc/required-key :get) (sc/->FnSchema sc/Any sc/Any)
@@ -64,7 +68,6 @@
   resource. See the ResourceImplementation schema defined above for more
   details."
   [implementation]
-  {:pre [(sc/validate ResourceImplementation implementation)]}
   (fn [request]
     (run-resource
       request

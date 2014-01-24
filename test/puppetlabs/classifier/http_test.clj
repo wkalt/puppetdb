@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
-            [cheshire.core :refer [parse-string generate-string]]
+            [cheshire.core :refer [decode encode generate-string parse-string]]
             [puppetlabs.classifier.http :refer :all]
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
@@ -144,7 +144,7 @@
 (deftest rules
   (let [simple-rule {:when ["=" "name" "foo"]
                      :groups ["food"]}
-        rule-id "3kf8"
+        rule-id 42
         mock-db (reify Storage
                   (get-node [_ _] nil)
                   (create-rule [_ rule]
@@ -156,9 +156,24 @@
         app (app mock-db)]
     (testing "returns a key when storing a rule"
       (let [response (app (rule-request :post simple-rule))]
+        (println (:body response))
         (is-http-status 201 response)
         (is (= (str "/v1/rules/" rule-id)
                ((response :headers) "Location")))))
     (testing "classifies a node using the simple rule"
       (let [response (app (request :get "/v1/classified/nodes/foo"))]
         (is (= ["food"] ((parse-string (:body response)) "groups")))))))
+
+(deftest errors
+  (let [incomplete-group {:classes ["foo" "bar" "baz"]}
+        mock-db (reify Storage
+                  (get-group [_ _] nil))
+        app (app mock-db)]
+    (testing "bad requests get a structured 400 response."
+      (let [resp (app (-> (request :put "/v1/groups/badgroup")
+                        (mock/body (encode incomplete-group))))]
+        (is-http-status 400 resp)
+        (is (= "application/json" (get-in resp [:headers "Content-Type"])))
+        (is (= #{:submitted :schema :error}
+               (-> (decode (:body resp) true)
+                 keys set)))))))
