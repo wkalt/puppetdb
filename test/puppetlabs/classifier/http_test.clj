@@ -2,11 +2,11 @@
   (:require [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :refer [decode encode generate-string parse-string]]
-            [puppetlabs.classifier.http :refer :all]
+            [compojure.core :as compojure]
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
             [schema.core :as sc]
-            [compojure.core :as compojure]
+            [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
