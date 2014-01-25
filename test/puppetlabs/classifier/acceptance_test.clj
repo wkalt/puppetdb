@@ -104,18 +104,21 @@
 
 (deftest ^:acceptance object-validation
   (let [base-url (base-url test-config)
-        quiet-put #(http/put % {:throw-exceptions false})]
+        quiet-put #(http/put % {:throw-exceptions false})
+        valid-400-resp-body? (fn [body]
+                               (= #{:submitted :schema :error}
+                                  (-> body (json/decode true) keys set)))]
     (testing "schema-noncompliant objects in requests elicit a 400 response."
       (let [resp (quiet-put (str base-url "/v1/classes/foo"))]
         (is (= 400 (:status resp)))
-        (is (re-find #"Value does not match schema" (:body resp))))
+        (is (valid-400-resp-body? (:body resp))))
       (let [resp (quiet-put (str base-url "/v1/groups/test-group"))]
         (is (= 400 (:status resp)))
-        (is (re-find #"Value does not match schema" (:body resp))))
+        (is (valid-400-resp-body? (:body resp))))
       (let [resp (http/post (str base-url "/v1/rules")
                             {:throw-exceptions false})]
         (is (= 400 (:status resp)))
-        (is (re-find #"Value does not match schema" (:body resp)))))))
+        (is (valid-400-resp-body? (:body resp)))))))
 
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
