@@ -169,7 +169,8 @@
                                 parameters (->> groups
                                              (map :classes)
                                              (apply merge))
-                                environments (set (map :environment groups))]
+                                environments (set (map :environment groups))
+                                variables (apply merge (map :variables groups))]
                             (when-not (= (count environments) 1)
                               (log/warn "Node" node-name "is classified into groups" group-names
                                         "with inconsistent environments" environments))
@@ -177,6 +178,7 @@
                                    :groups group-names
                                    :classes classes
                                    :parameters parameters
-                                   :environment (first environments))))))
+                                   :environment (first environments)
+                                   :variables variables)))))
 
       (route/not-found "Not found"))))
