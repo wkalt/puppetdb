@@ -130,8 +130,10 @@
                                                                :environment "staging"})})
             group-resp (http/put (str base-url "/v1/groups/test-group")
                                  {:content-type :json
-                                  :body (json/generate-string {:classes {:noisyclass {:verbose "false"}}
-                                                               :environment "staging"})})
+                                  :body (json/generate-string
+                                          {:classes {:noisyclass {:verbose "false"}}
+                                           :environment "staging"
+                                           :variables {:dothings "yes"}})})
             rule-resp  (http/post (str base-url "/v1/rules")
                                   {:content-type :json
                                    :body (json/generate-string {:when ["=" "name" "thenode"]
@@ -146,4 +148,5 @@
         (is (= ["test-group"] (:groups classification)))
         (is (= ["noisyclass"] (:classes classification)))
         (is (= {:noisyclass {:verbose "false"}}
-               (:parameters classification)))))))
+               (:parameters classification)))
+        (is (= {:dothings "yes"} (:variables classification)))))))
