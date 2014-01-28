@@ -41,7 +41,7 @@
 
 (use-fixtures :once schema.test/validate-schemas)
 
-(deftest ^:database test-migration
+(deftest ^:database migration
   (testing "creates a groups table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "creates a nodes table"
@@ -53,14 +53,20 @@
   (testing "creates a rules table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
 
-(deftest ^:database test-node
+(deftest ^:database nodes
   (testing "inserts nodes"
     (create-node db {:name "test"})
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
   (testing "retrieves a node"
     (is (= {:name "test"} (get-node db "test"))))
+  (testing "retrieves all nodes"
+    (create-node db {:name "test2"})
+    (create-node db {:name "test3"})
+    (is (= #{"test" "test2" "test3"} (->> (get-nodes db) (map :name) set))))
   (testing "deletes a node"
     (delete-node db "test")
+    (delete-node db "test2")
+    (delete-node db "test3")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
 (deftest ^:database groups
@@ -88,33 +94,46 @@
     (testing "retrieves a group with classes"
       (is (= group-with-classes (get-group db "with-classes"))))
 
+    (testing "retrieves all groups"
+      (is (= #{"simplest" "with-classes"} (->> (get-groups db) (map :name) set))))
+
     (testing "deletes a group"
       (delete-group db "simplest")
       (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"])))))))
 
-(deftest ^:database complex-group
-  (create-environment db {:name "test"})
+(deftest ^:database complex-groups
   (testing "stores a group with class parameters and top-level variables"
-    (create-class db {:name "first"
-                      :parameters {:one "one-def"
-                                   :two nil}
-                      :environment "test"})
-    (create-class db {:name "second"
-                      :parameters {:three nil
-                                   :four nil
-                                   :five "default"}
-                      :environment "test"})
-    (let [g {:name "complex-group"
-             :classes {:first {:one "one-val"
-                               :two "two-val"}
-                       :second {:three "three-val"}}
-             :environment "test"
-             :variables {:fqdn "www.example.com"
-                         :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
-                         :cluster_index 8
-                         :some_bool false}}]
-      (create-group db g)
-      (is (= (get-group db "complex-group") g)))))
+    (let [envs ["test" "tropical"]
+          first-class {:name "first"
+                       :parameters {:one "one-def"
+                                    :two nil}}
+          second-class {:name "second"
+                        :parameters {:three nil
+                                     :four nil
+                                     :five "default"}}
+          g1 {:name "complex-group"
+              :classes {:first {:one "one-val"
+                                :two "two-val"}
+                        :second {:three "three-val"}}
+              :environment "test"
+              :variables {:fqdn "www.example.com"
+                          :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
+                          :cluster_index 8
+                          :some_bool false}}
+          g2 {:name "another-complex-group"
+              :environment "tropical"
+              :classes {:first {:two "another-two-val"}
+                        :second {:four "four-val"}}
+              :variables {:island false, :rainforest true}}]
+      (doseq [env envs]
+        (create-environment db {:name env})
+        (doseq [c [first-class second-class]]
+          (create-class db (assoc c :environment env))))
+      (create-group db g1)
+      (create-group db g2)
+      (is (= g1 (get-group db "complex-group")))
+      (is (= g2 (get-group db "another-complex-group")))
+      (is (= #{g1 g2} (set (get-groups db)))))))
 
 (deftest ^:database classes
   (create-environment db {:name "test"})
@@ -123,9 +142,9 @@
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
   (testing "store a class with multiple parameters"
     (create-class db {:name "classtwo"
-                                    :parameters {:param1 "value1"
-                                                 :param2 "value2"}
-                                    :environment "test"})
+                      :parameters {:param1 "value1"
+                                   :param2 "value2"}
+                      :environment "test"})
     (is (= 2 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
   (testing "retrieve a class with no parameters"
@@ -136,7 +155,9 @@
     (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"} :environment "test"}]
       (create-class db testclass)
       (is (= testclass (get-class db "testclass")))))
-  (testing "deletes a class with no paramters"
+  (testing "retrieves all classes"
+    (is (= #{"myclass" "classtwo" "testclass" "noclass"} (->> (get-classes db) (map :name) set))))
+  (testing "deletes a class with no parameters"
     (delete-class db "noclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
   (testing "deletes a class with parameters"
@@ -169,12 +190,18 @@
              (project (get-rules db) [:when :groups]))))))
 
 (deftest ^:database environments
-  (let [test-env {:name "test"}]
+  (let [test-env {:name "test"}
+        other-env {:name "underwater"}]
     (testing "creates an environment"
       (create-environment db test-env)
-      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM environments WHERE name = ?" "test"])))))
+      (let [envs (jdbc/query test-db ["SELECT * FROM environments WHERE name = ?" "test"])]
+        (is (= 1 (count envs)))))
     (testing "retrieves an environment"
       (is (= test-env (get-environment db "test"))))
+    (testing "retrieves all environments"
+      (create-environment db other-env)
+      (is (= #{"test" "underwater" "production"} (->> (get-environments db) (map :name) set))))
     (testing "deletes an environment"
       (delete-environment db "test")
-      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM environments WHERE name = ?" "test"])))))))
+      (let [[test-env] (jdbc/query test-db ["SELECT * FROM environments WHERE name = ?" "test"])]
+        (is (nil? test-env))))))

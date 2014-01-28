@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.set :as set]
             [clojure.walk :refer [keywordize-keys]]
             [java-jdbc.sql :as sql]
             [cheshire.core :as json]
@@ -55,9 +56,6 @@
 (defn select-node [node]
   (sql/select :name :nodes (sql/where {:name node})))
 
-(defn select-group [group]
-  (sql/select :name :groups (sql/where {:name group})))
-
 ;;; Storage protocol implementation
 ;;;
 ;;; Functions here are referred to below when calling extend. This indirection
@@ -73,6 +71,10 @@
   {:pre [(string? node-name)]}
   (let [[node] (jdbc/query db (select-node node-name))]
     node))
+
+(sc/defn ^:always-validate get-nodes* :- [Node]
+  [{db :db}]
+  (jdbc/query db (sql/select :name :nodes)))
 
 (defn delete-node* [{db :db} node-name]
   {:pre [(string? node-name)]}
@@ -101,7 +103,7 @@
                           [:parameter :class_name :environment_name :group_name :value]
                           [(name param) (name class-name) environment group-name value])))))))
 
-(def select-group
+(def group-selection
   "SELECT name,
           g.environment_name AS environment,
           gv.variable        AS variable,
@@ -112,8 +114,14 @@
   FROM groups g
        LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
        LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
-       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name
-  WHERE g.name = ?")
+       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name")
+
+(defn select-group
+  [group-name]
+  [(str group-selection " WHERE g.name = ?") group-name])
+
+(defn select-all-groups []
+  [group-selection])
 
 (defn- deserialize-variable-values
   "This function expects a row map that has already had its variable-related
@@ -125,16 +133,24 @@
                (into {} (for [[k v] variables]
                           [k (json/parse-string v)])))))
 
+(defn- aggregate-fields-into-groups
+  [result]
+  (->> result
+    (aggregate-submap-by :parameter :parameter_value :parameters)
+    (aggregate-submap-by :class :parameters :classes)
+    (aggregate-submap-by :variable :variable_value :variables)
+    (map deserialize-variable-values)
+    (keywordize-keys)))
+
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
   [{db :db}
    group-name :- String]
-  (let [[result] (->> (query db [select-group group-name])
-                   (aggregate-submap-by :parameter :parameter_value :parameters)
-                   (aggregate-submap-by :class :parameters :classes)
-                   (aggregate-submap-by :variable :variable_value :variables)
-                   (map deserialize-variable-values)
-                   (keywordize-keys))]
-    result))
+  (let [[group] (aggregate-fields-into-groups (query db (select-group group-name)))]
+    group))
+
+(sc/defn ^:always-validate get-groups* :- [Group]
+  [{db :db}]
+  (aggregate-fields-into-groups (query db (select-all-groups))))
 
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
@@ -156,18 +172,44 @@
                                    (remove (comp nil? first)))]
              [(keyword param) default])))
 
+(def ^:private class-selection
+  "SELECT name,
+          c.environment_name AS environment,
+          cp.parameter,
+          cp.default_value
+  FROM classes c
+  LEFT OUTER JOIN class_parameters cp
+    ON c.name = cp.class_name AND c.environment_name = cp.environment_name")
+
+(defn select-class
+  [class-name]
+  [(str class-selection " WHERE c.name = ?") class-name])
+
+(defn select-all-classes []
+  [class-selection])
+
+(defn- keywordize-parameters
+  [class]
+  (update-in class, [:parameters]
+             (fn [params]
+               (into {} (for [[param default] params]
+                          [(keyword param) default]))) ))
+
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db} class-name]
-  (let [result (jdbc/query db [(str
-                                 "SELECT * FROM classes c"
-                                 " LEFT OUTER JOIN class_parameters cp"
-                                 " ON c.name = cp.class_name"
-                                 " WHERE c.name = ?")
-                               class-name])]
+  (let [result (jdbc/query db (select-class class-name))]
     (if-not (empty? result)
-      {:name class-name
-       :environment (:environment_name (first result))
-       :parameters (extract-parameters result)})))
+      (->> result
+        (aggregate-submap-by :parameter :default_value :parameters)
+        (map keywordize-parameters)
+        first))))
+
+(sc/defn get-classes* :- [PuppetClass]
+  [{db :db}]
+  (let [result (jdbc/query db (select-all-classes))]
+    (->> result
+      (aggregate-submap-by :parameter :default_value :parameters)
+      (map keywordize-parameters))))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
@@ -209,6 +251,10 @@
                                    (sql/where {:name environment-name})))]
     environment))
 
+(sc/defn ^:always-validate get-environments* :- [Environment]
+  [{db :db}]
+  (jdbc/query db (sql/select :name :environments)))
+
 (defn delete-environment* [{db :db} environment-name]
   {:pre [(string? environment-name)]}
   (jdbc/delete! db :environments (sql/where {:name environment-name})))
@@ -223,15 +269,19 @@
 
   {:create-node create-node*
    :get-node get-node*
+   :get-nodes get-nodes*
    :delete-node delete-node*
    :create-group create-group*
    :get-group get-group*
+   :get-groups get-groups*
    :delete-group delete-group*
    :create-class create-class*
    :get-class get-class*
+   :get-classes get-classes*
    :delete-class delete-class*
    :create-rule create-rule*
    :get-rules get-rules*
    :create-environment create-environment*
    :get-environment get-environment*
+   :get-environments get-environments*
    :delete-environment delete-environment*})
