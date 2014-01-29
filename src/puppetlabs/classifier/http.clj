@@ -71,7 +71,7 @@
   (fn [request]
     (run-resource
       request
-      {:allowed-methods [:put :get]
+      {:allowed-methods [:put :get :delete]
        :available-media-types ["application/json"]
        :exists? (:get implementation)
        :handle-ok ::retrieved
@@ -106,15 +106,29 @@
      :delete (fn [_]
                ((:delete storage-fns) storage resource-name))}))
 
+(sc/defn listing-resource
+  [storage :- (sc/protocol storage/Storage)
+   get-all :- (sc/pred fn?)]
+  (resource
+    :allowed-methods [:get]
+    :available-media-types ["application/json"]
+    :exists? (fn [_] {::retrieved (get-all storage)})
+    :handle-ok ::retrieved))
 
 (defn app [db]
   (wrap-schema-fail
     (routes
+      (GET "/v1/nodes" []
+           (listing-resource db storage/get-nodes))
+
       (ANY "/v1/nodes/:node-name" [node-name]
            (crud-resource node-name Node db {}
              {:get storage/get-node
               :create storage/create-node
               :delete storage/delete-node}))
+
+      (GET "/v1/groups" []
+           (listing-resource db storage/get-groups))
 
       (ANY "/v1/groups/:group-name" [group-name]
            (crud-resource group-name Group db
@@ -124,12 +138,18 @@
               :create storage/create-group
               :delete storage/delete-group}))
 
+      (GET "/v1/classes" []
+           (listing-resource db storage/get-classes))
+
       (ANY "/v1/classes/:class-name" [class-name]
            (crud-resource class-name PuppetClass db
              {:environment "production"}
              {:get storage/get-class
               :create storage/create-class
               :delete storage/delete-class}))
+
+      (GET "/v1/environments" []
+           (listing-resource db storage/get-environments))
 
       (ANY "/v1/environments/:environment-name" [environment-name]
            (crud-resource environment-name Environment db {}
