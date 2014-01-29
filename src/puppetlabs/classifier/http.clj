@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.http
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [compojure.core :refer [routes GET PUT ANY]]
             [compojure.route :as route]
@@ -9,7 +10,8 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.util :refer [->client-explanation]])
-  (:import com.fasterxml.jackson.core.JsonParseException))
+  (:import com.fasterxml.jackson.core.JsonParseException
+           org.postgresql.util.PSQLException))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -38,7 +40,7 @@
         false))
     false))
 
-(defn wrap-schema-fail
+(defn wrap-schema-fail-explanations
   "This wraps a ring handler that could throw a schema validation error. If such
   an error is thrown, this function catches it and produces a 400 response whose
   body is a JSON object describing the submitted object, the schema it failed to
@@ -57,6 +59,34 @@
                    {:submitted value
                     :schema (-> schema sc/explain ->client-explanation)
                     :error (->client-explanation error)})})))))
+
+(def ^:private sql-foreign-key-violation-regex
+  #"insert or update on table \"(\w+)\" violates foreign key constraint \"\w+\"\n\s*Detail: Key \([\w\s,]+\)=\(([\w\s,]+)\) is not present in table \"(\w+)\"")
+
+(defn wrap-sql-foreign-key-fail-explanations
+  [handler]
+  (fn [request]
+    (try (handler request)
+      (catch PSQLException e
+        (let [foreign-key-violation-code "23503"
+              code (.getSQLState e)
+              msg (.getMessage e)
+              [_ resource-kind] (re-find #"^/v1/(class|group)" (:uri request))
+              resp-msg (if-let [[match & groups] (re-find sql-foreign-key-violation-regex msg)]
+                         (let [[into-table pkey foreign-table] groups
+                               foreign-resource (-> foreign-table
+                                                  (str/replace #"e?s$" "")
+                                                  (str/replace "_" " "))]
+                           (str "The " resource-kind " you tried to create refers to a "
+                                foreign-resource " with primary key values (" pkey "), but no such "
+                                foreign-resource " could be found."))
+                         (str "The " resource-kind " you tried to create refers to a class or"
+                              "parameter that could not be found."))]
+          (when-not (= code foreign-key-violation-code)
+            (throw e))
+          {:status 412
+           :headers {"Content-Type" "text/plain"}
+           :body resp-msg})))))
 
 (def ResourceImplementation
   {(sc/required-key :get) (sc/->FnSchema sc/Any sc/Any)
@@ -116,89 +146,90 @@
     :handle-ok ::retrieved))
 
 (defn app [db]
-  (wrap-schema-fail
-    (routes
-      (GET "/v1/nodes" []
-           (listing-resource db storage/get-nodes))
+  (-> (routes
+        (GET "/v1/nodes" []
+             (listing-resource db storage/get-nodes))
 
-      (ANY "/v1/nodes/:node-name" [node-name]
-           (crud-resource node-name Node db {}
-             {:get storage/get-node
-              :create storage/create-node
-              :delete storage/delete-node}))
+        (ANY "/v1/nodes/:node-name" [node-name]
+             (crud-resource node-name Node db {}
+                            {:get storage/get-node
+                             :create storage/create-node
+                             :delete storage/delete-node}))
 
-      (GET "/v1/groups" []
-           (listing-resource db storage/get-groups))
+        (GET "/v1/groups" []
+             (listing-resource db storage/get-groups))
 
-      (ANY "/v1/groups/:group-name" [group-name]
-           (crud-resource group-name Group db
-             {:environment "production"
-              :variables {}}
-             {:get storage/get-group
-              :create storage/create-group
-              :delete storage/delete-group}))
+        (ANY "/v1/groups/:group-name" [group-name]
+             (crud-resource group-name Group db
+                            {:environment "production"
+                             :variables {}}
+                            {:get storage/get-group
+                             :create storage/create-group
+                             :delete storage/delete-group}))
 
-      (GET "/v1/classes" []
-           (listing-resource db storage/get-classes))
+        (GET "/v1/classes" []
+             (listing-resource db storage/get-classes))
 
-      (ANY "/v1/classes/:class-name" [class-name]
-           (crud-resource class-name PuppetClass db
-             {:environment "production"}
-             {:get storage/get-class
-              :create storage/create-class
-              :delete storage/delete-class}))
+        (ANY "/v1/classes/:class-name" [class-name]
+             (crud-resource class-name PuppetClass db
+                            {:environment "production"}
+                            {:get storage/get-class
+                             :create storage/create-class
+                             :delete storage/delete-class}))
 
-      (GET "/v1/environments" []
-           (listing-resource db storage/get-environments))
+        (GET "/v1/environments" []
+             (listing-resource db storage/get-environments))
 
-      (ANY "/v1/environments/:environment-name" [environment-name]
-           (crud-resource environment-name Environment db {}
-             {:get storage/get-environment
-              :create storage/create-environment
-              :delete storage/delete-environment}))
+        (ANY "/v1/environments/:environment-name" [environment-name]
+             (crud-resource environment-name Environment db {}
+                            {:get storage/get-environment
+                             :create storage/create-environment
+                             :delete storage/delete-environment}))
 
-      (ANY "/v1/rules" []
-           (resource
-             :allowed-methods [:post :get]
-             :available-media-types ["application/json"]
-             :handle-ok ::data
-             :malformed? parse-if-body
-             :handle-malformed (fn [ctx]
-                                 (format "Body is not valid JSON: %s"
-                                         (::request-body ctx)))
-             :post! (fn [ctx]
-                      (let [rule (sc/validate Rule (::data ctx))
-                            rule-id (storage/create-rule db rule)]
-                        {::location (str "/v1/rules/" rule-id)}))
-             :location ::location))
+        (ANY "/v1/rules" []
+             (resource
+               :allowed-methods [:post :get]
+               :available-media-types ["application/json"]
+               :handle-ok ::data
+               :malformed? parse-if-body
+               :handle-malformed (fn [ctx]
+                                   (format "Body is not valid JSON: %s"
+                                           (::request-body ctx)))
+               :post! (fn [ctx]
+                        (let [rule (sc/validate Rule (::data ctx))
+                              rule-id (storage/create-rule db rule)]
+                          {::location (str "/v1/rules/" rule-id)}))
+               :location ::location))
 
-      (ANY "/v1/classified/nodes/:node-name" [node-name]
-           (resource
-             :allowed-methods [:get]
-             :available-media-types ["application/json"]
-             :exists? true
-             :handle-ok (fn [ctx]
-                          (let [node (merge {:name node-name}
-                                            (storage/get-node db node-name))
-                                rules (storage/get-rules db)
-                                group-names (mapcat (partial rules/apply-rule node) rules)
-                                groups (map (partial storage/get-group db) group-names)
-                                classes (->> groups
-                                          (mapcat #(-> % :classes keys))
-                                          set)
-                                parameters (->> groups
-                                             (map :classes)
-                                             (apply merge))
-                                environments (set (map :environment groups))
-                                variables (apply merge (map :variables groups))]
-                            (when-not (= (count environments) 1)
-                              (log/warn "Node" node-name "is classified into groups" group-names
-                                        "with inconsistent environments" environments))
-                            (assoc node
-                                   :groups group-names
-                                   :classes classes
-                                   :parameters parameters
-                                   :environment (first environments)
-                                   :variables variables)))))
+        (ANY "/v1/classified/nodes/:node-name" [node-name]
+             (resource
+               :allowed-methods [:get]
+               :available-media-types ["application/json"]
+               :exists? true
+               :handle-ok (fn [ctx]
+                            (let [node (merge {:name node-name}
+                                              (storage/get-node db node-name))
+                                  rules (storage/get-rules db)
+                                  group-names (mapcat (partial rules/apply-rule node) rules)
+                                  groups (map (partial storage/get-group db) group-names)
+                                  classes (->> groups
+                                            (mapcat #(-> % :classes keys))
+                                            set)
+                                  parameters (->> groups
+                                               (map :classes)
+                                               (apply merge))
+                                  environments (set (map :environment groups))
+                                  variables (apply merge (map :variables groups))]
+                              (when-not (= (count environments) 1)
+                                (log/warn "Node" node-name "is classified into groups" group-names
+                                          "with inconsistent environments" environments))
+                              (assoc node
+                                     :groups group-names
+                                     :classes classes
+                                     :parameters parameters
+                                     :environment (first environments)
+                                     :variables variables)))))
 
-      (route/not-found "Not found"))))
+        (route/not-found "Not found"))
+    wrap-schema-fail-explanations
+    wrap-sql-foreign-key-fail-explanations))
