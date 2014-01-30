@@ -77,7 +77,6 @@
                             :variables {}}]
 
     (testing "inserts a group"
-      (create-environment db {:name "test"})
       (create-group db simplest-group)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
 
@@ -100,6 +99,21 @@
     (testing "deletes a group"
       (delete-group db "simplest")
       (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"])))))))
+
+(deftest ^:database create-missing-environments
+  (let [c {:name "chrono-manipulator"
+           :environment "thefuture"
+           :parameters {}}
+        g {:name "time-machines"
+           :environment "rnd"
+           :classes {}
+           :variables {}}]
+    (testing "creates missing environments on class insertion"
+      (create-class db c)
+      (is (= {:name "thefuture"} (get-environment db "thefuture"))))
+    (testing "creates missing environments on group insertion"
+      (create-group db g)
+      (is (= {:name "rnd"} (get-environment db "rnd"))))))
 
 (deftest ^:database complex-groups
   (testing "stores a group with class parameters and top-level variables"
@@ -125,10 +139,8 @@
               :classes {:first {:two "another-two-val"}
                         :second {:four "four-val"}}
               :variables {:island false, :rainforest true}}]
-      (doseq [env envs]
-        (create-environment db {:name env})
-        (doseq [c [first-class second-class]]
-          (create-class db (assoc c :environment env))))
+      (doseq [env envs, c [first-class second-class]]
+        (create-class db (assoc c :environment env)))
       (create-group db g1)
       (create-group db g2)
       (is (= g1 (get-group db "complex-group")))
@@ -136,7 +148,6 @@
       (is (= #{g1 g2} (set (get-groups db)))))))
 
 (deftest ^:database classes
-  (create-environment db {:name "test"})
   (testing "store a class with no parameters"
     (create-class db {:name "myclass" :parameters {} :environment "test"}))
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))

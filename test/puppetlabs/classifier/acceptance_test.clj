@@ -140,6 +140,18 @@
       (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
         (is (empty? (json/decode body)))))))
 
+(deftest ^:acceptance missing-referents-explanation
+  (let [base-url (base-url test-config)
+        group-with-missing-class {:classes {:missing {}}}
+        {:keys [body status], :as resp} (http/put (str base-url "/v1/groups/with-missing")
+                                                  {:content-type :json
+                                                   :body (json/encode group-with-missing-class)
+                                                   :throw-exceptions false})]
+    (is (= 412 status))
+    (is (re-find #"The group you tried to create" body))
+    (is (re-find #"refers to a class" body))
+    (is (re-find #"no such class could be found" body))))
+
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"

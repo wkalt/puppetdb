@@ -80,19 +80,50 @@
   {:pre [(string? node-name)]}
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
+(sc/defn ^:always-validate create-environment*
+  [{db :db}
+   environment :- Environment]
+  (jdbc/insert! db :environments environment))
+
+(sc/defn ^:always-validate create-environment-if-missing
+  [{db :db}
+   environment :- Environment]
+  (let [{name :name} environment]
+    (jdbc/execute! db
+                   ["INSERT INTO environments (name) SELECT ?
+                    WHERE NOT EXISTS (SELECT 1 FROM environments WHERE name = ?)"
+                    name name])))
+
+(sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)
+  [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (let [[environment]
+        (jdbc/query db (sql/select :name :environments
+                                   (sql/where {:name environment-name})))]
+    environment))
+
+(sc/defn ^:always-validate get-environments* :- [Environment]
+  [{db :db}]
+  (jdbc/query db (sql/select :name :environments)))
+
+(defn delete-environment* [{db :db} environment-name]
+  {:pre [(string? environment-name)]}
+  (jdbc/delete! db :environments (sql/where {:name environment-name})))
+
 (sc/defn ^:always-validate create-group*
   [{db :db}
-   {:keys [environment] group-name :name :as group} :- Group]
+   {:keys [classes environment variables] group-name :name :as group} :- Group]
   (jdbc/with-db-transaction
     [t-db db]
+    (create-environment-if-missing {:db t-db} {:name environment})
     (jdbc/insert! t-db :groups
                   [:name :environment_name]
                   ((juxt :name :environment) group))
-    (doseq [[v-key v-val] (:variables group)]
+    (doseq [[v-key v-val] variables]
       (jdbc/insert! t-db :group_variables
                     [:variable :group_name :value]
                     [(name v-key) group-name (json/generate-string v-val)]))
-    (doseq [class (:classes group)]
+    (doseq [class classes]
       (let [[class-name class-params] class]
         (jdbc/insert! t-db :group_classes
                       [:group_name :class_name :environment_name]
@@ -160,6 +191,7 @@
    {:keys [name parameters environment] :as class} :- PuppetClass]
   (jdbc/with-db-transaction
     [t-db db]
+    (create-environment-if-missing {:db t-db} {:name environment})
     (jdbc/insert! t-db :classes {:name name :environment_name environment})
     (doseq [[param value] parameters]
       (jdbc/insert! t-db :class_parameters
@@ -237,27 +269,6 @@
           ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])
         rules (group-by (juxt :id :match) result)]
     (map group-rule rules)))
-
-(sc/defn ^:always-validate create-environment*
-  [{db :db}
-   environment :- Environment]
-  (jdbc/insert! db :environments environment))
-
-(sc/defn ^:always-validate get-environment* :- (sc/maybe Environment)
-  [{db :db} environment-name]
-  {:pre [(string? environment-name)]}
-  (let [[environment]
-        (jdbc/query db (sql/select :name :environments
-                                   (sql/where {:name environment-name})))]
-    environment))
-
-(sc/defn ^:always-validate get-environments* :- [Environment]
-  [{db :db}]
-  (jdbc/query db (sql/select :name :environments)))
-
-(defn delete-environment* [{db :db} environment-name]
-  {:pre [(string? environment-name)]}
-  (jdbc/delete! db :environments (sql/where {:name environment-name})))
 
 (defrecord Postgres [db])
 
