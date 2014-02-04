@@ -44,3 +44,28 @@
     (testing "the 'Keyword symbol does not appear in the explanation"
       (is (no-keyword-symbols? schema-explanation))
       (is (no-keyword-symbols? error-explanation)))))
+
+(deftest deep-merge-maps
+  (let [a {:foo {:bar :baz, :fuzz :buzz}}
+        b {:foo {:fuzz {:quuz :quux}}}
+        merged (deep-merge a b)]
+    (testing "merges nested maps, taking last map's value for scalar conflicts"
+      (is (= {:foo {:bar :baz, :fuzz {:quuz :quux}}} merged)))))
+
+(deftest merge-and-clean-maps
+  (let [group {:name "agroup"
+               :environment "production"
+               :classes {:aclass {:verbose true, :log "info"}}
+               :variables {}}
+        rm-log-param {:classes {:aclass {:log nil}}}
+        rm-aclass {:classes {:aclass nil}}
+        change-env-add-param {:environment "space", :classes {:aclass {:silent false}}}]
+    (testing "merges maps"
+      (let [merged (merge-and-clean group change-env-add-param)]
+        (is (= "space" (:environment merged)))
+        (is (= {:verbose true, :log "info", :silent false}
+               (get-in merged [:classes :aclass])))))
+    (testing "remove entire nested keys"
+      (is (= {} (:classes (merge-and-clean group rm-aclass)))))
+    (testing "remove nested keys without disturbing siblings"
+      (is (= {:aclass {:verbose true}} (:classes (merge-and-clean group rm-log-param)))))))
