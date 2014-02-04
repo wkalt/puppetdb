@@ -17,6 +17,7 @@
   (create-class [this class] "Creates a class specification")
   (get-class [this class-name] "Retrieves a class specification")
   (get-classes [this] "Retrieves all class specifications")
+  (synchronize-classes [this puppet-classes] "Synchronize database class definitions")
   (delete-class [this class-name] "Deletes a class specification")
 
   (create-rule [this rule] "Creates a rule")
