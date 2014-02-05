@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.util
   (:require [clojure.string :as str]
             [clojure.walk :refer [postwalk prewalk]]
-            [schema.utils :refer [validation-error-explain]]
+            [schema.utils :refer [named-error-explain validation-error-explain]]
             puppetlabs.trapperkeeper.core))
 
 (defn ini->map
@@ -40,9 +40,14 @@
                             'String
                             x))
         error-explainer (fn [x]
-                          (if (= (class x) schema.utils.ValidationError)
+                          (cond
+                            (= (class x) schema.utils.ValidationError)
                             (validation-error-explain x)
-                            x))]
+
+                            (= (class x) schema.utils.NamedError)
+                            (named-error-explain x)
+
+                            :otherwise x))]
     (postwalk (comp error-explainer keyword->string strip-sym-prefix)
               explanation)))
 

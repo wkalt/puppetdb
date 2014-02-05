@@ -182,3 +182,37 @@
         (is (= {:noisyclass {:verbose "false"}}
                (:parameters classification)))
         (is (= {:dothings "yes"} (:variables classification)))))))
+
+(deftest ^:acceptance update-resources
+  (let [base-url (base-url test-config)]
+    (testing "update group fields"
+      (let [aclass {:name "aclass"
+                    :environment "production"
+                    :parameters {:log "warn", :verbose "false", :loglocation "/var/log"}}
+            bclass {:name "bclass", :environment "production", :parameters {}}
+            group {:name "agroup"
+                   :environment "production"
+                   :classes {:aclass {:verbose "true" :log "info"}
+                             :bclass {}}
+                   :variables {:dns "8.8.8.8"}}
+            group-delta {:classes {:aclass {:log "fatal"
+                                            :verbose nil
+                                            :loglocation "/dev/null"}}
+                         :variables {:dns nil}}
+            group' {:name "agroup"
+                    :environment "production"
+                    :classes {:aclass {:loglocation "/dev/null", :log "fatal"}
+                              :bclass {}}
+                    :variables {}}]
+        (http/put (str base-url "/v1/classes/aclass")
+                  {:content-type :json, :body (json/encode aclass)})
+        (http/put (str base-url "/v1/classes/bclass")
+                  {:content-type :json, :body (json/encode bclass)})
+        (http/put (str base-url "/v1/groups/agroup")
+                  {:content-type :json, :body (json/encode group)})
+        (let [update-resp (http/post
+                            (str base-url "/v1/groups/agroup")
+                            {:content-type :json, :body (json/encode group-delta)})
+              {:keys [body status]} update-resp]
+          (is (= 200 status))
+          (is (= group' (json/decode body true))))))))
