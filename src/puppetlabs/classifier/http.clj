@@ -2,11 +2,12 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [compojure.core :refer [routes GET PUT ANY]]
+            [compojure.core :refer [routes GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
+            [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
@@ -155,7 +156,7 @@
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn app [db]
+(defn app [{:keys [db] :as config}]
   (-> (routes
         (GET "/v1/nodes" []
              (listing-resource db storage/get-nodes))
@@ -272,6 +273,11 @@
                                      :parameters parameters
                                      :environment (first environments)
                                      :variables variables)))))
+        (POST "/v1/update-classes" []
+              (resource
+                :allowed-methods [:post]
+                :post! (fn [_]
+                         class-updater/update-classes! (:puppet-master config) db)))
 
         (route/not-found "Not found"))
     wrap-schema-fail-explanations

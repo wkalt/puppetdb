@@ -34,9 +34,10 @@
   (start [_ context]
          (let [config (get-config)
                db-spec (get config :database fallback-db-spec)
-               database (postgres/new-db db-spec)
                api-prefix (get-in config [:classifier :url-prefix] "")
-               app (add-url-prefix api-prefix (http/app database))]
+               app-config {:db (postgres/new-db db-spec)
+                           :puppet-master (get-in config [:classifier :puppet-master])}
+               app (add-url-prefix api-prefix (http/app app-config))]
            (postgres/migrate db-spec)
            (add-ring-handler app api-prefix)
            context))
