@@ -1,6 +1,5 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
-            [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :refer [decode encode generate-string parse-string]]
             [compojure.core :as compojure]
             [ring.mock.request :as mock :refer [request]]
@@ -78,12 +77,14 @@
         app (app mock-db)]
 
     (testing "asks storage for the node and returns it if it exists"
-      (let [response (app (node-request :get "bert"))]
+      (let [{body :body :as response} (app (node-request :get "bert"))]
         (is-http-status 200 response)
-        (is (= (get node-map "bert") (-> response :body (decode true))))))
+        (is (= (get node-map "bert") (decode body true)))))
 
-    (testing "tells storage to create the node and returns 201"
-      (is-http-status 201 (app (node-request :put "bert"))))
+    (testing "tells storage to create the node and returns 201 with the created object"
+      (let [{body :body :as response} (app (node-request :put "bert"))]
+        (is-http-status 201 response)
+        (is (= (get node-map "bert") (decode body true)))))
 
     (testing "returns all nodes"
       (let [response (app (node-request))]
@@ -93,6 +94,7 @@
     (testing "tells storage to delete the node and returns 204"
       (let [response (app (node-request :delete "bert"))]
         (is-http-status 204 response)))))
+
 
 (defn group-request
   ([] (group-request :get nil nil))
@@ -136,12 +138,10 @@
         (is-http-status 200 resp)
         (is (= (get group-map "agroup") (parse-string body true)))))
 
-    (let [{body :body, :as resp} (app (group-creation-req "agroup"))]
-      (testing "tells storage to create the group and returns 201"
-        (is-http-status 201 resp))
-
-      (testing "when creating the group returns the group as json"
-        (is (= (get group-map "agroup") (parse-string body true)))))
+    (testing "tells storage to create the group and returns 201 with the group object in its body"
+      (let [{body :body, :as resp} (app (group-creation-req "agroup"))]
+        (is-http-status 201 resp)
+        (is (= (get group-map "agroup") (decode body true)))))
 
     (testing "returns all groups"
       (app (group-creation-req "bgroup"))
@@ -225,7 +225,6 @@
         app (app mock-db)]
     (testing "returns a key when storing a rule"
       (let [response (app (rule-request :post simple-rule))]
-        (println (:body response))
         (is-http-status 201 response)
         (is (= (str "/v1/rules/" rule-id)
                ((response :headers) "Location")))))

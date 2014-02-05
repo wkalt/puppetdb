@@ -207,8 +207,7 @@
                :available-media-types ["application/json"]
                :exists? true
                :handle-ok (fn [ctx]
-                            (let [node (merge {:name node-name}
-                                              (storage/get-node db node-name))
+                            (let [node {:name node-name}
                                   rules (storage/get-rules db)
                                   group-names (mapcat (partial rules/apply-rule node) rules)
                                   groups (map (partial storage/get-group db) group-names)
