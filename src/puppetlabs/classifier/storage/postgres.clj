@@ -9,7 +9,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]))
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]])
+  (:import org.postgresql.util.PSQLException))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
@@ -183,6 +184,109 @@
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
+(defn- delete-group-class-link
+  [db group-name class-name environment-name]
+  (doseq [table [:group_class_parameters :group_classes]]
+    (jdbc/delete! db table
+                  ["group_name = ? AND class_name = ? AND environment_name = ?"
+                   group-name class-name environment-name])))
+
+(defn- delete-group-class-parameter
+  [db group-name class-name environment-name parameter]
+  (jdbc/with-db-transaction [t-db db]
+   (jdbc/delete! t-db :group_class_parameters
+                            (sql/where {"group_name" group-name
+                                        "class_name" class-name
+                                        "environment_name" environment-name
+                                        "parameter" parameter}))))
+
+(defn- update-group-class-parameter
+  [db group-name class-name environment-name parameter value]
+  (jdbc/with-db-transaction [t-db db]
+    (jdbc/update! t-db :group_class_parameters {:value value}
+                  (sql/where {"group_name" group-name
+                              "class_name" class-name
+                              "environment_name" environment-name
+                              "parameter" parameter}))))
+
+(defn- add-group-class-parameter
+  [db group-name class-name environment-name parameter value]
+  (jdbc/with-db-transaction [t-db db]
+    (jdbc/execute! t-db
+                   ["INSERT INTO group_classes (group_name, class_name, environment_name) SELECT ?, ?, ?
+                    WHERE NOT EXISTS (SELECT 1 FROM group_classes
+                    WHERE group_name = ? AND class_name = ? AND environment_name = ?)"
+                    group-name class-name environment-name group-name class-name environment-name])
+    (jdbc/insert! t-db :group_class_parameters
+                  {:group_name group-name
+                   :class_name class-name
+                   :environment_name environment-name
+                   :parameter parameter
+                   :value value})))
+
+(defn- update-group-classes
+  [{db :db} extant delta]
+  (let [group-name (:name extant)
+        environment (:environment extant)]
+    (jdbc/with-db-transaction [t-db db]
+      (doseq [[class parameters] (:classes delta)
+              :let [class-name (name class)]]
+        (if (nil? parameters)
+          (delete-group-class-link t-db group-name class-name environment)
+          ;; otherwise handle each parameter individually
+          (doseq [[parameter value] parameters
+                  :let [parameter-name (name parameter)]]
+            (cond
+              (nil? value)
+              (delete-group-class-parameter t-db group-name class-name environment parameter-name)
+
+              (get-in extant [:classes class parameter]) ; parameter is set in extant group, so update
+              (update-group-class-parameter t-db, group-name, class-name, environment
+                                            parameter-name, value)
+
+              :otherwise ; parameter is not nil and not previously set, so insert
+              (add-group-class-parameter t-db group-name, class-name, environment
+                                         parameter-name, value))))))))
+
+(defn- update-group-variables
+  [{db :db} extant delta]
+  (let [group-name (:name extant)]
+    (jdbc/with-db-transaction [t-db db]
+      (doseq [[variable value] (:variables delta)
+              :let [variable-name (name variable)]]
+        (cond
+          (nil? value)
+          (jdbc/delete! t-db :group_variables (sql/where {"group_name" group-name, "variable" variable-name}))
+
+          (get-in extant [:variables variable])
+          (jdbc/update! t-db :group_variables {:value value}
+                        (sql/where {"group_name" group-name, "variable" variable-name}))
+
+          :otherwise ; new variable for the group
+          (jdbc/insert! t-db :group_variables {:group_name group-name :variable variable-name :value value}))))))
+
+(sc/defn ^:always-validate update-group* :- (sc/maybe Group)
+  [{db :db} delta]
+  (let [group-name (:name delta)
+        serialization-failure-code "40001"
+        update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
+                        (when-let [extant (get-group* {:db t-db} group-name)]
+                          (update-group-classes {:db t-db} extant delta)
+                          (update-group-variables {:db t-db} extant delta)
+                          ;; still in the transaction, so will see the updated rows
+                          (get-group* {:db t-db} group-name)))]
+    (loop [retries 3]
+      (let [result (try (update-thunk)
+                     (catch PSQLException e
+                       (when-not (= (.getSQLState e) serialization-failure-code)
+                         (throw e))
+                       (when (zero? retries)
+                         (throw e))
+                       ::transaction-conflict))]
+        (if (= result ::transaction-conflict)
+          (recur (dec retries))
+          result)))))
+
 (defn delete-group* [{db :db} group-name]
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
@@ -282,16 +386,21 @@
    :get-node get-node*
    :get-nodes get-nodes*
    :delete-node delete-node*
+
    :create-group create-group*
    :get-group get-group*
    :get-groups get-groups*
+   :update-group update-group*
    :delete-group delete-group*
+
    :create-class create-class*
    :get-class get-class*
    :get-classes get-classes*
    :delete-class delete-class*
+
    :create-rule create-rule*
    :get-rules get-rules*
+
    :create-environment create-environment*
    :get-environment get-environment*
    :get-environments get-environments*
