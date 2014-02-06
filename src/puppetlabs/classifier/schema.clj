@@ -13,8 +13,15 @@
    :parameters {sc/Keyword (sc/maybe String)}
    :environment String})
 
+(def RuleCondition
+  (sc/either
+    [(sc/one (sc/eq "not") "negation") (sc/recursive #'RuleCondition)]
+    [(sc/one (sc/enum "=" "~" "<" "<=" ">" ">=") "operator")
+     (sc/one String "field")
+     (sc/one String "target-value")]))
+
 (def Rule
-  {:when [String]
+  {:when RuleCondition
    :groups [String]
    (sc/optional-key :id) Number})
 
