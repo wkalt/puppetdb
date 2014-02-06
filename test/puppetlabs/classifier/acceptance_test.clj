@@ -4,9 +4,10 @@
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
             [clj-http.client :as http]
-            [schema.test]
             [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
-            [puppetlabs.classifier.util :as util])
+            [schema.test]
+            [puppetlabs.classifier.util :refer [merge-and-clean]]
+            [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
            java.util.UUID))
 
@@ -17,7 +18,7 @@
 
 (defn- base-url
   [config-path]
-  (let [app-config (util/ini->map config-path)
+  (let [app-config (ini-to-map config-path)
         host (get-in app-config [:webserver :host])]
     (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
@@ -34,7 +35,7 @@
   "Initialize the database and then start a classifier server using the given
   config file, returning a conch process map describing the server instance
   process."
-  (let [base-config (util/ini->map config-path)
+  (let [base-config (ini-to-map config-path)
         test-db {:subprotocol "postgresql"
                  :subname (or (System/getenv "CLASSIFIER_DBNAME")
                               "classifier_test")
@@ -45,7 +46,7 @@
         config-with-db (assoc base-config :database test-db)
         test-config-file (java.io.File/createTempFile "classifier-test-" "conf")
         test-config-path (.getAbsolutePath test-config-file)
-        _ (util/write-map-as-ini! config-with-db test-config-path)
+        _ (spit-ini (java.io.File. test-config-path) config-with-db)
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
@@ -253,7 +254,7 @@
                                             :verbose nil
                                             :loglocation "/dev/null"}}
                          :variables {:dns nil}}
-            group' (util/merge-and-clean group group-delta)
+            group' (merge-and-clean group group-delta)
             update-resp (http/post
                           (str base-url "/v1/groups/agroup")
                           {:content-type :json, :body (json/encode group-delta)})
