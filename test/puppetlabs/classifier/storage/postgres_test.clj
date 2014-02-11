@@ -1,10 +1,11 @@
 (ns puppetlabs.classifier.storage.postgres-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.java.jdbc :as jdbc]
+            [clojure.test :refer :all]
             [clojure.set :refer [project]]
             [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [clojure.java.jdbc :as jdbc]))
+            [puppetlabs.classifier.util :refer [merge-and-clean]]))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
@@ -128,24 +129,39 @@
           g1 {:name "complex-group"
               :classes {:first {:one "one-val"
                                 :two "two-val"}
-                        :second {:three "three-val"}}
+                        :second {:three "three-val"
+                                 :four "four-val"}}
               :environment "test"
               :variables {:fqdn "www.example.com"
                           :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
                           :cluster_index 8
                           :some_bool false}}
+          g1-delta {:name "complex-group"
+                    :classes {:first nil
+                              :second {:three nil
+                                       :four "red fish"
+                                       :five "blue fish"}}
+                    :variables {:some_bool nil
+                                :cluster_index 4
+                                :cluster_size 16}}
           g2 {:name "another-complex-group"
               :environment "tropical"
               :classes {:first {:two "another-two-val"}
                         :second {:four "four-val"}}
-              :variables {:island false, :rainforest true}}]
+              :variables {:island false, :rainforest true}}
+          unknown-update {:name "dne"
+                         :environment "test"
+                         :classes {:first {:one "one-val"}}}]
       (doseq [env envs, c [first-class second-class]]
         (create-class db (assoc c :environment env)))
       (create-group db g1)
       (create-group db g2)
-      (is (= g1 (get-group db "complex-group")))
-      (is (= g2 (get-group db "another-complex-group")))
-      (is (= #{g1 g2} (set (get-groups db)))))))
+      (is (= g1 (get-group db (:name g1))))
+      (is (= g2 (get-group db (:name g2))))
+      (is (= #{g1 g2} (set (get-groups db))))
+      (is (nil? (update-group db unknown-update)))
+      (is (= (merge-and-clean g1 g1-delta) (update-group db g1-delta)))
+      (is (= (merge-and-clean g1 g1-delta) (get-group db (:name g1)))))))
 
 (deftest ^:database classes
   (testing "store a class with no parameters"

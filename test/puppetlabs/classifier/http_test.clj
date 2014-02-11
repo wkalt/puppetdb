@@ -6,6 +6,7 @@
             [schema.test]
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
+            [puppetlabs.classifier.schema :refer [Group]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -110,11 +111,15 @@
                  :environment "bar"
                  :classes {:foo {:param "override"}}
                  :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
+                {:name "agroupprime"
+                 :environment "bar"
+                 :classes {:foo {}}
+                 :variables {}}
                 {:name "bgroup"
                  :environment "quux"
                  :classes {}
                  :variables {}}]
-        group-map (into {} (for [g groups] [(:name g) g]))
+        group-map (into {} (map (juxt :name identity) groups))
         mock-db (reify Storage
                   (get-group [_ group-name]
                     (get group-map group-name))
@@ -123,14 +128,11 @@
                   (create-group [_ group]
                     (is (= (get group-map (:name group)) group))
                     (get group-map group))
+                  (update-group [_ _]
+                    (get group-map "agroupprime"))
                   (delete-group [_ group-name]
                     (is (contains? group-map group-name))
                     '(1)))
-        group-creation-req (fn [group-name]
-                             (group-request :put group-name
-                                            (-> (get group-map group-name)
-                                              (dissoc :name)
-                                              encode)))
         app (app mock-db)]
 
     (testing "returns the group if it exists"
@@ -139,15 +141,23 @@
         (is (= (get group-map "agroup") (parse-string body true)))))
 
     (testing "tells storage to create the group and returns 201 with the group object in its body"
-      (let [{body :body, :as resp} (app (group-creation-req "agroup"))]
+      (let [req-body (encode (get group-map "agroup"))
+            {body :body, :as resp} (app (group-request :put "agroup" req-body))]
         (is-http-status 201 resp)
         (is (= (get group-map "agroup") (decode body true)))))
 
     (testing "returns all groups"
-      (app (group-creation-req "bgroup"))
+      (app (group-request :put "bgroup" (encode (get group-map "bgroup"))))
       (let [{body :body, :as resp} (app (group-request))]
         (is-http-status 200 resp)
         (is (= (set groups) (-> body (decode true) set)))))
+
+    (testing "updates a group"
+      (let [req-body (encode {:classes {:foo {:param nil}}
+                              :variables {:ntp_servers nil}})
+            {body :body, :as resp} (app (group-request :post "agroup" req-body))]
+        (is-http-status 200 resp)
+        (is (= (get group-map "agroupprime") (decode body true)))))
 
     (testing "tells storage to delete the group and returns 204"
       (let [response (app (group-request :delete "agroup"))]
@@ -235,7 +245,9 @@
 (deftest errors
   (let [incomplete-group {:classes ["foo" "bar" "baz"]}
         mock-db (reify Storage
-                  (get-group [_ _] nil))
+                  (get-group [_ _] nil)
+                  (create-group [_ group]
+                    (sc/validate Group group)))
         app (app mock-db)]
     (testing "bad requests get a structured 400 response."
       (let [resp (app (-> (request :put "/v1/groups/badgroup")

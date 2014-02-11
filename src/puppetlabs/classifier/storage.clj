@@ -9,6 +9,7 @@
   (create-group [this group] "Creates a new group")
   (get-group [this group] "Retrieves a group")
   (get-groups [this] "Retrieves all groups")
+  (update-group [this delta] "Updates class/parameter and variable fields of a group")
   (delete-group [this group] "Deletes a group")
 
   (create-class [this class] "Creates a class specification")

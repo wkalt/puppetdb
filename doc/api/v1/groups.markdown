@@ -28,7 +28,7 @@ Here is an example of group object:
       "environment": "production",
       "classes": {
         "apache": {
-          "serveradmin": "bofh@travaglia.net" ,
+          "serveradmin": "bofh@travaglia.net",
           "keepalive_timeout": 5
         }
       },
@@ -85,3 +85,66 @@ In the first two cases, the response will contain a JSON object with `submitted`
 In the last case, the response will be plain text, will state that the request's body could not be parsed, and will echo back the request's body.
 
 If any environments, classes, or class parameters specified in the request do not exist, the server will return a 500 Server Error response when the attempted insertion fails due to unsatisfied database constraints.
+
+### POST /v1/groups/<name>
+
+Update classes, class parameters, and variables of the group with the given name by submitting a group delta.
+
+#### Request Format
+
+The request body must be JSON object describing the delta to be applied to the group.
+The `classes` and `variables` keys of the delta will be merged with the group, and then any keys of the resulting object that have a null value will be deleted.
+This allows you to remove classes, class parameters, or variables from the group by setting them to null in the delta.
+The object after any deletions will become the new value of the group.
+
+For example, given the following group:
+
+    {
+      "name": "Webservers",
+      "environment": "production",
+      "classes": {
+        "apache": {
+          "serveradmin": "bofh@travaglia.net",
+          "keepalive_timeout": 5
+        },
+        "ssl": {
+          "keystore": "/etc/ssl/keystore"
+        }
+      },
+      "variables": {
+        "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"]
+      }
+    }
+
+and this delta:
+
+    {
+      "classes": {
+        "apache": {
+          "serveradmin": "roy@reynholm.co.uk",
+          "keepalive_timeout": null
+        },
+        "ssl": null
+      }
+      "variables": {
+        "dns_servers": ["dns.reynholm.co.uk"]
+      }
+    }
+
+then the value of the group after the update will be:
+
+    {
+      "name": "Webservers",
+      "environment": "production",
+      "classes": {
+        "apache": {
+          "serveradmin": "roy@reynholm.co.uk",
+        }
+      },
+      "variables": {
+        "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"]
+        "dns_servers": ["dns.reynholm.co.uk"]
+      }
+    }
+
+Note how the "ssl" class was deleted because its entire object was mapped to null, whereas for the "apache" class only the "keepalive_timeout" parameter was deleted.

@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.util
   (:require [clojure.string :as str]
-            [clojure.walk :refer [postwalk]]
-            [schema.utils :refer [validation-error-explain]]
+            [clojure.walk :refer [postwalk prewalk]]
+            [schema.utils :refer [named-error-explain validation-error-explain]]
             puppetlabs.trapperkeeper.core))
 
 (defn ini->map
@@ -40,8 +40,62 @@
                             'String
                             x))
         error-explainer (fn [x]
-                          (if (= (class x) schema.utils.ValidationError)
+                          (cond
+                            (= (class x) schema.utils.ValidationError)
                             (validation-error-explain x)
-                            x))]
+
+                            (= (class x) schema.utils.NamedError)
+                            (named-error-explain x)
+
+                            :otherwise x))]
     (postwalk (comp error-explainer keyword->string strip-sym-prefix)
               explanation)))
+
+(defn deep-merge
+  "Deeply merges maps so that nested maps are combined rather than replaced.
+
+  For example:
+  (deep-merge {:foo {:bar :baz}} {:foo {:fuzz :buzz}})
+  ;;=> {:foo {:bar :baz, :fuzz :buzz}}
+
+  ;; contrast with clojure.core/merge
+  (merge {:foo {:bar :baz}} {:foo {:fuzz :buzz}})
+  ;;=> {:foo {:fuzz :quzz}} ; note how last value for :foo wins"
+  [& vs]
+  (if (every? map? vs)
+    (apply merge-with deep-merge vs)
+    (last vs)))
+
+(defn- remove-paths-to-nils
+  [m]
+  (let [pre-fn #(if-not (= (type %) clojure.lang.MapEntry)
+                  %
+                  (let [[k v :as kv] %]
+                    (cond (nil? v) nil
+                          (map? v) (if-let [v' (remove-paths-to-nils v)]
+                                     [k v']
+                                     nil)
+                          :otherwise kv)))]
+    (prewalk pre-fn m)))
+
+(defn merge-and-clean
+  "First deeply merges the maps with puppetlabs.classifier.util/deep-merge,
+  then `cleans` the merged map by deleting any path that leads to a nil value.
+  This can be used to remove paths in the first map by setting the value at that
+  path to nil in a later map. If the first map has sibling values that are
+  non-nil, they will still be present; if there are no siblings, there will be
+  an empty map left over.
+
+  Example:
+  (unmerge {:foo {:bar :baz}} {:foo {:bar nil}, :quz :qux})
+  ;;=> {:foo {}, :quz :qux}
+
+  (unmerge {:foo {:bar :baz, :fuzz :buzz}} {:foo {:bar nil}})
+  ;;=> {:foo {:fuzz :buzz}
+
+  (unmerge {:foo {:bar :baz}} {:foo nil})
+  ;;=> {}"
+  [& maps]
+  (->> maps
+    (apply deep-merge)
+    remove-paths-to-nils))

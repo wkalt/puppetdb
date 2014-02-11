@@ -9,7 +9,7 @@
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
-            [puppetlabs.classifier.util :refer [->client-explanation]])
+            [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean]])
   (:import com.fasterxml.jackson.core.JsonParseException
            org.postgresql.util.PSQLException))
 
@@ -50,7 +50,7 @@
     (try (handler request)
       (catch clojure.lang.ExceptionInfo e
         ;; re-throw things that aren't schema validation errors
-        (when-not (re-find #"Value does not match schema" (.getMessage e))
+        (when-not (re-find #"does not match schema" (.getMessage e))
           (throw e))
         (let [{:keys [schema value error]} (.getData e)]
           {:status 400
@@ -81,37 +81,12 @@
                                 foreign-resource " with primary key values (" pkey "), but no such "
                                 foreign-resource " could be found."))
                          (str "The " resource-kind " you tried to create refers to a class or"
-                              "parameter that could not be found."))]
+                              " parameter that could not be found."))]
           (when-not (= code foreign-key-violation-code)
             (throw e))
           {:status 412
            :headers {"Content-Type" "text/plain"}
            :body resp-msg})))))
-
-(def ResourceImplementation
-  {(sc/required-key :get) (sc/->FnSchema sc/Any sc/Any)
-   (sc/required-key :put) (sc/->FnSchema sc/Any sc/Any)
-   (sc/required-key :delete) (sc/->FnSchema sc/Any sc/Any)})
-
-(defn classifier-resource
-  "The `implementation` is a map with all the necessary action fns for this
-  resource. See the ResourceImplementation schema defined above for more
-  details."
-  [implementation]
-  (fn [request]
-    (run-resource
-      request
-      {:allowed-methods [:put :get :delete]
-       :available-media-types ["application/json"]
-       :exists? (:get implementation)
-       :handle-ok ::retrieved
-       :put! (:put implementation)
-       :handle-created ::created
-       :delete! (:delete implementation)
-       :malformed? parse-if-body
-       :handle-malformed (fn [ctx]
-                           (format "Body is not valid JSON: %s"
-                                   (::request-body ctx)))})))
 
 (sc/defn crud-resource
   "Create a basic CRUD endpoint for a resource, given a storage object and a
@@ -120,21 +95,44 @@
    schema :- sc/Schema
    storage :- (sc/protocol storage/Storage)
    defaults :- {sc/Keyword sc/Any}
-   storage-fns :- {:get (sc/->FnSchema sc/Any sc/Any)
-                   :create (sc/->FnSchema sc/Any sc/Any)
-                   :delete (sc/->FnSchema sc/Any sc/Any)}]
-  (classifier-resource
-    {:get (fn [_]
-            (if-let [resource ((:get storage-fns) storage resource-name)]
-              {::retrieved resource}))
-     :put (fn [ctx]
-            (let [resource (-> (merge defaults (::data ctx {}))
-                               (assoc :name resource-name))]
-              (sc/validate schema resource)
-              ((:create storage-fns) storage resource)
-              {::created resource}))
-     :delete (fn [_]
-               ((:delete storage-fns) storage resource-name))}))
+   {:keys [get create update delete]} :- {:get (sc/pred fn?)
+                                          :create (sc/pred fn?)
+                                          (sc/optional-key :update) (sc/pred fn?)
+                                          :delete (sc/pred fn?)}]
+  (let [exists? (fn [_]
+                  (if-let [resource (get storage resource-name)]
+                    {::retrieved resource}))
+        put! (fn [ctx]
+               (let [submitted (assoc (::data ctx {}) :name resource-name)
+                     resource (merge defaults submitted)]
+                 (create storage resource)
+                 {::created resource}))
+        post! (if update
+                (fn [ctx]
+                  (let [submitted (assoc (::data ctx {}) :name resource-name)]
+                    {::updated (update storage submitted)})))
+        delete! (fn [_] (delete storage resource-name))
+        allowed-methods (let [base [:put :get :delete]]
+                          (if update
+                            (conj base :post)
+                            base))]
+    (fn [request]
+      (run-resource
+        request
+        {:allowed-methods allowed-methods
+         :available-media-types ["application/json"]
+         :exists? exists?
+         :handle-ok #(or (::updated %) (::retrieved %))
+         :put! put!
+         :post! post! ; this is nil if no update fn provided, but shouldn't be called in that case
+         :new? ::created
+         :respond-with-entity? (contains? #{:get :post :put} (:request-method request))
+         :handle-created ::created
+         :delete! delete!
+         :malformed? parse-if-body
+         :handle-malformed (fn [ctx]
+                             (format "Body is not valid JSON: %s"
+                                     (::request-body ctx)))}))))
 
 (sc/defn listing-resource
   [storage :- (sc/protocol storage/Storage)
@@ -165,6 +163,7 @@
                              :variables {}}
                             {:get storage/get-group
                              :create storage/create-group
+                             :update storage/update-group
                              :delete storage/delete-group}))
 
         (GET "/v1/classes" []
