@@ -30,7 +30,7 @@
                  [migratus "0.7.0"]
                  [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                  [clj-http "0.7.8"]
-                 [prismatic/schema "0.1.10"]]
+                 [prismatic/schema "0.2.0"]]
   :profiles {:dev {:dependencies [[ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]]
                    :injections [(require 'spyscope.core)]}}
