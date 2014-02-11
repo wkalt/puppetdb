@@ -37,6 +37,22 @@ task :clobber => [ :clean ] do
   rm_rf FileList["target/classifier*jar"]
 end
 
+if defined?(Pkg) and defined?(Pkg::Config)
+  @version = Pkg::Config.version
+else
+  begin
+    %x{which git >/dev/null 2>&1}
+    if $?.success?
+      @version = %x{git describe --always --dirty}
+      if $?.success?
+        @version.chomp!
+      end
+    end
+  rescue
+    @version = "0.0-dev-build"
+  end
+end
+
 task :version do
   puts @version
 end
