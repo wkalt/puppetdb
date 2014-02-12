@@ -184,35 +184,48 @@
         (is (= {:dothings "yes"} (:variables classification)))))))
 
 (deftest ^:acceptance update-resources
-  (let [base-url (base-url test-config)]
-    (testing "update group fields"
-      (let [aclass {:name "aclass"
-                    :environment "production"
-                    :parameters {:log "warn", :verbose "false", :loglocation "/var/log"}}
-            bclass {:name "bclass", :environment "production", :parameters {}}
-            group {:name "agroup"
-                   :environment "production"
-                   :classes {:aclass {:verbose "true" :log "info"}
-                             :bclass {}}
-                   :variables {:dns "8.8.8.8"}}
-            group-delta {:classes {:aclass {:log "fatal"
+  (let [base-url (base-url test-config)
+        aclass {:name "aclass"
+                :environment "production"
+                :parameters {:log "warn", :verbose "false", :loglocation "/var/log"}}
+        bclass {:name "bclass", :environment "production", :parameters {}}
+        group {:name "agroup"
+               :environment "production"
+               :classes {:aclass {:verbose "true" :log "info"}
+                         :bclass {}}
+               :variables {:dns "8.8.8.8"}}
+        new-env "spaaaace"]
+
+    ;; insert pre-reqs
+    (doseq [env ["production" new-env]
+            class [aclass bclass]
+            :let [class-with-env (assoc class :environment env)]]
+      (http/put (str base-url "/v1/classes/" (:name class-with-env))
+                {:content-type :json, :body (json/encode class-with-env)}))
+    (http/put (str base-url "/v1/groups/agroup")
+              {:content-type :json, :body (json/encode group)})
+
+    (testing "can update group classes, class parameters, variables, and environment."
+      (let [group-delta {:environment new-env
+                         :classes {:aclass {:log "fatal"
                                             :verbose nil
                                             :loglocation "/dev/null"}}
                          :variables {:dns nil}}
-            group' {:name "agroup"
-                    :environment "production"
-                    :classes {:aclass {:loglocation "/dev/null", :log "fatal"}
-                              :bclass {}}
-                    :variables {}}]
-        (http/put (str base-url "/v1/classes/aclass")
-                  {:content-type :json, :body (json/encode aclass)})
-        (http/put (str base-url "/v1/classes/bclass")
-                  {:content-type :json, :body (json/encode bclass)})
-        (http/put (str base-url "/v1/groups/agroup")
-                  {:content-type :json, :body (json/encode group)})
-        (let [update-resp (http/post
-                            (str base-url "/v1/groups/agroup")
-                            {:content-type :json, :body (json/encode group-delta)})
-              {:keys [body status]} update-resp]
-          (is (= 200 status))
-          (is (= group' (json/decode body true))))))))
+            group' (util/merge-and-clean group group-delta)
+            update-resp (http/post
+                          (str base-url "/v1/groups/agroup")
+                          {:content-type :json, :body (json/encode group-delta)})
+            {:keys [body status]} update-resp]
+        (is (= 200 status))
+        (is (= group' (json/decode body true)))))
+
+    (testing "when trying to update a group's environment fails, a useful error message is produced"
+      (let [new-env "dne"
+            group-env-delta {:environment new-env}
+            update-resp (http/post (str base-url "/v1/groups/agroup")
+                                   {:content-type :json
+                                    :body (json/encode group-env-delta)
+                                    :throw-exceptions false})
+            {:keys [body status]} update-resp]
+        (is (= 412 status))
+        (is (re-find #"class with primary key values \(aclass, dne\)" body))))))

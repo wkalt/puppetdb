@@ -5,7 +5,8 @@
             [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [puppetlabs.classifier.util :refer [merge-and-clean]]))
+            [puppetlabs.classifier.util :refer [merge-and-clean]])
+  (:import org.postgresql.util.PSQLException))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
@@ -117,51 +118,74 @@
       (is (= {:name "rnd"} (get-environment db "rnd"))))))
 
 (deftest ^:database complex-groups
-  (testing "stores a group with class parameters and top-level variables"
-    (let [envs ["test" "tropical"]
-          first-class {:name "first"
-                       :parameters {:one "one-def"
-                                    :two nil}}
-          second-class {:name "second"
-                        :parameters {:three nil
-                                     :four nil
-                                     :five "default"}}
-          g1 {:name "complex-group"
-              :classes {:first {:one "one-val"
-                                :two "two-val"}
-                        :second {:three "three-val"
-                                 :four "four-val"}}
-              :environment "test"
-              :variables {:fqdn "www.example.com"
-                          :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
-                          :cluster_index 8
-                          :some_bool false}}
-          g1-delta {:name "complex-group"
-                    :classes {:first nil
-                              :second {:three nil
-                                       :four "red fish"
-                                       :five "blue fish"}}
-                    :variables {:some_bool nil
-                                :cluster_index 4
-                                :cluster_size 16}}
-          g2 {:name "another-complex-group"
-              :environment "tropical"
-              :classes {:first {:two "another-two-val"}
-                        :second {:four "four-val"}}
-              :variables {:island false, :rainforest true}}
-          unknown-update {:name "dne"
-                         :environment "test"
-                         :classes {:first {:one "one-val"}}}]
-      (doseq [env envs, c [first-class second-class]]
-        (create-class db (assoc c :environment env)))
+
+  (let [envs ["test" "tropical"]
+        first-class {:name "first"
+                     :parameters {:one "one-def"
+                                  :two nil}}
+        second-class {:name "second"
+                      :parameters {:three nil
+                                   :four nil
+                                   :five "default"}}
+        g1 {:name "complex-group"
+            :classes {:first {:one "one-val"
+                              :two "two-val"}
+                      :second {:three "three-val"
+                               :four "four-val"}}
+            :environment "test"
+            :variables {:fqdn "www.example.com"
+                        :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
+                        :cluster_index 8
+                        :some_bool false}}
+        g2 {:name "another-complex-group"
+            :environment "tropical"
+            :classes {:first {:two "another-two-val"}
+                      :second {:four "four-val"}}
+            :variables {:island false, :rainforest true}}]
+
+    (doseq [env envs, c [first-class second-class]]
+      (create-class db (assoc c :environment env)))
+
+    (testing "stores groups with class parameters and top-level variables"
       (create-group db g1)
       (create-group db g2)
       (is (= g1 (get-group db (:name g1))))
       (is (= g2 (get-group db (:name g2))))
-      (is (= #{g1 g2} (set (get-groups db))))
-      (is (nil? (update-group db unknown-update)))
-      (is (= (merge-and-clean g1 g1-delta) (update-group db g1-delta)))
-      (is (= (merge-and-clean g1 g1-delta) (get-group db (:name g1)))))))
+      (is (= #{g1 g2} (set (get-groups db)))))
+
+    (testing "can update group classes, class parameters, and variables"
+      (let [g1-delta {:name "complex-group"
+                      :classes {:first nil
+                                :second {:three nil
+                                         :four "red fish"
+                                         :five "blue fish"}}
+                      :variables {:some_bool nil
+                                  :cluster_index 4
+                                  :cluster_size 16}}
+            g1' (merge-and-clean g1 g1-delta)]
+        (is (= g1' (update-group db g1-delta)))
+        (is (= g1' (get-group db (:name g1))))))
+
+    (testing "returns nil when attempting to update unknown group"
+      (is (nil? (update-group db {:name "DNE"}))))
+
+    (testing "can update group environments"
+      (let [g2-env-change {:name "another-complex-group", :environment "test"}
+            g2' (merge-and-clean g2 g2-env-change)]
+        (is (= g2' (update-group db g2-env-change)))
+        (is (= g2' (get-group db (:name g2))))))
+
+    (testing "trying to update environments when the group refers to classes
+             that don't exist in the new environment results in a foreign-key
+             violation exception"
+      (let [g2-bad-env-change {:name "another-complex-group"
+                               :environment "dne"}
+            e (try (do
+                     (update-group db g2-bad-env-change)
+                     nil)
+                (catch PSQLException e
+                  e))]
+        (is (and e (= (.getSQLState e) "23503")))))))
 
 (deftest ^:database classes
   (testing "store a class with no parameters"

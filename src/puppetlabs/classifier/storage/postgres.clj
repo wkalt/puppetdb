@@ -9,7 +9,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]])
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]
+            [puppetlabs.classifier.util :refer [merge-and-clean]])
   (:import org.postgresql.util.PSQLException))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
@@ -225,7 +226,7 @@
                    :value value})))
 
 (defn- update-group-classes
-  [{db :db} extant delta]
+  [db extant delta]
   (let [group-name (:name extant)
         environment (:environment extant)]
     (jdbc/with-db-transaction [t-db db]
@@ -249,7 +250,7 @@
                                          parameter-name, value))))))))
 
 (defn- update-group-variables
-  [{db :db} extant delta]
+  [db extant delta]
   (let [group-name (:name extant)]
     (jdbc/with-db-transaction [t-db db]
       (doseq [[variable value] (:variables delta)
@@ -265,14 +266,28 @@
           :otherwise ; new variable for the group
           (jdbc/insert! t-db :group_variables {:group_name group-name :variable variable-name :value value}))))))
 
+(defn- update-group-environment
+  [db extant delta]
+  (let [old-env (:environment extant)
+        new-env (:environment delta)
+        group-name (:name extant)
+        where-group (sql/where {"group_name" group-name})]
+    (when (and new-env (not= new-env old-env))
+      (jdbc/with-db-transaction [t-db db]
+        (create-environment-if-missing {:db db} {:name new-env})
+        (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"name" group-name}))
+        (jdbc/update! t-db :group_classes {:environment_name new-env} where-group)
+        (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group)))))
+
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db} delta]
   (let [group-name (:name delta)
         serialization-failure-code "40001"
         update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} group-name)]
-                          (update-group-classes {:db t-db} extant delta)
-                          (update-group-variables {:db t-db} extant delta)
+                          (update-group-classes t-db extant delta)
+                          (update-group-variables t-db extant delta)
+                          (update-group-environment t-db extant delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} group-name)))]
     (loop [retries 3]
