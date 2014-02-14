@@ -15,7 +15,14 @@
 
 (def RuleCondition
   (sc/either
-    [(sc/one (sc/eq "not") "negation") (sc/recursive #'RuleCondition)]
+    [(sc/one (sc/eq "not") "negation") (sc/one (sc/recursive #'RuleCondition) "negated-expression")]
+
+    [(sc/one (sc/eq "and") "conjunction")
+     (sc/one (sc/recursive #'RuleCondition) "first-term") (sc/recursive #'RuleCondition)]
+
+    [(sc/one (sc/eq "or") "disjunction")
+     (sc/one (sc/recursive #'RuleCondition) "first-term") (sc/recursive #'RuleCondition)]
+
     [(sc/one (sc/enum "=" "~" "<" "<=" ">" ">=") "operator")
      (sc/one String "field")
      (sc/one String "target-value")]))
