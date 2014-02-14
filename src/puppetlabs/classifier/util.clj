@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]
             [clojure.walk :refer [postwalk prewalk]]
             [schema.utils :refer [named-error-explain validation-error-explain]]
-            puppetlabs.trapperkeeper.core))
+            puppetlabs.trapperkeeper.core)
+  (:import java.util.UUID))
 
 (defn ini->map
   "Given a path to an ini file, parses the file into a map, returning the map."
@@ -99,3 +100,19 @@
   (->> maps
     (apply deep-merge)
     remove-paths-to-nils))
+
+(defn uuid?
+  [x]
+  (boolean (or (instance? UUID x)
+               (try (UUID/fromString x)
+                 (catch IllegalArgumentException _
+                   nil)))))
+
+(defn ->uuid
+  "Attempts to convert `x` to a java.util.UUID, returning nil if the conversion
+  fails."
+  [x]
+  (cond
+    (instance? UUID x) x
+    (string? x) (try (UUID/fromString x) (catch IllegalArgumentException _ nil))
+    :otherwise nil))

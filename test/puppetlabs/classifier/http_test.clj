@@ -32,11 +32,11 @@
         storage-fns {:get (fn [_ obj-name]
                             (if (= obj-name test-obj-name) test-obj))
                      :create (fn [_ obj]
-                               nil)
+                               obj)
                      :delete (fn [_ obj-name])}
         app (compojure/routes
               (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crud-resource obj-name schema storage defaults storage-fns)))]
+                             (crd-resource obj-name storage defaults storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))
@@ -71,7 +71,7 @@
                     nodes)
                   (create-node [_ node]
                     (is (= (get node-map (:name node)) node))
-                    (get node-map node))
+                    (get node-map (:name node)))
                   (delete-node [_ node-name]
                     (is (contains? node-map node-name))
                     '(1)))
@@ -121,16 +121,16 @@
                  :variables {}}]
         group-map (into {} (map (juxt :name identity) groups))
         mock-db (reify Storage
-                  (get-group [_ group-name]
+                  (get-group-by-name [_ group-name]
                     (get group-map group-name))
                   (get-groups [_]
                     groups)
                   (create-group [_ group]
                     (is (= (get group-map (:name group)) group))
-                    (get group-map group))
+                    (get group-map (:name group)))
                   (update-group [_ _]
                     (get group-map "agroupprime"))
-                  (delete-group [_ group-name]
+                  (delete-group-by-name [_ group-name]
                     (is (contains? group-map group-name))
                     '(1)))
         app (app mock-db)]
@@ -190,7 +190,8 @@
                   (get-classes [_]
                     classes)
                   (create-class [_ class]
-                    (is (= (get class-map (:name class)) class)))
+                    (is (= (get class-map (:name class)) class))
+                    (get class-map (:name class)))
                   (delete-class [_ class-name]
                     (is (contains? class-map class-name))
                     '(1)))
@@ -230,7 +231,7 @@
                     rule-id)
                   (get-rules [_]
                     [simple-rule])
-                  (get-group [_ _]
+                  (get-group-by-name [_ _]
                     {:name "food"}))
         app (app mock-db)]
     (testing "returns a key when storing a rule"
@@ -245,7 +246,8 @@
 (deftest errors
   (let [incomplete-group {:classes ["foo" "bar" "baz"]}
         mock-db (reify Storage
-                  (get-group [_ _] nil)
+                  (get-group-by-name [_ _]
+                    nil)
                   (create-group [_ group]
                     (sc/validate Group group)))
         app (app mock-db)]

@@ -6,7 +6,8 @@
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
             [puppetlabs.classifier.util :refer [merge-and-clean]])
-  (:import org.postgresql.util.PSQLException))
+  (:import org.postgresql.util.PSQLException
+           java.util.UUID))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
@@ -71,6 +72,21 @@
     (delete-node db "test3")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
+(defn- get-group-by-name-less-id
+  [db group-name]
+  (-> (get-group-by-name db group-name)
+    (dissoc :id)))
+
+(defn- get-groups-less-ids
+  [db]
+  (->> (get-groups db)
+    (map #(dissoc % :id))))
+
+(defn- update-group-less-id
+  [db delta]
+  (-> (update-group db delta)
+    (dissoc :id)))
+
 (deftest ^:database groups
   (let [simplest-group {:name "simplest" :classes {} :environment "test" :variables {}}
         group-with-classes {:name "with-classes"
@@ -82,6 +98,10 @@
       (create-group db simplest-group)
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
 
+    (testing "does not insert a group that has a UUID for the name"
+      (is (thrown? IllegalArgumentException
+                   (create-group db (assoc simplest-group :name (str (UUID/randomUUID)))))))
+
     (testing "stores a group with multiple classes"
       (create-class db {:name "hi" :parameters {} :environment "test"})
       (create-class db {:name "bye" :parameters {} :environment "test"})
@@ -90,16 +110,22 @@
                                   ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "with-classes"])))))
 
     (testing "retrieves a group"
-      (is (= simplest-group (get-group db "simplest"))))
+      (is (= simplest-group (get-group-by-name-less-id db "simplest"))))
+
+    (testing "retrieves a group by UUID"
+      (let [simplest-group' (get-group-by-name db "simplest")
+            uuid-str (-> simplest-group' :id str)]
+        (is (= simplest-group' (get-group-by-id db (:id simplest-group'))))
+        (is (= simplest-group' (get-group-by-id db uuid-str)))))
 
     (testing "retrieves a group with classes"
-      (is (= group-with-classes (get-group db "with-classes"))))
+      (is (= group-with-classes (get-group-by-name-less-id db "with-classes"))))
 
     (testing "retrieves all groups"
-      (is (= #{"simplest" "with-classes"} (->> (get-groups db) (map :name) set))))
+      (is (= #{simplest-group group-with-classes} (set (get-groups-less-ids db)))))
 
     (testing "deletes a group"
-      (delete-group db "simplest")
+      (delete-group-by-name db "simplest")
       (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"])))))))
 
 (deftest ^:database create-missing-environments
@@ -118,7 +144,6 @@
       (is (= {:name "rnd"} (get-environment db "rnd"))))))
 
 (deftest ^:database complex-groups
-
   (let [envs ["test" "tropical"]
         first-class {:name "first"
                      :parameters {:one "one-def"
@@ -149,9 +174,9 @@
     (testing "stores groups with class parameters and top-level variables"
       (create-group db g1)
       (create-group db g2)
-      (is (= g1 (get-group db (:name g1))))
-      (is (= g2 (get-group db (:name g2))))
-      (is (= #{g1 g2} (set (get-groups db)))))
+      (is (= g1 (get-group-by-name-less-id db (:name g1))))
+      (is (= g2 (get-group-by-name-less-id db (:name g2))))
+      (is (= #{g1 g2} (set (get-groups-less-ids db)))))
 
     (testing "can update group classes, class parameters, and variables"
       (let [g1-delta {:name "complex-group"
@@ -161,10 +186,11 @@
                                          :five "blue fish"}}
                       :variables {:some_bool nil
                                   :cluster_index 4
-                                  :cluster_size 16}}
+                                  :cluster_size 16
+                                  :spirit_animal "turtle"}}
             g1' (merge-and-clean g1 g1-delta)]
-        (is (= g1' (update-group db g1-delta)))
-        (is (= g1' (get-group db (:name g1))))))
+        (is (= g1' (update-group-less-id db g1-delta)))
+        (is (= g1' (get-group-by-name-less-id db (:name g1))))))
 
     (testing "returns nil when attempting to update unknown group"
       (is (nil? (update-group db {:name "DNE"}))))
@@ -172,8 +198,8 @@
     (testing "can update group environments"
       (let [g2-env-change {:name "another-complex-group", :environment "test"}
             g2' (merge-and-clean g2 g2-env-change)]
-        (is (= g2' (update-group db g2-env-change)))
-        (is (= g2' (get-group db (:name g2))))))
+        (is (= g2' (update-group-less-id db g2-env-change)))
+        (is (= g2' (get-group-by-name-less-id db (:name g2))))))
 
     (testing "trying to update environments when the group refers to classes
              that don't exist in the new environment results in a foreign-key

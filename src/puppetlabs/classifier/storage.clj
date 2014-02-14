@@ -7,10 +7,12 @@
   (delete-node [this node] "Deletes a node")
 
   (create-group [this group] "Creates a new group")
-  (get-group [this group] "Retrieves a group")
+  (get-group-by-id [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
+  (get-group-by-name [this group-name] "Retrieves a group given its name")
   (get-groups [this] "Retrieves all groups")
   (update-group [this delta] "Updates class/parameter and variable fields of a group")
-  (delete-group [this group] "Deletes a group")
+  (delete-group-by-id [this id] "Deletes a group given its ID")
+  (delete-group-by-name [this group-name] "Deletes a group given its name")
 
   (create-class [this class] "Creates a class specification")
   (get-class [this class-name] "Retrieves a class specification")
