@@ -4,7 +4,7 @@
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
             [clj-http.client :as http]
-            [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
+            [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
             [schema.test]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]])
@@ -26,9 +26,9 @@
 
 (defn- block-until-ready
   [server-process]
-  (let [err-lines (-> (:err server-process) io/reader line-seq)]
-    (dorun (take-while #(not (re-find #"ContextHandler:started" %))
-                         err-lines))))
+  (let [out-lines (-> (:out server-process) io/reader line-seq)]
+    (dorun (take-while #(not (re-find #"started o.e.j.s.h.ContextHandler" %))
+                         out-lines))))
 
 (defn start!
   [config-path]
@@ -44,9 +44,9 @@
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
         config-with-db (assoc base-config :database test-db)
-        test-config-file (java.io.File/createTempFile "classifier-test-" "conf")
+        test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
         test-config-path (.getAbsolutePath test-config-file)
-        _ (spit-ini (java.io.File. test-config-path) config-with-db)
+        _ (spit-ini test-config-file config-with-db)
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
@@ -70,6 +70,7 @@
         (future (stream-to-out server-proc :err))
         (catch TimeoutException e
           (future-cancel server-blocker)
+          (destroy server-proc)
           (binding [*out* *err*]
             (println "Server did not start within the allotted time"
                      (str "(" timeout-ms " ms)")))

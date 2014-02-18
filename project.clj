@@ -18,7 +18,7 @@
   :description "Node classifier"
   :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.5.1"]
-                 [compojure "1.1.6" :exclusions [[clj-time]]]
+                 [compojure "1.1.6" :exclusions [[clj-time] [org.clojure/tools.macro]]]
                  ;; Logging
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/java.jdbc "0.3.2"]
@@ -26,7 +26,9 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [liberator "0.10.0"]
                  [cheshire "5.2.0"]
-                 [puppetlabs/trapperkeeper "0.1.1"]
+                 [puppetlabs/kitchensink "0.5.2"]
+                 [puppetlabs/trapperkeeper "0.3.2"]
+                 [puppetlabs/trapperkeeper-webserver-jetty7 "0.3.2"]
                  [migratus "0.7.0"]
                  [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                  [clj-http "0.7.8"]

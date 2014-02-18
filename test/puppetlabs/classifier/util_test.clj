@@ -45,13 +45,6 @@
       (is (no-keyword-symbols? schema-explanation))
       (is (no-keyword-symbols? error-explanation)))))
 
-(deftest deep-merge-maps
-  (let [a {:foo {:bar :baz, :fuzz :buzz}}
-        b {:foo {:fuzz {:quuz :quux}}}
-        merged (deep-merge a b)]
-    (testing "merges nested maps, taking last map's value for scalar conflicts"
-      (is (= {:foo {:bar :baz, :fuzz {:quuz :quux}}} merged)))))
-
 (deftest merge-and-clean-maps
   (let [group {:name "agroup"
                :environment "production"

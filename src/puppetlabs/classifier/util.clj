@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.util
   (:require [clojure.string :as str]
             [clojure.walk :refer [postwalk prewalk]]
+            [puppetlabs.kitchensink.core :refer [deep-merge]]
             [schema.utils :refer [named-error-explain validation-error-explain]])
   (:import java.util.UUID))
 
@@ -31,21 +32,6 @@
                             :otherwise x))]
     (postwalk (comp error-explainer keyword->string strip-sym-prefix)
               explanation)))
-
-(defn deep-merge
-  "Deeply merges maps so that nested maps are combined rather than replaced.
-
-  For example:
-  (deep-merge {:foo {:bar :baz}} {:foo {:fuzz :buzz}})
-  ;;=> {:foo {:bar :baz, :fuzz :buzz}}
-
-  ;; contrast with clojure.core/merge
-  (merge {:foo {:bar :baz}} {:foo {:fuzz :buzz}})
-  ;;=> {:foo {:fuzz :quzz}} ; note how last value for :foo wins"
-  [& vs]
-  (if (every? map? vs)
-    (apply merge-with deep-merge vs)
-    (last vs)))
 
 (defn- remove-paths-to-nils
   [m]
