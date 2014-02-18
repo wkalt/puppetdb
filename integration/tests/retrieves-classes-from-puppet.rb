@@ -10,7 +10,7 @@ Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
 
 step "Create a manifest"
 
-testdir = master.tmpdir('test_classifies')
+testdir = master.tmpdir('test_retrieves_classes')
 
 on master, "mkdir -p #{testdir}/environments/one/manifests"
 on master, "mkdir -p #{testdir}/environments/two/manifests"
