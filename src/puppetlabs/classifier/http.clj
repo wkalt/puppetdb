@@ -78,6 +78,10 @@
   [data _]
   (json/encode data))
 
+(defmethod liberator-representation/render-seq-generic "application/json"
+  [data _]
+  (json/encode data))
+
 (defn malformed-or-parse
   "Returns false (i.e. not malformed) for well-formed json string `body`, along
   with a map storing the parse result in ::data. Returns true (i.e. malformed)
