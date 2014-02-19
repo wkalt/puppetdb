@@ -353,29 +353,6 @@
 ;; Classes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- create-parameter
-  [db parameter default-value class-name environment-name]
-  (jdbc/insert! db :class_parameters
-                [:class_name :parameter :default_value :environment_name]
-                [class-name (clojure.core/name parameter) default-value environment-name]))
-
-(sc/defn ^:always-validate create-class* :- PuppetClass
-  [{db :db}
-   {:keys [name parameters environment] :as class} :- PuppetClass]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (create-environment-if-missing {:db t-db} {:name environment})
-    (jdbc/insert! t-db :classes {:name name :environment_name environment})
-    (doseq [[param value] parameters]
-      (create-parameter t-db param value name environment)))
-  class)
-
-(defn extract-parameters [result]
-  (into {} (for [[param default] (->> result
-                                   (map (juxt :parameter :default_value))
-                                   (remove (comp nil? first)))]
-             [(keyword param) default])))
-
 (def ^:private class-selection
   "SELECT name,
           c.environment_name AS environment,
@@ -383,14 +360,19 @@
           cp.default_value
   FROM classes c
   LEFT OUTER JOIN class_parameters cp
-    ON c.name = cp.class_name AND c.environment_name = cp.environment_name")
+    ON c.name = cp.class_name AND c.environment_name = cp.environment_name AND cp.deleted = false")
 
 (defn select-class
   [class-name]
-  [(str class-selection " WHERE c.name = ?") class-name])
+  [(str class-selection " WHERE c.name = ? AND c.deleted = false") class-name])
+
+(defn select-class-where-deleted
+  [class-name environment]
+  [(str class-selection " WHERE c.name = ? AND c.environment_name = ? AND c.deleted = true")
+   class-name environment])
 
 (defn select-all-classes []
-  [class-selection])
+  [(str class-selection " WHERE c.deleted = false")])
 
 (defn- keywordize-parameters
   [class]
@@ -398,6 +380,47 @@
              (fn [params]
                (into {} (for [[param default] params]
                           [(keyword param) default]))) ))
+
+(defn- create-parameter
+  "Create or update and undelete a parameter"
+  [db parameter default-value class-name environment-name]
+  (jdbc/with-db-transaction
+    [t-db db]
+    (let [parameter (clojure.core/name parameter)
+          [deleted] (jdbc/query t-db (sql/select [:parameter]
+                                                 :class_parameters
+                                                 (sql/where {:parameter parameter
+                                                             :class_name class-name
+                                                             :environment_name environment-name
+                                                             :deleted true})))]
+      (if deleted
+        (jdbc/update! t-db :class_parameters
+                      {:default_value default-value
+                       :deleted false}
+                      (sql/where {:parameter parameter
+                                  :class_name class-name
+                                  :environment_name environment-name}))
+        (jdbc/insert! t-db :class_parameters
+                      {:class_name class-name
+                       :parameter parameter
+                       :default_value default-value
+                       :environment_name environment-name
+                       :deleted false})))))
+
+(sc/defn ^:always-validate create-class* :- PuppetClass
+  "Create or update and undelete a class"
+  [{db :db}
+   {:keys [name parameters environment] :as class} :- PuppetClass]
+  (jdbc/with-db-transaction
+    [t-db db]
+    (create-environment-if-missing {:db t-db} {:name environment})
+    (let [[deleted] (jdbc/query t-db (select-class-where-deleted name environment))]
+      (if deleted
+        (jdbc/update! t-db :classes {:deleted false} (sql/where {:name name, :environment_name environment}))
+        (jdbc/insert! t-db :classes {:name name, :environment_name environment, :deleted false})))
+    (doseq [[param value] parameters]
+      (create-parameter t-db param value name environment)))
+  class)
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db} class-name]

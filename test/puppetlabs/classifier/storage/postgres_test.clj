@@ -320,4 +320,17 @@
                         ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
                          "changed" "changed"])]
         (is (false? (:deleted result)))
-        (is (= "2" (:default_value result)))))))
+        (is (= "2" (:default_value result)))))
+
+    (synchronize-classes db before)
+
+    (testing "referred is marked undeleted when re-added"
+      (let [[result] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "referred"])]
+        (is (false? (:deleted result)))))
+
+    (testing "referred parameter is marked undeleted when re-added"
+      (let [[result]
+            (jdbc/query test-db
+                        ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
+                         "changed" "referred"])]
+        (is (false? (:deleted result)))))))
