@@ -160,18 +160,27 @@
   (let [base-url (base-url test-config)
         node-url #(str base-url "/v1/nodes/" %)
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
-        nodes (for [nn node-names] {:name nn})]
+        nodes (for [nn node-names] {:name nn})
+        group {:name "bargroup" :environment "production", :classes {}}]
     (testing "lists all resource instances"
-      (doseq [nn node-names]
-        (is (= 201 (:status (http/put (node-url nn))))))
+      (http/put (str base-url "/v1/groups/" (:name group))
+                {:content-type :json, :body (json/encode group)})
+      (doseq [nn node-names] (http/put (node-url nn)))
       (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
         (is (= 200 (:status resp)))
         (is (= (set nodes) (set (json/decode body true))))))
     (testing "deletes resource instances"
       (doseq [nn node-names]
         (is (= 204 (:status (http/delete (node-url nn))))))
-      (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
-        (is (empty? (json/decode body)))))))
+      (let [{body :body} (http/get (str base-url "/v1/nodes"))]
+        (is (empty? (json/decode body))))
+      (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:name group))))))
+      (let [{body :body} (http/get (str base-url "/v1/groups"))
+            group-names (-> body
+                          (json/decode true)
+                          (->> (map :name))
+                          set)]
+        (is (not (contains? group-names (:name group))))))))
 
 (deftest ^:acceptance missing-referents-explanation
   (let [base-url (base-url test-config)
