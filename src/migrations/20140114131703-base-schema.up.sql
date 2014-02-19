@@ -10,6 +10,7 @@ CREATE TABLE environments (
 
 CREATE TABLE groups (
     name TEXT PRIMARY KEY,
+    id UUID UNIQUE,
     environment_name TEXT NOT NULL REFERENCES environments(name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
 );
 --;;

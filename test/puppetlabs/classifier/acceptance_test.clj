@@ -7,7 +7,8 @@
             [schema.test]
             [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
             [puppetlabs.classifier.util :as util])
-  (:import [java.util.concurrent TimeoutException TimeUnit]))
+  (:import [java.util.concurrent TimeoutException TimeUnit]
+           java.util.UUID))
 
 (def test-config
   "Path from the root of the repo to the configuration file to use for the tests
@@ -123,6 +124,38 @@
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp)))))))
 
+(deftest ^:acceptance groups-and-uuids
+  (let [base-url (base-url test-config)
+        group {:name "foogroup"
+               :id (UUID/randomUUID)
+               :environment "production"
+               :classes {}}]
+    (testing "trying to create a group by specifying id in URI causes a 405"
+      (let [{:keys [status]} (http/put (str base-url "/v1/groups/" (:id group))
+                                       {:throw-exceptions false
+                                        :content-type :json
+                                        :body (json/encode group)})]
+        (is (= 405 status))))
+    (let [stored-group (-> (http/put (str base-url "/v1/groups/" (:name group))
+                                     {:content-type :json, :body (json/encode (dissoc group :id))})
+                         :body
+                         (json/decode true))
+          group-uuid-url (str base-url "/v1/groups/" (:id stored-group))]
+      (testing "can retrieve a group by giving its UUID"
+        (let [{:keys [body status]} (http/get group-uuid-url)]
+          (is (= 200 status))
+          (is (= stored-group (json/decode body true)))))
+      (testing "can update a group through its UUID URI"
+        (let [delta {:variables {:spirit_animal "turtle"}}
+              {:keys [body status]} (http/post group-uuid-url
+                                               {:content-type :json, :body (json/encode delta)})]
+          (is (= 200 status))
+          (is (= (merge stored-group delta) (json/decode body true)))))
+      (testing "can delete a group through its UUID URI"
+        (let [{:keys [body status]} (http/delete group-uuid-url)]
+          (is (= 204 status))
+          (is (empty? body)))))))
+
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
         node-url #(str base-url "/v1/nodes/" %)
@@ -217,7 +250,7 @@
                           {:content-type :json, :body (json/encode group-delta)})
             {:keys [body status]} update-resp]
         (is (= 200 status))
-        (is (= group' (json/decode body true)))))
+        (is (= group' (-> body (json/decode true) (dissoc :id))))))
 
     (testing "when trying to update a group's environment fails, a useful error message is produced"
       (let [new-env "dne"
