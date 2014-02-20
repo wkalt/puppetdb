@@ -22,26 +22,34 @@
     (context prefix [] app)
     app))
 
+(defprotocol ClassifierService
+  (shutdown [this] "Shut down the classifier."))
+
 (defservice classifier-service
-   {:depends [[:config-service get-config]
-              [:webserver-service add-ring-handler]]
-    :provides [shutdown]}
-   (let [config       (get-config)
-         db-spec      (get config :database fallback-db-spec)
-         database     (postgres/new-db db-spec)
-         context-path (get-in config [:classifier :url-prefix] "")
-         app          (add-url-prefix context-path (http/app database))]
-     (postgres/migrate db-spec)
-     (add-ring-handler app context-path))
-   {:shutdown on-shutdown})
+  ClassifierService
+
+  [[:ConfigService get-config]
+   [:WebserverService add-ring-handler]]
+
+  (start [_ context]
+         (let [config (get-config)
+               db-spec (get config :database fallback-db-spec)
+               database (postgres/new-db db-spec)
+               api-prefix (get-in config [:classifier :url-prefix] "")
+               app (add-url-prefix api-prefix (http/app database))]
+           (postgres/migrate db-spec)
+           (add-ring-handler app api-prefix)
+           context))
+
+  (shutdown [_] (on-shutdown)))
 
 (defservice initdb
-  {:depends [[:config-service get-config]
-             [:shutdown-service request-shutdown]]
-   :provides []}
-  (let [config (get-config)
-        db-spec (get config :database fallback-db-spec)]
-    (postgres/drop-public-tables db-spec)
-    (postgres/migrate db-spec)
-    (request-shutdown))
-  {})
+  [[:ConfigService get-config]
+   [:ShutdownService request-shutdown]]
+  (start [_ context]
+         (let [config (get-config)
+               db-spec (get config :database fallback-db-spec)]
+           (postgres/drop-public-tables db-spec)
+           (postgres/migrate db-spec)
+           (request-shutdown)
+           context)))

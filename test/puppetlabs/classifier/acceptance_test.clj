@@ -4,9 +4,10 @@
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [cheshire.core :as json]
             [clj-http.client :as http]
+            [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
             [schema.test]
-            [me.raynes.conch.low-level :refer [proc stream-to-out] :rename {proc sh}]
-            [puppetlabs.classifier.util :as util])
+            [puppetlabs.classifier.util :refer [merge-and-clean]]
+            [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
            java.util.UUID))
 
@@ -17,7 +18,7 @@
 
 (defn- base-url
   [config-path]
-  (let [app-config (util/ini->map config-path)
+  (let [app-config (ini-to-map config-path)
         host (get-in app-config [:webserver :host])]
     (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
@@ -25,16 +26,16 @@
 
 (defn- block-until-ready
   [server-process]
-  (let [err-lines (-> (:err server-process) io/reader line-seq)]
-    (dorun (take-while #(not (re-find #"ContextHandler:started" %))
-                         err-lines))))
+  (let [out-lines (-> (:out server-process) io/reader line-seq)]
+    (dorun (take-while #(not (re-find #"started o.e.j.s.h.ContextHandler" %))
+                         out-lines))))
 
 (defn start!
   [config-path]
   "Initialize the database and then start a classifier server using the given
   config file, returning a conch process map describing the server instance
   process."
-  (let [base-config (util/ini->map config-path)
+  (let [base-config (ini-to-map config-path)
         test-db {:subprotocol "postgresql"
                  :subname (or (System/getenv "CLASSIFIER_DBNAME")
                               "classifier_test")
@@ -43,9 +44,9 @@
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
         config-with-db (assoc base-config :database test-db)
-        test-config-file (java.io.File/createTempFile "classifier-test-" "conf")
+        test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
         test-config-path (.getAbsolutePath test-config-file)
-        _ (util/write-map-as-ini! config-with-db test-config-path)
+        _ (spit-ini test-config-file config-with-db)
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
@@ -69,6 +70,7 @@
         (future (stream-to-out server-proc :err))
         (catch TimeoutException e
           (future-cancel server-blocker)
+          (destroy server-proc)
           (binding [*out* *err*]
             (println "Server did not start within the allotted time"
                      (str "(" timeout-ms " ms)")))
@@ -253,7 +255,7 @@
                                             :verbose nil
                                             :loglocation "/dev/null"}}
                          :variables {:dns nil}}
-            group' (util/merge-and-clean group group-delta)
+            group' (merge-and-clean group group-delta)
             update-resp (http/post
                           (str base-url "/v1/groups/agroup")
                           {:content-type :json, :body (json/encode group-delta)})
