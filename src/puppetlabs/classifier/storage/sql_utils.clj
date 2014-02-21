@@ -12,3 +12,10 @@
                                (remove (comp nil? first))
                                (into {})))))
 
+(defn aggregate-column
+  "Given a sequence of rows as maps, aggregate the values of `column` into
+  a sequence under `under`, combining rows that are equal except for the value
+  of `column`. Useful for consolidating the results of an outer join."
+  [column under results]
+  (for [[combined column-differs] (group-by #(dissoc % column) results)]
+    (assoc combined under (map #(get % column) column-differs))))
