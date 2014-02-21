@@ -26,6 +26,9 @@ module ClassifierExtensions
                          [:install, :upgrade], "install mode",
                          "CLASSIFIER_INSTALL_MODE", :install)
 
+    puppet_sha = get_option_value(options[:puppet_sha], nil,
+                                  "install type", "PUPPET_SHA", nil)
+
     database =
         get_option_value(options[:classifier_database],
             [:postgres, :embedded], "database", "CLASSIFIER_DATABASE", :postgres)
@@ -97,6 +100,7 @@ module ClassifierExtensions
       :os_families => os_families,
       :install_type => install_type,
       :install_mode => install_mode,
+      :puppet_sha => puppet_sha,
       :database => database,
       :validate_package_version => validate_package_version == :true,
       :expected_rpm_version => expected_rpm_version,
@@ -106,9 +110,9 @@ module ClassifierExtensions
       :package_build_host => package_build_host,
       :package_repo_host => package_repo_host,
       :package_repo_url => package_repo_url,
-      :repo_puppet => classifier_repo_puppet,
-      :repo_hiera => classifier_repo_hiera,
-      :repo_facter => classifier_repo_facter,
+      :repo_puppet => classifier_repo_puppet.to_s,
+      :repo_hiera => classifier_repo_hiera.to_s,
+      :repo_facter => classifier_repo_facter.to_s,
       :repo_classifier => classifier_repo_classifier,
       :git_ref => classifier_git_ref,
     }
@@ -726,6 +730,12 @@ module ClassifierExtensions
   # End Object diff functions
   ##############################################################################
 
+  def install_puppet_dev_repos(sha)
+    hosts.each do |host|
+      install_dev_repos_on("puppet", host, sha, "repo_configs")
+    end
+  end
+
   def install_puppet_from_package
     os_families = test_config[:os_families]
     hosts.each do |host|
@@ -753,7 +763,7 @@ module ClassifierExtensions
 
     tmp_repositories = []
 
-    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/ and k != 'repo_classifier' }.flatten].values
+    repos = Hash[*test_config.select {|k, v| k =~ /^repo_/ and k != 'repo_classifier' }.flatten].values.compact
 
     repos.each do |uri|
       raise(ArgumentError, "#{uri} is not recognized.") unless(uri =~ git_uri)
@@ -767,9 +777,9 @@ module ClassifierExtensions
 
       case os
       when :redhat
-        on host, "yum install -y git-core ruby"
+        on host, "yum install -y git-core ruby rubygem-json"
       when :debian
-        on host, "apt-get install -y git ruby"
+        on host, "apt-get install -y git ruby libjson-ruby"
       else
         raise "OS #{os} not supported"
       end
@@ -806,21 +816,90 @@ module ClassifierExtensions
   end
 
   def install_puppet
-    # If our :install_type is :pe then the harness has already installed puppet.
     case test_config[:install_type]
     when :package
+      if test_config[:puppet_sha]
+        install_puppet_dev_repos(test_config[:puppet_sha])
+      end
+
       install_puppet_from_package
       install_puppet_conf
     when :git
       if test_config[:repo_puppet] then
         install_puppet_from_source
       else
-        install_puppet_from_package
+        raise Exception, "You must specify a puppet repository source when install_type is git"
       end
       install_puppet_conf
     end
   end
 
+  # Taken from puppet acceptance lib
+  def fetch(base_url, file_name, dst_dir)
+    FileUtils.makedirs(dst_dir)
+    src = "#{base_url}/#{file_name}"
+    dst = File.join(dst_dir, file_name)
+    if File.exists?(dst)
+      logger.notify "Already fetched #{dst}"
+    else
+      logger.notify "Fetching: #{src}"
+      logger.notify "  and saving to #{dst}"
+      open(src) do |remote|
+        File.open(dst, "w") do |file|
+          FileUtils.copy_stream(remote, file)
+        end
+      end
+    end
+    return dst
+  end
+
+  # Taken from puppet acceptance lib
+  # Install development repos
+  def install_dev_repos_on(package, host, sha, repo_configs_dir)
+    platform = host['platform']
+    platform_configs_dir = File.join(repo_configs_dir, platform)
+
+    case platform
+      when /^(fedora|el|centos)-(\d+)-(.+)$/
+        variant = (($1 == 'centos') ? 'el' : $1)
+        fedora_prefix = ((variant == 'fedora') ? 'f' : '')
+        version = $2
+        arch = $3
+
+        pattern = "pl-%s-%s-%s-%s%s-%s.repo"
+        repo_filename = pattern % [
+          package,
+          sha,
+          variant,
+          fedora_prefix,
+          version,
+          arch
+        ]
+
+        repo = fetch(
+          "http://builds.puppetlabs.lan/%s/%s/repo_configs/rpm/" % [package, sha],
+          repo_filename,
+          platform_configs_dir
+        )
+
+        scp_to(host, repo, '/etc/yum.repos.d/')
+
+      when /^(debian|ubuntu)-([^-]+)-(.+)$/
+        variant = $1
+        version = $2
+        arch = $3
+
+        list = fetch(
+          "http://builds.puppetlabs.lan/%s/%s/repo_configs/deb/" % [package, sha],
+          "pl-%s-%s-%s.list" % [package, sha, version],
+          platform_configs_dir
+        )
+
+        scp_to host, list, '/etc/apt/sources.list.d'
+      else
+        host.logger.notify("No repository installation step for #{platform} yet...")
+    end
+  end
 end
 
 # oh dear.

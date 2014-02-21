@@ -10,11 +10,14 @@
             [puppetlabs.classifier.schema :refer [Group GroupDelta Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]
-            [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid]])
+            [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid relative-complements-by-key]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
 
 (def ^:private PuppetClass puppetlabs.classifier.schema/Class)
+
+(def foreign-key-violation-code "23503")
+(def serialization-failure-code "40001")
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -314,7 +317,7 @@
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
-  (let [serialization-failure-code "40001"
+  (let [group-name (:name delta)
         update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (if-let [group-name (:name delta)]
                                             (get-group-by-name* {:db t-db} group-name)
@@ -350,25 +353,6 @@
 ;; Classes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(sc/defn ^:always-validate create-class* :- PuppetClass
-  [{db :db}
-   {:keys [name parameters environment] :as class} :- PuppetClass]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (create-environment-if-missing {:db t-db} {:name environment})
-    (jdbc/insert! t-db :classes {:name name :environment_name environment})
-    (doseq [[param value] parameters]
-      (jdbc/insert! t-db :class_parameters
-                    [:class_name :parameter :default_value :environment_name]
-                    [name (clojure.core/name param) value environment])))
-  class)
-
-(defn extract-parameters [result]
-  (into {} (for [[param default] (->> result
-                                   (map (juxt :parameter :default_value))
-                                   (remove (comp nil? first)))]
-             [(keyword param) default])))
-
 (def ^:private class-selection
   "SELECT name,
           c.environment_name AS environment,
@@ -376,14 +360,19 @@
           cp.default_value
   FROM classes c
   LEFT OUTER JOIN class_parameters cp
-    ON c.name = cp.class_name AND c.environment_name = cp.environment_name")
+    ON c.name = cp.class_name AND c.environment_name = cp.environment_name AND cp.deleted = false")
 
 (defn select-class
   [class-name]
-  [(str class-selection " WHERE c.name = ?") class-name])
+  [(str class-selection " WHERE c.name = ? AND c.deleted = false") class-name])
+
+(defn select-class-where-deleted
+  [class-name environment]
+  [(str class-selection " WHERE c.name = ? AND c.environment_name = ? AND c.deleted = true")
+   class-name environment])
 
 (defn select-all-classes []
-  [class-selection])
+  [(str class-selection " WHERE c.deleted = false")])
 
 (defn- keywordize-parameters
   [class]
@@ -391,6 +380,47 @@
              (fn [params]
                (into {} (for [[param default] params]
                           [(keyword param) default]))) ))
+
+(defn- create-parameter
+  "Create or update and undelete a parameter"
+  [db parameter default-value class-name environment-name]
+  (jdbc/with-db-transaction
+    [t-db db]
+    (let [parameter (clojure.core/name parameter)
+          [deleted] (jdbc/query t-db (sql/select [:parameter]
+                                                 :class_parameters
+                                                 (sql/where {:parameter parameter
+                                                             :class_name class-name
+                                                             :environment_name environment-name
+                                                             :deleted true})))]
+      (if deleted
+        (jdbc/update! t-db :class_parameters
+                      {:default_value default-value
+                       :deleted false}
+                      (sql/where {:parameter parameter
+                                  :class_name class-name
+                                  :environment_name environment-name}))
+        (jdbc/insert! t-db :class_parameters
+                      {:class_name class-name
+                       :parameter parameter
+                       :default_value default-value
+                       :environment_name environment-name
+                       :deleted false})))))
+
+(sc/defn ^:always-validate create-class* :- PuppetClass
+  "Create or update and undelete a class"
+  [{db :db}
+   {:keys [name parameters environment] :as class} :- PuppetClass]
+  (jdbc/with-db-transaction
+    [t-db db]
+    (create-environment-if-missing {:db t-db} {:name environment})
+    (let [[deleted] (jdbc/query t-db (select-class-where-deleted name environment))]
+      (if deleted
+        (jdbc/update! t-db :classes {:deleted false} (sql/where {:name name, :environment_name environment}))
+        (jdbc/insert! t-db :classes {:name name, :environment_name environment, :deleted false})))
+    (doseq [[param value] parameters]
+      (create-parameter t-db param value name environment)))
+  class)
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db} class-name]
@@ -401,12 +431,75 @@
         (map keywordize-parameters)
         first))))
 
-(sc/defn get-classes* :- [PuppetClass]
+(sc/defn ^:always-validate get-classes* :- [PuppetClass]
   [{db :db}]
   (let [result (jdbc/query db (select-all-classes))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
       (map keywordize-parameters))))
+
+(defn- update-class
+  [db new-class old-class]
+  (let [{:keys [environment name]} new-class
+        [new-params old-params] (for [class [new-class old-class]]
+                                  (->> class
+                                    :parameters
+                                    (sort-by first)))
+        [to-add to-delete in-both] (relative-complements-by-key first
+                                                               new-params
+                                                               old-params)]
+    (doseq [[param value] to-delete]
+      (let [where-param (sql/where {:parameter (clojure.core/name param)
+                                    :class_name name
+                                    :environment_name environment})
+            [param-used?] (jdbc/query db (sql/select ["1"] :group_class_parameters where-param))]
+        (if param-used?
+          (jdbc/update! db :class_parameters {:deleted true} where-param)
+          (try (jdbc/delete! db :class_parameters where-param)
+            (catch PSQLException e
+              (when-not (= (.getSQLState e) foreign-key-violation-code)
+                (throw e))
+              (jdbc/update! db :class_parameters {:deleted true} where-param))))))
+    (doseq [[param value] to-add]
+      (create-parameter db param value name environment))
+    (doseq [[[param new-value] [_ old-value]] in-both]
+      (when-not (= new-value old-value)
+        (jdbc/update! db :class_parameters {:default_value new-value}
+                      (sql/where {:parameter (clojure.core/name param)
+                                  :class_name name
+                                  :environment_name environment}))))))
+
+(sc/defn ^:always-validate synchronize-classes*
+  [{db :db}
+   puppet-classes :- [PuppetClass]]
+  (jdbc/with-db-transaction
+    [t-db db]
+    ;; Nothing else should lock this table, so we can use NOWAIT
+    (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
+    (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
+    (let [db-classes (get-classes* {:db t-db})
+          [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
+                                                                  puppet-classes
+                                                                  db-classes)]
+      (doseq [{:keys [environment name]} to-delete]
+        (let [where-class (sql/where {:environment_name environment, :name name})
+              [class-used?] (jdbc/query t-db (sql/select ["1"]
+                                                       :group_classes
+                                                       (sql/where
+                                                         {:environment_name environment
+                                                          :class_name name})))]
+          (if class-used?
+            (jdbc/update! t-db :classes {:deleted true} where-class)
+            (try (jdbc/delete! t-db :classes where-class)
+              (catch PSQLException e
+                (when-not (= (.getSQLState e) foreign-key-violation-code)
+                  (throw e))
+                (jdbc/update! t-db :classes {:deleted true} where-class))))))
+      (doseq [class to-add]
+        (create-class* {:db t-db} class))
+      (doseq [[new-class old-class] in-both]
+        (when-not (= new-class old-class)
+          (update-class t-db new-class old-class))))))
 
 (defn delete-class* [{db :db} class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name})))
@@ -466,6 +559,7 @@
    :create-class create-class*
    :get-class get-class*
    :get-classes get-classes*
+   :synchronize-classes synchronize-classes*
    :delete-class delete-class*
 
    :create-rule create-rule*

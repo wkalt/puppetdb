@@ -82,3 +82,31 @@
     (instance? UUID x) x
     (string? x) (try (UUID/fromString x) (catch IllegalArgumentException _ nil))
     :otherwise nil))
+
+(defn relative-complements-by-key
+  "Given two sorted sequences and a key function, give each of the relative
+  complements as well as a vector of pairs that compared equally [a not in bs,
+  b not in as, [in both by keyfunc]] by comparing with the given key function."
+  [keyfunc as bs]
+  (loop [as-only [], bs-only [], both [], as as, bs bs]
+    (cond
+      (and (empty? as) (empty? bs))
+      [as-only bs-only both]
+
+      (empty? as)
+      [as-only (concat bs-only bs) both]
+
+      (empty? bs)
+      [(concat as-only as) bs-only both]
+
+      :else
+      (let [[a & rest-as] as
+            [b & rest-bs] bs
+            diff (compare (keyfunc a) (keyfunc b))]
+        (cond
+          ;; a < b, therefore a is not in bs
+          (< diff 0) (recur (conj as-only a) bs-only both rest-as bs)
+          ;; b < a, therefore b is not in as
+          (> diff 0) (recur as-only (conj bs-only b) both as rest-bs)
+          ;; a == b, add the pair
+          (= diff 0) (recur as-only bs-only (conj both [a b]) rest-as rest-bs))))))

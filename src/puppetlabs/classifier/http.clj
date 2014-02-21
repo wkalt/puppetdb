@@ -2,12 +2,14 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [compojure.core :refer [routes GET PUT ANY]]
+            [compojure.core :refer [routes GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
+            [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.storage :as storage]
+            [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
             [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
@@ -49,8 +51,7 @@
   (fn [request]
     (try (handler request)
       (catch PSQLException e
-        (let [foreign-key-violation-code "23503"
-              code (.getSQLState e)
+        (let [code (.getSQLState e)
               msg (.getMessage e)
               [_ resource-kind] (re-find #"^/v1/(class|group)" (:uri request))
               resp-msg (if-let [[match & groups] (re-find sql-foreign-key-violation-regex msg)]
@@ -155,7 +156,7 @@
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn app [db]
+(defn app [{:keys [db] :as config}]
   (-> (routes
         (GET "/v1/nodes" []
              (listing-resource db storage/get-nodes))
@@ -272,7 +273,14 @@
                                      :parameters parameters
                                      :environment (first environments)
                                      :variables variables)))))
+        (ANY "/v1/update-classes" []
+              (resource
+                :allowed-methods [:post]
+                :available-media-types ["application/json"]
+                :post! (fn [_]
+                         (class-updater/update-classes! (:puppet-master config) db))))
 
         (route/not-found "Not found"))
+
     wrap-schema-fail-explanations
     wrap-sql-foreign-key-fail-explanations))

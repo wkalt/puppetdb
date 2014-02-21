@@ -29,6 +29,7 @@ CREATE TABLE group_variables (
 CREATE TABLE classes (
     name TEXT NOT NULL,
     environment_name TEXT NOT NULL REFERENCES environments(name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (name, environment_name)
 );
 --;;
@@ -40,6 +41,7 @@ CREATE TABLE class_parameters (
     default_value TEXT,
     environment_name TEXT NOT NULL,
     class_name TEXT NOT NULL,
+    deleted BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY(class_name, parameter, environment_name),
     FOREIGN KEY (class_name, environment_name) REFERENCES classes (name, environment_name) ON DELETE CASCADE ON UPDATE NO ACTION DEFERRABLE INITIALLY DEFERRED
 );

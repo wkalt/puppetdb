@@ -62,3 +62,17 @@
       (is (= {} (:classes (merge-and-clean group rm-aclass)))))
     (testing "remove nested keys without disturbing siblings"
       (is (= {:aclass {:verbose true}} (:classes (merge-and-clean group rm-log-param)))))))
+
+(deftest relative-complement
+  (let [seq-a '({:a "one" :b "ha"}
+                {:a "two" :b "sdf"}
+                {:a "three" :b "kjher"})
+        seq-b '({:a "two" :b "234"}
+                {:a "three" :b "123"}
+                {:a "four" :b "7896"})]
+    (testing "Gets the right complements for sorted seqs of maps"
+      (is (= (relative-complements-by-key :a seq-a seq-b)
+             [[{:a "one" :b "ha"}]
+              [{:a "four" :b "7896"}]
+              [[{:a "two" :b "sdf"} {:a "two" :b "234"}]
+               [{:a "three" :b "kjher"} {:a "three" :b "123"}]]])))))

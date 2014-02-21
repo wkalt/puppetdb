@@ -57,10 +57,11 @@
 
 (deftest nodes
   (let [empty-storage (reify Storage
-                        (get-node [_ _] nil))]
+                        (get-node [_ _] nil))
+        app (app {:db empty-storage})]
 
     (testing "returns 404 when storage returns nil"
-      (is-http-status 404 ((app empty-storage) (node-request :get "addone")))))
+      (is-http-status 404 (app (node-request :get "addone")))))
 
   (let [nodes [{:name "bert"} {:name "ernie"}]
         node-map (into {} (for [n nodes] [(:name n) n]))
@@ -75,7 +76,7 @@
                   (delete-node [_ node-name]
                     (is (contains? node-map node-name))
                     '(1)))
-        app (app mock-db)]
+        app (app {:db mock-db})]
 
     (testing "asks storage for the node and returns it if it exists"
       (let [{body :body :as response} (app (node-request :get "bert"))]
@@ -133,7 +134,7 @@
                   (delete-group-by-name [_ group-name]
                     (is (contains? group-map group-name))
                     '(1)))
-        app (app mock-db)]
+        app (app {:db mock-db})]
 
     (testing "returns the group if it exists"
       (let [{body :body, :as resp} (app (group-request :get "agroup"))]
@@ -195,7 +196,7 @@
                   (delete-class [_ class-name]
                     (is (contains? class-map class-name))
                     '(1)))
-        app (app mock-db)]
+        app (app {:db mock-db})]
 
     (testing "returns class with its parameters"
       (let [{body :body, :as resp} (app (class-request :get "myclass"))]
@@ -233,7 +234,7 @@
                     [simple-rule])
                   (get-group-by-name [_ _]
                     {:name "food"}))
-        app (app mock-db)]
+        app (app {:db mock-db})]
     (testing "returns a key when storing a rule"
       (let [response (app (rule-request :post simple-rule))]
         (is-http-status 201 response)
@@ -250,7 +251,7 @@
                     nil)
                   (create-group [_ group]
                     (sc/validate Group group)))
-        app (app mock-db)]
+        app (app {:db mock-db})]
     (testing "bad requests get a structured 400 response."
       (let [resp (app (-> (request :put "/v1/groups/badgroup")
                         (mock/body (encode incomplete-group))))]
