@@ -120,10 +120,6 @@
         (is (valid-400-resp-body? (:body resp))))
       (let [resp (quiet-put (str base-url "/v1/groups/test-group"))]
         (is (= 400 (:status resp)))
-        (is (valid-400-resp-body? (:body resp))))
-      (let [resp (http/post (str base-url "/v1/rules")
-                            {:throw-exceptions false})]
-        (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp)))))))
 
 (deftest ^:acceptance groups-and-uuids
@@ -131,6 +127,7 @@
         group {:name "foogroup"
                :id (UUID/randomUUID)
                :environment "production"
+               :rules []
                :classes {}}]
     (testing "trying to create a group by specifying id in URI causes a 405"
       (let [{:keys [status]} (http/put (str base-url "/v1/groups/" (:id group))
@@ -163,7 +160,7 @@
         node-url #(str base-url "/v1/nodes/" %)
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
         nodes (for [nn node-names] {:name nn})
-        group {:name "bargroup" :environment "production", :classes {}}]
+        group {:name "bargroup" :environment "production", :rules [], :classes {}}]
     (testing "lists all resource instances"
       (http/put (str base-url "/v1/groups/" (:name group))
                 {:content-type :json, :body (json/encode group)})
@@ -186,7 +183,7 @@
 
 (deftest ^:acceptance missing-referents-explanation
   (let [base-url (base-url test-config)
-        group-with-missing-class {:classes {:missing {}}}
+        group-with-missing-class {:classes {:missing {}}, :rules []}
         {:keys [body status], :as resp} (http/put (str base-url "/v1/groups/with-missing")
                                                   {:content-type :json
                                                    :body (json/encode group-with-missing-class)
@@ -208,19 +205,15 @@
                                  {:content-type :json
                                   :body (json/generate-string
                                           {:classes {:noisyclass {:verbose "false"}}
+                                           :rules [{:when ["=" "name" "thenode"]}]
                                            :environment "staging"
                                            :variables {:dothings "yes"}})})
-            rule-resp  (http/post (str base-url "/v1/rules")
-                                  {:content-type :json
-                                   :body (json/generate-string {:when ["=" "name" "thenode"]
-                                                                :groups ["test-group"]})})
             classification (-> (http/get (str base-url "/v1/classified/nodes/thenode")
                                          {:accept :json})
                              :body
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
-        (is (= 201 (:status rule-resp)))
         (is (= ["test-group"] (:groups classification)))
         (is (= ["noisyclass"] (:classes classification)))
         (is (= {:noisyclass {:verbose "false"}}
@@ -235,6 +228,7 @@
         bclass {:name "bclass", :environment "production", :parameters {}}
         group {:name "agroup"
                :environment "production"
+               :rules [{:when ["=" "name" "gary"]}]
                :classes {:aclass {:verbose "true" :log "info"}
                          :bclass {}}
                :variables {:dns "8.8.8.8"}}

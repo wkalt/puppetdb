@@ -2,7 +2,8 @@
   (:require [schema.core :as sc]
             [puppetlabs.kitchensink.core :refer [parse-number]]
             [puppetlabs.classifier.schema :refer [Rule RuleCondition]])
-  (:import java.util.regex.Pattern))
+  (:import java.util.regex.Pattern
+           java.util.UUID))
 
 (sc/defn match?
   [rule-condition :- RuleCondition, node]
@@ -28,10 +29,9 @@
             false)
           false)))))
 
-(defn apply-rule
+(sc/defn apply-rule :- (sc/maybe String)
   "Apply a single rule to a node"
-  [node rule]
-  {:pre [(map? node)]
-   :post [seq?]}
+  [node rule :- Rule]
+  {:pre [(contains? rule :group-name)]}
   (if (match? (:when rule) node)
-    (rule :groups)))
+    (:group-name rule)))

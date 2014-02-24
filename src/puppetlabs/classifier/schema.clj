@@ -3,21 +3,7 @@
 
 (def Node {:name String})
 
-(def Group {:name String
-            (sc/optional-key :id) java.util.UUID
-            :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
-            :environment String
-            :variables {sc/Keyword sc/Any}})
-
-(def ^:private GroupDeltaShared
-  {(sc/optional-key :environment) String
-   (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
-   (sc/optional-key :variables) {sc/Keyword sc/Any}})
-
-(def GroupDelta
-  (sc/either
-    (assoc GroupDeltaShared :id java.util.UUID)
-    (assoc GroupDeltaShared :name String)))
+(def Environment {:name String})
 
 (def puppetlabs.classifier.schema/Class
   {:name String
@@ -40,7 +26,22 @@
 
 (def Rule
   {:when RuleCondition
-   :groups [String]
+   (sc/optional-key :group-name) String
    (sc/optional-key :id) Number})
 
-(def Environment {:name String})
+(def Group {:name String
+            (sc/optional-key :id) java.util.UUID
+            :environment String
+            :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
+            :variables {sc/Keyword sc/Any}
+            :rules [Rule]})
+
+(def ^:private GroupDeltaShared
+  {(sc/optional-key :environment) String
+   (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
+   (sc/optional-key :variables) {sc/Keyword sc/Any}})
+
+(def GroupDelta
+  (sc/either
+    (assoc GroupDeltaShared :id java.util.UUID)
+    (assoc GroupDeltaShared :name String)))

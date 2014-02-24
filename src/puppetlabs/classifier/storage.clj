@@ -20,7 +20,6 @@
   (synchronize-classes [this puppet-classes] "Synchronize database class definitions")
   (delete-class [this environment-name class-name] "Deletes a class specification")
 
-  (create-rule [this rule] "Creates a rule")
   (get-rules [this] "Retrieve all rules")
 
   (create-environment [this environment] "Creates an environment")

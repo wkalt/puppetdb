@@ -9,7 +9,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.schema :refer [Group GroupDelta Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-submap-by]]
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
             [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid relative-complements-by-key]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
@@ -59,9 +59,6 @@
                      :migration-dir "migrations"
                      :db db}))
 
-(defn select-node [node]
-  (sql/select :name :nodes (sql/where {:name node})))
-
 ;;; Storage protocol implementation
 ;;;
 ;;; Functions here are referred to below when calling extend. This indirection
@@ -69,6 +66,9 @@
 
 ;; Nodes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn select-node [node]
+  (sql/select :name :nodes (sql/where {:name node})))
 
 (sc/defn ^:always-validate create-node* :- Node
   [{db :db}
@@ -124,33 +124,61 @@
   {:pre [(string? environment-name)]}
   (jdbc/delete! db :environments (sql/where {:name environment-name})))
 
+;; Rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(sc/defn ^:always-validate create-rule :- Rule
+  [db {:keys [when group-name] :as rule} :- Rule]
+  {:pre [(contains? rule :group-name)]}
+  (jdbc/with-db-transaction
+    [t-db db]
+    (let [storage-rule {:group_name group-name
+                        :match (json/generate-string when)}
+          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
+          rule-id (:id inserted-rule)]
+      (assoc rule :id rule-id))))
+
+(sc/defn ^:always-validate get-rules* :- [Rule]
+  [{db :db}]
+  (for [{:keys [match group_name]} (jdbc/query db (sql/select * :rules))]
+    {:when (json/decode match)
+     :group-name group_name}))
+
 ;; Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def group-selection
   "SELECT name,
-          id,
+          g.id               AS id,
           g.environment_name AS environment,
           gv.variable        AS variable,
           gv.value           AS variable_value,
           gc.class_name      AS class,
           gcp.parameter      AS parameter,
-          gcp.value          AS parameter_value
+          gcp.value          AS parameter_value,
+          r.match            AS rule
   FROM groups g
        LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
        LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
-       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name")
+       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name
+       LEFT OUTER JOIN rules r ON g.name = r.group_name ")
+
+(defn- group-selection-with-order
+  [selection]
+  (str selection " ORDER BY g.name, r.id ASC"))
 
 (defn select-group-by-name
   [group-name]
-  [(str group-selection " WHERE g.name = ?") group-name])
+  [(group-selection-with-order (str group-selection "WHERE g.name = ?"))
+   group-name])
 
-(defn select-group-by-id
+(defn- select-group-by-id
   [id]
-  [(str group-selection " WHERE g.id = ?") id])
+  [(group-selection-with-order (str group-selection "WHERE g.id = ?"))
+   id])
 
-(defn select-all-groups []
-  [group-selection])
+(defn- select-all-groups []
+  [(group-selection-with-order group-selection)])
 
 (defn- deserialize-variable-values
   "This function expects a row map that has already had its variable-related
@@ -162,6 +190,14 @@
                (into {} (for [[k v] variables]
                           [k (json/parse-string v)])))))
 
+(defn- deserialize-rules
+  [row]
+  (let [deserialize-rule (fn [rule-str] (if-let [condition (json/decode rule-str)]
+                                          {:when condition}))]
+    (update-in row [:rules] #(->> %
+                               (map deserialize-rule)
+                               (keep identity)))))
+
 (defn- aggregate-fields-into-groups
   [result]
   (->> result
@@ -169,6 +205,8 @@
     (aggregate-submap-by :class :parameters :classes)
     (aggregate-submap-by :variable :variable_value :variables)
     (map deserialize-variable-values)
+    (aggregate-column :rule :rules)
+    (map deserialize-rules)
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group-by-id* :- (sc/maybe Group)
@@ -213,7 +251,9 @@
             (let [[param value] class-param]
               (jdbc/insert! t-db :group_class_parameters
                             [:parameter :class_name :environment_name :group_name :value]
-                            [(name param) (name class-name) environment group-name value]))))))
+                            [(name param) (name class-name) environment group-name value])))))
+      (doseq [rule (:rules group)]
+        (create-rule t-db (assoc rule :group-name group-name))))
     (assoc group :id uuid)))
 
 
@@ -516,34 +556,6 @@
 (defn delete-class* [{db :db} environment-name class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name, :environment_name environment-name})))
 
-;; Rules
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(sc/defn ^:always-validate create-rule* :- Rule
-  [{db :db}
-   {:keys [when groups] :as rule} :- Rule]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (let [storage-rule {:match (json/generate-string when)}
-          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
-          rule-id (:id inserted-rule)]
-      (doseq [group groups]
-        (jdbc/insert! t-db :rule_groups {:rule_id rule-id :group_name group}))
-      (assoc rule :id rule-id))))
-
-(defn- group-rule [[[rule-id match] records]]
-  (let [groups (map :group_name records)]
-    {:id rule-id
-     :when (json/parse-string match)
-     :groups (remove nil? groups)}))
-
-(sc/defn ^:always-validate get-rules* :- [Rule]
-  [{db :db}]
-  (let [result (jdbc/query db
-          ["SELECT * FROM rules r LEFT OUTER JOIN rule_groups g ON r.id = g.rule_id"])
-        rules (group-by (juxt :id :match) result)]
-    (map group-rule rules)))
-
 ;; Record & Storage Protocol Extension
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -574,7 +586,6 @@
    :synchronize-classes synchronize-classes*
    :delete-class delete-class*
 
-   :create-rule create-rule*
    :get-rules get-rules*
 
    :create-environment create-environment*
