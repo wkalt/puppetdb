@@ -158,128 +158,131 @@
 
 (defn app [{:keys [db] :as config}]
   (-> (routes
-        (GET "/v1/nodes" []
-             (listing-resource db storage/get-nodes))
+        (context
+          "/v1" []
 
-        (ANY "/v1/nodes/:node-name" [node-name]
-             (crd-resource node-name db {}
-                           {:get storage/get-node
-                            :create storage/create-node
-                            :delete storage/delete-node}))
+          (GET "/nodes" []
+               (listing-resource db storage/get-nodes))
 
-        (GET "/v1/environments" []
-             (listing-resource db storage/get-environments))
+          (ANY "/nodes/:node-name" [node-name]
+               (crd-resource node-name db {}
+                             {:get storage/get-node
+                              :create storage/create-node
+                              :delete storage/delete-node}))
 
-        (context "/v1/environments/:environment-name" [environment-name]
-          (ANY "/" []
-               (crd-resource environment-name db {}
-                             {:get storage/get-environment
-                              :create storage/create-environment
-                              :delete storage/delete-environment}))
+          (GET "/environments" []
+               (listing-resource db storage/get-environments))
 
-          (GET "/classes" []
-               (listing-resource db #(storage/get-classes % environment-name)))
+          (context "/environments/:environment-name" [environment-name]
+                   (ANY "/" []
+                        (crd-resource environment-name db {}
+                                      {:get storage/get-environment
+                                       :create storage/create-environment
+                                       :delete storage/delete-environment}))
 
-          (ANY "/classes/:class-name" [class-name]
-               (crd-resource class-name db
-                             {:environment environment-name}
-                             {:get #(storage/get-class %1 environment-name %2)
-                              :create storage/create-class
-                              :delete #(storage/delete-class %1 environment-name %2)})))
+                   (GET "/classes" []
+                        (listing-resource db #(storage/get-classes % environment-name)))
 
-        (GET "/v1/groups" []
-             (listing-resource db storage/get-groups))
+                   (ANY "/classes/:class-name" [class-name]
+                        (crd-resource class-name db
+                                      {:environment environment-name}
+                                      {:get #(storage/get-class %1 environment-name %2)
+                                       :create storage/create-class
+                                       :delete #(storage/delete-class %1 environment-name %2)})))
 
-        (ANY "/v1/groups/:group-name-or-uuid" [group-name-or-uuid]
-             (let [uuid (if (uuid? group-name-or-uuid) (UUID/fromString group-name-or-uuid))
-                   group-name (if-not uuid group-name-or-uuid)
-                   exists? (fn [_]
-                             {::retrieved (if uuid
-                                            (storage/get-group-by-id db uuid)
-                                            (storage/get-group-by-name db group-name))})
-                   put! (fn [ctx]
-                          (let [submitted (assoc (::data ctx {}) :name group-name)
-                                resource (merge {:environment "production",
-                                                 :variables {}}
-                                                submitted)
-                                inserted-resource (storage/create-group db resource)]
-                            {::created inserted-resource}))
-                   post! (fn [ctx]
-                           (let [submitted (if uuid
-                                             (assoc (::data ctx {}) :id uuid)
-                                             (assoc (::data ctx {}) :name group-name))]
-                             {::updated (storage/update-group db submitted)}))
-                   delete! (fn [_] (if uuid
-                                     (storage/delete-group-by-id db uuid)
-                                     (storage/delete-group-by-name db group-name)))]
-               (fn [req]
-                 (run-resource
-                   req
-                   {:allowed-methods (if uuid
-                                       [:post :get :delete]
-                                       [:put :post :get :delete])
-                    :respond-with-entity? (not= (:request-method req) :delete)
-                    :available-media-types ["application/json"]
-                    :exists? exists?
-                    :handle-ok #(or (::updated %) (::retrieved %))
-                    :put! put!
-                    :post! post!
-                    :new? ::created
-                    :handle-created ::created
-                    :delete! delete!
-                    :malformed? parse-if-body
-                    :handle-malformed (fn [ctx]
-                                        (format "Body is not valid JSON: %s"
-                                                (::request-body ctx)))}))))
+          (GET "/groups" []
+               (listing-resource db storage/get-groups))
 
-        (ANY "/v1/rules" []
-             (resource
-               :allowed-methods [:post :get]
-               :available-media-types ["application/json"]
-               :handle-ok ::data
-               :malformed? parse-if-body
-               :handle-malformed (fn [ctx]
-                                   (format "Body is not valid JSON: %s"
-                                           (::request-body ctx)))
-               :post! (fn [ctx]
-                        (let [rule (sc/validate Rule (::data ctx))
-                              rule-id (storage/create-rule db rule)]
-                          {::location (str "/v1/rules/" rule-id)}))
-               :location ::location))
+          (ANY "/groups/:group-name-or-uuid" [group-name-or-uuid]
+               (let [uuid (if (uuid? group-name-or-uuid) (UUID/fromString group-name-or-uuid))
+                     group-name (if-not uuid group-name-or-uuid)
+                     exists? (fn [_]
+                               {::retrieved (if uuid
+                                              (storage/get-group-by-id db uuid)
+                                              (storage/get-group-by-name db group-name))})
+                     put! (fn [ctx]
+                            (let [submitted (assoc (::data ctx {}) :name group-name)
+                                  resource (merge {:environment "production",
+                                                   :variables {}}
+                                                  submitted)
+                                  inserted-resource (storage/create-group db resource)]
+                              {::created inserted-resource}))
+                     post! (fn [ctx]
+                             (let [submitted (if uuid
+                                               (assoc (::data ctx {}) :id uuid)
+                                               (assoc (::data ctx {}) :name group-name))]
+                               {::updated (storage/update-group db submitted)}))
+                     delete! (fn [_] (if uuid
+                                       (storage/delete-group-by-id db uuid)
+                                       (storage/delete-group-by-name db group-name)))]
+                 (fn [req]
+                   (run-resource
+                     req
+                     {:allowed-methods (if uuid
+                                         [:post :get :delete]
+                                         [:put :post :get :delete])
+                      :respond-with-entity? (not= (:request-method req) :delete)
+                      :available-media-types ["application/json"]
+                      :exists? exists?
+                      :handle-ok #(or (::updated %) (::retrieved %))
+                      :put! put!
+                      :post! post!
+                      :new? ::created
+                      :handle-created ::created
+                      :delete! delete!
+                      :malformed? parse-if-body
+                      :handle-malformed (fn [ctx]
+                                          (format "Body is not valid JSON: %s"
+                                                  (::request-body ctx)))}))))
 
-        (ANY "/v1/classified/nodes/:node-name" [node-name]
-             (resource
-               :allowed-methods [:get]
-               :available-media-types ["application/json"]
-               :exists? true
-               :handle-ok (fn [ctx]
-                            (let [node {:name node-name}
-                                  rules (storage/get-rules db)
-                                  group-names (mapcat (partial rules/apply-rule node) rules)
-                                  groups (map (partial storage/get-group-by-name db) group-names)
-                                  classes (->> groups
-                                            (mapcat #(-> % :classes keys))
-                                            set)
-                                  parameters (->> groups
-                                               (map :classes)
-                                               (apply merge))
-                                  environments (set (map :environment groups))
-                                  variables (apply merge (map :variables groups))]
-                              (when-not (= (count environments) 1)
-                                (log/warn "Node" node-name "is classified into groups" group-names
-                                          "with inconsistent environments" environments))
-                              (assoc node
-                                     :groups group-names
-                                     :classes classes
-                                     :parameters parameters
-                                     :environment (first environments)
-                                     :variables variables)))))
-        (ANY "/v1/update-classes" []
-              (resource
-                :allowed-methods [:post]
-                :available-media-types ["application/json"]
-                :post! (fn [_]
-                         (class-updater/update-classes! (:puppet-master config) db))))
+          (ANY "/rules" []
+               (resource
+                 :allowed-methods [:post :get]
+                 :available-media-types ["application/json"]
+                 :handle-ok ::data
+                 :malformed? parse-if-body
+                 :handle-malformed (fn [ctx]
+                                     (format "Body is not valid JSON: %s"
+                                             (::request-body ctx)))
+                 :post! (fn [ctx]
+                          (let [rule (sc/validate Rule (::data ctx))
+                                rule-id (storage/create-rule db rule)]
+                            {::location (str "/v1/rules/" rule-id)}))
+                 :location ::location))
+
+          (ANY "/classified/nodes/:node-name" [node-name]
+               (resource
+                 :allowed-methods [:get]
+                 :available-media-types ["application/json"]
+                 :exists? true
+                 :handle-ok (fn [ctx]
+                              (let [node {:name node-name}
+                                    rules (storage/get-rules db)
+                                    group-names (mapcat (partial rules/apply-rule node) rules)
+                                    groups (map (partial storage/get-group-by-name db) group-names)
+                                    classes (->> groups
+                                                 (mapcat #(-> % :classes keys))
+                                                 set)
+                                    parameters (->> groups
+                                                    (map :classes)
+                                                    (apply merge))
+                                    environments (set (map :environment groups))
+                                    variables (apply merge (map :variables groups))]
+                                (when-not (= (count environments) 1)
+                                  (log/warn "Node" node-name "is classified into groups" group-names
+                                            "with inconsistent environments" environments))
+                                (assoc node
+                                       :groups group-names
+                                       :classes classes
+                                       :parameters parameters
+                                       :environment (first environments)
+                                       :variables variables)))))
+          (ANY "/update-classes" []
+               (resource
+                 :allowed-methods [:post]
+                 :available-media-types ["application/json"]
+                 :post! (fn [_]
+                          (class-updater/update-classes! (:puppet-master config) db)))))
 
         (route/not-found "Not found"))
 
