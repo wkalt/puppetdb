@@ -244,8 +244,9 @@
     (http/put (str base-url "/v1/groups/agroup")
               {:content-type :json, :body (json/encode group)})
 
-    (testing "can update group classes, class parameters, variables, and environment."
+    (testing "can update group rule, classes, class parameters, variables, and environment."
       (let [group-delta {:environment new-env
+                         :rule {:when ["=" "name" "jerry"]}
                          :classes {:aclass {:log "fatal"
                                             :verbose nil
                                             :loglocation "/dev/null"}}

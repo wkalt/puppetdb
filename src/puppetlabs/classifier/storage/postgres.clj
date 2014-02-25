@@ -349,6 +349,13 @@
         (jdbc/update! t-db :group_classes {:environment_name new-env} where-group)
         (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group)))))
 
+(defn- update-group-rule
+  [db extant delta]
+  (when-let [new-rule (:rule delta)]
+    (jdbc/update! db
+                  :rules {:match (json/generate-string (:when new-rule))}
+                  (sql/where {:group_name (:name extant)}))))
+
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
@@ -360,6 +367,7 @@
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
+                          (update-group-rule t-db extant delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group-by-name* {:db t-db} (:name extant))))]
     (loop [retries 3]

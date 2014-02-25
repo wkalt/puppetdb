@@ -38,6 +38,7 @@
 
 (def ^:private GroupDeltaShared
   {(sc/optional-key :environment) String
+   (sc/optional-key :rule) Rule
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
 

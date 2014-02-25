@@ -183,7 +183,7 @@
     (doseq [env envs, c [first-class second-class]]
       (create-class db (assoc c :environment env)))
 
-    (testing "stores groups with rules, class parameters, and top-level variables"
+    (testing "stores groups with rule, class parameters, and top-level variables"
       (create-group db g1)
       (create-group db g2)
       (is (= g1 (get-group-by-name-less-id db (:name g1))))
@@ -193,8 +193,11 @@
                        (assoc (:rule g2) :group-name (:name g2))]]
         (is (= all-rules (get-rules db)))))
 
-    (testing "can update group classes, class parameters, and variables"
+    (testing "can update group rule, classes, class parameters, and variables"
       (let [g1-delta {:name "complex-group"
+                      :rule {:when ["and"
+                                    ["=" "name" "baz"]
+                                    ["=" "osfamily" "linux"]]}
                       :classes {:first nil
                                 :second {:three nil
                                          :four "red fish"
