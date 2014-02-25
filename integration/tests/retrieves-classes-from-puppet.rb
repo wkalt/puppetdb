@@ -60,26 +60,28 @@ with_puppet_running_on(master, master_opts, testdir) do
 
   step "Check classifier classes"
 
-  classes = Classifier.get("/v1/classes")
+  classes_one = Classifier.get("/v1/environments/one/classes")
 
-  assert(classes.include?({"name" => "noargs",
-                           "parameters" => {},
-                           "environment" => "one"}))
+  assert(classes_one.include?({"name" => "noargs",
+                               "parameters" => {},
+                               "environment" => "one"}))
 
-  assert(classes.include?({"name" => "args",
-                           "parameters" => {"a" => nil,
-                                            "b" => '["1", "2"]',
-                                            "c" => nil},
-                           "environment" => "one"}))
+  assert(classes_one.include?({"name" => "args",
+                               "parameters" => {"a" => nil,
+                                                "b" => '["1", "2"]',
+                                                "c" => nil},
+                               "environment" => "one"}))
 
-  assert(classes.include?({"name" => "noargs",
-                           "parameters" => {},
-                           "environment" => "two"}))
+  classes_two = Classifier.get("/v1/environments/two/classes")
 
-  assert(classes.include?({"name" => "args",
-                           "parameters" => {"a" => nil,
-                                            "b" => '["1", "2"]',
-                                            "c" => nil},
-                           "environment" => "two"}))
+  assert(classes_two.include?({"name" => "noargs",
+                               "parameters" => {},
+                               "environment" => "two"}))
+
+  assert(classes_two.include?({"name" => "args",
+                               "parameters" => {"a" => nil,
+                                                "b" => '["1", "2"]',
+                                                "c" => nil},
+                               "environment" => "two"}))
 
 end

@@ -227,18 +227,19 @@
   (testing "retrieve a class with no parameters"
     (let [testclass {:name "noclass" :parameters {} :environment "test"}]
       (create-class db testclass)
-      (is (= testclass (get-class db "noclass")))))
+      (is (= testclass (get-class db "test" "noclass")))  
+      (is (= nil (get-class db "wrong" "noclass")))))
   (testing "retrieve a class with parameters"
     (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"} :environment "test"}]
       (create-class db testclass)
-      (is (= testclass (get-class db "testclass")))))
+      (is (= testclass (get-class db "test" "testclass")))))
   (testing "retrieves all classes"
-    (is (= #{"myclass" "classtwo" "testclass" "noclass"} (->> (get-classes db) (map :name) set))))
+    (is (= #{"myclass" "classtwo" "testclass" "noclass"} (->> (get-classes db "test") (map :name) set))))
   (testing "deletes a class with no parameters"
-    (delete-class db "noclass")
+    (delete-class db "test" "noclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
   (testing "deletes a class with parameters"
-    (delete-class db "testclass")
+    (delete-class db "test" "testclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
     (is (= 0 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
@@ -294,7 +295,7 @@
     (synchronize-classes db after)
 
     (testing "unreferred is deleted"
-      (is (nil? (get-class db "unreferred"))))
+      (is (nil? (get-class db "production" "unreferred"))))
 
     (testing "referred is marked deleted"
       (let [[result] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "referred"])]

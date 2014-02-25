@@ -165,10 +165,10 @@
         (is-http-status 204 response)))))
 
 (defn class-request
-  ([] (class-request :get nil nil))
-  ([method name] (class-request method name nil))
-  ([method name body]
-   (let [req (request method (str "/v1/classes" (if name (str "/" name))))]
+  ([method env] (class-request method env nil nil))
+  ([method env name] (class-request method env name nil))
+  ([method env name body]
+   (let [req (request method (str "/v1/environments/" env "/classes" (if name (str "/" name))))]
      (if body
        (mock/body req body)
        req))))
@@ -186,36 +186,36 @@
                   :environment "test"}]
         class-map (into {} (for [c classes] [(:name c) c]))
         mock-db (reify Storage
-                  (get-class [_ class-name]
+                  (get-class [_ _ class-name]
                     (get class-map class-name))
-                  (get-classes [_]
+                  (get-classes [_ _]
                     classes)
                   (create-class [_ class]
                     (is (= (get class-map (:name class)) class))
                     (get class-map (:name class)))
-                  (delete-class [_ class-name]
+                  (delete-class [_ _ class-name]
                     (is (contains? class-map class-name))
                     '(1)))
         app (app {:db mock-db})]
 
     (testing "returns class with its parameters"
-      (let [{body :body, :as resp} (app (class-request :get "myclass"))]
+      (let [{body :body, :as resp} (app (class-request :get "test" "myclass"))]
         (is-http-status 200 resp)
         (is (= (get class-map "myclass") (decode body true)))))
 
     (testing "tells the storage layer to store the class map"
-      (let [{body :body, :as resp} (app (class-request :put "myclass"
+      (let [{body :body, :as resp} (app (class-request :put "test" "myclass"
                                                        (encode (get class-map "myclass"))))]
         (is-http-status 201 resp)
         (is (= (get class-map "myclass") (decode body true)))))
 
     (testing "retrieves all classes"
-      (let [{body :body, :as resp} (app (class-request))]
+      (let [{body :body, :as resp} (app (class-request :get "test"))]
         (is-http-status 200 resp)
         (is (= (set classes) (set (decode body true))))))
 
     (testing "tells storage to delete the class and returns 204"
-      (let [response (app (class-request :delete "theirclass"))]
+      (let [response (app (class-request :delete "test" "theirclass"))]
         (is-http-status 204 response)))))
 
 (defn rule-request

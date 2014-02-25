@@ -4,9 +4,10 @@ title: "Node Classifier 1.0 >> API >> v1 >> Classes"
 
 ## Classes Endpoint
 
-### GET /v1/classes
+### GET /v1/environments/<environment>/classes
 
-Retrieve a list of all classes known to the classifier.
+Retrieve a list of all classes known to the classifier within the given
+environment.
 
 #### Response Format
 
@@ -35,9 +36,9 @@ Here is an example of a class object:
 
 No error responses specific to this request are expected.
 
-### GET /v1/classes/<name>
+### GET /v1/environments/<environment>/classes/<name>
 
-Retrieve the class with the given name.
+Retrieve the class with the given name in the given environment.
 
 #### Response Format
 

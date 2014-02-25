@@ -2,7 +2,7 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [compojure.core :refer [routes GET POST PUT ANY]]
+            [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
             [liberator.representation :as liberator-representation]
@@ -167,24 +167,25 @@
                             :create storage/create-node
                             :delete storage/delete-node}))
 
-        (GET "/v1/classes" []
-             (listing-resource db storage/get-classes))
-
-        (ANY "/v1/classes/:class-name" [class-name]
-             (crd-resource class-name db
-                           {:environment "production"}
-                           {:get storage/get-class
-                            :create storage/create-class
-                            :delete storage/delete-class}))
-
         (GET "/v1/environments" []
              (listing-resource db storage/get-environments))
 
-        (ANY "/v1/environments/:environment-name" [environment-name]
-             (crd-resource environment-name db {}
-                           {:get storage/get-environment
-                            :create storage/create-environment
-                            :delete storage/delete-environment}))
+        (context "/v1/environments/:environment-name" [environment-name]
+          (ANY "/" []
+               (crd-resource environment-name db {}
+                             {:get storage/get-environment
+                              :create storage/create-environment
+                              :delete storage/delete-environment}))
+
+          (GET "/classes" []
+               (listing-resource db #(storage/get-classes % environment-name)))
+
+          (ANY "/classes/:class-name" [class-name]
+               (crd-resource class-name db
+                             {:environment environment-name}
+                             {:get #(storage/get-class %1 environment-name %2)
+                              :create storage/create-class
+                              :delete #(storage/delete-class %1 environment-name %2)})))
 
         (GET "/v1/groups" []
              (listing-resource db storage/get-groups))
