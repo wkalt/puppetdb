@@ -90,12 +90,12 @@
 (deftest ^:database groups
   (let [simplest-group {:name "simplest"
                         :environment "test"
-                        :rules [{:when ["=" "name" "foo"]}]
+                        :rule {:when ["=" "name" "foo"]}
                         :classes {}
                         :variables {}}
         group-with-classes {:name "with-classes"
                             :environment "test"
-                            :rules [{:when ["=" "name" "bar"]}]
+                            :rule {:when ["=" "name" "bar"]}
                             :classes {:hi {} :bye {}}
                             :variables {}}]
 
@@ -141,7 +141,7 @@
            :parameters {}}
         g {:name "time-machines"
            :environment "rnd"
-           :rules []
+           :rule {:when ["=" "foo" "foo"]}
            :classes {}
            :variables {}}]
     (testing "creates missing environments on class insertion"
@@ -162,7 +162,9 @@
                                    :five "default"}}
         g1 {:name "complex-group"
             :environment "test"
-            :rules [{:when ["=" "name" "foo"]} {:when ["=" "name" "bar"]}]
+            :rule {:when ["or"
+                          ["=" "name" "foo"]
+                          ["=" "name" "bar"]]}
             :classes {:first {:one "one-val"
                               :two "two-val"}
                       :second {:three "three-val"
@@ -173,7 +175,7 @@
                         :some_bool false}}
         g2 {:name "another-complex-group"
             :environment "tropical"
-            :rules [{:when ["=" "name" "baz"]}]
+            :rule {:when ["=" "name" "baz"]}
             :classes {:first {:two "another-two-val"}
                       :second {:four "four-val"}}
             :variables {:island false, :rainforest true}}]
@@ -187,8 +189,8 @@
       (is (= g1 (get-group-by-name-less-id db (:name g1))))
       (is (= g2 (get-group-by-name-less-id db (:name g2))))
       (is (= #{g1 g2} (set (get-groups-less-ids db))))
-      (let [all-rules (concat (map #(assoc % :group-name (:name g1)) (:rules g1))
-                              (map #(assoc % :group-name (:name g2)) (:rules g2)))]
+      (let [all-rules [(assoc (:rule g1) :group-name (:name g1))
+                       (assoc (:rule g2) :group-name (:name g2))]]
         (is (= all-rules (get-rules db)))))
 
     (testing "can update group classes, class parameters, and variables"
@@ -280,8 +282,9 @@
                 {:name "unreferred", :parameters {:a "a"}, :environment "production"}]
         after [{:name "added", :parameters {}, :environment "production"}
                {:name "changed", :parameters {:added "1", :changed "2"}, :environment "production"}]
-        referrer  {:name "referrer", :environment "production", :classes {:referred {}, :changed {:referred "hi"}}
-                   :rules [] , :variables {}}]
+        referrer  {:name "referrer", :environment "production",
+                   :classes {:referred {}, :changed {:referred "hi"}}
+                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
     (synchronize-classes db before)
     (create-group db referrer)
     (synchronize-classes db after)

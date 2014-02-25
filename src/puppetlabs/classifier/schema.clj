@@ -34,7 +34,7 @@
             :environment String
             :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
             :variables {sc/Keyword sc/Any}
-            :rules [Rule]})
+            :rule Rule})
 
 (def ^:private GroupDeltaShared
   {(sc/optional-key :environment) String

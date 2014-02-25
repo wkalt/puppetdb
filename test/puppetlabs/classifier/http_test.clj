@@ -109,17 +109,17 @@
 (deftest groups
   (let [groups [{:name "agroup"
                  :environment "bar"
-                 :rules [{:when ["=" "name" "bert"]}]
+                 :rule {:when ["=" "name" "bert"]}
                  :classes {:foo {:param "override"}}
                  :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
                 {:name "agroupprime"
                  :environment "bar"
-                 :rules [{:when ["=" "name" "ernie"]}]
+                 :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
                 {:name "bgroup"
                  :environment "quux"
-                 :rules [{:when ["=" "name" "elmo"]}]
+                 :rule {:when ["=" "name" "elmo"]}
                  :classes {}
                  :variables {}}]
         group-map (into {} (map (juxt :name identity) groups))

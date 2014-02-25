@@ -194,9 +194,7 @@
   [row]
   (let [deserialize-rule (fn [rule-str] (if-let [condition (json/decode rule-str)]
                                           {:when condition}))]
-    (update-in row [:rules] #(->> %
-                               (map deserialize-rule)
-                               (keep identity)))))
+    (update-in row [:rule] deserialize-rule)))
 
 (defn- aggregate-fields-into-groups
   [result]
@@ -205,7 +203,6 @@
     (aggregate-submap-by :class :parameters :classes)
     (aggregate-submap-by :variable :variable_value :variables)
     (map deserialize-variable-values)
-    (aggregate-column :rule :rules)
     (map deserialize-rules)
     (keywordize-keys)))
 
@@ -252,10 +249,8 @@
               (jdbc/insert! t-db :group_class_parameters
                             [:parameter :class_name :environment_name :group_name :value]
                             [(name param) (name class-name) environment group-name value])))))
-      (doseq [rule (:rules group)]
-        (create-rule t-db (assoc rule :group-name group-name))))
+      (create-rule t-db (assoc (:rule group) :group-name group-name)))
     (assoc group :id uuid)))
-
 
 (defn- delete-group-class-link
   [db group-name class-name environment-name]
