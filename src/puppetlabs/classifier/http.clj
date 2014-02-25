@@ -111,21 +111,20 @@
 (sc/defn crd-resource
   "Create a basic CRD endpoint for a resource, given a storage object and a
   map of functions to create/retrieve/delete the resource."
-  [resource-name :- String
-   storage :- (sc/protocol storage/Storage)
-   defaults :- {sc/Keyword sc/Any}
+  [storage :- (sc/protocol storage/Storage)
+   resource-path :- [String]
+   attributes :- {sc/Keyword sc/Any}
    {:keys [get create delete]} :- {:get (sc/pred fn?)
                                    :create (sc/pred fn?)
                                    :delete (sc/pred fn?)}]
   (let [exists? (fn [_]
-                  (if-let [resource (get storage resource-name)]
+                  (if-let [resource (apply get storage resource-path)]
                     {::retrieved resource}))
         put! (fn [ctx]
-               (let [submitted (assoc (::data ctx {}) :name resource-name)
-                     resource (merge defaults submitted)
+               (let [resource (merge (::data ctx {}) attributes)
                      inserted-resource (create storage resource)]
                  {::created inserted-resource}))
-        delete! (fn [_] (delete storage resource-name))]
+        delete! (fn [_] (apply delete storage resource-path))]
     (fn [request]
       (run-resource
         request
@@ -165,7 +164,9 @@
                (listing-resource db storage/get-nodes))
 
           (ANY "/nodes/:node-name" [node-name]
-               (crd-resource node-name db {}
+               (crd-resource db
+                             [node-name]
+                             {:name node-name}
                              {:get storage/get-node
                               :create storage/create-node
                               :delete storage/delete-node}))
@@ -175,7 +176,9 @@
 
           (context "/environments/:environment-name" [environment-name]
                    (ANY "/" []
-                        (crd-resource environment-name db {}
+                        (crd-resource db
+                                      [environment-name]
+                                      {:name environment-name}
                                       {:get storage/get-environment
                                        :create storage/create-environment
                                        :delete storage/delete-environment}))
@@ -184,11 +187,13 @@
                         (listing-resource db #(storage/get-classes % environment-name)))
 
                    (ANY "/classes/:class-name" [class-name]
-                        (crd-resource class-name db
-                                      {:environment environment-name}
-                                      {:get #(storage/get-class %1 environment-name %2)
+                        (crd-resource db
+                                      [environment-name class-name]
+                                      {:name class-name
+                                       :environment environment-name}
+                                      {:get storage/get-class
                                        :create storage/create-class
-                                       :delete #(storage/delete-class %1 environment-name %2)})))
+                                       :delete storage/delete-class})))
 
           (GET "/groups" []
                (listing-resource db storage/get-groups))

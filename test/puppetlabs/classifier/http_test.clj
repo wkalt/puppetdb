@@ -25,7 +25,6 @@
   (let [test-obj-name "test-obj"
         test-obj {:name "test-obj" :property "hello"}
         bad-obj {:name "bad" :property 3}
-        defaults {:property "goodbye"}
         schema {:name String
                 :property String}
         storage (reify Storage)  ; unused in the test, needed to satisfy schema
@@ -36,7 +35,7 @@
                      :delete (fn [_ obj-name])}
         app (compojure/routes
               (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crd-resource obj-name storage defaults storage-fns)))]
+                             (crd-resource storage [obj-name] {:name obj-name} storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))

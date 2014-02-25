@@ -244,7 +244,7 @@
     (doseq [env ["production" new-env]
             class [aclass bclass]
             :let [class-with-env (assoc class :environment env)]]
-      (http/put (str base-url "/v1/environments/production/classes/" (:name class-with-env))
+      (http/put (str base-url "/v1/environments/" env "/classes/" (:name class-with-env))
                 {:content-type :json, :body (json/encode class-with-env)}))
     (http/put (str base-url "/v1/groups/agroup")
               {:content-type :json, :body (json/encode group)})
