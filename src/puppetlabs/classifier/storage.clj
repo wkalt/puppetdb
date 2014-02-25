@@ -15,10 +15,10 @@
   (delete-group-by-name [this group-name] "Deletes a group given its name")
 
   (create-class [this class] "Creates a class specification")
-  (get-class [this class-name] "Retrieves a class specification")
-  (get-classes [this] "Retrieves all class specifications")
+  (get-class [this environment-name class-name] "Retrieves a class specification")
+  (get-classes [this environment-name] "Retrieves all class specifications in an environment")
   (synchronize-classes [this puppet-classes] "Synchronize database class definitions")
-  (delete-class [this class-name] "Deletes a class specification")
+  (delete-class [this environment-name class-name] "Deletes a class specification")
 
   (create-rule [this rule] "Creates a rule")
   (get-rules [this] "Retrieve all rules")

@@ -363,13 +363,18 @@
     ON c.name = cp.class_name AND c.environment_name = cp.environment_name AND cp.deleted = false")
 
 (defn select-class
-  [class-name]
-  [(str class-selection " WHERE c.name = ? AND c.deleted = false") class-name])
+  [class-name environment-name]
+  [(str class-selection " WHERE c.name = ? AND c.environment_name = ? AND c.deleted = false")
+   class-name environment-name])
 
 (defn select-class-where-deleted
-  [class-name environment]
+  [class-name environment-name]
   [(str class-selection " WHERE c.name = ? AND c.environment_name = ? AND c.deleted = true")
-   class-name environment])
+   class-name environment-name])
+
+(defn select-classes
+  [environment-name]
+  [(str class-selection " WHERE c.environment_name = ? AND c.deleted = false") environment-name])
 
 (defn select-all-classes []
   [(str class-selection " WHERE c.deleted = false")])
@@ -423,8 +428,8 @@
   class)
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
-  [{db :db} class-name]
-  (let [result (jdbc/query db (select-class class-name))]
+  [{db :db} environment-name class-name]
+  (let [result (jdbc/query db (select-class class-name environment-name))]
     (if-not (empty? result)
       (->> result
         (aggregate-submap-by :parameter :default_value :parameters)
@@ -432,7 +437,14 @@
         first))))
 
 (sc/defn ^:always-validate get-classes* :- [PuppetClass]
-  [{db :db}]
+  [{db :db} environment-name]
+  (let [result (jdbc/query db (select-classes environment-name))]
+    (->> result
+      (aggregate-submap-by :parameter :default_value :parameters)
+      (map keywordize-parameters))))
+
+(sc/defn ^:always-validate get-all-classes :- [PuppetClass]
+  [db]
   (let [result (jdbc/query db (select-all-classes))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
@@ -477,7 +489,7 @@
     ;; Nothing else should lock this table, so we can use NOWAIT
     (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
     (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
-    (let [db-classes (get-classes* {:db t-db})
+    (let [db-classes (get-all-classes t-db)
           [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
                                                                   puppet-classes
                                                                   db-classes)]
@@ -501,8 +513,8 @@
         (when-not (= new-class old-class)
           (update-class t-db new-class old-class))))))
 
-(defn delete-class* [{db :db} class-name]
-  (jdbc/delete! db :classes (sql/where {:name class-name})))
+(defn delete-class* [{db :db} environment-name class-name]
+  (jdbc/delete! db :classes (sql/where {:name class-name, :environment_name environment-name})))
 
 ;; Rules
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

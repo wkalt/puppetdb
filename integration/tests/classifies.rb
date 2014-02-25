@@ -33,7 +33,7 @@ end
 Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
 
 class_response = Classifier.put(
-  "/v1/classes/foo",
+  "/v1/environments/production/classes/foo",
   :body => {"parameters" => {}}.to_json)
 assert(class_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the class: " +

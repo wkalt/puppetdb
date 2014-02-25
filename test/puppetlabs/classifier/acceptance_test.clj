@@ -115,7 +115,7 @@
                                (= #{:submitted :schema :error}
                                   (-> body (json/decode true) keys set)))]
     (testing "schema-noncompliant objects in requests elicit a 400 response."
-      (let [resp (quiet-put (str base-url "/v1/classes/foo"))]
+      (let [resp (quiet-put (str base-url "/v1/environments/production/classes/foo"))]
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp))))
       (let [resp (quiet-put (str base-url "/v1/groups/test-group"))]
@@ -200,7 +200,7 @@
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
       (let [env-resp   (http/put (str base-url "/v1/environments/staging"))
-            class-resp (http/put (str base-url "/v1/classes/noisyclass")
+            class-resp (http/put (str base-url "/v1/environments/staging/classes/noisyclass")
                                  {:content-type :json
                                   :body (json/generate-string {:parameters {:verbose "true"}
                                                                :environment "staging"})})
@@ -244,7 +244,7 @@
     (doseq [env ["production" new-env]
             class [aclass bclass]
             :let [class-with-env (assoc class :environment env)]]
-      (http/put (str base-url "/v1/classes/" (:name class-with-env))
+      (http/put (str base-url "/v1/environments/" env "/classes/" (:name class-with-env))
                 {:content-type :json, :body (json/encode class-with-env)}))
     (http/put (str base-url "/v1/groups/agroup")
               {:content-type :json, :body (json/encode group)})

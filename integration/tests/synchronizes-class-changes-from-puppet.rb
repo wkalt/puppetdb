@@ -54,7 +54,7 @@ with_puppet_running_on(master, master_opts, testdir) do
 
   step "Check initial classes"
 
-  initial = Classifier.get("/v1/classes")
+  initial = Classifier.get("/v1/environments/one/classes")
 
   assert(initial.include?({"name" => "changed",
                            "parameters" => {"changed" => '"1"',
@@ -102,7 +102,7 @@ with_puppet_running_on(master, master_opts, testdir) do
 
   step "Check classes"
 
-  updated = Classifier.get("/v1/classes")
+  updated = Classifier.get("/v1/environments/one/classes")
 
   assert(updated.include?({"name" => "changed",
                            "parameters" => {"changed" => '"2"',
@@ -132,22 +132,22 @@ with_puppet_running_on(master, master_opts, testdir) do
 
   step "Check final classes"
 
-  final = Classifier.get("/v1/classes")
+  final = Classifier.get("/v1/environments/one/classes")
 
   assert(final.include?({"name" => "changed",
-                           "parameters" => {"changed" => '"1"',
-                                            "unreferred" => '"5"',
-                                            "referred" => '"6"'},
-                           "environment" => "one"}),
+                         "parameters" => {"changed" => '"1"',
+                                          "unreferred" => '"5"',
+                                          "referred" => '"6"'},
+                         "environment" => "one"}),
         "Missing or wrong final 'changed' class")
 
   assert(final.include?({"name" => "referred",
-                           "parameters" => {},
-                           "environment" => "one"}),
+                         "parameters" => {},
+                         "environment" => "one"}),
         "Missing or wrong final 'referred' class")
 
   assert(final.include?({"name" => "unreferred",
-                           "parameters" => {"a" => '"b"'},
-                           "environment" => "one"}),
+                         "parameters" => {"a" => '"b"'},
+                         "environment" => "one"}),
         "Missing or wrong final 'unreferred' class")
 end
