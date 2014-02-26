@@ -240,21 +240,6 @@
                                           (format "Body is not valid JSON: %s"
                                                   (::request-body ctx)))}))))
 
-          (ANY "/rules" []
-               (resource
-                 :allowed-methods [:post :get]
-                 :available-media-types ["application/json"]
-                 :handle-ok ::data
-                 :malformed? parse-if-body
-                 :handle-malformed (fn [ctx]
-                                     (format "Body is not valid JSON: %s"
-                                             (::request-body ctx)))
-                 :post! (fn [ctx]
-                          (let [rule (sc/validate Rule (::data ctx))
-                                rule-id (storage/create-rule db rule)]
-                            {::location (str "/v1/rules/" rule-id)}))
-                 :location ::location))
-
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
                  :allowed-methods [:get]
@@ -263,25 +248,29 @@
                  :handle-ok (fn [ctx]
                               (let [node {:name node-name}
                                     rules (storage/get-rules db)
-                                    group-names (mapcat (partial rules/apply-rule node) rules)
+                                    group-names (->> rules
+                                                  (map (partial rules/apply-rule node))
+                                                  (keep identity))
                                     groups (map (partial storage/get-group-by-name db) group-names)
                                     classes (->> groups
-                                                 (mapcat #(-> % :classes keys))
-                                                 set)
+                                              (mapcat #(-> % :classes keys))
+                                              set)
                                     parameters (->> groups
-                                                    (map :classes)
-                                                    (apply merge))
+                                                 (map :classes)
+                                                 (apply merge))
                                     environments (set (map :environment groups))
                                     variables (apply merge (map :variables groups))]
                                 (when-not (= (count environments) 1)
-                                  (log/warn "Node" node-name "is classified into groups" group-names
+                                  (log/warn "Node" node-name "is classified into groups"
+                                            (map :name groups)
                                             "with inconsistent environments" environments))
                                 (assoc node
-                                       :groups group-names
+                                       :groups (map :name groups)
                                        :classes classes
                                        :parameters parameters
                                        :environment (first environments)
                                        :variables variables)))))
+
           (ANY "/update-classes" []
                (resource
                  :allowed-methods [:post]

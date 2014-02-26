@@ -15,10 +15,12 @@ Each group object contains the following keys:
 
 * `name`: the name of the group (a string).
 * `environment`: the name of the group's environment (a string), which indirectly defines what classes will be available for the group to set, and will be the environment that nodes classified into this group will run under.
-* `classes`: An object that defines both the classes consumed by nodes in this group and any non-default values for their parameters.
+* `rule`: an object with a single key, "when", whose value is a boolean condition on node facts.
+          See the "Rule Condition Grammar" section below for more information on how this condition must be structured.
+* `classes`: an object that defines both the classes consumed by nodes in this group and any non-default values for their parameters.
              The keys of the object are the class names (strings), and the values are more objects mapping between the parameter name (a string) and the value set by the group (which could be any sort of JSON value).
              If the group does not set any parameters for a class, the object under that class's name will be empty.
-* `variables`: An object that defines the values of any top-level variables set by the group.
+* `variables`: an object that defines the values of any top-level variables set by the group.
                The object is a mapping between variable names (strings) and their values, which can be any JSON value.
 
 Here is an example of group object:
@@ -26,6 +28,10 @@ Here is an example of group object:
     {
       "name": "Webservers",
       "environment": "production",
+      "rule": {
+        "when": ["and", ["~", "certname", "www"],
+                        [">=", "total_ram", "512"]]
+      },
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
@@ -36,6 +42,21 @@ Here is an example of group object:
         "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"]
       }
     }
+
+##### Rule Condition Grammar
+
+The grammar for a rule condition is:
+
+    condition : [ {bool} {condition}+ ] | [ "not" {condition} ] | operation
+         bool : "and" | "or"
+    operation : [ {operator} {fact-name} {value} ]
+     operator : "=" | "~" | ">" | ">=" | "<" | "<="
+    fact-name : string
+        value : string
+
+For the regex operator "~", the value will be interpreted as a Java regular expression, and literal backslashes will have to be used to escape regex characters in order to match those characters in the fact value.
+For the numeric comparison operators (">", ">=", "<", and "<="), the fact value (which is always a string) will be coerced to a number (either integral or floating-point).
+If the value cannot be coerced to a number, then the numeric operation will always evaluate to false.
 
 #### Error Responses
 
@@ -88,20 +109,23 @@ If any environments, classes, or class parameters specified in the request do no
 
 ### POST /v1/groups/<name-or-uuid>
 
-Update classes, class parameters, and variables of the group with the given name or UUID by submitting a group delta.
+Update the environment, rule, classes, class parameters, and variables of the group with the given name or UUID by submitting a group delta.
 
 #### Request Format
 
 The request body must be JSON object describing the delta to be applied to the group.
 The `classes` and `variables` keys of the delta will be merged with the group, and then any keys of the resulting object that have a null value will be deleted.
 This allows you to remove classes, class parameters, or variables from the group by setting them to null in the delta.
-The object after any deletions will become the new value of the group.
+The `environment` and `rule` keys, if present in the delta, will replace the old values wholesale with their values.
 
 For example, given the following group:
 
     {
       "name": "Webservers",
-      "environment": "production",
+      "environment": "staging",
+      "rule": {
+        "when": ["~", "certname", "www"]
+      },
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
@@ -119,13 +143,14 @@ For example, given the following group:
 and this delta:
 
     {
+      "environment": "production",
       "classes": {
         "apache": {
           "serveradmin": "roy@reynholm.co.uk",
           "keepalive_timeout": null
         },
         "ssl": null
-      }
+      },
       "variables": {
         "dns_servers": ["dns.reynholm.co.uk"]
       }
@@ -136,6 +161,9 @@ then the value of the group after the update will be:
     {
       "name": "Webservers",
       "environment": "production",
+      "rule": {
+        "when": ["~", "certname", "www"]
+      },
       "classes": {
         "apache": {
           "serveradmin": "roy@reynholm.co.uk",

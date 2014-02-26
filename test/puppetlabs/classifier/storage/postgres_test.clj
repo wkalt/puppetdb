@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.storage.postgres-test
   (:require [clojure.java.jdbc :as jdbc]
-            [clojure.test :refer :all]
             [clojure.set :refer [project]]
+            [clojure.test :refer :all]
             [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
@@ -88,10 +88,15 @@
     (dissoc :id)))
 
 (deftest ^:database groups
-  (let [simplest-group {:name "simplest" :classes {} :environment "test" :variables {}}
+  (let [simplest-group {:name "simplest"
+                        :environment "test"
+                        :rule {:when ["=" "name" "foo"]}
+                        :classes {}
+                        :variables {}}
         group-with-classes {:name "with-classes"
-                            :classes {:hi {} :bye {}}
                             :environment "test"
+                            :rule {:when ["=" "name" "bar"]}
+                            :classes {:hi {} :bye {}}
                             :variables {}}]
 
     (testing "inserts a group"
@@ -126,7 +131,9 @@
 
     (testing "deletes a group"
       (delete-group-by-name db "simplest")
-      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"])))))))
+      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"]))))
+      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules WHERE group_name = ?"
+                                           (:name simplest-group)])))))))
 
 (deftest ^:database create-missing-environments
   (let [c {:name "chrono-manipulator"
@@ -134,6 +141,7 @@
            :parameters {}}
         g {:name "time-machines"
            :environment "rnd"
+           :rule {:when ["=" "foo" "foo"]}
            :classes {}
            :variables {}}]
     (testing "creates missing environments on class insertion"
@@ -153,17 +161,21 @@
                                    :four nil
                                    :five "default"}}
         g1 {:name "complex-group"
+            :environment "test"
+            :rule {:when ["or"
+                          ["=" "name" "foo"]
+                          ["=" "name" "bar"]]}
             :classes {:first {:one "one-val"
                               :two "two-val"}
                       :second {:three "three-val"
                                :four "four-val"}}
-            :environment "test"
             :variables {:fqdn "www.example.com"
                         :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
                         :cluster_index 8
                         :some_bool false}}
         g2 {:name "another-complex-group"
             :environment "tropical"
+            :rule {:when ["=" "name" "baz"]}
             :classes {:first {:two "another-two-val"}
                       :second {:four "four-val"}}
             :variables {:island false, :rainforest true}}]
@@ -171,15 +183,21 @@
     (doseq [env envs, c [first-class second-class]]
       (create-class db (assoc c :environment env)))
 
-    (testing "stores groups with class parameters and top-level variables"
+    (testing "stores groups with rule, class parameters, and top-level variables"
       (create-group db g1)
       (create-group db g2)
       (is (= g1 (get-group-by-name-less-id db (:name g1))))
       (is (= g2 (get-group-by-name-less-id db (:name g2))))
-      (is (= #{g1 g2} (set (get-groups-less-ids db)))))
+      (is (= #{g1 g2} (set (get-groups-less-ids db))))
+      (let [all-rules [(assoc (:rule g1) :group-name (:name g1))
+                       (assoc (:rule g2) :group-name (:name g2))]]
+        (is (= all-rules (get-rules db)))))
 
-    (testing "can update group classes, class parameters, and variables"
+    (testing "can update group rule, classes, class parameters, and variables"
       (let [g1-delta {:name "complex-group"
+                      :rule {:when ["and"
+                                    ["=" "name" "baz"]
+                                    ["=" "osfamily" "linux"]]}
                       :classes {:first nil
                                 :second {:three nil
                                          :four "red fish"
@@ -244,29 +262,6 @@
     (is (= 0 (count (jdbc/query test-db
       ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
-(deftest ^:database rules
-  (let [hello-group {:name "hello" :classes {:salutation {}}  :environment "production" :variables {}}
-        goodbye-group {:name "goodbye" :classes {:valediction {}} :environment "production" :variables {}}
-        salutation-class {:name "salutation" :parameters {} :environment "production"}
-        valediction-class {:name "valediction" :parameters {} :environment "production"}
-        test-rule-1 {:when ["=" "name" "test"]
-                     :groups []}
-        test-rule-2 {:when ["=" "name" "bar"]
-                     :groups ["hello" "goodbye"]}]
-    (testing "creates a rule"
-      (create-rule db test-rule-1)
-      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"])))))
-    (testing "creates a rule with groups"
-      (create-class db salutation-class)
-      (create-class db valediction-class)
-      (create-group db hello-group)
-      (create-group db goodbye-group)
-      (create-rule db test-rule-2)
-      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM rule_groups"])))))
-    (testing "retrieves all rules"
-      (is (= #{test-rule-1 test-rule-2}
-             (project (get-rules db) [:when :groups]))))))
-
 (deftest ^:database environments
   (let [test-env {:name "test"}
         other-env {:name "underwater"}]
@@ -289,9 +284,12 @@
                 {:name "referred", :parameters {}, :environment "production"}
                 {:name "unreferred", :parameters {:a "a"}, :environment "production"}]
         after [{:name "added", :parameters {}, :environment "production"}
-               {:name "changed", :parameters {:added "1", :changed "2"}, :environment "production"}]]
+               {:name "changed", :parameters {:added "1", :changed "2"}, :environment "production"}]
+        referrer  {:name "referrer", :environment "production",
+                   :classes {:referred {}, :changed {:referred "hi"}}
+                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
     (synchronize-classes db before)
-    (create-group db {:name "referrer" :classes {:referred {}, :changed {:referred "hi"}}, :environment "production", :variables {}})
+    (create-group db referrer)
     (synchronize-classes db after)
 
     (testing "unreferred is deleted"

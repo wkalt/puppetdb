@@ -109,14 +109,17 @@
 (deftest groups
   (let [groups [{:name "agroup"
                  :environment "bar"
+                 :rule {:when ["=" "name" "bert"]}
                  :classes {:foo {:param "override"}}
                  :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
                 {:name "agroupprime"
                  :environment "bar"
+                 :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
                 {:name "bgroup"
                  :environment "quux"
+                 :rule {:when ["=" "name" "elmo"]}
                  :classes {}
                  :variables {}}]
         group-map (into {} (map (juxt :name identity) groups))
@@ -216,32 +219,6 @@
     (testing "tells storage to delete the class and returns 204"
       (let [response (app (class-request :delete "test" "theirclass"))]
         (is-http-status 204 response)))))
-
-(defn rule-request
-  [method rule]
-  (request method "/v1/rules" (generate-string rule)))
-
-(deftest rules
-  (let [simple-rule {:when ["=" "name" "foo"]
-                     :groups ["food"]}
-        rule-id 42
-        mock-db (reify Storage
-                  (get-node [_ _] nil)
-                  (create-rule [_ rule]
-                    rule-id)
-                  (get-rules [_]
-                    [simple-rule])
-                  (get-group-by-name [_ _]
-                    {:name "food"}))
-        app (app {:db mock-db})]
-    (testing "returns a key when storing a rule"
-      (let [response (app (rule-request :post simple-rule))]
-        (is-http-status 201 response)
-        (is (= (str "/v1/rules/" rule-id)
-               ((response :headers) "Location")))))
-    (testing "classifies a node using the simple rule"
-      (let [response (app (request :get "/v1/classified/nodes/foo"))]
-        (is (= ["food"] ((parse-string (:body response)) "groups")))))))
 
 (deftest errors
   (let [incomplete-group {:classes ["foo" "bar" "baz"]}
