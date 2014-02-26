@@ -39,28 +39,23 @@ assert(class_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the class: " +
        "HTTP Code #{class_response.code}: #{class_response.message}")
 
+with_puppet_running_on(master, master_opts, testdir) do
+  node_names = agents.collect do |agent|
+    on(agent, 'puppet agent --configprint node_name_value').stdout.strip
+  end
+end
+
+match_nodes = ["or", node_names.map{|nn| ["=", "name", nn]}]
+
 group_response = Classifier.put(
   "/v1/groups/foogroup",
-  :body => {"classes" => {"foo" => {}}}.to_json)
+  :body => {"classes" => {"foo" => {}}, "rule" => {"when" => match_nodes}}.to_json)
 assert(group_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the group: " +
        "HTTP Code #{group_response.code}: #{group_response.message}")
 
 with_puppet_running_on(master, master_opts, testdir) do
   agents.each do |agent|
-    node_name = on(agent, 'puppet agent --configprint node_name_value').stdout.strip
-
-    rule_response = Classifier.post(
-      "/v1/rules",
-      :body => {
-        "when" => ["=", "name", node_name],
-        "groups" => ["foogroup"]
-      }.to_json)
-
-    assert(rule_response.response.is_a?(Net::HTTPSuccess),
-           "Received failure response when trying to create the rule: " +
-           "HTTP Code #{rule_response.code}: #{rule_response.message}")
-
     run_agent_on(agent, "--no-daemonize --onetime --verbose --server #{master}")
 
     assert_match("classified as foo", stdout)
