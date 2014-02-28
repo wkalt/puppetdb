@@ -39,13 +39,15 @@ assert(class_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the class: " +
        "HTTP Code #{class_response.code}: #{class_response.message}")
 
+node_names = nil
+
 with_puppet_running_on(master, master_opts, testdir) do
   node_names = agents.collect do |agent|
     on(agent, 'puppet agent --configprint node_name_value').stdout.strip
   end
 end
 
-match_nodes = ["or", node_names.map{|nn| ["=", "name", nn]}]
+match_nodes = ["or", *node_names.map{|nn| ["=", "name", nn]}]
 
 group_response = Classifier.put(
   "/v1/groups/foogroup",
