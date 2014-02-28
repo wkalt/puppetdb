@@ -77,7 +77,7 @@ with_puppet_running_on(master, master_opts, testdir) do
 
   group = {"classes" => {"referred" => {},
                          "changed" => {"referred" => "82"}},
-           "rule" => {"when" => ["=", "fact", "value"],
+           "rule" => {"when" => ["=", "fact", "value"]},
            "environment" => "one"}
 
   group_response = Classifier.put(
