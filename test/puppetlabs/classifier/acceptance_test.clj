@@ -128,6 +128,7 @@
                :id (UUID/randomUUID)
                :environment "production"
                :rule {:when ["=" "foo" "foo"]}
+               :parent "default"
                :classes {}}]
     (testing "trying to create a group by specifying id in URI causes a 405"
       (let [{:keys [status]} (http/put (str base-url "/v1/groups/" (:id group))
@@ -160,8 +161,8 @@
         node-url #(str base-url "/v1/nodes/" %)
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
         nodes (for [nn node-names] {:name nn})
-        group {:name "bargroup" :environment "production"
-               :rule {:when ["=" "foo" "foo"]} , :classes {}}]
+        group {:name "bargroup", :environment "production", :parent "default"
+               :rule {:when ["=" "foo" "foo"]}, :classes {}}]
     (testing "lists all resource instances"
       (http/put (str base-url "/v1/groups/" (:name group))
                 {:content-type :json, :body (json/encode group)})
@@ -184,7 +185,8 @@
 
 (deftest ^:acceptance missing-referents-explanation
   (let [base-url (base-url test-config)
-        group-with-missing-class {:classes {:missing {}}, :rule {:when ["=" "foo" "foo"]}}
+        group-with-missing-class {:parent "default", :rule {:when ["=" "foo" "foo"]}
+                                  :classes {:missing {}}}
         {:keys [body status], :as resp} (http/put (str base-url "/v1/groups/with-missing")
                                                   {:content-type :json
                                                    :body (json/encode group-with-missing-class)
@@ -206,8 +208,9 @@
                                  {:content-type :json
                                   :body (json/generate-string
                                           {:classes {:noisyclass {:verbose "false"}}
-                                           :rule {:when ["=" "name" "thenode"]}
                                            :environment "staging"
+                                           :parent "default"
+                                           :rule {:when ["=" "name" "thenode"]}
                                            :variables {:dothings "yes"}})})
             classification (-> (http/get (str base-url "/v1/classified/nodes/thenode")
                                          {:accept :json})
@@ -228,6 +231,7 @@
                 :parameters {:log "warn", :verbose "false", :loglocation "/var/log"}}
         bclass {:name "bclass", :environment "production", :parameters {}}
         group {:name "agroup"
+               :parent "default"
                :environment "production"
                :rule {:when ["=" "name" "gary"]}
                :classes {:aclass {:verbose "true" :log "info"}

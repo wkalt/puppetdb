@@ -5,11 +5,6 @@
 
 (def Environment {:name String})
 
-(def puppetlabs.classifier.schema/Class
-  {:name String
-   :parameters {sc/Keyword (sc/maybe String)}
-   :environment String})
-
 (def RuleCondition
   (sc/either
     [(sc/one (sc/eq "not") "negation") (sc/one (sc/recursive #'RuleCondition) "negated-expression")]
@@ -32,9 +27,20 @@
 (def Group {:name String
             (sc/optional-key :id) java.util.UUID
             :environment String
+            :rule Rule
+            :parent String
             :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
-            :variables {sc/Keyword sc/Any}
-            :rule Rule})
+            :variables {sc/Keyword sc/Any}})
+
+(def HierarchyNode
+  {:group Group
+   :children #{(sc/recursive #'HierarchyNode)}})
+
+(def puppetlabs.classifier.schema/Class
+  {:name String
+   :parameters {sc/Keyword (sc/maybe String)}
+   :environment String})
+
 
 (def ^:private GroupDeltaShared
   {(sc/optional-key :environment) String
