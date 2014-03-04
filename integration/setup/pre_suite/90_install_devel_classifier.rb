@@ -18,22 +18,20 @@ step "Install development build of classifier on the classifier server" do
     repo = extract_repo_info_from(test_config[:repo_classifier].to_s)
     install_from_git database, GitReposDir, repo
 
-    if (test_config[:database] == :postgres)
-      install_postgres(database)
-    end
-    install_classifier_via_rake(database)
+    install_postgres(database)
+    install_classifier_from_source(database)
     start_classifier(database)
-    install_classifier_termini_via_rake(master, database)
+    install_classifier_terminus_from_source(master, database)
   when :package
     Log.notify("Installing classifier from package; install mode: '#{test_config[:install_mode].inspect}'")
 
-    install_classifier(database, test_config[:database])
+    install_classifier(database)
 
     if test_config[:validate_package_version]
       validate_package_version(database)
     end
 
-    install_classifier_termini(master, database)
+    install_classifier_terminus(master, database)
 
     start_classifier(database)
   end

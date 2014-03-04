@@ -29,10 +29,6 @@ module ClassifierExtensions
     puppet_sha = get_option_value(options[:puppet_sha], nil,
                                   "install type", "PUPPET_SHA", nil)
 
-    database =
-        get_option_value(options[:classifier_database],
-            [:postgres, :embedded], "database", "CLASSIFIER_DATABASE", :postgres)
-
     validate_package_version =
         get_option_value(options[:classifier_validate_package_version],
             [:true, :false], "'validate package version'",
@@ -101,7 +97,6 @@ module ClassifierExtensions
       :install_type => install_type,
       :install_mode => install_mode,
       :puppet_sha => puppet_sha,
-      :database => database,
       :validate_package_version => validate_package_version == :true,
       :expected_rpm_version => expected_rpm_version,
       :expected_deb_version => expected_deb_version,
@@ -113,7 +108,7 @@ module ClassifierExtensions
       :repo_puppet => classifier_repo_puppet.to_s,
       :repo_hiera => classifier_repo_hiera.to_s,
       :repo_facter => classifier_repo_facter.to_s,
-      :repo_classifier => classifier_repo_classifier,
+      :repo_classifier => classifier_repo_classifier.to_s,
       :git_ref => classifier_git_ref,
     }
 
@@ -220,8 +215,7 @@ module ClassifierExtensions
 
   end
 
-
-  def install_classifier(host, db, version=nil)
+  def install_classifier(host)
     manifest = <<-EOS
     package { 'classifier':
       ensure => latest
@@ -235,9 +229,7 @@ module ClassifierExtensions
     EOS
     apply_manifest_on(host, manifest)
     # print_ini_files(host)
-    sleep_until_started(host)
   end
-
 
   def validate_package_version(host)
     step "Verifying package version" do
@@ -263,7 +255,7 @@ module ClassifierExtensions
   end
 
 
-  def install_classifier_termini(host, database, version=nil)
+  def install_classifier_terminus(host, database)
     # We pass 'restart_puppet' => false to prevent the module from trying to
     # manage the puppet master service, which isn't actually installed on the
     # acceptance nodes (they run puppet master from the CLI).
@@ -273,9 +265,13 @@ module ClassifierExtensions
     }
     EOS
     apply_manifest_on(host, manifest)
+    install_terminus_config(host, database)
+  end
+
+  def install_terminus_config(host, database)
     create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
                       "---\n" +
-                      "server: #{master}\n" +
+                      "server: #{database}\n" +
                       "port: #{CLASSIFIER_PORT}")
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
@@ -324,55 +320,28 @@ module ClassifierExtensions
     apply_manifest_on(host, manifest)
   end
 
-  def install_classifier_via_rake(host)
-    os = ClassifierExtensions.config[:os_families][host.name]
-    case os
-      when :debian
-        preinst = "debian/classifier.preinst install"
-        postinst = "debian/classifier.postinst"
-      when :redhat
-        preinst = "dev/redhat/redhat_dev_preinst install"
-        postinst = "dev/redhat/redhat_dev_postinst install"
-      else
-        raise ArgumentError, "Unsupported OS family: '#{os}'"
-    end
-
-    on host, "rm -rf /etc/classifier/ssl"
-    on host, "#{LeinCommandPrefix} rake package:bootstrap"
-    on host, "#{LeinCommandPrefix} rake template"
-    on host, "sh #{GitReposDir}/classifier/ext/files/#{preinst}"
-    on host, "#{LeinCommandPrefix} rake install"
-    on host, "sh #{GitReposDir}/classifier/ext/files/#{postinst}"
-
-    step "Configure database.ini file" do
-      manifest = <<-EOS
-  $database = '#{ClassifierExtensions.config[:database]}'
-
-  class { 'classifier::server::database_ini':
-      database      => $database,
-  }
-      EOS
-
-      apply_manifest_on(host, manifest)
-    end
-
-    print_ini_files(host)
-  end
-
-  def install_classifier_termini_via_rake(host, database)
-    on host, "#{LeinCommandPrefix} rake sourceterminus"
-
+  def install_classifier_from_source(host)
+    # on host, "rm -rf /etc/classifier/ssl"
     manifest = <<-EOS
-      include classifier::master::storeconfigs
-      class { 'classifier::master::classifier_conf':
-        server => '#{database.node_name}',
-      }
-      include classifier::master::routes
-      class { 'classifier::master::report_processor':
-        enable => true,
-      }
+    group { 'classifier':
+      ensure => present,
+      system => true,
+    }
+    user { 'classifier':
+      ensure => present,
+      gid => 'classifier',
+      managehome => false,
+      system => true,
+    }
     EOS
     apply_manifest_on(host, manifest)
+
+    on host, "#{LeinCommandPrefix} prefix=/usr make -e install-classifier"
+  end
+
+  def install_classifier_terminus_from_source(host, database)
+    on host, "#{LeinCommandPrefix} make install-terminus"
+    install_terminus_config(host, database)
   end
 
   ###########################################################################
@@ -424,19 +393,12 @@ module ClassifierExtensions
   end
 
   def clear_database(host)
-    case ClassifierExtensions.config[:database]
-      when :postgres
-        if host.is_pe?
-          on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
-        else
-          on host, 'su postgres -c "dropdb classifier"'
-        end
-        install_postgres(host)
-      when :embedded
-        on host, "rm -rf #{classifier_sharedir(host)}/db/*"
-      else
-        raise ArgumentError, "Unsupported database: '#{ClassifierExtensions.config[:database]}'"
+    if host.is_pe?
+      on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
+    else
+      on host, 'su postgres -c "dropdb classifier"'
     end
+    install_postgres(host)
   end
 
   #########################################################
