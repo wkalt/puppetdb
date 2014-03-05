@@ -16,7 +16,7 @@ step "Install other dependencies on database" do
       which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
       needs_lein = which_result.exit_code == 1
       if (needs_lein)
-        on database, "curl -k https://raw.github.com/technomancy/leiningen/preview/bin/lein -o /usr/local/bin/lein"
+        on database, "curl -k https://raw.github.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein"
         on database, "chmod +x /usr/local/bin/lein"
         on database, "LEIN_ROOT=true lein"
       end
