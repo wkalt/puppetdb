@@ -10,6 +10,8 @@
   (get-group-by-id [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
   (get-group-by-name [this group-name] "Retrieves a group given its name")
   (get-groups [this] "Retrieves all groups")
+  (get-ancestors [this group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route.")
+  (get-subtree [this group] "Returns the subtree of the group hierarchy rooted at the passed group.")
   (update-group [this delta] "Updates class/parameter and variable fields of a group")
   (delete-group-by-id [this id] "Deletes a group given its ID")
   (delete-group-by-name [this group-name] "Deletes a group given its name")

@@ -7,7 +7,8 @@
             [migratus.core :as migratus]
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta Node Rule Environment]]
+            [puppetlabs.classifier.schema :refer [Group GroupDelta HierarchyNode
+                                                  Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
             [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid relative-complements-by-key]])
@@ -18,6 +19,8 @@
 
 (def foreign-key-violation-code "23503")
 (def serialization-failure-code "40001")
+
+(def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -147,10 +150,14 @@
 ;; Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+;; Retrieving Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (def group-selection
-  "SELECT name,
+  "SELECT g.name,
           g.id               AS id,
           g.environment_name AS environment,
+          g.parent_name      AS parent,
           gv.variable        AS variable,
           gv.value           AS variable_value,
           gc.class_name      AS class,
@@ -166,6 +173,10 @@
 (defn- group-selection-with-order
   [selection]
   (str selection " ORDER BY g.name, r.id ASC"))
+
+(defn select-group-children
+  [group-name]
+  [(str group-selection " WHERE g.parent_name = ?") group-name])
 
 (defn select-group-by-name
   [group-name]
@@ -223,9 +234,38 @@
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
+(sc/defn ^:always-validate get-parent :- Group
+  [db group]
+  (get-group-by-name* {:db db} (:parent group)))
+
+(sc/defn ^:always-validate get-ancestors* :- [Group]
+  [{db :db} group]
+  (loop [current (get-parent db group), ancestors []]
+    ;; if current is = to last parent, it is its own parent, so it's the root
+    (if (= current (last ancestors))
+      ancestors
+      (recur (get-parent db current) (conj ancestors current)))))
+
+(sc/defn ^:always-validate get-immediate-children :- [Group]
+  [db group-name]
+  (->> (query db (select-group-children group-name))
+    aggregate-fields-into-groups))
+
+(sc/defn ^:always-validate get-subtree* :- HierarchyNode
+  [{db :db} group]
+  (let [children (get-immediate-children db (:name group))]
+    {:group group
+     :children (->> children
+                 (map (partial get-subtree* {:db db}))
+                 set)}))
+
+
+;; Creating & Updating Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
-   {:keys [classes environment variables] group-name :name :as group} :- Group]
+   {:keys [classes environment parent variables] group-name :name :as group} :- Group]
   (when (uuid? group-name)
     (throw (IllegalArgumentException. "group's name cannot be a UUID")))
   (let [uuid (UUID/randomUUID)]
@@ -233,8 +273,8 @@
       [t-db db]
       (create-environment-if-missing {:db t-db} {:name environment})
       (jdbc/insert! t-db :groups
-                    [:name :environment_name :id]
-                    (conj ((juxt :name :environment) group) uuid))
+                    [:name :environment_name :id :parent_name]
+                    (conj ((juxt :name :environment) group) uuid parent))
       (doseq [[v-key v-val] variables]
         (jdbc/insert! t-db :group_variables
                       [:variable :group_name :value]
@@ -386,11 +426,16 @@
   [{db :db}
    id :- (sc/either String UUID)]
   {:pre [(uuid? id)]}
-  (jdbc/delete! db :groups (sql/where {:id (->uuid id)})))
+  (let [uuid (->uuid id)]
+    (when (= uuid root-group-uuid)
+      (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
+    (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
 
 (sc/defn ^:always-validate delete-group-by-name*
   [{db :db}
    group-name :- String]
+  (when (= group-name "default")
+    (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
   (jdbc/delete! db :groups (sql/where {:name group-name})))
 
 ;; Classes
@@ -579,6 +624,8 @@
    :get-group-by-id get-group-by-id*
    :get-group-by-name get-group-by-name*
    :get-groups get-groups*
+   :get-ancestors get-ancestors*
+   :get-subtree get-subtree*
    :update-group update-group*
    :delete-group-by-id delete-group-by-id*
    :delete-group-by-name delete-group-by-name*

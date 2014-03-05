@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.set :refer [project]]
             [clojure.test :refer :all]
+            [clojure.walk :refer [prewalk]]
             [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
@@ -46,7 +47,8 @@
 
 (deftest ^:database migration
   (testing "creates a groups table"
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
+    ;; root group is already inserted
+    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
   (testing "creates a nodes table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
   (testing "creates a classes table"
@@ -54,7 +56,8 @@
   (testing "creates a class parameters table"
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM class_parameters"])))))
   (testing "creates a rules table"
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
+    ;; root group's rule is already inserted
+    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
 
 (deftest ^:database nodes
   (testing "inserts nodes"
@@ -90,18 +93,20 @@
 (deftest ^:database groups
   (let [simplest-group {:name "simplest"
                         :environment "test"
+                        :parent "default"
                         :rule {:when ["=" "name" "foo"]}
                         :classes {}
                         :variables {}}
         group-with-classes {:name "with-classes"
+                            :parent "default"
                             :environment "test"
                             :rule {:when ["=" "name" "bar"]}
                             :classes {:hi {} :bye {}}
-                            :variables {}}]
-
+                            :variables {}}
+        root (get-group-by-name-less-id db "default")]
     (testing "inserts a group"
       (create-group db simplest-group)
-      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups"])))))
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups WHERE NOT name = ?" "default"])))))
 
     (testing "does not insert a group that has a UUID for the name"
       (is (thrown? IllegalArgumentException
@@ -127,19 +132,24 @@
       (is (= group-with-classes (get-group-by-name-less-id db "with-classes"))))
 
     (testing "retrieves all groups"
-      (is (= #{simplest-group group-with-classes} (set (get-groups-less-ids db)))))
+      (is (= #{simplest-group group-with-classes root} (set (get-groups-less-ids db)))))
 
     (testing "deletes a group"
       (delete-group-by-name db "simplest")
       (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"]))))
       (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules WHERE group_name = ?"
-                                           (:name simplest-group)])))))))
+                                           (:name simplest-group)])))))
+
+    (testing "can't delete the root group"
+      (is (thrown? IllegalArgumentException (delete-group-by-id db root-group-uuid)))
+      (is (thrown? IllegalArgumentException (delete-group-by-name db "default"))))))
 
 (deftest ^:database create-missing-environments
   (let [c {:name "chrono-manipulator"
            :environment "thefuture"
            :parameters {}}
         g {:name "time-machines"
+           :parent "default"
            :environment "rnd"
            :rule {:when ["=" "foo" "foo"]}
            :classes {}
@@ -165,6 +175,7 @@
             :rule {:when ["or"
                           ["=" "name" "foo"]
                           ["=" "name" "bar"]]}
+            :parent "default"
             :classes {:first {:one "one-val"
                               :two "two-val"}
                       :second {:three "three-val"
@@ -174,11 +185,13 @@
                         :cluster_index 8
                         :some_bool false}}
         g2 {:name "another-complex-group"
+            :parent "default"
             :environment "tropical"
             :rule {:when ["=" "name" "baz"]}
             :classes {:first {:two "another-two-val"}
                       :second {:four "four-val"}}
-            :variables {:island false, :rainforest true}}]
+            :variables {:island false, :rainforest true}}
+        root (get-group-by-name-less-id db "default")]
 
     (doseq [env envs, c [first-class second-class]]
       (create-class db (assoc c :environment env)))
@@ -188,8 +201,9 @@
       (create-group db g2)
       (is (= g1 (get-group-by-name-less-id db (:name g1))))
       (is (= g2 (get-group-by-name-less-id db (:name g2))))
-      (is (= #{g1 g2} (set (get-groups-less-ids db))))
-      (let [all-rules [(assoc (:rule g1) :group-name (:name g1))
+      (is (= #{g1 g2 root} (set (get-groups-less-ids db))))
+      (let [all-rules [(assoc (:rule root) :group-name (:name root))
+                       (assoc (:rule g1) :group-name (:name g1))
                        (assoc (:rule g2) :group-name (:name g2))]]
         (is (= all-rules (get-rules db)))))
 
@@ -231,21 +245,53 @@
                   e))]
         (is (and e (= (.getSQLState e) "23503")))))))
 
+(deftest ^:database group-hierarchy
+  (let [blank-group-named (fn [n] {:name n, :environment "test", :rule {:when ["=" "foo" "bar"]}
+                                   :classes {}, :variables {}})
+        root (get-group-by-name-less-id db "default")
+        top (-> (blank-group-named "top")
+              (assoc :parent "default"))
+        child-1 (-> (blank-group-named "child1")
+                  (assoc :parent (:name top)))
+        child-2 (-> (blank-group-named "child2")
+                  (assoc :parent (:name top)))
+        grandchild (-> (blank-group-named "grandchild")
+                     (assoc :parent (:name child-1)))]
+    (doseq [g [top child-1 child-2 grandchild]]
+      (create-group db g))
+
+    (testing "can retrieve the ancestors of a group up through the root"
+      (is (= [child-1 top root]
+             (->> (get-ancestors db grandchild)
+               (map #(dissoc % :id))))))
+
+    (let [tree {:group top
+                :children #{{:group child-2, :children #{}}
+                            {:group child-1
+                             :children #{{:group grandchild, :children #{}}}}}}
+          retrieved-tree (->> (get-subtree db top)
+                           (prewalk (fn [x]
+                                      (if (map? x)
+                                        (dissoc x :id)
+                                        x))))]
+      (testing "can retrieve the subtree rooted at a particular group"
+        (is (= tree retrieved-tree))))))
+
 (deftest ^:database classes
   (testing "store a class with no parameters"
     (create-class db {:name "myclass" :parameters {} :environment "test"}))
-    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
+  (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
   (testing "store a class with multiple parameters"
     (create-class db {:name "classtwo"
                       :parameters {:param1 "value1"
                                    :param2 "value2"}
                       :environment "test"})
     (is (= 2 (count (jdbc/query test-db
-      ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
+                                ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
   (testing "retrieve a class with no parameters"
     (let [testclass {:name "noclass" :parameters {} :environment "test"}]
       (create-class db testclass)
-      (is (= testclass (get-class db "test" "noclass")))  
+      (is (= testclass (get-class db "test" "noclass")))
       (is (= nil (get-class db "wrong" "noclass")))))
   (testing "retrieve a class with parameters"
     (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"} :environment "test"}]
@@ -260,7 +306,7 @@
     (delete-class db "test" "testclass")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
     (is (= 0 (count (jdbc/query test-db
-      ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
+                                ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
 
 (deftest ^:database environments
   (let [test-env {:name "test"}
@@ -285,9 +331,9 @@
                 {:name "unreferred", :parameters {:a "a"}, :environment "production"}]
         after [{:name "added", :parameters {}, :environment "production"}
                {:name "changed", :parameters {:added "1", :changed "2"}, :environment "production"}]
-        referrer  {:name "referrer", :environment "production",
-                   :classes {:referred {}, :changed {:referred "hi"}}
-                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
+        referrer {:name "referrer", :environment "production", :parent "default"
+                  :classes {:referred {}, :changed {:referred "hi"}}
+                  :rule {:when ["=" "foo" "foo"]} , :variables {}}]
     (synchronize-classes db before)
     (create-group db referrer)
     (synchronize-classes db after)

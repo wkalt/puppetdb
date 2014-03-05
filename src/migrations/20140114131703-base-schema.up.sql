@@ -11,7 +11,8 @@ CREATE TABLE environments (
 CREATE TABLE groups (
     name TEXT PRIMARY KEY,
     id UUID UNIQUE,
-    environment_name TEXT NOT NULL REFERENCES environments(name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
+    environment_name TEXT NOT NULL REFERENCES environments(name) ON UPDATE NO ACTION ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED,
+    parent_name TEXT NOT NULL REFERENCES groups(name) ON UPDATE CASCADE ON DELETE NO ACTION DEFERRABLE INITIALLY DEFERRED
 );
 --;;
 CREATE UNIQUE INDEX ON groups (name, environment_name);
@@ -81,3 +82,7 @@ CREATE TABLE rules (
 --;;
 
 INSERT INTO environments (name) VALUES ('production')
+--;;
+INSERT INTO groups (name, id, environment_name, parent_name) VALUES ('default', '00000000-0000-4000-8000-000000000000', 'production', 'default')
+--;;
+INSERT INTO rules (group_name, match) VALUES ('default', '["and",["=","notarealfact","notarealvalue"]]')
