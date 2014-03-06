@@ -20,7 +20,6 @@ step "Install development build of classifier on the classifier server" do
 
     install_postgres(database)
     install_classifier_from_source(database)
-    start_classifier(database)
     install_classifier_terminus_from_source(master, database)
   when :package
     Log.notify("Installing classifier from package; install mode: '#{test_config[:install_mode].inspect}'")
@@ -32,7 +31,5 @@ step "Install development build of classifier on the classifier server" do
     end
 
     install_classifier_terminus(master, database)
-
-    start_classifier(database)
   end
 end

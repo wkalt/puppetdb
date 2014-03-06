@@ -23,6 +23,7 @@ install-classifier: classifier.jar
 	install -m 0644 classifier.jar "$(DESTDIR)$(datadir)/classifier"
 	install -d -m 0755 "$(DESTDIR)$(confdir)/classifier"
 	install -m 0644 ext/classifier.conf "$(DESTDIR)$(confdir)/classifier"
+	install -d -m 0700 "$(DESTDIR)$(confdir)/classifier/ssl"
 	install -d -m 0755 "$(DESTDIR)$(defaultsdir)"
 	install -m 0644 ext/default "$(DESTDIR)$(defaultsdir)/classifier"
 	install -d -m 0755 "$(DESTDIR)$(initdir)"
