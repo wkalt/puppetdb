@@ -57,7 +57,7 @@ step "Create group"
 
 group_response = Classifier.put(
   "/v1/groups/foogroup",
-  :body => {"classes" => {"foo" => {}}, "rule" => {"when" => match_nodes}}.to_json)
+  :body => {"classes" => {"foo" => {}}, "parent" => "default", "rule" => {"when" => match_nodes}}.to_json)
 assert(group_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the group: " +
        "HTTP Code #{group_response.code}: #{group_response.message}")

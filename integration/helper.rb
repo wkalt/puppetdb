@@ -194,7 +194,7 @@ module ClassifierExtensions
   end
 
   def sleep_until_started(host)
-    curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}", 0, 120)
+    curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}/v1/environments", 0, 120)
   end
 
   def get_package_version(host, version = nil)
@@ -380,11 +380,11 @@ module ClassifierExtensions
 
   def curl_with_retries(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
     desired_exit_codes = [desired_exit_codes].flatten
-    on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+    on host, "curl -f #{url}", :acceptable_exit_codes => (0...127)
     num_retries = 0
     until desired_exit_codes.include?(exit_code)
       sleep retry_interval
-      on host, "curl #{url}", :acceptable_exit_codes => (0...127)
+      on host, "curl -f #{url}", :acceptable_exit_codes => (0...127)
       num_retries += 1
       if (num_retries > max_retries)
         fail("Unable to #{desc}")
