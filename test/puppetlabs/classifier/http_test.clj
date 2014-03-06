@@ -6,7 +6,7 @@
             [schema.test]
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
-            [puppetlabs.classifier.schema :refer [Group]]
+            [puppetlabs.classifier.schema :refer [Class Group GroupDelta Node]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -70,6 +70,7 @@
                   (get-nodes [_]
                     nodes)
                   (create-node [_ node]
+                    (sc/validate Node node)
                     (is (= (get node-map (:name node)) node))
                     (get node-map (:name node)))
                   (delete-node [_ node-name]
@@ -109,16 +110,19 @@
 (deftest groups
   (let [groups [{:name "agroup"
                  :environment "bar"
+                 :parent "default"
                  :rule {:when ["=" "name" "bert"]}
                  :classes {:foo {:param "override"}}
                  :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
                 {:name "agroupprime"
                  :environment "bar"
+                 :parent "default"
                  :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
                 {:name "bgroup"
                  :environment "quux"
+                 :parent "default"
                  :rule {:when ["=" "name" "elmo"]}
                  :classes {}
                  :variables {}}]
@@ -129,6 +133,7 @@
                   (get-groups [_]
                     groups)
                   (create-group [_ group]
+                    (sc/validate Group group)
                     (is (= (get group-map (:name group)) group))
                     (get group-map (:name group)))
                   (update-group [_ _]
@@ -193,6 +198,7 @@
                   (get-classes [_ _]
                     classes)
                   (create-class [_ class]
+                    (sc/validate Class class)
                     (is (= (get class-map (:name class)) class))
                     (get class-map (:name class)))
                   (delete-class [_ _ class-name]
