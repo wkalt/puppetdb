@@ -374,7 +374,7 @@
                  :allowed-methods [:post]
                  :available-media-types ["application/json"]
                  :post! (fn [_]
-                          (class-updater/update-classes! (:puppet-master config) db)))))
+                          (class-updater/update-classes! (select-keys config [:puppet-master :ssl-context]) db)))))
 
         (route/not-found "Not found"))
 

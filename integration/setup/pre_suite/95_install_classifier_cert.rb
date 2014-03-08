@@ -24,7 +24,7 @@ step "Configure SSL on classifier" do
 
   conf['classifier'] = {
     'url-prefix' => '',
-    'puppet-master' => "http://#{master}:8140"
+    'puppet-master' => "https://#{master}:8140"
   }
 
   create_remote_file(database, '/etc/classifier/classifier.conf', conf.to_s)
