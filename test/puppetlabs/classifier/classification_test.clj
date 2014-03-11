@@ -65,7 +65,7 @@
             (is (not (empty? changes-env-errors)))
             (is (= (-> changes-env-errors keys set) #{:hunky-dory :partial-hit}))))
 
-        (testing "preservers inheritance ordering"
+        (testing "preserves inheritance ordering"
           (let [only-inherited-errors (->> bad-tree
                                         (find-group-node (:name only-inherited))
                                         :errors)]
