@@ -103,4 +103,4 @@
                         :thing {:param "overriding", :other "new", :why "whynot"}}
               :variables {:new "whatsit"
                           :more "?"}}
-             (inherited-classification family))))))
+             (collapse-to-inherited family))))))

@@ -183,24 +183,56 @@
                           set)]
         (is (not (contains? group-names (:name group))))))))
 
-(deftest ^:acceptance missing-referents-explanation
-  (let [base-url (base-url test-config)
-        group-with-missing-class {:parent "default", :rule {:when ["=" "foo" "foo"]}
-                                  :classes {:missing {}}}
-        {:keys [body status], :as resp} (http/put (str base-url "/v1/groups/with-missing")
-                                                  {:content-type :json
-                                                   :body (json/encode group-with-missing-class)
-                                                   :throw-exceptions false})]
-    (is (= 412 status))
-    (is (re-find #"The group you tried to create" body))
-    (is (re-find #"refers to a class" body))
-    (is (re-find #"no such class could be found" body))))
+(deftest ^:acceptance hierarchy-validation
+  (let [base-url (base-url test-config)]
+    (testing "validates group when creating"
+      (let [group-with-missing-class {:parent "default", :rule {:when ["=" "foo" "foo"]}
+                                      :classes {:missing {}}}
+            {:keys [body status]} (http/put (str base-url "/v1/groups/with-missing")
+                                            {:content-type :json
+                                             :body (json/encode group-with-missing-class)
+                                             :throw-exceptions false})
+            {:keys [details kind msg]} (json/decode body true)]
+        (is (= 412 status))
+        (is (= kind "missing-referents"))
+        (is (re-find #"exist in the group's environment" body))
+        (is (= (count details) 1))
+        (is (= (first details)
+               {:kind "missing-class", :group "with-missing", :defined-by "with-missing"
+                :missing "missing", :environment "production"}))))
+
+    (testing "validates children when changing an ancestor's parent link"
+      (let [high-class {:name "high", :parameters {:refined "surely"}}
+            top-group {:name "top", :environment "production", :parent "default"
+                       :classes {:high {:refined "most"}}, :rule {:when ["=" "foo" "foo"]}}
+            side-group {:name "side", :environment "production", :parent "default"
+                        :classes {}, :rule {:when ["=" "foo" "foo"]}}
+            bottom-group {:name "bottom", :environment "staging", :parent "side"
+                          :classes {}, :rule {:when ["=" "foo" "foo"]}}]
+        (http/put (str base-url "/v1/environments/production/classes/" (:name high-class))
+                  {:content-type :json, :body (json/encode high-class)})
+        (http/put (str base-url "/v1/groups/" (:name top-group))
+                  {:content-type :json, :body (json/encode top-group)})
+        (http/put (str base-url "/v1/groups/" (:name side-group))
+                  {:content-type :json, :body (json/encode side-group)})
+        (http/put (str base-url "/v1/groups/" (:name bottom-group))
+                  {:content-type :json, :body (json/encode bottom-group)})
+        (let [{:keys [body status]} (http/post (str base-url "/v1/groups/" (:name side-group))
+                                               {:content-type :json,
+                                                :body (json/encode {:parent "top"})
+                                                :throw-exceptions false})
+              {:keys [details kind msg]} (json/decode body true)]
+          (is (= 409 status))
+          (is (= kind "missing-referents"))
+          (is (= 1 (count details)))
+          (is (= (first details)
+                 {:kind "missing-class", :group "bottom", :missing "high"
+                  :environment "staging", :defined-by "top"})))))))
 
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"
-      (let [env-resp   (http/put (str base-url "/v1/environments/staging"))
-            class-resp (http/put (str base-url "/v1/environments/staging/classes/noisyclass")
+      (let [class-resp (http/put (str base-url "/v1/environments/staging/classes/noisyclass")
                                  {:content-type :json
                                   :body (json/generate-string {:parameters {:verbose "true"}
                                                                :environment "staging"})})
@@ -270,6 +302,11 @@
                                    {:content-type :json
                                     :body (json/encode group-env-delta)
                                     :throw-exceptions false})
-            {:keys [body status]} update-resp]
+            {:keys [body status]} update-resp
+            {:keys [details kind msg]} (json/decode body true)]
         (is (= 412 status))
-        (is (re-find #"class with primary key values \(aclass, dne\)" body))))))
+        (is (re-find #"not exist in the group's environment" msg))
+        (is (every? #(and (= (:kind %) "missing-class")
+                          (= (:environment %) "dne")
+                          (= (:defined-by %) "agroup"))
+                    details))))))

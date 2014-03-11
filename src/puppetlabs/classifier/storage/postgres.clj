@@ -7,11 +7,14 @@
             [migratus.core :as migratus]
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta HierarchyNode
-                                                  Node Rule Environment]]
+            [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.schema :refer [Group GroupDelta group->classification
+                                                  HierarchyNode Node Rule Environment]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
-            [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid relative-complements-by-key]])
+            [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
+                                                relative-complements-by-key uuid? ->uuid]]
+            [slingshot.slingshot :refer [throw+]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
 
@@ -342,7 +345,7 @@
 
 (defn select-group-children
   [group-name]
-  [(str group-selection " WHERE g.parent_name = ?") group-name])
+  [(str group-selection " WHERE g.parent_name = ? AND g.name != ?") group-name group-name])
 
 (defn select-group-by-name
   [group-name]
@@ -406,11 +409,13 @@
 
 (sc/defn ^:always-validate get-ancestors* :- [Group]
   [{db :db} group :- Group]
-  (loop [current (get-parent db group), ancestors []]
-    ;; if current is = to last parent, it is its own parent, so it's the root
-    (if (= current (last ancestors))
-      ancestors
-      (recur (get-parent db current) (conj ancestors current)))))
+  (if (= (:name group) "default")
+    []
+    (loop [current (get-parent db group), ancestors []]
+      ;; if current is = to last parent, it is its own parent, so it's the root
+      (if (= current (last ancestors))
+        ancestors
+        (recur (get-parent db current) (conj ancestors current))))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db group-name]
@@ -429,6 +434,25 @@
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn- validate-group
+  "Validates the classes and class parameters (including those inherited from
+  ancestors) of a group and all its children."
+  [db group]
+  (let [parent (get-group-by-name* {:db db} (:parent group))
+        ancestors (concat [parent] (get-ancestors* {:db db} parent))
+        subtree (-> (get-subtree* {:db db} group)
+                  (assoc :group group))
+        classes (->> subtree
+                  (flatten-tree-with :environment)
+                  set
+                  (mapcat (partial get-classes* {:db db})))
+        vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
+    (when-not (class8n/valid-tree? vtree)
+      (throw+ {:kind ::missing-referents
+               :tree vtree
+               :ancestors ancestors
+               :classes classes}))))
+
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
    {:keys [classes environment parent variables] group-name :name :as group} :- Group]
@@ -437,6 +461,7 @@
   (let [uuid (UUID/randomUUID)]
     (jdbc/with-db-transaction
       [t-db db]
+      (validate-group t-db group)
       (create-environment-if-missing {:db t-db} {:name environment})
       (jdbc/insert! t-db :groups
                     [:name :environment_name :id :parent_name]
@@ -555,6 +580,12 @@
         (jdbc/update! t-db :group_classes {:environment_name new-env} where-group)
         (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group)))))
 
+(defn- update-group-parent
+  [db extant delta]
+  (when-let [new-parent (:parent delta)]
+    (jdbc/update! db :groups {:parent_name new-parent}
+                  (sql/where {:name (:name extant)}))))
+
 (defn- update-group-rule
   [db extant delta]
   (when-let [new-rule (:rule delta)]
@@ -570,9 +601,11 @@
                         (when-let [extant (if-let [group-name (:name delta)]
                                             (get-group-by-name* {:db t-db} group-name)
                                             (get-group-by-id* {:db t-db} (:id delta)))]
+                          (validate-group t-db (merge-and-clean extant delta))
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
+                          (update-group-parent t-db extant delta)
                           (update-group-rule t-db extant delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group-by-name* {:db t-db} (:name extant))))]
