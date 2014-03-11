@@ -24,13 +24,21 @@
    (sc/optional-key :group-name) String
    (sc/optional-key :id) Number})
 
-(def Group {:name String
-            (sc/optional-key :id) java.util.UUID
-            :environment String
-            :rule Rule
-            :parent String
-            :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
-            :variables {sc/Keyword sc/Any}})
+(def Classification
+  {:environment String
+   :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
+   :variables {sc/Keyword sc/Any}})
+
+(def Group
+  (assoc Classification
+         :name String
+         (sc/optional-key :id) java.util.UUID
+         :parent String
+         :rule Rule))
+
+(defn group->classification
+  [group]
+  (dissoc group :name :id :parent :rule))
 
 (def HierarchyNode
   {:group Group
