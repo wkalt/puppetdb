@@ -144,6 +144,13 @@
   [data _]
   (json/encode data))
 
+(defn handle-malformed
+  [ctx]
+  {:kind "malformed-request"
+   :msg "The body of your request is not valid JSON."
+   :details {:body (::request-body ctx)
+             :error (.toString (::error ctx))}})
+
 (defn malformed-or-parse
   "Returns false (i.e. not malformed) for well-formed json string `body`, along
   with a map storing the parse result in ::data. Returns true (i.e. malformed)
@@ -200,9 +207,7 @@
          :handle-created ::created
          :delete! delete!
          :malformed? parse-if-body
-         :handle-malformed (fn [ctx]
-                             (format "Body is not valid JSON: %s"
-                                     (::request-body ctx)))}))))
+         :handle-malformed handle-malformed}))))
 
 (sc/defn listing-resource
   [storage :- (sc/protocol storage/Storage)
@@ -272,9 +277,7 @@
          :new? ::created
          :handle-created ::created
          :delete! delete!
-         :handle-malformed (fn [ctx]
-                             (format "Body is not valid JSON: %s"
-                                     (::request-body ctx)))}))))
+         :handle-malformed handle-malformed}))))
 
 ;; Classification
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
