@@ -409,7 +409,7 @@
 
 (sc/defn ^:always-validate get-ancestors* :- [Group]
   [{db :db} group :- Group]
-  (if (= (:name group) "default")
+  (if (= (:name group) (:parent group))
     []
     (loop [current (get-parent db group), ancestors []]
       ;; if current is = to last parent, it is its own parent, so it's the root
