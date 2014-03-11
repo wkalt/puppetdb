@@ -19,7 +19,7 @@ Each environment object contains one key:
 
 No error responses specific to this request are expected.
 
-### GET /v1/environments/<name>
+### GET /v1/environments/\<name\>
 
 Retrieve the environment with the given name.
 
@@ -32,7 +32,7 @@ As the response does not contain any more information about the environment than
 
 If the environment with the given name cannot be found, the server will return a 404 Not Found response with an empty body.
 
-### PUT /v1/environments/<name>
+### PUT /v1/environments/\<name\>
 
 Create a new environment with the given name.
 

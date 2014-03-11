@@ -62,7 +62,7 @@ If the value cannot be coerced to a number, then the numeric operation will alwa
 
 No error responses specific to this request are expected.
 
-### GET /v1/groups/<name-or-uuid>
+### GET /v1/groups/\<name-or-uuid\>
 
 Retrieve the group with the given name or UUID.
 
@@ -74,7 +74,7 @@ If the group exists, the response will be a group object as described above, in 
 
 If the group with the given name cannot be found, a 404 Not Found response with an empty body will be returned.
 
-### PUT /v1/groups/<name>
+### PUT /v1/groups/\<name\>
 
 Create a new group with the given name.
 
@@ -107,7 +107,7 @@ In the last case, the response will be plain text, will state that the request's
 
 If any environments, classes, or class parameters specified in the request do not exist, the server will return a 500 Server Error response when the attempted insertion fails due to unsatisfied database constraints.
 
-### POST /v1/groups/<name-or-uuid>
+### POST /v1/groups/\<name-or-uuid\>
 
 Update the environment, rule, classes, class parameters, and variables of the group with the given name or UUID by submitting a group delta.
 
@@ -177,7 +177,7 @@ then the value of the group after the update will be:
 
 Note how the "ssl" class was deleted because its entire object was mapped to null, whereas for the "apache" class only the "keepalive_timeout" parameter was deleted.
 
-### DELETE /v1/groups/<name-or-uuid>
+### DELETE /v1/groups/\<name-or-uuid\>
 
 Delete the group with the given name or UUID.
 
