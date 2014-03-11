@@ -8,10 +8,12 @@
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
             [puppetlabs.classifier.class-updater :as class-updater]
+            [puppetlabs.classifier.classification :as classification]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Group Node Rule Environment]]
+            [puppetlabs.classifier.schema :refer [Group group->classification Node Rule
+                                                  Environment]]
             [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID
@@ -151,6 +153,39 @@
     :exists? (fn [_] {::retrieved (get-all storage)})
     :handle-ok ::retrieved))
 
+;; Classification
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn classify-node
+  [db node-name]
+  (fn [ctx]
+    (let [node {:name node-name}
+          rules (storage/get-rules db)
+          group-names (classification/matching-groups node rules)
+          classifications (for [gn group-names]
+                            (let [group (storage/get-group-by-name db gn)
+                                  ancestors (storage/get-ancestors db group)]
+                              (classification/inherited-classification
+                                (concat [(group->classification group)]
+                                        (map group->classification ancestors)))))
+          classes (->> classifications
+                    (mapcat #(-> % :classes keys))
+                    set)
+          parameters (->> classifications
+                       (map :classes)
+                       (apply merge))
+          environments (set (map :environment classifications))
+          variables (apply merge (map :variables classifications))]
+      (when-not (= (count environments) 1)
+        (log/warn "Node" node-name "is classified into groups"
+                  group-names
+                  "with inconsistent environments" environments))
+      (assoc node
+             :groups group-names
+             :classes classes
+             :parameters parameters
+             :environment (first environments)
+             :variables variables))))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -245,31 +280,7 @@
                  :allowed-methods [:get]
                  :available-media-types ["application/json"]
                  :exists? true
-                 :handle-ok (fn [ctx]
-                              (let [node {:name node-name}
-                                    rules (storage/get-rules db)
-                                    group-names (->> rules
-                                                  (map (partial rules/apply-rule node))
-                                                  (keep identity))
-                                    groups (map (partial storage/get-group-by-name db) group-names)
-                                    classes (->> groups
-                                              (mapcat #(-> % :classes keys))
-                                              set)
-                                    parameters (->> groups
-                                                 (map :classes)
-                                                 (apply merge))
-                                    environments (set (map :environment groups))
-                                    variables (apply merge (map :variables groups))]
-                                (when-not (= (count environments) 1)
-                                  (log/warn "Node" node-name "is classified into groups"
-                                            (map :name groups)
-                                            "with inconsistent environments" environments))
-                                (assoc node
-                                       :groups (map :name groups)
-                                       :classes classes
-                                       :parameters parameters
-                                       :environment (first environments)
-                                       :variables variables)))))
+                 :handle-ok (classify-node db node-name)))
 
           (ANY "/update-classes" []
                (resource
