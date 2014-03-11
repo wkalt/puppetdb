@@ -108,12 +108,16 @@
       (let [resp (http/delete (str base-url "/v1/nodes/test-node"))]
         (is (= 204 (:status resp)))))))
 
+(defn valid-400-resp-body?
+  [body]
+  (let [{:keys [kind msg details]} (json/decode body true)]
+    (and kind msg details
+         (= #{:submitted :schema :error}
+            (-> details keys set)))))
+
 (deftest ^:acceptance object-validation
   (let [base-url (base-url test-config)
-        quiet-put #(http/put % {:throw-exceptions false})
-        valid-400-resp-body? (fn [body]
-                               (= #{:submitted :schema :error}
-                                  (-> body (json/decode true) keys set)))]
+        quiet-put #(http/put % {:throw-exceptions false})]
     (testing "schema-noncompliant objects in requests elicit a 400 response."
       (let [resp (quiet-put (str base-url "/v1/environments/production/classes/foo"))]
         (is (= 400 (:status resp)))

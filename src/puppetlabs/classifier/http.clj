@@ -13,9 +13,9 @@
             [puppetlabs.kitchensink.core :refer [deep-merge]]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
-            [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Group GroupDelta group->classification Node Rule
                                                   Environment]]
             [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
@@ -34,29 +34,29 @@
   an error is thrown, this function catches it and produces a 400 response whose
   body is a JSON object describing the submitted object, the schema it failed to
   validate against, and a description of the validation error.
-  Note that calling this function has the side effect of registering a cheshire
-  encoder for the schema.utils.ValidationError and schema.utils.NamedError
-  classes."
+  Note that this middleware has the side effect of registering a cheshire
+  encoder for java.lang.Class"
   [handler]
-  (gen/add-encoder schema.utils.ValidationError
-                   (fn [ve generator]
-                     (.writeString generator (pr-str ve))))
-  (gen/add-encoder schema.utils.NamedError
-                   (fn [ne generator]
-                     (.writeString generator (pr-str ne))))
+  (gen/add-encoder java.lang.Class
+                   (fn [c generator]
+                     (.writeString generator (str c))))
   (fn [request]
     (try (handler request)
       (catch clojure.lang.ExceptionInfo e
         ;; re-throw things that aren't schema validation errors
         (when-not (re-find #"does not match schema" (.getMessage e))
           (throw e))
-        (let [{:keys [schema value error]} (.getData e)]
+        (let [{:keys [schema value error]} (.getData e)
+              explained-error (->client-explanation error)]
           {:status 400
            :headers {"Content-Type" "application/json"}
            :body (json/encode
-                   {:submitted value
-                    :schema (-> schema sc/explain ->client-explanation)
-                    :error (->client-explanation error)})})))))
+                   {:kind "schema-violation"
+                    :msg (str "The object you submitted does not conform to the schema. The problem"
+                              " is: " explained-error)
+                    :details {:submitted value
+                              :schema (-> schema sc/explain ->client-explanation)
+                              :error explained-error}})})))))
 
 (defn- referent-error-message
   [total-error-count group-error-count child-error-count]
@@ -173,6 +173,7 @@
   "Create a basic CRD endpoint for a resource, given a storage object and a
   map of functions to create/retrieve/delete the resource."
   [storage :- (sc/protocol storage/Storage)
+   schema :- (sc/protocol sc/Schema)
    resource-path :- [String]
    attributes :- {sc/Keyword sc/Any}
    {:keys [get create delete]} :- {:get (sc/pred fn?)
@@ -183,7 +184,7 @@
                     {::retrieved resource}))
         put! (fn [ctx]
                (let [resource (merge (::data ctx {}) attributes)
-                     inserted-resource (create storage resource)]
+                     inserted-resource (create storage (sc/validate schema resource))]
                  {::created inserted-resource}))
         delete! (fn [_] (apply delete storage resource-path))]
     (fn [request]
@@ -264,8 +265,10 @@
          :malformed? (malformed-group? group-name uuid)
          :exists? exists?
          :handle-ok #(or (::updated %) (::retrieved %))
-         :put! (fn [ctx] {::created (storage/create-group db (::group ctx))})
-         :post! (fn [ctx] {::updated (storage/update-group db (::delta ctx))})
+         :put! (fn [ctx]
+                 {::created (storage/create-group db (sc/validate Group (::group ctx)))})
+         :post! (fn [ctx] {::updated (storage/update-group db (sc/validate GroupDelta
+                                                                           (::delta ctx)))})
          :new? ::created
          :handle-created ::created
          :delete! delete!
@@ -320,6 +323,7 @@
 
           (ANY "/nodes/:node-name" [node-name]
                (crd-resource db
+                             Node
                              [node-name]
                              {:name node-name}
                              {:get storage/get-node
@@ -332,6 +336,7 @@
           (context "/environments/:environment-name" [environment-name]
                    (ANY "/" []
                         (crd-resource db
+                                      Environment
                                       [environment-name]
                                       {:name environment-name}
                                       {:get storage/get-environment
@@ -343,6 +348,7 @@
 
                    (ANY "/classes/:class-name" [class-name]
                         (crd-resource db
+                                      PuppetClass
                                       [environment-name class-name]
                                       {:name class-name
                                        :environment environment-name}

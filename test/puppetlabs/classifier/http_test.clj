@@ -37,7 +37,7 @@
                      :delete (fn [_ obj-name])}
         app (compojure/routes
               (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crd-resource storage [obj-name] {:name obj-name} storage-fns)))]
+                             (crd-resource storage sc/Any [obj-name] {:name obj-name} storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))
@@ -249,6 +249,6 @@
                         (mock/body (encode incomplete-group))))]
         (is-http-status 400 resp)
         (is (= "application/json" (get-in resp [:headers "Content-Type"])))
-        (is (= #{:submitted :schema :error}
+        (is (= #{:kind :msg :details}
                (-> (decode (:body resp) true)
                  keys set)))))))
