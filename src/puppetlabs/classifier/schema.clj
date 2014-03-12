@@ -5,7 +5,7 @@
 
 (def Environment {:name String})
 
-(def puppetlabs.classifier.schema/Class
+(def PuppetClass ; so named to avoid clashing with java.lang.Class
   {:name String
    :parameters {sc/Keyword (sc/maybe String)}
    :environment String})

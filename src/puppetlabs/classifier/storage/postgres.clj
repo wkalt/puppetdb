@@ -8,8 +8,8 @@
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.classification :as class8n]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta group->classification
-                                                  HierarchyNode Node Rule Environment]]
+            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group->classification
+                                                  HierarchyNode Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
             [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
@@ -17,8 +17,6 @@
             [slingshot.slingshot :refer [throw+]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
-
-(def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
 (def foreign-key-violation-code "23503")
 (def serialization-failure-code "40001")

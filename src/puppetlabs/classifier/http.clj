@@ -16,15 +16,12 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta group->classification Node Rule
-                                                  Environment]]
+            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group->classification
+                                                  Node PuppetClass Rule]]
             [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID
            org.postgresql.util.PSQLException))
-
-(def ^:private PuppetClass puppetlabs.classifier.schema/Class)
-
 
 ;; Exception-Catching Middleware
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

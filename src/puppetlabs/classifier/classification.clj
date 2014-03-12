@@ -2,11 +2,10 @@
   (:require [clojure.set :refer [difference subset?]]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Classification Group group->classification
-                                                  HierarchyNode Node Rule ValidationNode]]
+                                                  HierarchyNode Node PuppetClass
+                                                  Rule ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
-
-(def PuppetClass puppetlabs.classifier.schema/Class)
 
 (sc/defn matching-groups :- [String]
   "Given a node and the set of rules to apply, find the names of all groups

@@ -3,10 +3,8 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [postwalk]]
             [schema.core :as sc]
-            [puppetlabs.classifier.schema]
+            [puppetlabs.classifier.schema :refer [PuppetClass]]
             [puppetlabs.classifier.util :refer :all]))
-
-(def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
 (defn no-java-lang-prefixes?
   [explanation]

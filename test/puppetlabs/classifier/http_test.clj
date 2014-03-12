@@ -6,10 +6,8 @@
             [schema.test]
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta Node]]
+            [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
             [puppetlabs.classifier.storage :refer [Storage]]))
-
-(def PuppetClass puppetlabs.classifier.schema/Class)
 
 (defn is-http-status
   "Assert an http status code"
