@@ -48,6 +48,5 @@
                           (compare env1 env2)
                           (compare name1 name2)))
         puppet-classes (-> (get-classes ssl-context puppet-master)
-                         flatten
-                         (->> (sort-by (juxt :environment :name) env-name-comp)))]
+                         flatten)]
     (storage/synchronize-classes db puppet-classes)))
