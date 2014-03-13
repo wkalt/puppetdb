@@ -90,6 +90,8 @@ The keys allowed in this object are:
 * `environment`: the name of the group's environment.
                  This key is optional; if not provided, the default environment (`production`) will be used.
 * `parent`: the name of the group's parent (required).
+* `rule`: an object describing the conditions that must be met for a node to be classified into this group (required).
+          The only key allowed in the object is `when`, and its value should be a representation of a boolean expression on node facts as described in the "Rule Condition Grammar" section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
                The keys of the object are the variable names, and the corresponding value is that variable's value, which can be any sort of JSON value.
                The `variables` keys is optional, and if a group does not define any top-level variables then it may be omitted.
