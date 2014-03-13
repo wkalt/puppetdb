@@ -80,6 +80,7 @@ If the group with the given name cannot be found, a 404 Not Found response with 
 ### PUT /v1/groups/\<name\>
 
 Create a new group with the given name.
+Note that any existing group with that name will be silently overwritten!
 
 #### Request Format
 
@@ -101,6 +102,7 @@ The keys allowed in this object are:
 #### Response Format
 
 If the group was successfully created, the server will return a 201 Created response, with the group object (in JSON) as the body.
+If the group already exists and is identical (modulo UUID) to the submitted group, then the server will take no action and return a 200 OK response, again with the group object as the body.
 See above for a complete description of a group object.
 
 #### Error Responses

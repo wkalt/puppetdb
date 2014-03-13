@@ -16,8 +16,8 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
-            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group->classification
-                                                  Node PuppetClass Rule]]
+            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
+                                                  group->classification Node PuppetClass Rule]]
             [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID
@@ -190,7 +190,14 @@
                (let [resource (merge (::data ctx {}) attributes)
                      inserted-resource (create storage (sc/validate schema resource))]
                  {::created inserted-resource}))
-        delete! (fn [_] (apply delete storage resource-path))]
+        delete! (fn [_] (apply delete storage resource-path))
+        ;; We override put-to-existing? to return false if the resource being put to already exists.
+        ;; This causes liberator to just return 200 when this happens, rather than going down a part
+        ;; of its decision graph that involves either a 409 response or another `put!` happening.
+        not-if-exists (fn [request {submitted ::data, retrieved ::retrieved}]
+                        (if (not= (:request-method request) :put)
+                          false
+                          (not= retrieved (merge submitted attributes))))]
     (fn [request]
       (run-resource
         request
@@ -199,6 +206,7 @@
          :available-media-types ["application/json"]
          :exists? exists?
          :handle-ok ::retrieved
+         :put-to-existing? (partial not-if-exists request)
          :put! put!
          :new? ::created
          :handle-created ::created
@@ -223,7 +231,7 @@
   a function that takes one argument (the liberator context) and parses the body
   of the request in the context if said body is non-empty, as with
   `parse-if-body`. After parsing, merge in the group name and default attribute
-  values and stick the result in the context under the ::group key."
+  values and stick the result in the context under the ::submitted-group key."
   [group-name uuid]
   (fn [ctx]
     (let [parse-result (parse-if-body ctx)]
@@ -237,7 +245,7 @@
           (condp = (get-in ctx [:request :request-method])
             :put
             (do (sc/validate Group group)
-                [false {::group group}])
+                [false {::submitted-group group}])
 
             :post
             (do (sc/validate GroupDelta group)
@@ -245,17 +253,36 @@
         ;; else (either no body, or a malformed one)
         parse-result))))
 
+(defn- submitting-overwrite?
+  [{retrieved ::retrieved, submitted ::submitted-group, delta ::delta
+    {method :request-method} :request}]
+  (cond
+    (and (= method :post) retrieved delta)
+    true
+
+    (and (= method :put), retrieved, submitted
+         (not= submitted (dissoc retrieved :id)))
+    true
+
+    :otherwise false))
+
 (defn group-resource
   [db group-name-or-uuid]
   (let [uuid (if (uuid? group-name-or-uuid) (UUID/fromString group-name-or-uuid))
         group-name (if-not uuid group-name-or-uuid)
         exists? (fn [_]
-                  {::retrieved (if uuid
+                  (if-let [g (if uuid
                                  (storage/get-group-by-id db uuid)
-                                 (storage/get-group-by-name db group-name))})
+                                 (storage/get-group-by-name db group-name))]
+                    {::retrieved g}))
         delete! (fn [_] (if uuid
                           (storage/delete-group-by-id db uuid)
-                          (storage/delete-group-by-name db group-name)))]
+                          (storage/delete-group-by-name db group-name)))
+        post! (fn [{delta ::delta, submitted ::submitted-group, retrieved ::retrieved}]
+                (if delta
+                  {::updated (storage/update-group db (sc/validate GroupDelta delta))}
+                  (let [delta (group-delta retrieved (sc/validate Group submitted))]
+                    {::created (storage/update-group db delta)})))]
     (fn [req]
       (run-resource
         req
@@ -267,10 +294,11 @@
          :malformed? (malformed-group? group-name uuid)
          :exists? exists?
          :handle-ok #(or (::updated %) (::retrieved %))
+         :post-to-existing? submitting-overwrite?
+         :put-to-existing? (constantly false)
          :put! (fn [ctx]
-                 {::created (storage/create-group db (sc/validate Group (::group ctx)))})
-         :post! (fn [ctx] {::updated (storage/update-group db (sc/validate GroupDelta
-                                                                           (::delta ctx)))})
+                 {::created (storage/create-group db (sc/validate Group (::submitted-group ctx)))})
+         :post! post!
          :new? ::created
          :handle-created ::created
          :delete! delete!

@@ -28,9 +28,12 @@
         schema {:name String
                 :property String}
         storage (reify Storage)  ; unused in the test, needed to satisfy schema
+        !created? (atom false)
         storage-fns {:get (fn [_ obj-name]
-                            (if (= obj-name test-obj-name) test-obj))
+                            (if (and (= obj-name test-obj-name) @!created?)
+                              test-obj))
                      :create (fn [_ obj]
+                               (reset! !created? true)
                                obj)
                      :delete (fn [_ obj-name])}
         app (compojure/routes
@@ -40,11 +43,6 @@
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))
 
-    (testing "returns 200 with the object when it exists"
-      (let [response (app (request :get "/objs/test-obj"))]
-        (is-http-status 200 response)
-        (is (= (generate-string test-obj) (:body response)))))
-
     (let [response (app (mock/body
                           (request :put "/objs/test-obj")
                           (generate-string test-obj)))]
@@ -52,6 +50,11 @@
         (is-http-status 201 response))
 
       (testing "returns the created object"
+        (is (= (generate-string test-obj) (:body response)))))
+
+    (testing "returns 200 with the object when it exists"
+      (let [response (app (request :get "/objs/test-obj"))]
+        (is-http-status 200 response)
         (is (= (generate-string test-obj) (:body response)))))))
 
 (deftest nodes
@@ -64,28 +67,31 @@
 
   (let [nodes [{:name "bert"} {:name "ernie"}]
         node-map (into {} (for [n nodes] [(:name n) n]))
+        !created? (atom {})
         mock-db (reify Storage
                   (get-node [_ node-name]
-                    (get node-map node-name))
+                    (if (get @!created? node-name)
+                      (get node-map node-name)))
                   (get-nodes [_]
                     nodes)
                   (create-node [_ node]
                     (sc/validate Node node)
                     (is (= (get node-map (:name node)) node))
+                    (swap! !created? assoc (:name node) true)
                     (get node-map (:name node)))
                   (delete-node [_ node-name]
                     (is (contains? node-map node-name))
                     '(1)))
         app (app {:db mock-db})]
 
-    (testing "asks storage for the node and returns it if it exists"
-      (let [{body :body :as response} (app (node-request :get "bert"))]
-        (is-http-status 200 response)
-        (is (= (get node-map "bert") (decode body true)))))
-
     (testing "tells storage to create the node and returns 201 with the created object"
       (let [{body :body :as response} (app (node-request :put "bert"))]
         (is-http-status 201 response)
+        (is (= (get node-map "bert") (decode body true)))))
+
+    (testing "asks storage for the node and returns it if it exists"
+      (let [{body :body :as response} (app (node-request :get "bert"))]
+        (is-http-status 200 response)
         (is (= (get node-map "bert") (decode body true)))))
 
     (testing "returns all nodes"
@@ -130,9 +136,11 @@
                  :variables {}}]
         classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
         group-map (into {} (map (juxt :name identity) groups))
+        !created? (atom {})
         mock-db (reify Storage
                   (get-group-by-name [_ group-name]
-                    (get group-map group-name))
+                    (if (get @!created? group-name)
+                      (get group-map group-name)))
                   (get-ancestors [_ group]
                     [])
                   (get-groups [_]
@@ -140,6 +148,7 @@
                   (create-group [_ group]
                     (sc/validate Group group)
                     (is (= (get group-map (:name group)) group))
+                    (swap! !created? assoc (:name group) true)
                     (get group-map (:name group)))
                   (update-group [_ _]
                     (get group-map "agroupprime"))
@@ -149,16 +158,16 @@
                   (get-classes [_ _] classes))
         app (app {:db mock-db})]
 
-    (testing "returns the group if it exists"
-      (let [{body :body, :as resp} (app (group-request :get "agroup"))]
-        (is-http-status 200 resp)
-        (is (= (get group-map "agroup") (parse-string body true)))))
-
     (testing "tells storage to create the group and returns 201 with the group object in its body"
       (let [req-body (encode (get group-map "agroup"))
             {body :body, :as resp} (app (group-request :put "agroup" req-body))]
         (is-http-status 201 resp)
         (is (= (get group-map "agroup") (decode body true)))))
+
+    (testing "returns the group if it exists"
+      (let [{body :body, :as resp} (app (group-request :get "agroup"))]
+        (is-http-status 200 resp)
+        (is (= (get group-map "agroup") (parse-string body true)))))
 
     (testing "returns all groups"
       (let [{body :body, :as resp} (app (group-request))]
@@ -198,29 +207,32 @@
                                :looks-like-a-butt? "from some angles"}
                   :environment "test"}]
         class-map (into {} (for [c classes] [(:name c) c]))
+        !created? (atom {})
         mock-db (reify Storage
                   (get-class [_ _ class-name]
-                    (get class-map class-name))
+                    (if (get @!created? class-name)
+                      (get class-map class-name)))
                   (get-classes [_ _]
                     classes)
                   (create-class [_ class]
                     (sc/validate PuppetClass class)
                     (is (= (get class-map (:name class)) class))
+                    (swap! !created? assoc (:name class) true)
                     (get class-map (:name class)))
                   (delete-class [_ _ class-name]
                     (is (contains? class-map class-name))
                     '(1)))
         app (app {:db mock-db})]
 
-    (testing "returns class with its parameters"
-      (let [{body :body, :as resp} (app (class-request :get "test" "myclass"))]
-        (is-http-status 200 resp)
-        (is (= (get class-map "myclass") (decode body true)))))
-
     (testing "tells the storage layer to store the class map"
       (let [{body :body, :as resp} (app (class-request :put "test" "myclass"
                                                        (encode (get class-map "myclass"))))]
         (is-http-status 201 resp)
+        (is (= (get class-map "myclass") (decode body true)))))
+
+    (testing "returns class with its parameters"
+      (let [{body :body, :as resp} (app (class-request :get "test" "myclass"))]
+        (is-http-status 200 resp)
         (is (= (get class-map "myclass") (decode body true)))))
 
     (testing "retrieves all classes"
@@ -229,7 +241,7 @@
         (is (= (set classes) (set (decode body true))))))
 
     (testing "tells storage to delete the class and returns 204"
-      (let [response (app (class-request :delete "test" "theirclass"))]
+      (let [response (app (class-request :delete "test" "myclass"))]
         (is-http-status 204 response)))))
 
 (deftest errors

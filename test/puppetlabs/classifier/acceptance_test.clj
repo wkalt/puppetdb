@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.acceptance-test
-  (:require [clojure.test :refer :all]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
+            [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
             [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
@@ -9,6 +9,7 @@
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
+           java.util.regex.Pattern
            java.util.UUID))
 
 (def test-config
@@ -314,3 +315,32 @@
                           (= (:environment %) "dne")
                           (= (:defined-by %) "agroup"))
                     details))))))
+
+(deftest ^:acceptance put-to-existing
+  (let [base-url (base-url test-config)]
+    (testing "can PUT to an existing crd-resource and get a 200 back with the resource"
+      (http/put (str base-url "/v1/environments/space"))
+      (let [{:keys [status body]} (http/put (str base-url "/v1/environments/space"))]
+        (is (= 200 status))
+        (is (= {:name "space"} (json/decode body true)))))
+      (let [group {:name "groucho", :environment "space"
+                   :parent "default", :rule {:when ["=" "x" "y"]}
+                   :classes {}, :variables {}}
+            group-url (str base-url "/v1/groups/" (:name group))
+            put-opts {:content-type :json, :body (json/encode group)}]
+        (http/put group-url put-opts)
+        (testing "can PUT to an existing group and get a 200 back with the group"
+          (let [{:keys [body status]} (http/put group-url put-opts)]
+            (is (= 200 status))
+            (is (= group (-> body
+                           (json/decode true)
+                           (dissoc :id))))))
+        (testing "a PUT that overwrites an existing group that \"creates\" the new one"
+          (let [diff-group (assoc group :environment "spaaaaace")
+                {:keys [body status]} (http/put group-url (assoc put-opts
+                                                                 :body (json/encode diff-group)
+                                                                 :throw-exceptions false))]
+            (is (= 201 status))
+            (is (= diff-group (-> body
+                                (json/decode true)
+                                (dissoc :id)))))))))
