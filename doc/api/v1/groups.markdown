@@ -106,7 +106,7 @@ See above for a complete description of a group object.
 #### Error Responses
 
 If any of the required keys are missing, or if the values of any of the defined keys do not match the required type, or if the request's body could not be parsed as JSON, the server will return a 400 Bad Request response.
-In all cases, the response will contain an error object as described in the [errors documentation](errors).
+In all cases, the response will contain an error object as described in the [errors documentation](errors.markdown).
 In the first two cases, the `kind` key will be "schema-violation", and the  `details` key of the error will be an object with `submitted`, `schema`, and `error` keys which respectively describe the submitted object, the schema that object should conform to, and how the submitted object failed to conform to the schema.
 In the last case, the `kind` key will be "malformed-request" and the `details` key will be an object with `body` and `error` keys, which respectively hold the request body as received and the error message encountered while trying to parse the JSON.
 
