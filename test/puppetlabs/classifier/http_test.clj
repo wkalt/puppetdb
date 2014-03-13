@@ -6,7 +6,7 @@
             [schema.test]
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
-            [puppetlabs.classifier.schema :refer [Group]]
+            [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
             [puppetlabs.classifier.storage :refer [Storage]]))
 
 (defn is-http-status
@@ -35,7 +35,7 @@
                      :delete (fn [_ obj-name])}
         app (compojure/routes
               (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crd-resource storage [obj-name] {:name obj-name} storage-fns)))]
+                             (crd-resource storage sc/Any [obj-name] {:name obj-name} storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))
@@ -70,6 +70,7 @@
                   (get-nodes [_]
                     nodes)
                   (create-node [_ node]
+                    (sc/validate Node node)
                     (is (= (get node-map (:name node)) node))
                     (get node-map (:name node)))
                   (delete-node [_ node-name]
@@ -107,35 +108,45 @@
        req))))
 
 (deftest groups
-  (let [groups [{:name "agroup"
+  (let [groups [{:name "default", :environment "production", :parent "default"
+                 :rule {:when ["=" "nofact" "noval"]}, :classes {}, :variables {}}
+                {:name "agroup"
                  :environment "bar"
+                 :parent "default"
                  :rule {:when ["=" "name" "bert"]}
                  :classes {:foo {:param "override"}}
                  :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
                 {:name "agroupprime"
                  :environment "bar"
+                 :parent "default"
                  :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
                 {:name "bgroup"
                  :environment "quux"
+                 :parent "default"
                  :rule {:when ["=" "name" "elmo"]}
                  :classes {}
                  :variables {}}]
+        classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
         group-map (into {} (map (juxt :name identity) groups))
         mock-db (reify Storage
                   (get-group-by-name [_ group-name]
                     (get group-map group-name))
+                  (get-ancestors [_ group]
+                    [])
                   (get-groups [_]
                     groups)
                   (create-group [_ group]
+                    (sc/validate Group group)
                     (is (= (get group-map (:name group)) group))
                     (get group-map (:name group)))
                   (update-group [_ _]
                     (get group-map "agroupprime"))
                   (delete-group-by-name [_ group-name]
                     (is (contains? group-map group-name))
-                    '(1)))
+                    '(1))
+                  (get-classes [_ _] classes))
         app (app {:db mock-db})]
 
     (testing "returns the group if it exists"
@@ -150,8 +161,8 @@
         (is (= (get group-map "agroup") (decode body true)))))
 
     (testing "returns all groups"
-      (app (group-request :put "bgroup" (encode (get group-map "bgroup"))))
       (let [{body :body, :as resp} (app (group-request))]
+      (app (group-request :put "bgroup" (encode (get group-map "bgroup"))))
         (is-http-status 200 resp)
         (is (= (set groups) (-> body (decode true) set)))))
 
@@ -193,6 +204,7 @@
                   (get-classes [_ _]
                     classes)
                   (create-class [_ class]
+                    (sc/validate PuppetClass class)
                     (is (= (get class-map (:name class)) class))
                     (get class-map (:name class)))
                   (delete-class [_ _ class-name]
@@ -226,13 +238,15 @@
                   (get-group-by-name [_ _]
                     nil)
                   (create-group [_ group]
-                    (sc/validate Group group)))
+                    (sc/validate Group group))
+                  (get-ancestors [_ _]
+                    []))
         app (app {:db mock-db})]
     (testing "bad requests get a structured 400 response."
       (let [resp (app (-> (request :put "/v1/groups/badgroup")
                         (mock/body (encode incomplete-group))))]
         (is-http-status 400 resp)
         (is (= "application/json" (get-in resp [:headers "Content-Type"])))
-        (is (= #{:submitted :schema :error}
+        (is (= #{:kind :msg :details}
                (-> (decode (:body resp) true)
                  keys set)))))))

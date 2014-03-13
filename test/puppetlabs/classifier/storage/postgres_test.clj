@@ -3,10 +3,11 @@
             [clojure.set :refer [project]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk]]
-            [schema.test]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [puppetlabs.classifier.util :refer [merge-and-clean]])
+            [puppetlabs.classifier.util :refer [merge-and-clean]]
+            [schema.test]
+            [slingshot.slingshot :refer [try+]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
 
@@ -238,12 +239,14 @@
              violation exception"
       (let [g2-bad-env-change {:name "another-complex-group"
                                :environment "dne"}
-            e (try (do
-                     (update-group db g2-bad-env-change)
-                     nil)
-                (catch PSQLException e
+            e (try+ (do
+                      (update-group db g2-bad-env-change)
+                      nil)
+                (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents] e
                   e))]
-        (is (and e (= (.getSQLState e) "23503")))))))
+        (is e)
+        (is (= (get-in e [:tree :group :name]) (:name g2)))
+        (is (= (get-in e [:tree :errors] {:first nil, :second nil})))))))
 
 (deftest ^:database group-hierarchy
   (let [blank-group-named (fn [n] {:name n, :environment "test", :rule {:when ["=" "foo" "bar"]}

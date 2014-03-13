@@ -4,7 +4,7 @@ title: "Node Classifier 1.0 >> API >> v1 >> Classification"
 
 ## Classification Endpoint
 
-### GET /v1/classified/nodes/<name>
+### GET /v1/classified/nodes/\<name\>
 
 Retrieve the classification information for the node with the given name.
 

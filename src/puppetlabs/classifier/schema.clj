@@ -5,6 +5,11 @@
 
 (def Environment {:name String})
 
+(def PuppetClass ; so named to avoid clashing with java.lang.Class
+  {:name String
+   :parameters {sc/Keyword (sc/maybe String)}
+   :environment String})
+
 (def RuleCondition
   (sc/either
     [(sc/one (sc/eq "not") "negation") (sc/one (sc/recursive #'RuleCondition) "negated-expression")]
@@ -24,26 +29,34 @@
    (sc/optional-key :group-name) String
    (sc/optional-key :id) Number})
 
-(def Group {:name String
-            (sc/optional-key :id) java.util.UUID
-            :environment String
-            :rule Rule
-            :parent String
-            :classes {sc/Keyword {sc/Keyword (sc/maybe String)}}
-            :variables {sc/Keyword sc/Any}})
+(def Classification
+  {:environment String
+   :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
+   :variables {sc/Keyword sc/Any}})
+
+(def Group
+  (assoc Classification
+         :name String
+         (sc/optional-key :id) java.util.UUID
+         :parent String
+         :rule Rule))
+
+(defn group->classification
+  [group]
+  (dissoc group :name :id :parent :rule))
 
 (def HierarchyNode
   {:group Group
    :children #{(sc/recursive #'HierarchyNode)}})
 
-(def puppetlabs.classifier.schema/Class
-  {:name String
-   :parameters {sc/Keyword (sc/maybe String)}
-   :environment String})
-
+(def ValidationNode
+  (assoc HierarchyNode
+         :errors (sc/maybe {sc/Keyword sc/Any})
+         :children #{(sc/recursive #'ValidationNode)}))
 
 (def ^:private GroupDeltaShared
   {(sc/optional-key :environment) String
+   (sc/optional-key :parent) String
    (sc/optional-key :rule) Rule
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})

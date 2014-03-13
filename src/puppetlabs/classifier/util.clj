@@ -5,12 +5,37 @@
             [schema.utils :refer [named-error-explain validation-error-explain]])
   (:import java.util.UUID))
 
+(defn- has-schema-error-classes?
+  [x]
+  (let [!has? (atom false)
+        trip-on-schema-error (fn [x]
+                               (let [c (class x)]
+                                 (when (or (= c schema.utils.ValidationError)
+                                         (= c schema.utils.NamedError))
+                                   (reset! !has? true))
+                                 x))]
+    (prewalk trip-on-schema-error x)
+    @!has?))
+
+(defn explain-schema-errors
+  [x]
+  (let [explainer (fn [x]
+                    (condp = (class x)
+                      schema.utils.ValidationError (validation-error-explain x)
+                      schema.utils.NamedError (named-error-explain x)
+                      x))
+        explained (postwalk explainer x)]
+    (if (has-schema-error-classes? explained)
+      (recur explained)
+      explained)))
+
 (defn ->client-explanation
   "Transforms a schema explanation into one that makes more sense to javascript
   client by removing any java.lang. prefixes and changing any Keyword symbols to
   String."
   [explanation]
-  (let [strip-sym-prefix (fn [x]
+  (let [explained (explain-schema-errors explanation)
+        strip-sym-prefix (fn [x]
                            (let [xstr (str x)]
                              (cond
                                (not (symbol? x)) x
@@ -20,18 +45,9 @@
         keyword->string (fn [x]
                           (if (= x 'Keyword)
                             'String
-                            x))
-        error-explainer (fn [x]
-                          (cond
-                            (= (class x) schema.utils.ValidationError)
-                            (validation-error-explain x)
-
-                            (= (class x) schema.utils.NamedError)
-                            (named-error-explain x)
-
-                            :otherwise x))]
-    (postwalk (comp error-explainer keyword->string strip-sym-prefix)
-              explanation)))
+                            x))]
+    (postwalk (comp keyword->string strip-sym-prefix)
+              explained)))
 
 (defn- remove-paths-to-nils
   [m]
@@ -66,6 +82,14 @@
   (->> maps
     (apply deep-merge)
     remove-paths-to-nils))
+
+(defn flatten-tree-with
+  "Flattens a HierarchyNode tree or ValidationNode tree by applying f to each
+  group and returning a sequence of the results."
+  [f tree]
+  (let [{:keys [children group]} tree]
+    (conj (mapcat (partial flatten-tree-with f) children)
+          (f group))))
 
 (defn uuid?
   [x]

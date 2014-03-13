@@ -7,15 +7,16 @@
             [migratus.core :as migratus]
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta HierarchyNode
-                                                  Node Rule Environment]]
+            [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group->classification
+                                                  HierarchyNode Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
-            [puppetlabs.classifier.util :refer [merge-and-clean uuid? ->uuid relative-complements-by-key]])
+            [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
+                                                relative-complements-by-key uuid? ->uuid]]
+            [slingshot.slingshot :refer [throw+]])
   (:import org.postgresql.util.PSQLException
            java.util.UUID))
-
-(def ^:private PuppetClass puppetlabs.classifier.schema/Class)
 
 (def foreign-key-violation-code "23503")
 (def serialization-failure-code "40001")
@@ -126,317 +127,6 @@
 (defn delete-environment* [{db :db} environment-name]
   {:pre [(string? environment-name)]}
   (jdbc/delete! db :environments (sql/where {:name environment-name})))
-
-;; Rules
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(sc/defn ^:always-validate create-rule :- Rule
-  [db {:keys [when group-name] :as rule} :- Rule]
-  {:pre [(contains? rule :group-name)]}
-  (jdbc/with-db-transaction
-    [t-db db]
-    (let [storage-rule {:group_name group-name
-                        :match (json/generate-string when)}
-          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
-          rule-id (:id inserted-rule)]
-      (assoc rule :id rule-id))))
-
-(sc/defn ^:always-validate get-rules* :- [Rule]
-  [{db :db}]
-  (for [{:keys [match group_name]} (jdbc/query db (sql/select * :rules))]
-    {:when (json/decode match)
-     :group-name group_name}))
-
-;; Groups
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-;; Retrieving Groups
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(def group-selection
-  "SELECT g.name,
-          g.id               AS id,
-          g.environment_name AS environment,
-          g.parent_name      AS parent,
-          gv.variable        AS variable,
-          gv.value           AS variable_value,
-          gc.class_name      AS class,
-          gcp.parameter      AS parameter,
-          gcp.value          AS parameter_value,
-          r.match            AS rule
-  FROM groups g
-       LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
-       LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
-       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name
-       LEFT OUTER JOIN rules r ON g.name = r.group_name ")
-
-(defn- group-selection-with-order
-  [selection]
-  (str selection " ORDER BY g.name, r.id ASC"))
-
-(defn select-group-children
-  [group-name]
-  [(str group-selection " WHERE g.parent_name = ?") group-name])
-
-(defn select-group-by-name
-  [group-name]
-  [(group-selection-with-order (str group-selection "WHERE g.name = ?"))
-   group-name])
-
-(defn- select-group-by-id
-  [id]
-  [(group-selection-with-order (str group-selection "WHERE g.id = ?"))
-   id])
-
-(defn- select-all-groups []
-  [(group-selection-with-order group-selection)])
-
-(defn- deserialize-variable-values
-  "This function expects a row map that has already had its variable-related
-  fields aggregated into a submap. It deserializes the values of the row's
-  variables submap (which are expected to be JSON)."
-  [row]
-  (update-in row [:variables]
-             (fn [variables]
-               (into {} (for [[k v] variables]
-                          [k (json/parse-string v)])))))
-
-(defn- deserialize-rules
-  [row]
-  (let [deserialize-rule (fn [rule-str] (if-let [condition (json/decode rule-str)]
-                                          {:when condition}))]
-    (update-in row [:rule] deserialize-rule)))
-
-(defn- aggregate-fields-into-groups
-  [result]
-  (->> result
-    (aggregate-submap-by :parameter :parameter_value :parameters)
-    (aggregate-submap-by :class :parameters :classes)
-    (aggregate-submap-by :variable :variable_value :variables)
-    (map deserialize-variable-values)
-    (map deserialize-rules)
-    (keywordize-keys)))
-
-(sc/defn ^:always-validate get-group-by-id* :- (sc/maybe Group)
-  [{db :db}
-   id :- (sc/either String UUID)]
-  {:pre [(uuid? id)]}
-  (let [[group] (aggregate-fields-into-groups (query db (select-group-by-id (->uuid id))))]
-    group))
-
-(sc/defn ^:always-validate get-group-by-name* :- (sc/maybe Group)
-  [{db :db}
-   group-name :- String]
-  (let [[group] (aggregate-fields-into-groups (query db (select-group-by-name group-name)))]
-    group))
-
-(sc/defn ^:always-validate get-groups* :- [Group]
-  [{db :db}]
-  (aggregate-fields-into-groups (query db (select-all-groups))))
-
-(sc/defn ^:always-validate get-parent :- Group
-  [db group]
-  (get-group-by-name* {:db db} (:parent group)))
-
-(sc/defn ^:always-validate get-ancestors* :- [Group]
-  [{db :db} group]
-  (loop [current (get-parent db group), ancestors []]
-    ;; if current is = to last parent, it is its own parent, so it's the root
-    (if (= current (last ancestors))
-      ancestors
-      (recur (get-parent db current) (conj ancestors current)))))
-
-(sc/defn ^:always-validate get-immediate-children :- [Group]
-  [db group-name]
-  (->> (query db (select-group-children group-name))
-    aggregate-fields-into-groups))
-
-(sc/defn ^:always-validate get-subtree* :- HierarchyNode
-  [{db :db} group]
-  (let [children (get-immediate-children db (:name group))]
-    {:group group
-     :children (->> children
-                 (map (partial get-subtree* {:db db}))
-                 set)}))
-
-
-;; Creating & Updating Groups
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(sc/defn ^:always-validate create-group* :- Group
-  [{db :db}
-   {:keys [classes environment parent variables] group-name :name :as group} :- Group]
-  (when (uuid? group-name)
-    (throw (IllegalArgumentException. "group's name cannot be a UUID")))
-  (let [uuid (UUID/randomUUID)]
-    (jdbc/with-db-transaction
-      [t-db db]
-      (create-environment-if-missing {:db t-db} {:name environment})
-      (jdbc/insert! t-db :groups
-                    [:name :environment_name :id :parent_name]
-                    (conj ((juxt :name :environment) group) uuid parent))
-      (doseq [[v-key v-val] variables]
-        (jdbc/insert! t-db :group_variables
-                      [:variable :group_name :value]
-                      [(name v-key) group-name (json/generate-string v-val)]))
-      (doseq [class classes]
-        (let [[class-name class-params] class]
-          (jdbc/insert! t-db :group_classes
-                        [:group_name :class_name :environment_name]
-                        [group-name (name class-name) environment])
-          (doseq [class-param class-params]
-            (let [[param value] class-param]
-              (jdbc/insert! t-db :group_class_parameters
-                            [:parameter :class_name :environment_name :group_name :value]
-                            [(name param) (name class-name) environment group-name value])))))
-      (create-rule t-db (assoc (:rule group) :group-name group-name)))
-    (assoc group :id uuid)))
-
-(defn- delete-group-class-link
-  [db group-name class-name environment-name]
-  (doseq [table [:group_class_parameters :group_classes]]
-    (jdbc/delete! db table
-                  ["group_name = ? AND class_name = ? AND environment_name = ?"
-                   group-name class-name environment-name])))
-
-(defn- delete-group-class-parameter
-  [db group-name class-name environment-name parameter]
-  (jdbc/with-db-transaction [t-db db]
-   (jdbc/delete! t-db :group_class_parameters
-                            (sql/where {"group_name" group-name
-                                        "class_name" class-name
-                                        "environment_name" environment-name
-                                        "parameter" parameter}))))
-
-(defn- update-group-class-parameter
-  [db group-name class-name environment-name parameter value]
-  (jdbc/with-db-transaction [t-db db]
-    (jdbc/update! t-db :group_class_parameters {:value value}
-                  (sql/where {"group_name" group-name
-                              "class_name" class-name
-                              "environment_name" environment-name
-                              "parameter" parameter}))))
-
-(defn- add-group-class-parameter
-  [db group-name class-name environment-name parameter value]
-  (jdbc/with-db-transaction [t-db db]
-    (jdbc/execute! t-db
-                   ["INSERT INTO group_classes (group_name, class_name, environment_name) SELECT ?, ?, ?
-                    WHERE NOT EXISTS (SELECT 1 FROM group_classes
-                    WHERE group_name = ? AND class_name = ? AND environment_name = ?)"
-                    group-name class-name environment-name group-name class-name environment-name])
-    (jdbc/insert! t-db :group_class_parameters
-                  {:group_name group-name
-                   :class_name class-name
-                   :environment_name environment-name
-                   :parameter parameter
-                   :value value})))
-
-(defn- update-group-classes
-  [db extant delta]
-  (let [group-name (:name extant)
-        environment (:environment extant)]
-    (jdbc/with-db-transaction [t-db db]
-      (doseq [[class parameters] (:classes delta)
-              :let [class-name (name class)]]
-        (if (nil? parameters)
-          (delete-group-class-link t-db group-name class-name environment)
-          ;; otherwise handle each parameter individually
-          (doseq [[parameter value] parameters
-                  :let [parameter-name (name parameter)]]
-            (cond
-              (nil? value)
-              (delete-group-class-parameter t-db group-name class-name environment parameter-name)
-
-              (get-in extant [:classes class parameter]) ; parameter is set in extant group, so update
-              (update-group-class-parameter t-db, group-name, class-name, environment
-                                            parameter-name, value)
-
-              :otherwise ; parameter is not nil and not previously set, so insert
-              (add-group-class-parameter t-db group-name, class-name, environment
-                                         parameter-name, value))))))))
-
-(defn- update-group-variables
-  [db extant delta]
-  (let [group-name (:name extant)]
-    (jdbc/with-db-transaction [t-db db]
-      (doseq [[variable value] (:variables delta)
-              :let [variable-name (name variable)
-                    variable-value (json/encode value)]]
-        (cond
-          (nil? value)
-          (jdbc/delete! t-db :group_variables
-                        (sql/where {"group_name" group-name, "variable" variable-name}))
-
-          (get-in extant [:variables variable])
-          (jdbc/update! t-db :group_variables {:value variable-value}
-                        (sql/where {"group_name" group-name, "variable" variable-name}))
-
-          :otherwise ; new variable for the group
-          (jdbc/insert! t-db :group_variables
-                        {:group_name group-name, :variable variable-name :value, variable-value}))))))
-
-(defn- update-group-environment
-  [db extant delta]
-  (let [old-env (:environment extant)
-        new-env (:environment delta)
-        group-name (:name extant)
-        where-group (sql/where {"group_name" group-name})]
-    (when (and new-env (not= new-env old-env))
-      (jdbc/with-db-transaction [t-db db]
-        (create-environment-if-missing {:db db} {:name new-env})
-        (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"name" group-name}))
-        (jdbc/update! t-db :group_classes {:environment_name new-env} where-group)
-        (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group)))))
-
-(defn- update-group-rule
-  [db extant delta]
-  (when-let [new-rule (:rule delta)]
-    (jdbc/update! db
-                  :rules {:match (json/generate-string (:when new-rule))}
-                  (sql/where {:group_name (:name extant)}))))
-
-(sc/defn ^:always-validate update-group* :- (sc/maybe Group)
-  [{db :db}
-   delta :- GroupDelta]
-  (let [group-name (:name delta)
-        update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
-                        (when-let [extant (if-let [group-name (:name delta)]
-                                            (get-group-by-name* {:db t-db} group-name)
-                                            (get-group-by-id* {:db t-db} (:id delta)))]
-                          (update-group-classes t-db extant delta)
-                          (update-group-variables t-db extant delta)
-                          (update-group-environment t-db extant delta)
-                          (update-group-rule t-db extant delta)
-                          ;; still in the transaction, so will see the updated rows
-                          (get-group-by-name* {:db t-db} (:name extant))))]
-    (loop [retries 3]
-      (let [result (try (update-thunk)
-                     (catch PSQLException e
-                       (when-not (= (.getSQLState e) serialization-failure-code)
-                         (throw e))
-                       (when (zero? retries)
-                         (throw e))
-                       ::transaction-conflict))]
-        (if (= result ::transaction-conflict)
-          (recur (dec retries))
-          result)))))
-
-(sc/defn ^:always-validate delete-group-by-id*
-  [{db :db}
-   id :- (sc/either String UUID)]
-  {:pre [(uuid? id)]}
-  (let [uuid (->uuid id)]
-    (when (= uuid root-group-uuid)
-      (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
-    (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
-
-(sc/defn ^:always-validate delete-group-by-name*
-  [{db :db}
-   group-name :- String]
-  (when (= group-name "default")
-    (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
-  (jdbc/delete! db :groups (sql/where {:name group-name})))
 
 ;; Classes
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -603,6 +293,347 @@
 
 (defn delete-class* [{db :db} environment-name class-name]
   (jdbc/delete! db :classes (sql/where {:name class-name, :environment_name environment-name})))
+
+;; Rules
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(sc/defn ^:always-validate create-rule :- Rule
+  [db {:keys [when group-name] :as rule} :- Rule]
+  {:pre [(contains? rule :group-name)]}
+  (jdbc/with-db-transaction
+    [t-db db]
+    (let [storage-rule {:group_name group-name
+                        :match (json/generate-string when)}
+          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
+          rule-id (:id inserted-rule)]
+      (assoc rule :id rule-id))))
+
+(sc/defn ^:always-validate get-rules* :- [Rule]
+  [{db :db}]
+  (for [{:keys [match group_name]} (jdbc/query db (sql/select * :rules))]
+    {:when (json/decode match)
+     :group-name group_name}))
+
+;; Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Retrieving Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def group-selection
+  "SELECT g.name,
+          g.id               AS id,
+          g.environment_name AS environment,
+          g.parent_name      AS parent,
+          gv.variable        AS variable,
+          gv.value           AS variable_value,
+          gc.class_name      AS class,
+          gcp.parameter      AS parameter,
+          gcp.value          AS parameter_value,
+          r.match            AS rule
+  FROM groups g
+       LEFT OUTER JOIN group_classes gc ON g.name = gc.group_name
+       LEFT OUTER JOIN group_class_parameters gcp ON gc.group_name = gcp.group_name AND gc.class_name = gcp.class_name
+       LEFT OUTER JOIN group_variables gv ON g.name = gv.group_name
+       LEFT OUTER JOIN rules r ON g.name = r.group_name ")
+
+(defn- group-selection-with-order
+  [selection]
+  (str selection " ORDER BY g.name, r.id ASC"))
+
+(defn select-group-children
+  [group-name]
+  [(str group-selection " WHERE g.parent_name = ? AND g.name != ?") group-name group-name])
+
+(defn select-group-by-name
+  [group-name]
+  [(group-selection-with-order (str group-selection "WHERE g.name = ?"))
+   group-name])
+
+(defn- select-group-by-id
+  [id]
+  [(group-selection-with-order (str group-selection "WHERE g.id = ?"))
+   id])
+
+(defn- select-all-groups []
+  [(group-selection-with-order group-selection)])
+
+(defn- deserialize-variable-values
+  "This function expects a row map that has already had its variable-related
+  fields aggregated into a submap. It deserializes the values of the row's
+  variables submap (which are expected to be JSON)."
+  [row]
+  (update-in row [:variables]
+             (fn [variables]
+               (into {} (for [[k v] variables]
+                          [k (json/parse-string v)])))))
+
+(defn- deserialize-rules
+  [row]
+  (let [deserialize-rule (fn [rule-str] (if-let [condition (json/decode rule-str)]
+                                          {:when condition}))]
+    (update-in row [:rule] deserialize-rule)))
+
+(defn- aggregate-fields-into-groups
+  [result]
+  (->> result
+    (aggregate-submap-by :parameter :parameter_value :parameters)
+    (aggregate-submap-by :class :parameters :classes)
+    (aggregate-submap-by :variable :variable_value :variables)
+    (map deserialize-variable-values)
+    (map deserialize-rules)
+    (keywordize-keys)))
+
+(sc/defn ^:always-validate get-group-by-id* :- (sc/maybe Group)
+  [{db :db}
+   id :- (sc/either String UUID)]
+  {:pre [(uuid? id)]}
+  (let [[group] (aggregate-fields-into-groups (query db (select-group-by-id (->uuid id))))]
+    group))
+
+(sc/defn ^:always-validate get-group-by-name* :- (sc/maybe Group)
+  [{db :db}
+   group-name :- String]
+  (let [[group] (aggregate-fields-into-groups (query db (select-group-by-name group-name)))]
+    group))
+
+(sc/defn ^:always-validate get-groups* :- [Group]
+  [{db :db}]
+  (aggregate-fields-into-groups (query db (select-all-groups))))
+
+(sc/defn ^:always-validate get-parent :- Group
+  [db group]
+  (get-group-by-name* {:db db} (:parent group)))
+
+(sc/defn ^:always-validate get-ancestors* :- [Group]
+  [{db :db} group :- Group]
+  (if (= (:name group) (:parent group))
+    []
+    (loop [current (get-parent db group), ancestors []]
+      ;; if current is = to last parent, it is its own parent, so it's the root
+      (if (= current (last ancestors))
+        ancestors
+        (recur (get-parent db current) (conj ancestors current))))))
+
+(sc/defn ^:always-validate get-immediate-children :- [Group]
+  [db group-name]
+  (->> (query db (select-group-children group-name))
+    aggregate-fields-into-groups))
+
+(sc/defn ^:always-validate get-subtree* :- HierarchyNode
+  [{db :db} group]
+  (let [children (get-immediate-children db (:name group))]
+    {:group group
+     :children (->> children
+                 (map (partial get-subtree* {:db db}))
+                 set)}))
+
+
+;; Creating & Updating Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- validate-group
+  "Validates the classes and class parameters (including those inherited from
+  ancestors) of a group and all its children."
+  [db group]
+  (let [parent (get-group-by-name* {:db db} (:parent group))
+        ancestors (concat [parent] (get-ancestors* {:db db} parent))
+        subtree (-> (get-subtree* {:db db} group)
+                  (assoc :group group))
+        classes (->> subtree
+                  (flatten-tree-with :environment)
+                  set
+                  (mapcat (partial get-classes* {:db db})))
+        vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
+    (when-not (class8n/valid-tree? vtree)
+      (throw+ {:kind ::missing-referents
+               :tree vtree
+               :ancestors ancestors
+               :classes classes}))))
+
+(sc/defn ^:always-validate create-group* :- Group
+  [{db :db}
+   {:keys [classes environment parent variables] group-name :name :as group} :- Group]
+  (when (uuid? group-name)
+    (throw (IllegalArgumentException. "group's name cannot be a UUID")))
+  (let [uuid (UUID/randomUUID)]
+    (jdbc/with-db-transaction
+      [t-db db]
+      (validate-group t-db group)
+      (create-environment-if-missing {:db t-db} {:name environment})
+      (jdbc/insert! t-db :groups
+                    [:name :environment_name :id :parent_name]
+                    (conj ((juxt :name :environment) group) uuid parent))
+      (doseq [[v-key v-val] variables]
+        (jdbc/insert! t-db :group_variables
+                      [:variable :group_name :value]
+                      [(name v-key) group-name (json/generate-string v-val)]))
+      (doseq [class classes]
+        (let [[class-name class-params] class]
+          (jdbc/insert! t-db :group_classes
+                        [:group_name :class_name :environment_name]
+                        [group-name (name class-name) environment])
+          (doseq [class-param class-params]
+            (let [[param value] class-param]
+              (jdbc/insert! t-db :group_class_parameters
+                            [:parameter :class_name :environment_name :group_name :value]
+                            [(name param) (name class-name) environment group-name value])))))
+      (create-rule t-db (assoc (:rule group) :group-name group-name)))
+    (assoc group :id uuid)))
+
+(defn- delete-group-class-link
+  [db group-name class-name environment-name]
+  (doseq [table [:group_class_parameters :group_classes]]
+    (jdbc/delete! db table
+                  ["group_name = ? AND class_name = ? AND environment_name = ?"
+                   group-name class-name environment-name])))
+
+(defn- delete-group-class-parameter
+  [db group-name class-name environment-name parameter]
+  (jdbc/with-db-transaction [t-db db]
+   (jdbc/delete! t-db :group_class_parameters
+                            (sql/where {"group_name" group-name
+                                        "class_name" class-name
+                                        "environment_name" environment-name
+                                        "parameter" parameter}))))
+
+(defn- update-group-class-parameter
+  [db group-name class-name environment-name parameter value]
+  (jdbc/with-db-transaction [t-db db]
+    (jdbc/update! t-db :group_class_parameters {:value value}
+                  (sql/where {"group_name" group-name
+                              "class_name" class-name
+                              "environment_name" environment-name
+                              "parameter" parameter}))))
+
+(defn- add-group-class-parameter
+  [db group-name class-name environment-name parameter value]
+  (jdbc/with-db-transaction [t-db db]
+    (jdbc/execute! t-db
+                   ["INSERT INTO group_classes (group_name, class_name, environment_name) SELECT ?, ?, ?
+                    WHERE NOT EXISTS (SELECT 1 FROM group_classes
+                    WHERE group_name = ? AND class_name = ? AND environment_name = ?)"
+                    group-name class-name environment-name group-name class-name environment-name])
+    (jdbc/insert! t-db :group_class_parameters
+                  {:group_name group-name
+                   :class_name class-name
+                   :environment_name environment-name
+                   :parameter parameter
+                   :value value})))
+
+(defn- update-group-classes
+  [db extant delta]
+  (let [group-name (:name extant)
+        environment (:environment extant)]
+    (jdbc/with-db-transaction [t-db db]
+      (doseq [[class parameters] (:classes delta)
+              :let [class-name (name class)]]
+        (if (nil? parameters)
+          (delete-group-class-link t-db group-name class-name environment)
+          ;; otherwise handle each parameter individually
+          (doseq [[parameter value] parameters
+                  :let [parameter-name (name parameter)]]
+            (cond
+              (nil? value)
+              (delete-group-class-parameter t-db group-name class-name environment parameter-name)
+
+              (get-in extant [:classes class parameter]) ; parameter is set in extant group, so update
+              (update-group-class-parameter t-db, group-name, class-name, environment
+                                            parameter-name, value)
+
+              :otherwise ; parameter is not nil and not previously set, so insert
+              (add-group-class-parameter t-db group-name, class-name, environment
+                                         parameter-name, value))))))))
+
+(defn- update-group-variables
+  [db extant delta]
+  (let [group-name (:name extant)]
+    (jdbc/with-db-transaction [t-db db]
+      (doseq [[variable value] (:variables delta)
+              :let [variable-name (name variable)
+                    variable-value (json/encode value)]]
+        (cond
+          (nil? value)
+          (jdbc/delete! t-db :group_variables
+                        (sql/where {"group_name" group-name, "variable" variable-name}))
+
+          (get-in extant [:variables variable])
+          (jdbc/update! t-db :group_variables {:value variable-value}
+                        (sql/where {"group_name" group-name, "variable" variable-name}))
+
+          :otherwise ; new variable for the group
+          (jdbc/insert! t-db :group_variables
+                        {:group_name group-name, :variable variable-name :value, variable-value}))))))
+
+(defn- update-group-environment
+  [db extant delta]
+  (let [old-env (:environment extant)
+        new-env (:environment delta)
+        group-name (:name extant)
+        where-group (sql/where {"group_name" group-name})]
+    (when (and new-env (not= new-env old-env))
+      (jdbc/with-db-transaction [t-db db]
+        (create-environment-if-missing {:db db} {:name new-env})
+        (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"name" group-name}))
+        (jdbc/update! t-db :group_classes {:environment_name new-env} where-group)
+        (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group)))))
+
+(defn- update-group-parent
+  [db extant delta]
+  (when-let [new-parent (:parent delta)]
+    (jdbc/update! db :groups {:parent_name new-parent}
+                  (sql/where {:name (:name extant)}))))
+
+(defn- update-group-rule
+  [db extant delta]
+  (when-let [new-rule (:rule delta)]
+    (jdbc/update! db
+                  :rules {:match (json/generate-string (:when new-rule))}
+                  (sql/where {:group_name (:name extant)}))))
+
+(sc/defn ^:always-validate update-group* :- (sc/maybe Group)
+  [{db :db}
+   delta :- GroupDelta]
+  (let [group-name (:name delta)
+        update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
+                        (when-let [extant (if-let [group-name (:name delta)]
+                                            (get-group-by-name* {:db t-db} group-name)
+                                            (get-group-by-id* {:db t-db} (:id delta)))]
+                          (validate-group t-db (merge-and-clean extant delta))
+                          (update-group-classes t-db extant delta)
+                          (update-group-variables t-db extant delta)
+                          (update-group-environment t-db extant delta)
+                          (update-group-parent t-db extant delta)
+                          (update-group-rule t-db extant delta)
+                          ;; still in the transaction, so will see the updated rows
+                          (get-group-by-name* {:db t-db} (:name extant))))]
+    (loop [retries 3]
+      (let [result (try (update-thunk)
+                     (catch PSQLException e
+                       (when-not (= (.getSQLState e) serialization-failure-code)
+                         (throw e))
+                       (when (zero? retries)
+                         (throw e))
+                       ::transaction-conflict))]
+        (if (= result ::transaction-conflict)
+          (recur (dec retries))
+          result)))))
+
+(sc/defn ^:always-validate delete-group-by-id*
+  [{db :db}
+   id :- (sc/either String UUID)]
+  {:pre [(uuid? id)]}
+  (let [uuid (->uuid id)]
+    (when (= uuid root-group-uuid)
+      (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
+    (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
+
+(sc/defn ^:always-validate delete-group-by-name*
+  [{db :db}
+   group-name :- String]
+  (when (= group-name "default")
+    (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
+  (jdbc/delete! db :groups (sql/where {:name group-name})))
 
 ;; Record & Storage Protocol Extension
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
