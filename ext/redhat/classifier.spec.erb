@@ -129,6 +129,7 @@ fi
 %{_datadir}/%{realname}
 %{_initddir}/%{name}
 %dir %{_sysconfdir}/%{name}
+%dir %{_sysconfdir}/%{name}/ssl
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.conf
 %{_sysconfdir}/sysconfig/%{name}
 %ghost %{_rundir}/%{name}
