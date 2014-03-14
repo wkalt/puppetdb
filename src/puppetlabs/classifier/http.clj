@@ -1,133 +1,22 @@
 (ns puppetlabs.classifier.http
-  (:require [clojure.string :as str]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [cheshire.generate :as gen]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
-            [schema.utils]
-            [slingshot.slingshot :refer [try+]]
-            [puppetlabs.kitchensink.core :refer [deep-merge]]
+            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.http.middleware :as middleware]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.storage :as storage]
-            [puppetlabs.classifier.storage.postgres :refer [foreign-key-violation-code]]
             [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
-                                                  group->classification Node PuppetClass Rule]]
-            [puppetlabs.classifier.util :refer [->client-explanation merge-and-clean uuid?]])
+                                                  group->classification Node PuppetClass]]
+            [puppetlabs.classifier.util :refer [uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
-           java.util.UUID
-           org.postgresql.util.PSQLException))
-
-;; Exception-Catching Middleware
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn wrap-schema-fail-explanations!
-  "This wraps a ring handler that could throw a schema validation error. If such
-  an error is thrown, this function catches it and produces a 400 response whose
-  body is a JSON object describing the submitted object, the schema it failed to
-  validate against, and a description of the validation error.
-  Note that this middleware has the side effect of registering a cheshire
-  encoder for java.lang.Class"
-  [handler]
-  (gen/add-encoder java.lang.Class
-                   (fn [c generator]
-                     (.writeString generator (str c))))
-  (fn [request]
-    (try (handler request)
-      (catch clojure.lang.ExceptionInfo e
-        ;; re-throw things that aren't schema validation errors
-        (when-not (re-find #"does not match schema" (.getMessage e))
-          (throw e))
-        (let [{:keys [schema value error]} (.getData e)
-              explained-error (->client-explanation error)]
-          {:status 400
-           :headers {"Content-Type" "application/json"}
-           :body (json/encode
-                   {:kind "schema-violation"
-                    :msg (str "The object you submitted does not conform to the schema. The problem"
-                              " is: " explained-error)
-                    :details {:submitted value
-                              :schema (-> schema sc/explain ->client-explanation)
-                              :error explained-error}})})))))
-
-(defn- referent-error-message
-  [total-error-count group-error-count child-error-count]
-  (let [prelude (fn [error-count]
-                  (if (= error-count 1)
-                    "A class or class parameter"
-                    (str error-count " classes or class parameters")))
-        do-or-does (fn [plurality]
-                         (if (= plurality 1)
-                           "does"
-                           "do"))]
-    (str
-      (cond
-        (zero? child-error-count)
-        (str (prelude group-error-count)
-             " that the group defines or inherits " (do-or-does group-error-count) " not exist in"
-             " the group's environment.")
-
-        (zero? group-error-count)
-        (str (prelude child-error-count)
-             " defined or inherited by the group's children " (do-or-does child-error-count)
-             " not exist in the appropriate child's environment.")
-
-        :otherwise
-        (str (prelude group-error-count)
-             " defined or inherited by the group and "
-             (str/lower-case (prelude child-error-count))
-             " defined or inherited by the group's children do not exist the appropriate"
-             " environments."))
-      " See the `details` key for a list of the specific errors.")))
-
-(defn- flatten-errors
-  [{:keys [group errors children]} ancestors]
-  (let [full-chain (conj ancestors group)
-        node-errors (for [[class missing-params] errors]
-                      (if (nil? missing-params)
-                        (let [definer (class8n/group-referencing-class class full-chain)]
-                          {:kind "missing-class"
-                           :group (:name group)
-                           :missing class
-                           :environment (:environment group)
-                           :defined-by (:name definer)})
-                        ;; else (class is there, but specific param missing)
-                        (for [param missing-params]
-                          (let [definer (class8n/group-referencing-parameter
-                                          class param full-chain)]
-                            {:kind "missing-parameter"
-                             :group (:name group)
-                             :missing [class param]
-                             :environment (:environment group)
-                             :defined-by (:name definer)}))))]
-    (concat (flatten node-errors)
-            (mapcat #(flatten-errors % (conj ancestors group)) children))))
-
-(defn wrap-hierarchy-validation-fail-explanations
-  [handler]
-  (fn [request]
-    (try+ (handler request)
-      (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
-        {:keys [tree ancestors classes]}
-        (let [errors (flatten-errors tree (seq ancestors))
-              error-count (count errors)
-              group-error-count (->> errors
-                                  (filter #(= (:group %) (get-in tree [:group :name])))
-                                  count)
-              child-error-count (- error-count group-error-count)
-              inherited-errors (filter #(not= (:group %) (:defined-by %)) errors)]
-          {:status (if (pos? (count inherited-errors)) 409 412)
-           :headers {"Content-Type" "application/json"}
-           :body (json/encode {:details errors
-                               :kind "missing-referents"
-                               :msg (referent-error-message error-count
-                                                            group-error-count
-                                                            child-error-count)})})))))
+           java.util.UUID))
 
 ;; Liberator Resources
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -173,6 +62,18 @@
         false))
     false))
 
+(defn- validate
+  [schema resource]
+  (try (sc/validate schema resource)
+    (catch clojure.lang.ExceptionInfo e
+      (when-not (re-find #"does not match schema" (.getMessage e))
+        (throw e))
+      (let [{:keys [schema value error]} (.getData e)]
+        (throw+ {:kind ::user-data-invalid
+                 :schema schema
+                 :value value
+                 :error error})))))
+
 (sc/defn crd-resource
   "Create a basic CRD endpoint for a resource, given a storage object and a
   map of functions to create/retrieve/delete the resource."
@@ -188,7 +89,7 @@
                     {::retrieved resource}))
         put! (fn [ctx]
                (let [resource (merge (::data ctx {}) attributes)
-                     inserted-resource (create storage (sc/validate schema resource))]
+                     inserted-resource (create storage (validate schema resource))]
                  {::created inserted-resource}))
         delete! (fn [_] (apply delete storage resource-path))
         ;; We override put-to-existing? to return false if the resource being put to already exists.
@@ -243,13 +144,8 @@
                              (assoc data :name group-name)
                              (assoc data :id uuid)))]
           (condp = (get-in ctx [:request :request-method])
-            :put
-            (do (sc/validate Group group)
-                [false {::submitted-group group}])
-
-            :post
-            (do (sc/validate GroupDelta group)
-                [false {::delta group}])))
+            :put [false {::submitted-group group}]
+            :post [false {::delta group}]))
         ;; else (either no body, or a malformed one)
         parse-result))))
 
@@ -280,8 +176,8 @@
                           (storage/delete-group-by-name db group-name)))
         post! (fn [{delta ::delta, submitted ::submitted-group, retrieved ::retrieved}]
                 (if delta
-                  {::updated (storage/update-group db (sc/validate GroupDelta delta))}
-                  (let [delta (group-delta retrieved (sc/validate Group submitted))]
+                  {::updated (storage/update-group db (validate GroupDelta delta))}
+                  (let [delta (group-delta retrieved (validate Group submitted))]
                     {::created (storage/update-group db delta)})))]
     (fn [req]
       (run-resource
@@ -296,8 +192,8 @@
          :handle-ok #(or (::updated %) (::retrieved %))
          :post-to-existing? submitting-overwrite?
          :put-to-existing? (constantly false)
-         :put! (fn [ctx]
-                 {::created (storage/create-group db (sc/validate Group (::submitted-group ctx)))})
+         :put! (fn [{submitted ::submitted-group}]
+                 {::created (storage/create-group db (validate Group submitted))})
          :post! post!
          :new? ::created
          :handle-created ::created
@@ -406,5 +302,6 @@
 
         (route/not-found "Not found"))
 
-    wrap-schema-fail-explanations!
-    wrap-hierarchy-validation-fail-explanations))
+    middleware/wrap-schema-fail-explanations!
+    middleware/wrap-hierarchy-validation-fail-explanations
+    middleware/wrap-error-catchall))
