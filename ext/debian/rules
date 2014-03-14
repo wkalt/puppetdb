@@ -12,7 +12,7 @@ export rubylibdir
 export prefix
 
 install/classifier::
-	make install-classifier
+	make -e install-classifier
 
 install/classifier-terminus::
 	make -e install-terminus

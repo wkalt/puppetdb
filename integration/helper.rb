@@ -215,19 +215,16 @@ module ClassifierExtensions
   end
 
   def install_classifier(host)
-    manifest = <<-EOS
-    package { 'classifier':
-      ensure => latest
-    }
+    os = test_config[:os_families][host.name]
 
-    service { 'classifier':
-      ensure => running,
-      enable => true,
-      require => Package['classifier'],
-    }
-    EOS
-    apply_manifest_on(host, manifest)
-    # print_ini_files(host)
+    case os
+    when :debian
+      on host, "apt-get install -y --force-yes classifier"
+    when :redhat
+      on host, "yum install -y classifier"
+    else
+      raise ArgumentError, "Unsupported OS '#{os}'"
+    end
   end
 
   def validate_package_version(host)
@@ -253,17 +250,18 @@ module ClassifierExtensions
     end
   end
 
-
   def install_classifier_terminus(host, database)
-    # We pass 'restart_puppet' => false to prevent the module from trying to
-    # manage the puppet master service, which isn't actually installed on the
-    # acceptance nodes (they run puppet master from the CLI).
-    manifest = <<-EOS
-    package { 'classifier-terminus':
-      ensure => latest,
-    }
-    EOS
-    apply_manifest_on(host, manifest)
+    os = test_config[:os_families][host.name]
+
+    case os
+    when :debian
+      on host, "apt-get install -y --force-yes classifier-terminus"
+    when :redhat
+      on host, "yum install -y classifier-terminus"
+    else
+      raise ArgumentError, "Unsupported OS '#{os}'"
+    end
+
     install_terminus_config(host, database)
   end
 
@@ -632,7 +630,7 @@ module ClassifierExtensions
 
       case os
       when :debian
-        on host, "apt-get install -y puppet puppetmaster-common"
+        on host, "apt-get install -y --force-yes puppet puppetmaster-common"
       when :redhat
         on host, "yum install -y puppet"
       else
@@ -785,6 +783,7 @@ module ClassifierExtensions
         )
 
         scp_to host, list, '/etc/apt/sources.list.d'
+        on host, 'apt-get update'
       else
         host.logger.notify("No repository installation step for #{platform} yet...")
     end
