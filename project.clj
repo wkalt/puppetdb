@@ -30,6 +30,7 @@
                  [prismatic/schema "0.2.0"]
                  [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                  [slingshot "0.10.3"]
+                 [puppetlabs/http-client "0.1.0"]
                  [puppetlabs/kitchensink "0.5.2"]
                  [puppetlabs/trapperkeeper "0.3.2"]
                  [puppetlabs/trapperkeeper-webserver-jetty7 "0.3.2"]]

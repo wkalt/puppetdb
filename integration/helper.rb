@@ -9,7 +9,8 @@ require 'inifile'
 module ClassifierExtensions
   include Test::Unit::Assertions
 
-  CLASSIFIER_PORT = 8080
+  CLASSIFIER_PORT = 1261
+  CLASSIFIER_SSL_PORT = 1262
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
   LeinCommandPrefix = "cd #{GitReposDir}/classifier; LEIN_ROOT=true"
@@ -125,10 +126,8 @@ module ClassifierExtensions
   def self.get_option_value(value, legal_values, description,
     env_var_name = nil, default_value = nil)
 
-    # we give precedence to any value explicitly specified in an options file,
-    #  but we also allow environment variables to be used for
-    #  classifier-specific settings
-    value = (value || (env_var_name && ENV[env_var_name]) || default_value)
+    # precedence is environment variable, option file, default value
+    value = ((env_var_name && ENV[env_var_name]) || value || default_value)
     if value
       value = value.to_sym
     end
@@ -272,7 +271,7 @@ module ClassifierExtensions
     create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
                       "---\n" +
                       "server: #{database}\n" +
-                      "port: #{CLASSIFIER_PORT}")
+                      "port: #{CLASSIFIER_SSL_PORT}")
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
 

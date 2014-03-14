@@ -40,6 +40,7 @@ master_opts = {
     'node_terminus' => 'classifier',
     'environmentpath' => "#{testdir}/environments",
     'rest_authconfig' => "#{testdir}/auth.conf",
+    'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
     'verbose' => true,
     'debug' => true,

@@ -2,7 +2,7 @@ require 'puppet/network/http_pool'
 
 class Puppet::Node::Classifier < Puppet::Indirector::Code
   def new_connection
-    Puppet::Network::HttpPool.http_instance(server, port, false, false)
+    Puppet::Network::HttpPool.http_instance(server, port)
   end
 
   def find(request)
@@ -39,7 +39,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
 
     {
       :server => config["server"] || 'classifier',
-      :port => config["port"] || 8080,
+      :port => config["port"] || 1262,
     }
   end
 end

@@ -259,6 +259,15 @@
                                   :class_name name
                                   :environment_name environment}))))))
 
+(defn- sort-classes
+  [classes]
+  (let [env-name-comp (fn [[env1 name1]
+                           [env2 name2]]
+                        (if (not= env1 env2)
+                          (compare env1 env2)
+                          (compare name1 name2)))]
+    (sort-by (juxt :environment :name) env-name-comp classes)))
+
 (sc/defn ^:always-validate synchronize-classes*
   [{db :db}
    puppet-classes :- [PuppetClass]]
@@ -269,8 +278,8 @@
     (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
     (let [db-classes (get-all-classes t-db)
           [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
-                                                                  puppet-classes
-                                                                  db-classes)]
+                                                                  (sort-classes puppet-classes)
+                                                                  (sort-classes db-classes))]
       (doseq [{:keys [environment name]} to-delete]
         (let [where-class (sql/where {:environment_name environment, :name name})
               [class-used?] (jdbc/query t-db (sql/select ["1"]

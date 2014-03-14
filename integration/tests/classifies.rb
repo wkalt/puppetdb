@@ -19,6 +19,7 @@ master_opts = {
   'master' => {
     'node_terminus' => 'classifier',
     'manifest' => "#{testdir}/site.pp",
+    'modulepath' => "#{testdir}/modules",
     'verbose' => true,
     'debug' => true,
     'trace' => true
@@ -27,10 +28,12 @@ master_opts = {
 
 class Classifier
   include HTTParty
-  debug_output $stdout
+  debug_output($stdout)
+  headers({'Content-Type' => 'application/json'})
 end
 
-Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
+Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+
 
 step "Create class"
 
