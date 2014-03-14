@@ -17,7 +17,7 @@ describe Puppet::Node::Classifier do
   it "makes a GET request to #{NODE_BASE}/nodename" do
     node = 'test'
     connection = double 'connection'
-    expect(Puppet::Network::HTTP::Connection).to receive(:new) { connection }
+    expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
     expect(connection).to receive(:get).with("#{NODE_BASE}/#{node}")
     Puppet::Node.indirection.find(node)
   end
@@ -27,7 +27,7 @@ describe Puppet::Node::Classifier do
     response = Net::HTTPOK.new('1.1', 200, 'OK')
     allow(response).to receive(:body) { node_json }
     connection = double 'connection'
-    expect(Puppet::Network::HTTP::Connection).to receive(:new) { connection }
+    expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
     expect(connection).to receive(:get).with("#{NODE_BASE}/test") { response }
 
     node = Puppet::Node.indirection.find('test')
