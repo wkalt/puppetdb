@@ -15,7 +15,7 @@
 (def test-config
   "Path from the root of the repo to the configuration file to use for the tests
   in this namespace."
-  "ext/classifier.conf")
+  "ext/classifier.ini")
 
 (defn- base-url
   [config-path]
@@ -45,7 +45,7 @@
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
         config-with-db (assoc base-config :database test-db)
-        test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
+        test-config-file (java.io.File/createTempFile "classifier-test-" ".ini")
         test-config-path (.getAbsolutePath test-config-file)
         _ (spit-ini test-config-file config-with-db)
         {initdb-stat :exit
