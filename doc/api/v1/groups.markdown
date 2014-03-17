@@ -80,6 +80,7 @@ If the group with the given name cannot be found, a 404 Not Found response with 
 ### PUT /v1/groups/\<name\>
 
 Create a new group with the given name.
+Note that any existing group with that name will be silently overwritten!
 
 #### Request Format
 
@@ -89,6 +90,8 @@ The keys allowed in this object are:
 * `environment`: the name of the group's environment.
                  This key is optional; if not provided, the default environment (`production`) will be used.
 * `parent`: the name of the group's parent (required).
+* `rule`: an object describing the conditions that must be met for a node to be classified into this group (required).
+          The only key allowed in the object is `when`, and its value should be a representation of a boolean expression on node facts as described in the "Rule Condition Grammar" section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
                The keys of the object are the variable names, and the corresponding value is that variable's value, which can be any sort of JSON value.
                The `variables` keys is optional, and if a group does not define any top-level variables then it may be omitted.
@@ -101,6 +104,7 @@ The keys allowed in this object are:
 #### Response Format
 
 If the group was successfully created, the server will return a 201 Created response, with the group object (in JSON) as the body.
+If the group already exists and is identical (modulo UUID) to the submitted group, then the server will take no action and return a 200 OK response, again with the group object as the body.
 See above for a complete description of a group object.
 
 #### Error Responses

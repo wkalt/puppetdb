@@ -1,5 +1,9 @@
 (ns puppetlabs.classifier.schema
-  (:require [schema.core :as sc]))
+  (:require [schema.core :as sc]
+            [puppetlabs.classifier.util :refer [map-delta]]))
+
+;; Schemas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def Node {:name String})
 
@@ -41,10 +45,6 @@
          :parent String
          :rule Rule))
 
-(defn group->classification
-  [group]
-  (dissoc group :name :id :parent :rule))
-
 (def HierarchyNode
   {:group Group
    :children #{(sc/recursive #'HierarchyNode)}})
@@ -65,3 +65,17 @@
   (sc/either
     (assoc GroupDeltaShared :id java.util.UUID)
     (assoc GroupDeltaShared :name String)))
+
+;; Utilities for creating & converting maps conforming to the Schemas
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn group->classification
+  [group]
+  (dissoc group :name :id :parent :rule))
+
+(sc/defn group-delta :- GroupDelta
+  "Returns a delta that, when applied, turns group `g` into group `h`"
+  [g :- Group, h :- Group]
+  (-> (map-delta g h)
+    (assoc :name (:name g))
+    (dissoc :id)))
