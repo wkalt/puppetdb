@@ -26,7 +26,7 @@ createdb classifier -U classifier
 
 Then you can start the service with
 ```
-lein run --config ext/classifier.conf
+lein run --config ext/classifier.ini
 ```
 
 You can create a node and see that it exists:
