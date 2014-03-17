@@ -1,8 +1,9 @@
 (ns puppetlabs.classifier.util
-  (:require [clojure.string :as str]
+  (:require [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.walk :refer [postwalk prewalk]]
-            [puppetlabs.kitchensink.core :refer [deep-merge]]
-            [schema.utils :refer [named-error-explain validation-error-explain]])
+            [schema.utils :refer [named-error-explain validation-error-explain]]
+            [puppetlabs.kitchensink.core :refer [deep-merge]])
   (:import java.util.UUID))
 
 (defn- has-schema-error-classes?
@@ -82,6 +83,27 @@
   (->> maps
     (apply deep-merge)
     remove-paths-to-nils))
+
+(defn map-delta
+  "Returns a delta that, when applied to `m` using merge-and-clean, produces `n`."
+  [m n]
+  (let [m-ks (-> m keys set)
+        n-ks (-> n keys set)]
+    (merge
+      ;; removed keys
+      (into {} (for [k (set/difference m-ks n-ks)]
+                 [k nil]))
+      ;; added keys
+      (into {} (for [k (set/difference n-ks m-ks)]
+                 [k (get n k)]))
+      ;; changed keys
+      (into {} (for [k (set/intersection m-ks n-ks)
+                     :let [mv (get m k)
+                           nv (get n k)]
+                     :when (not= mv nv)]
+                 (if (and (map? mv) (map? nv))
+                   [k (map-delta mv nv)]
+                   [k nv]))))))
 
 (defn flatten-tree-with
   "Flattens a HierarchyNode tree or ValidationNode tree by applying f to each

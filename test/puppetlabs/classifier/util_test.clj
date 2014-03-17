@@ -43,6 +43,25 @@
       (is (no-keyword-symbols? schema-explanation))
       (is (no-keyword-symbols? error-explanation)))))
 
+(deftest map-deltas
+  (testing "a map delta"
+    (let [m1 {:same "same", :rm'd "gone", :changed "old-val"
+              :nested {:also-rm'd nil, :also-same "same", :also-changed "old-val"}}
+          m2 {:same "same", :added "new", :changed "new-val"
+              :nested {:also-same "same", :also-changed "new-val"}}
+          delta (map-delta m1 m2)]
+      (testing "doesn't contain unchanged keys"
+        (is (not (contains? delta :same)))
+        (is (= ::not-found (get-in delta [:nested :also-same] ::not-found))))
+      (testing "maps removed keys to nil"
+        (is (nil? (get delta :rm'd ::not-found)))
+        (is (nil? (get-in delta [:nested :also-rm'd] ::not-found))))
+      (testing "contains new values of changed keys"
+        (is (= "new-val" (:changed delta)))
+        (is (= "new-val" (get-in delta [:nested :also-changed]))))
+      (testing "yields the second map when applied to first using merge-and-clean"
+        (is (= m2 (merge-and-clean m1 delta)))))))
+
 (deftest merge-and-clean-maps
   (let [group {:name "agroup"
                :environment "production"
