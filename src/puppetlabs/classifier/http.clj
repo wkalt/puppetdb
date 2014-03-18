@@ -160,7 +160,8 @@
       [false {::data data}]
       true)
     (catch JsonParseException e
-      [true {::error e, ::request-body body}])))
+      [true {::error e, ::request-body body
+             :representation {:media-type "application/json"}}])))
 
 (defn parse-if-body
   "If the request in ctx has a non-empty body, tries to parse it with

@@ -261,4 +261,14 @@
         (is (= "application/json" (get-in resp [:headers "Content-Type"])))
         (is (= #{:kind :msg :details}
                (-> (decode (:body resp) true)
-                 keys set)))))))
+                 keys set)))))
+    (testing "malformed requests get a structured 400 response."
+      (let [bad-body "{\"haha\": [\"i'm broken\"})"
+            resp (app (-> (request :put "/v1/groups/badgroup")
+                        (mock/body bad-body)))
+            err (decode (:body resp) true)]
+        (is-http-status 400 resp)
+        (is (re-find #"application/json" (get-in resp [:headers "Content-Type"])))
+        (is (= #{:kind :msg :details} (-> err keys set)))
+        (is (= bad-body (-> err :details :body)))
+        (is (re-find #"Unexpected close marker" (-> err :details :error)))))))
