@@ -184,8 +184,10 @@ module ClassifierExtensions
   def start_classifier(host)
     step "Starting Classifier" do
       if host.is_pe?
+        on host, "service pe-classifier stop"
         on host, "service pe-classifier start"
       else
+        on host, "service classifier stop"
         on host, "service classifier start"
       end
       sleep_until_started(host)
