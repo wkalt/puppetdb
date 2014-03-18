@@ -217,7 +217,8 @@
                                 :second {:three nil
                                          :four "red fish"
                                          :five "blue fish"}}
-                      :variables {:some_bool nil
+                      :variables {:some_bool true
+                                  :ntp_servers nil
                                   :cluster_index 4
                                   :cluster_size 16
                                   :spirit_animal "turtle"}}

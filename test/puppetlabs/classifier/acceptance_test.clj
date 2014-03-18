@@ -273,7 +273,8 @@
                :rule {:when ["=" "name" "gary"]}
                :classes {:aclass {:verbose "true" :log "info"}
                          :bclass {}}
-               :variables {:dns "8.8.8.8"}}
+               :variables {:dns "8.8.8.8"
+                           :dev_mode false}}
         new-env "spaaaace"]
 
     ;; insert pre-reqs
@@ -291,7 +292,9 @@
                          :classes {:aclass {:log "fatal"
                                             :verbose nil
                                             :loglocation "/dev/null"}}
-                         :variables {:dns nil}}
+                         :variables {:dns nil
+                                     :dev_mode true
+                                     :ntp_servers ["0.us.pool.ntp.org"]}}
             group' (merge-and-clean group group-delta)
             update-resp (http/post
                           (str base-url "/v1/groups/agroup")

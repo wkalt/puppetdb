@@ -566,7 +566,7 @@
           (jdbc/delete! t-db :group_variables
                         (sql/where {"group_name" group-name, "variable" variable-name}))
 
-          (get-in extant [:variables variable])
+          (not= (get-in extant [:variables variable] ::not-found) ::not-found)
           (jdbc/update! t-db :group_variables {:value variable-value}
                         (sql/where {"group_name" group-name, "variable" variable-name}))
 
