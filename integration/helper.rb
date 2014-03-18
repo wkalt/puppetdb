@@ -742,6 +742,53 @@ module ClassifierExtensions
     return dst
   end
 
+  def install_release_repos
+    hosts.each do |host|
+      install_release_repos_on(host, "repo_configs")
+    end
+  end
+
+  def install_release_repos_on(host, repo_configs_dir)
+    platform = host['platform']
+    platform_configs_dir = File.join(repo_configs_dir, platform)
+
+    case platform
+      when /^(fedora|el|centos)-(\d+)-(.+)$/
+        variant = (($1 == 'centos') ? 'el' : $1)
+        version = $2
+        arch = $3
+
+        rpm_name = "puppetlabs-release-#{variant}-#{version}.noarch.rpm"
+        rpm = fetch(
+          "http://yum.puppetlabs.com",
+          rpm_name,
+          platform_configs_dir
+        )
+
+        scp_to host, rpm, '/root'
+        on host, "rpm -Uvh --force /root/#{rpm_name}"
+
+      when /^(debian|ubuntu)-([^-]+)-(.+)$/
+        variant = $1
+        version = $2
+        arch = $3
+
+        deb_name = "puppetlabs-release-#{version}.deb"
+        deb = fetch(
+          "http://apt.puppetlabs.com/",
+          deb_name,
+          platform_configs_dir
+        )
+
+        scp_to host, deb, '/root'
+        on host, "dpkg -i --force-all /root/#{deb_name}"
+
+        on host, 'apt-get update'
+      else
+        host.logger.notify("No repository installation step for #{platform} yet...")
+    end
+  end
+
   # Taken from puppet acceptance lib
   # Install development repos
   def install_dev_repos_on(package, host, sha, repo_configs_dir)
