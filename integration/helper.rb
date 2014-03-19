@@ -308,7 +308,7 @@ module ClassifierExtensions
     manifest = ''
 
     os, version, _ = host['platform'].split('-')
-    if os == 'el' and version = '7'
+    if os == 'el' && version == '7'
       # Use the builtin postgres as postgresql.org has no repo for rhel7
     else
       manifest << <<-EOS
