@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.application
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
             [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
@@ -7,9 +8,14 @@
             [puppetlabs.classifier.storage.postgres :as postgres]))
 
 (def fallback-db-spec {:subprotocol "postgresql"
-                       :subname "classifier"
+                       :dbname "classifier"
                        :user "classifier"
                        :password "classifier"})
+
+(defn- config->db-spec
+  [{:keys [database]}]
+  (-> (merge fallback-db-spec database)
+    (rename-keys {:dbname :subname})))
 
 (defn on-shutdown
   []
@@ -39,7 +45,7 @@
 
   (start [_ context]
          (let [config (get-config)
-               db-spec (get config :database fallback-db-spec)
+               db-spec (config->db-spec config)
                api-prefix (get-in config [:classifier :url-prefix] "")
                app-config {:db (postgres/new-db db-spec)
                            :puppet-master (get-in config [:classifier :puppet-master])
@@ -57,7 +63,7 @@
    [:ShutdownService request-shutdown]]
   (start [_ context]
          (let [config (get-config)
-               db-spec (get config :database fallback-db-spec)]
+               db-spec (config->db-spec config)]
            (postgres/drop-public-tables db-spec)
            (postgres/migrate db-spec)
            (request-shutdown)
