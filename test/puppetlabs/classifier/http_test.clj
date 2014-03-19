@@ -159,6 +159,14 @@
                   (get-classes [_ _] classes))
         app (app {:db mock-db})]
 
+    (testing "returns 404 to a GET request if the group doesn't exist"
+      (let [{status :status} (app (group-request :get "agroupthatdoesntexist"))]
+        (is (= 404 status))))
+
+    (testing "returns 404 to a POST request if the group doesn't exist"
+      (let [{status :status} (app (group-request :post "dne" (encode {:environment "staging"})))]
+        (is (= 404 status))))
+
     (testing "tells storage to create the group and returns 201 with the group object in its body"
       (let [req-body (encode (get group-map "agroup"))
             {body :body, :as resp} (app (group-request :put "agroup" req-body))]

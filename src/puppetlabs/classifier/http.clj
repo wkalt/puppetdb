@@ -192,6 +192,7 @@
          :exists? exists?
          :handle-ok #(or (::updated %) (::retrieved %))
          :post-to-existing? submitting-overwrite?
+         :can-post-to-missing? false
          :put-to-existing? (constantly false)
          :put! (fn [{submitted ::submitted-group}]
                  {::created (storage/create-group db (validate Group submitted))})
