@@ -81,8 +81,7 @@
   node)
 
 (sc/defn ^:always-validate get-node* :- (sc/maybe Node)
-  [{db :db} node-name]
-  {:pre [(string? node-name)]}
+  [{db :db}, node-name :- String]
   (let [[node] (jdbc/query db (select-node node-name))]
     node))
 
@@ -90,8 +89,8 @@
   [{db :db}]
   (jdbc/query db (sql/select :name :nodes)))
 
-(defn delete-node* [{db :db} node-name]
-  {:pre [(string? node-name)]}
+(sc/defn delete-node*
+  [{db :db}, node-name :- String]
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
 
 ;; Environments
@@ -124,8 +123,8 @@
   [{db :db}]
   (jdbc/query db (sql/select :name :environments)))
 
-(defn delete-environment* [{db :db} environment-name]
-  {:pre [(string? environment-name)]}
+(sc/defn delete-environment*
+  [{db :db}, environment-name :- String]
   (jdbc/delete! db :environments (sql/where {:name environment-name})))
 
 ;; Classes
@@ -206,7 +205,7 @@
   class)
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
-  [{db :db} environment-name class-name]
+  [{db :db}, environment-name :- String, class-name :- String]
   (let [result (jdbc/query db (select-class class-name environment-name))]
     (if-not (empty? result)
       (->> result
@@ -215,7 +214,7 @@
         first))))
 
 (sc/defn ^:always-validate get-classes* :- [PuppetClass]
-  [{db :db} environment-name]
+  [{db :db}, environment-name :- String]
   (let [result (jdbc/query db (select-classes environment-name))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
@@ -300,7 +299,8 @@
         (when-not (= new-class old-class)
           (update-class t-db new-class old-class))))))
 
-(defn delete-class* [{db :db} environment-name class-name]
+(sc/defn delete-class*
+  [{db :db}, environment-name :- String, class-name :- String]
   (jdbc/delete! db :classes (sql/where {:name class-name, :environment_name environment-name})))
 
 ;; Rules
@@ -411,7 +411,7 @@
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
 (sc/defn ^:always-validate get-parent :- Group
-  [db group]
+  [db, group :- Group]
   (get-group-by-name* {:db db} (:parent group)))
 
 (sc/defn ^:always-validate get-ancestors* :- [Group]
@@ -425,12 +425,12 @@
         (recur (get-parent db current) (conj ancestors current))))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
-  [db group-name]
+  [db, group-name :- String]
   (->> (query db (select-group-children group-name))
     aggregate-fields-into-groups))
 
 (sc/defn ^:always-validate get-subtree* :- HierarchyNode
-  [{db :db} group]
+  [{db :db}, group :- Group]
   (let [children (get-immediate-children db (:name group))]
     {:group group
      :children (->> children

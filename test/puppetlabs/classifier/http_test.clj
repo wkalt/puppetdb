@@ -38,7 +38,8 @@
                      :delete (fn [_ obj-name])}
         app (compojure/routes
               (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crd-resource storage sc/Any [obj-name] {:name obj-name} storage-fns)))]
+                             (crd-resource storage, schema, [obj-name]
+                                           {:name obj-name}, storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
       (is-http-status 404 (app (request :get "/objs/nothing"))))
