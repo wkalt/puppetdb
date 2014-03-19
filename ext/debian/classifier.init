@@ -30,7 +30,7 @@ JARFILE="classifier.jar"
 PIDFILE=/var/run/$NAME.pid
 SCRIPTNAME=/etc/init.d/$NAME
 
-JAVA_ARGS="${JAVA_ARGS} -jar ${INSTALL_DIR}/${JARFILE} --config ${CONFIG} "
+JAVA_ARGS="${JAVA_ARGS} -cp ${INSTALL_DIR}/${JARFILE} clojure.main -m puppetlabs.trapperkeeper.main --config ${CONFIG} "
 EXTRA_ARGS="--chuid $USER --background --make-pidfile"
 EXEC="$JAVA_BIN -XX:OnOutOfMemoryError=\"kill -9 %p\" $JAVA_ARGS"
 

@@ -45,4 +45,4 @@
                    :all (constantly true)}
   :aliases {"initdb" ["run" "--bootstrap-config" "resources/initdb.cfg"]}
   :uberjar-name "classifier.jar"
-  :main puppetlabs.trapperkeeper.main)
+  :main ^:skip-aot puppetlabs.trapperkeeper.main)
