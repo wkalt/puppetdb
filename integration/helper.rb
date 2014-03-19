@@ -314,7 +314,7 @@ module ClassifierExtensions
       manifest << <<-EOS
       class { 'postgresql::globals':
         manage_package_repo => true,
-        version => '9.1',
+        version => '9.2',
       } ->
       EOS
     end
