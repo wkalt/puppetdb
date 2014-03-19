@@ -38,7 +38,7 @@
   process."
   (let [base-config (ini-to-map config-path)
         test-db {:subprotocol "postgresql"
-                 :subname (or (System/getenv "CLASSIFIER_DBNAME")
+                 :dbname (or (System/getenv "CLASSIFIER_DBNAME")
                               "classifier_test")
                  :user (or (System/getenv "CLASSIFIER_DBUSER")
                            "classifier_test")
