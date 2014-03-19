@@ -310,6 +310,20 @@ module ClassifierExtensions
     os, version, _ = host['platform'].split('-')
     if os == 'el' && version == '7'
       # Use the builtin postgres as postgresql.org has no repo for rhel7
+      # We set all the variables manually because the puppet module
+      # doesn't support rhel7 and will get them wrong otherwise
+      manifest << <<-EOS
+      class { 'postgresql::globals':
+        version => '9.2',
+        client_package_name => 'postgresql',
+        server_package_name => 'postgresql-server',
+        contrib_package_name => 'postgresql-contrib',
+        java_package_name => 'postgresql-jdbc',
+        service_name => 'postgresql',
+        bindir => '/usr/bin',
+        datadir => '/var/lib/pgsql/data',
+      } ->
+      EOS
     else
       manifest << <<-EOS
       class { 'postgresql::globals':
