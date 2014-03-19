@@ -304,11 +304,22 @@ module ClassifierExtensions
 
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
-    manifest = <<-EOS
-    class { 'postgresql::globals':
-      manage_package_repo => true,
-      version => '9.2',
-    } ->
+
+    manifest = ''
+
+    os, version, _ = host['platform'].split('-')
+    if os == 'el' and version = '7'
+      # Use the builtin postgres as postgresql.org has no repo for rhel7
+    else
+      manifest << <<-EOS
+      class { 'postgresql::globals':
+        manage_package_repo => true,
+        version => '9.1',
+      } ->
+      EOS
+    end
+
+    manifest << <<-EOS
     class { 'postgresql::server': }
 
     postgresql::server::db { 'classifier':
