@@ -28,7 +28,7 @@
 (defn- block-until-ready
   [server-process]
   (let [out-lines (-> (:out server-process) io/reader line-seq)]
-    (dorun (take-while #(not (re-find #"started o.e.j.s.h.ContextHandler" %))
+    (dorun (take-while #(not (re-find #"Started o.e.j.s.h.ContextHandler" %))
                          out-lines))))
 
 (defn start!
@@ -38,7 +38,7 @@
   process."
   (let [base-config (ini-to-map config-path)
         test-db {:subprotocol "postgresql"
-                 :subname (or (System/getenv "CLASSIFIER_DBNAME")
+                 :dbname (or (System/getenv "CLASSIFIER_DBNAME")
                               "classifier_test")
                  :user (or (System/getenv "CLASSIFIER_DBUSER")
                            "classifier_test")
