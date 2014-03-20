@@ -23,6 +23,6 @@ The `msg` of an `application-error` 500 will always contain the underlying error
 The `details` will always contain the error's stack trace as an array of strings under the `trace` key, and may also contain `schema`, `value`, and `error` keys if the error was caused by a schema validation failure.
 
 A `database-corruption` 500 response occurs when a resource that is retrived from the database fails to conform to the schema expected of it by the application.
-This is probably just a bug on our part, but it could potentially be indicative of either genuine corruption in the database or that a third party has gone and changed values directly in the database.
+This is probably just a bug in the software, but it could potentially be indicative of either genuine corruption in the database or that a third party has gone and changed values directly in the database.
 The `msg` of such a response contains a description of how the database corruption could have occured.
 The `details` will contain `retrieved`, `schema`, and `error` keys, which have the resource as retrieved, the schema it should conform to, and a description of how it fails to conform to that schema as the respective values.
