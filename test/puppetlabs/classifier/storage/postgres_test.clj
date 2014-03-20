@@ -282,35 +282,41 @@
         (is (= tree retrieved-tree))))))
 
 (deftest ^:database classes
-  (testing "store a class with no parameters"
-    (create-class db {:name "myclass" :parameters {} :environment "test"}))
-  (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"]))))
-  (testing "store a class with multiple parameters"
-    (create-class db {:name "classtwo"
-                      :parameters {:param1 "value1"
-                                   :param2 "value2"}
-                      :environment "test"})
-    (is (= 2 (count (jdbc/query test-db
-                                ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
-  (testing "retrieve a class with no parameters"
-    (let [testclass {:name "noclass" :parameters {} :environment "test"}]
-      (create-class db testclass)
-      (is (= testclass (get-class db "test" "noclass")))
-      (is (= nil (get-class db "wrong" "noclass")))))
-  (testing "retrieve a class with parameters"
-    (let [testclass {:name "testclass" :parameters {:p1 "v1" :p2 "v2"} :environment "test"}]
-      (create-class db testclass)
-      (is (= testclass (get-class db "test" "testclass")))))
-  (testing "retrieves all classes"
-    (is (= #{"myclass" "classtwo" "testclass" "noclass"} (->> (get-classes db "test") (map :name) set))))
-  (testing "deletes a class with no parameters"
-    (delete-class db "test" "noclass")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
-  (testing "deletes a class with parameters"
-    (delete-class db "test" "testclass")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
-    (is (= 0 (count (jdbc/query test-db
-                                ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"]))))))
+  (let [no-params {:name "myclass" :parameters {} :environment "test"}
+        with-params {:name "classtwo"
+                     :parameters {:param1 "value1", :param2 "value2"}
+                     :environment "test"}]
+
+   (testing "store a class with no parameters"
+     (create-class db no-params)
+     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM classes"])))))
+
+   (testing "store a class with multiple parameters"
+     (create-class db with-params)
+     (is (= 2 (count (jdbc/query test-db
+                                 ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "classtwo"])))))
+
+    (testing "returns nil when trying to retrieve a class that doesn't exist"
+     (is (nil? (get-class db "wrong" "noclass"))) )
+
+   (testing "retrieve a class with no parameters"
+     (is (= no-params (get-class db (:environment no-params) (:name no-params)))))
+
+   (testing "retrieve a class with parameters"
+     (is (= with-params (get-class db (:environment with-params) (:name with-params)))))
+
+   (testing "retrieves all classes"
+     (is (= #{no-params with-params} (set (get-classes db "test")))))
+
+   (testing "deletes a class with no parameters"
+     (delete-class db (:environment no-params) (:name no-params))
+     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "noclass"])))))
+
+   (testing "deletes a class with parameters"
+     (delete-class db (:environment with-params) (:name no-params))
+     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "testclass"]))))
+     (is (= 0 (count (jdbc/query test-db
+                                 ["SELECT * FROM classes c join class_parameters cp on cp.class_name = c.name where c.name = ?" "testclass"])))))))
 
 (deftest ^:database environments
   (let [test-env {:name "test"}
