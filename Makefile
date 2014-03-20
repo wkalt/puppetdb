@@ -5,15 +5,6 @@ initdir = $(confdir)/init.d
 rubylibdir = $(shell ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 rundir = /var/run
 
-ifeq ($(wildcard /etc/redhat-release),/etc/redhat-release)
-	defaultsdir = $(confdir)/sysconfig
-	initsrc = ext/redhat/init
-	rundir = /var/run/classifier
-else
-	defaultsdir = $(confdir)/default
-	initsrc = ext/debian/classifier.init
-endif
-
 classifier.jar:
 	lein uberjar
 	mv target/classifier.jar classifier.jar
@@ -24,11 +15,6 @@ install-classifier: classifier.jar
 	install -d -m 0755 "$(DESTDIR)$(confdir)/classifier"
 	install -m 0644 ext/classifier.ini "$(DESTDIR)$(confdir)/classifier"
 	install -d -m 0700 "$(DESTDIR)$(confdir)/classifier/ssl"
-	install -d -m 0755 "$(DESTDIR)$(defaultsdir)"
-	install -m 0644 ext/default "$(DESTDIR)$(defaultsdir)/classifier"
-	install -d -m 0755 "$(DESTDIR)$(initdir)"
-	install -m 0755 $(initsrc) "$(DESTDIR)$(initdir)/classifier"
-	install -d -m 0755 "$(DESTDIR)$(rundir)"
 
 install-terminus:
 	install -d -m 0755 "$(DESTDIR)$(rubylibdir)/puppet/indirector/node"

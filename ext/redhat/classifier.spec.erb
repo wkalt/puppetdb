@@ -10,6 +10,14 @@
 %global  _initddir   %{_realsysconfdir}/rc.d/init.d
 %global _rundir /var/run
 
+# F17 supports systemd, but we don't support F17 and we use F18+ features in
+# our systemd support
+%if 0%{?fedora} >= 18 || 0%{?rhel} >= 7
+%global _with_systemd 1
+%else
+%global _with_systemd 0
+%endif
+
 %define __jar_repack 0
 
 
@@ -29,7 +37,15 @@ Group:         System Environment/Daemons
 BuildRequires: ruby
 BuildArch:     noarch
 BuildRequires: /usr/sbin/useradd
-Requires:      chkconfig
+%if %{_with_systemd}
+Requires(post): systemd
+Requires(preun): systemd
+Requires(postun): systemd
+Requires:       systemd
+BuildRequires:  systemd
+%else
+Requires:       chkconfig
+%endif
 Requires:      %{open_jdk}
 
 %description
@@ -52,13 +68,27 @@ A Puppet Node Terminus for the classifier
 
 rm -rf $RPM_BUILD_ROOT
 
-env DESTDIR=%{buildroot} prefix=/usr initdir=%{_initddir} make -e install-classifier
-env DESTDIR=%{buildroot} prefix=/usr rubylibdir=%{puppet_libdir} make -e install-terminus
+env DESTDIR=%{buildroot} prefix=%{_prefix} initdir=%{_initddir} make -e install-classifier
+env DESTDIR=%{buildroot} prefix=%{_prefix} rubylibdir=%{puppet_libdir} make -e install-terminus
+
+install -d -m 0755 %{buildroot}%{_rundir}/classifier
+install -d -m 0755 %{buildroot}%{_sysconfdir}/sysconfig
+install -m 0755 ext/default %{buildroot}%{_sysconfdir}/sysconfig/classifier
+
+%if %{_with_systemd}
+install -d -m0755 %{buildroot}%{_unitdir}
+install -m0644 ext/classifier.service %{buildroot}%{_unitdir}/classifier.service
+%else
+install -d -m0755 %{buildroot}%{_initddir}
+install -m0755 ext/redhat/init %{buildroot}%{_initddir}/classifier
+%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
 
 %pre
+%if %{_with_systemd}
+%else
 # Here we'll do a little bit of cleanup just in case something went horribly
 # awry during a previous install/uninstall:
 if [ -f "/usr/share/classifier/start_service_after_upgrade" ] ; then
@@ -76,6 +106,8 @@ if [ "$1" = "2" ] ; then
         /sbin/service %{name} stop >/dev/null 2>&1
     fi
 fi
+%endif
+
 # Add classifier user
 getent group %{name} > /dev/null || groupadd -r %{name}
 getent passwd %{name} > /dev/null || \
@@ -83,21 +115,29 @@ useradd -r -g %{name} -d /usr/share/classifier -s /sbin/nologin \
      -c "classifier daemon"  %{name}
 
 %post
-# If this is an install (as opposed to an upgrade)...
+%if %{_with_systemd}
+%systemd_post classifier.service
+%else
 if [ "$1" = "1" ]; then
   # Register the classifier service
   /sbin/chkconfig --add %{name}
 fi
+%endif
 
 %preun
-# If this is an uninstall (as opposed to an upgrade) then
-#  we want to shut down and disable the service.
+%if %{_with_systemd}
+%systemd_preun classifier.service
+%else
 if [ "$1" = "0" ] ; then
     /sbin/service %{name} stop >/dev/null 2>&1
     /sbin/chkconfig --del %{name}
 fi
+%endif
 
 %postun
+%if %{_with_systemd}
+%systemd_postun_with_restart classifier.service
+%else
 # Remove the rundir if this is an uninstall (as opposed to an upgrade)...
 if [ "$1" = "0" ]; then
     rm -rf %{_rundir}/%{name} || :
@@ -113,13 +153,18 @@ if [ "$1" = "1" ] ; then
         /sbin/service %{name} start >/dev/null 2>&1
     fi
 fi
+%endif
 
 
 %files
 %defattr(-, root, root)
 %doc *.md
 %{_datadir}/%{realname}
+%if %{_with_systemd}
+%{_unitdir}/%{name}.service
+%else
 %{_initddir}/%{name}
+%endif
 %dir %{_sysconfdir}/%{name}
 %dir %{_sysconfdir}/%{name}/ssl
 %config(noreplace) %{_sysconfdir}/%{name}/%{name}.ini

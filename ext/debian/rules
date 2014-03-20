@@ -13,6 +13,10 @@ export prefix
 
 install/classifier::
 	make -e install-classifier
+	install -d -m 0755 "$(DESTDIR)/etc/init.d"
+	install -d -m 0755 "$(DESTDIR)/etc/default"
+	install -m 0755 ext/debian/classifier.init "$(DESTDIR)/etc/init.d/classifier"
+	install -m 0755 ext/default "$(DESTDIR)/etc/default/classifier"
 
 install/classifier-terminus::
 	make -e install-terminus
