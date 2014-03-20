@@ -43,7 +43,7 @@ No further information is required in the request besides the `name` portion of 
 #### Response Format
 
 If the environment creation is successful, the server will return a 201 Created response whose body is the environment object in JSON format.
-[See above](#GET /v1/environments) for a complete description of an environment object.
+[See above](#get-v1environmentsname) for a complete description of an environment object.
 
 #### Error Responses
 
