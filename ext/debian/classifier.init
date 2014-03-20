@@ -5,14 +5,11 @@
 # Required-Stop:     $remote_fs $syslog
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: classifier stored config server
+# Short-Description: node classification server
 # Description:       Start classifier daemon placed in /etc/init.d.
 ### END INIT INFO
 
-# Author: Ben Hughes <ben@puppetlabs.com>
-#         Michael Stahnke <stahnma@puppetlabs.com>
-# Copyright 2012 Puppet Labs
-
+# Copyright 2014 Puppet Labs
 
 # You should only need to edit the default/classifier file and not
 #   this init script directly
