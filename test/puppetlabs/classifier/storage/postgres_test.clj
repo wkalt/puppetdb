@@ -336,56 +336,61 @@
         (is (nil? test-env))))))
 
 (deftest ^:database synchronize
-  (let [before [{:name "changed", :parameters {:changed "1", :unreferred "5", :referred "6"}, :environment "production"}
-                {:name "referred", :parameters {}, :environment "production"}
-                {:name "unreferred", :parameters {:a "a"}, :environment "production"}]
+  (let [before [{:name "changed-class", :environment "production"
+                 :parameters {:changed-param "1", :unused-param "5", :used-param "6"}}
+                {:name "used-class", :parameters {}, :environment "production"}
+                {:name "unused-class", :parameters {:a "a"}, :environment "production"}]
+        before-by-name (into {} (map (juxt :name identity) before))
         after [{:name "added", :parameters {}, :environment "production"}
-               {:name "changed", :parameters {:added "1", :changed "2"}, :environment "production"}]
+               {:name "changed-class", :environment "production"
+                :parameters {:added "1", :changed-param "2"}}]
+        after-by-name (into {} (map (juxt :name identity) after))
         referrer {:name "referrer", :environment "production", :parent "default"
-                  :classes {:referred {}, :changed {:referred "hi"}}
+                  :classes {:used-class {}, :changed-class {:used-param "hi"}}
                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
     (synchronize-classes db before)
     (create-group db referrer)
     (synchronize-classes db after)
 
-    (testing "unreferred is deleted"
-      (is (nil? (get-class db "production" "unreferred"))))
+    (testing "unused class is deleted"
+      (let [{:keys [name environment]} (get before-by-name "unused-class")]
+        (is (nil? (get-class db name environment)))))
 
-    (testing "referred is marked deleted"
-      (let [[result] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "referred"])]
-        (is (true? (:deleted result)))))
+    (testing "used class is marked deleted"
+      (let [[class-row] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "used-class"])]
+        (is (true? (:deleted class-row)))))
 
-    (testing "unreferred parameters are deleted"
-      (let [[result]
-            (jdbc/query test-db
-                        ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
-                         "changed" "unreferred"])]
-        (is (nil? result))))
+    (testing "unused parameters are deleted"
+      (let [rows (jdbc/query
+                   test-db
+                   ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
+                    "changed-class" "unused-param"])]
+        (is (empty? rows))))
 
-    (testing "referred parameters are marked deleted"
-      (let [[result]
-            (jdbc/query test-db
-                        ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
-                         "changed" "referred"])]
-        (is (true? (:deleted result)))))
+    (testing "used parameters are marked deleted"
+      (let [[param-row] (jdbc/query
+                          test-db
+                          ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
+                           "changed-class" "used-param"])]
+        (is (:deleted param-row))))
 
     (testing "changed parameters are changed"
-      (let [[result]
-            (jdbc/query test-db
-                        ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
-                         "changed" "changed"])]
-        (is (false? (:deleted result)))
-        (is (= "2" (:default_value result)))))
+      (let [[changed-row] (jdbc/query
+                            test-db
+                            ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
+                             "changed-class" "changed-param"])]
+        (is (false? (:deleted changed-row)))
+        (is (= "2" (:default_value changed-row)))))
 
     (synchronize-classes db before)
 
-    (testing "referred is marked undeleted when re-added"
-      (let [[result] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "referred"])]
-        (is (false? (:deleted result)))))
+    (testing "used-class is marked undeleted when re-added"
+      (let [[class-row] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "used-class"])]
+        (is (false? (:deleted class-row)))))
 
-    (testing "referred parameter is marked undeleted when re-added"
-      (let [[result]
-            (jdbc/query test-db
-                        ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
-                         "changed" "referred"])]
-        (is (false? (:deleted result)))))))
+    (testing "used parameter is marked undeleted when re-added"
+      (let [[param-row] (jdbc/query test-db
+                                    ["SELECT * FROM class_parameters
+                                     WHERE class_name = ? AND parameter = ?"
+                                     "changed-class" "used-param"])]
+        (is (false? (:deleted param-row)))))))
