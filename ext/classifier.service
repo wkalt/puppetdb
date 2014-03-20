@@ -5,9 +5,9 @@ After=syslog.target network.target
 [Service]
 Type=simple
 EnvironmentFile=/etc/sysconfig/classifier
-User=$USER
+User=classifier
 
-ExecStart=/usr/lib/jvm/jre-1.7.0-openjdk/bin/java ${JAVA_ARGS} \
+ExecStart=/usr/lib/jvm/jre-1.7.0-openjdk/bin/java $JAVA_ARGS \
           -cp "${INSTALL_DIR}/classifier.jar" clojure.main \
           -m puppetlabs.trapperkeeper.main --config "${CONFIG}" $@
 
