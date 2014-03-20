@@ -4,17 +4,6 @@ confdir = /etc
 initdir = $(confdir)/init.d
 rubylibdir = $(shell ruby -rrbconfig -e "puts RbConfig::CONFIG['sitelibdir']")
 rundir = /var/run
-unitdir = $(prefix)/lib/systemd/system
-
-ifeq ($(wildcard /etc/redhat-release),/etc/redhat-release)
-	defaultsdir = $(confdir)/sysconfig
-	initsrc = ext/redhat/init
-	rundir = /var/run/classifier
-	with_systemd = $(shell grep -qn '(Fedora|(CentOS|Red Hat).*release 7)' /etc/redhat-release && echo "true")
-else
-	defaultsdir = $(confdir)/default
-	initsrc = ext/debian/classifier.init
-endif
 
 classifier.jar:
 	lein uberjar
@@ -26,17 +15,6 @@ install-classifier: classifier.jar
 	install -d -m 0755 "$(DESTDIR)$(confdir)/classifier"
 	install -m 0644 ext/classifier.ini "$(DESTDIR)$(confdir)/classifier"
 	install -d -m 0700 "$(DESTDIR)$(confdir)/classifier/ssl"
-	install -d -m 0755 "$(DESTDIR)$(defaultsdir)"
-	install -m 0644 ext/default "$(DESTDIR)$(defaultsdir)/classifier"
-	install -d -m 0755 "$(DESTDIR)$(rundir)"
-ifeq ("true", $(with_systemd))
-	install -d -m 0755 "$(DESTDIR)$(unitdir)"
-	install -m 0755 ext/classifier.service "$(DESTDIR)$(unitdir)/classifier.service"
-else
-	install -d -m 0755 "$(DESTDIR)$(initdir)"
-	install -m 0755 $(initsrc) "$(DESTDIR)$(initdir)/classifier"
-endif
-
 
 install-terminus:
 	install -d -m 0755 "$(DESTDIR)$(rubylibdir)/puppet/indirector/node"

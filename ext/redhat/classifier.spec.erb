@@ -68,8 +68,20 @@ A Puppet Node Terminus for the classifier
 
 rm -rf $RPM_BUILD_ROOT
 
-env DESTDIR=%{buildroot} prefix=/usr initdir=%{_initddir} make -e install-classifier
-env DESTDIR=%{buildroot} prefix=/usr rubylibdir=%{puppet_libdir} make -e install-terminus
+env DESTDIR=%{buildroot} prefix=%{_prefix} initdir=%{_initddir} make -e install-classifier
+env DESTDIR=%{buildroot} prefix=%{_prefix} rubylibdir=%{puppet_libdir} make -e install-terminus
+
+install -d -m 0755 %{buildroot}%{_rundir}/classifier
+install -d -m 0755 %{buildroot}%{_sysconfdir}/sysconfig
+install -m 0755 ext/default %{buildroot}%{_sysconfdir}/sysconfig/classifier
+
+%if %{_with_systemd}
+install -d -m0755 %{buildroot}%{_unitdir}
+install -m0644 ext/classifier.service %{buildroot}%{_unitdir}/classifier.service
+%else
+install -d -m0755 %{buildroot}%{_initddir}
+install -m0755 ext/redhat/init %{buildroot}%{_initddir}/classifier
+%endif
 
 %clean
 rm -rf $RPM_BUILD_ROOT
