@@ -1,0 +1,19 @@
+[Unit]
+Description=Node Classification Service
+After=syslog.target network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/sysconfig/classifier
+User=$USER
+
+ExecStart=/usr/lib/jvm/jre-1.7.0-openjdk/bin/java ${JAVA_ARGS} \
+          -cp "${INSTALL_DIR}/classifier.jar" clojure.main \
+          -m puppetlabs.trapperkeeper.main --config "${CONFIG}" $@
+
+ExecStop=/bin/kill $MAINPID
+
+StandardOutput=syslog
+
+[Install]
+WantedBy=multi-user.target
