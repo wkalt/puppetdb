@@ -7,7 +7,7 @@ A service for classifying puppet nodes based on user-defined rules.
 NB: This is in an early stage of development.
 These instructions are really only useful if you want to develop on the classifier.
 
-To run the classifier you will need
+To run the classifier you will need:
 
 * Postgres
 * A JVM
@@ -24,7 +24,7 @@ createdb classifier -U classifier
 
 The first command will prompt for the user's password.
 
-Copy the `ext/classifier.ini` configuration file, and add a `database` section with the database name, user, and password.
+Edit (or copy to another location) the `ext/classifier.ini` configuration file, and add a `database` section with the database name, user, and password.
 For the example above, assuming `classifier` was entered for the user's password, this section should look like:
 
 ```ini
@@ -34,7 +34,7 @@ user = classifier
 password = classifier
 ```
 
-Now you can start the service with
+Now you can start the service with (use the path to the location of your ini file):
 
 ```
 lein run --config ext/classifier.ini
@@ -80,10 +80,15 @@ curl -X PUT -H 'Content-Type: application/json' \
 
 Again, if you see the group object that was submitted echoed back in curl's output, then the submission worked.
 
-Now we can try to classify a node.
+Now we can try to get the classification for a node.
 
 ```sh
-$ curl http://localhost:1261/v1/classified/nodes/argon.atlanta.www.example.com | json_pp
+$ curl http://localhost:1261/v1/classified/nodes/argon.atlanta.www.example.com
+```
+
+The response should be:
+
+```json
 {
    "name" : "argon.www.example.com",
    "parameters" : {
