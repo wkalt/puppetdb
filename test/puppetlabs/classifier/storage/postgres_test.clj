@@ -338,7 +338,7 @@
 (deftest ^:database synchronize
   (let [before [{:name "changed-class", :environment "production"
                  :parameters {:changed-param "1", :unused-param "5", :used-param "6"}}
-                {:name "used-class", :parameters {}, :environment "production"}
+                {:name "used-class", :parameters {:unused-param "42"}, :environment "production"}
                 {:name "unused-class", :parameters {:a "a"}, :environment "production"}]
         before-by-name (into {} (map (juxt :name identity) before))
         after [{:name "added", :parameters {}, :environment "production"}
@@ -348,6 +348,7 @@
         referrer {:name "referrer", :environment "production", :parent "default"
                   :classes {:used-class {}, :changed-class {:used-param "hi"}}
                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
+
     (synchronize-classes db before)
     (create-group db referrer)
     (synchronize-classes db after)
@@ -359,6 +360,12 @@
     (testing "used class is marked deleted"
       (let [[class-row] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "used-class"])]
         (is (true? (:deleted class-row)))))
+
+    (testing "parameters of a used class are marked deleted"
+      (let [[param-row] (jdbc/query
+                          test-db
+                          ["SELECT * FROM class_parameters WHERE class_name = ?" "used-class"])]
+        (is (true? (:deleted param-row)))))
 
     (testing "unused parameters are deleted"
       (let [rows (jdbc/query
@@ -372,7 +379,7 @@
                           test-db
                           ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
                            "changed-class" "used-param"])]
-        (is (:deleted param-row))))
+        (is (true? (:deleted param-row)))))
 
     (testing "changed parameters are changed"
       (let [[changed-row] (jdbc/query
@@ -388,7 +395,14 @@
       (let [[class-row] (jdbc/query test-db ["SELECT * FROM classes WHERE name = ?" "used-class"])]
         (is (false? (:deleted class-row)))))
 
-    (testing "used parameter is marked undeleted when re-added"
+    (testing "unused parameter of used class is un-marked as deleted"
+      (let [[param-row] (jdbc/query test-db
+                                    ["SELECT * FROM class_parameters
+                                     WHERE class_name = ? AND parameter = ?"
+                                     "used-class" "unused-param"])]
+        (is (false? (:deleted param-row)))))
+
+    (testing "changed class's used parameter is un-marked as deleted when re-added"
       (let [[param-row] (jdbc/query test-db
                                     ["SELECT * FROM class_parameters
                                      WHERE class_name = ? AND parameter = ?"
