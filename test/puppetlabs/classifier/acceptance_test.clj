@@ -256,10 +256,9 @@
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
         (is (= ["test-group"] (:groups classification)))
-        (is (= ["noisyclass"] (:classes classification)))
         (is (= {:noisyclass {:verbose "false"}}
-               (:parameters classification)))
-        (is (= {:dothings "yes"} (:variables classification)))))))
+               (:classes classification)))
+        (is (= {:dothings "yes"} (:parameters classification)))))))
 
 (deftest ^:acceptance update-resources
   (let [base-url (base-url test-config)
