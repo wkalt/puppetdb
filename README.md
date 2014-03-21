@@ -43,7 +43,7 @@ lein run --config ext/classifier.ini
 Once the service is running, you can give it a rough smoke test by creating a simple group hierarchy and using it to classify a node.
 
 First, add a class that you can reference in your groups.
-Note that, when using the classifier with Puppet, all class definitions will be pulled from the master, but for this smoke test you'll use API routes to define the class.
+Note that, when using the classifier with Puppet, all class definitions will be pulled from the master, but for this smoke test you'll use (undocumented) API routes to define the class. We don't recommend using these calls in production.
 
 ```sh
 curl -X PUT -H 'Content-Type: application/json' \
