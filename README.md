@@ -83,14 +83,14 @@ Again, if you see the group object that was submitted echoed back in curl's outp
 Now we can try to get the classification for a node.
 
 ```sh
-$ curl http://localhost:1261/v1/classified/nodes/argon.atlanta.www.example.com
+curl http://localhost:1261/v1/classified/nodes/argon.atlanta.www.example.com
 ```
 
 The response should be:
 
 ```json
 {
-   "name" : "argon.www.example.com",
+   "name" : "argon.atlanta.www.example.com",
    "parameters" : {
       "apache" : {
          "confd_dir": "/opt/mywebapp/etc/apache2",
