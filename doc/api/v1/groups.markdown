@@ -57,8 +57,8 @@ The grammar for a rule condition is:
     fact-name : string
         value : string
 
-For the regex operator "~", the value will be interpreted as a Java regular expression, and literal backslashes will have to be used to escape regex characters in order to match those characters in the fact value.
-For the numeric comparison operators (">", ">=", "<", and "<="), the fact value (which is always a string) will be coerced to a number (either integral or floating-point).
+For the regex operator `"~"`, the value will be interpreted as a Java regular expression, and literal backslashes will have to be used to escape regex characters in order to match those characters in the fact value.
+For the numeric comparison operators (`">"`, `">="`, `"<"`, and `"<="`), the fact value (which is always a string) will be coerced to a number (either integral or floating-point).
 If the value cannot be coerced to a number, then the numeric operation will always evaluate to false.
 
 #### Error Responses
@@ -88,7 +88,7 @@ The request body must be a JSON object describing the group to be created.
 The keys allowed in this object are:
 
 * `environment`: the name of the group's environment.
-                 This key is optional; if not provided, the default environment (`production`) will be used.
+                 This key is optional; if it's not provided, the default environment (`production`) will be used.
 * `parent`: the name of the group's parent (required).
 * `rule`: an object describing the conditions that must be met for a node to be classified into this group (required).
           The only key allowed in the object is `when`, and its value should be a representation of a boolean expression on node facts as described in the "Rule Condition Grammar" section above.
@@ -210,5 +210,5 @@ If the delete operation is successful, then a 204 No Content with an empty body 
 #### Error Responses
 
 This operation can return any of the errors that could be returned to a PUT request on this same endpoint.
-See above for details on these responses.
-Note that 409 and 412 responses to POST requests can include errors that were caused by the group's children, whereas a group being created with a PUT request cannot have any children.
+See [above](#response-format) for details on these responses.
+Note that 409 and 412 responses to POST requests can include errors that were caused by the group's children, but a group being created with a PUT request cannot have any children.
