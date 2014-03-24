@@ -1,4 +1,6 @@
-(ns puppetlabs.classifier.storage.sql-utils)
+(ns puppetlabs.classifier.storage.sql-utils
+  (:require [clojure.string :as str])
+  (:import java.util.regex.Pattern))
 
 (defn ordered-group-by
   [f coll]
@@ -33,3 +35,35 @@
   [column under results]
   (for [[combined [_ & all]] (ordered-group-by #(dissoc % column) results)]
     (assoc combined under (map #(get % column) all))))
+
+(defn- sequence-placeholder
+  [xs]
+  (str "("
+       (->> (repeat (count xs) "?")
+         (str/join ","))
+       ")"))
+
+(defn- replace-nth-?
+  [^String s n replacement]
+  (let [through-?-pattern (Pattern/compile (format "([^?]+?\\?){%d}" (inc n)))]
+    (if-let [[match] (re-find through-?-pattern s)]
+      (let [tail (.substring s (.length ^String match) (.length s))
+            replaced (str/replace match #"(.*)\?$" (str "$1" replacement))]
+        (str replaced tail))
+      (throw (IllegalArgumentException. (str "there are not " n " '?'s in the given string"))))))
+
+(defn expand-seq-params
+  "A helper for prepared SQL statements with sequential parameters. Returns
+  a new prepared statement with every `?` that corresponded to a sequential
+  parameter expanded to a tuple literal of the appropriate length and flattened
+  parameters."
+  [[sql & parameters]]
+  (let [seq-params-w-indices (->> (map vector parameters (range))
+                               (filter (comp sequential? first)))
+        [sql'] (reduce (fn [[sql shift] [param i]]
+                         (let [shift' (+ shift (dec (count param)))
+                               expansion (sequence-placeholder param)]
+                           [(replace-nth-? sql (+ i shift) expansion) shift']))
+                       [sql 0]
+                       seq-params-w-indices)]
+    (vec (conj (flatten parameters) sql'))))
