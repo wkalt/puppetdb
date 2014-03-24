@@ -18,7 +18,7 @@ Each class object contains the following keys:
 * `environment`: the name of the environment that this class exists in.
                  Note that the same class can exist in different environments with different parameters.
 * `parameters`: an object describing the class's parameters and their default values.
-                The keys of this object are the parameter names (strings), and each value is the associated parameter's default value (which can be any sort of JSON value).
+                The keys of this object are the parameter names (strings), and each value is the associated parameter's default value (which can be any legal JSON value).
 
 Here is an example of a class object:
 
