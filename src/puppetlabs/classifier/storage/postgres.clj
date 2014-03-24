@@ -8,10 +8,12 @@
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.classification :as class8n]
-            [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group->classification
-                                                  HierarchyNode Node PuppetClass Rule]]
+            [puppetlabs.classifier.schema :refer [AnnotatedGroup Environment Group GroupDelta
+                                                  group->classification HierarchyNode Node
+                                                  PuppetClass Rule]]
             [puppetlabs.classifier.storage :refer [Storage]]
-            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by]]
+            [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
+                                                             expand-seq-params]]
             [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
                                                 relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
@@ -414,6 +416,41 @@
   (let [[group] (aggregate-fields-into-groups (query db (select-group-by-name group-name)))]
     group))
 
+(sc/defn ^:always-validate annotate-group* :- AnnotatedGroup
+  [{db :db}, group :- Group]
+  (let [deleted-kw :puppetlabs.classifier/deleted
+        class-names (->> group :classes keys (map name))
+        param-names (->> group
+                      :classes
+                      vals
+                      (mapcat keys)
+                      (map name))
+        marked-classes (if-not (empty? class-names)
+                         (->> (jdbc/query db (expand-seq-params
+                                               ["SELECT name FROM classes
+                                                WHERE name IN ? AND deleted = true" class-names]))
+                           (map (comp keyword :name))))
+        marked-params (if-not (empty? class-names)
+                        (->> (jdbc/query
+                               db
+                               (expand-seq-params
+                                 ["SELECT parameter, class_name FROM class_parameters
+                                  WHERE class_name IN ? AND parameter IN ? AND deleted = true"
+                                  class-names param-names]))
+                          (group-by (comp keyword :class_name))
+                          (kitchensink/mapvals (partial map (comp keyword :parameter)))))
+        deleted (kitchensink/deep-merge
+                  (into {} (for [[c params] marked-params]
+                             [c (kitchensink/deep-merge
+                                  {deleted-kw false}
+                                  (into {} (for [p params]
+                                             [p {deleted-kw true
+                                                 :value (get-in group [:classes c p])}])))]))
+                  (zipmap marked-classes (repeat {deleted-kw true})))]
+    (if (empty? deleted)
+      group
+      (assoc group :deleted deleted))))
+
 (sc/defn ^:always-validate get-groups* :- [Group]
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
@@ -672,6 +709,7 @@
    :get-group-by-id get-group-by-id*
    :get-group-by-name get-group-by-name*
    :get-groups get-groups*
+   :annotate-group annotate-group*
    :get-ancestors get-ancestors*
    :get-subtree get-subtree*
    :update-group update-group*

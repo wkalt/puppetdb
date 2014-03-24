@@ -9,6 +9,7 @@
   (create-group [this group] "Creates a new group")
   (get-group-by-id [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
   (get-group-by-name [this group-name] "Retrieves a group given its name")
+  (annotate-group [this group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet.")
   (get-groups [this] "Retrieves all groups")
   (get-ancestors [this group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route.")
   (get-subtree [this group] "Returns the subtree of the group hierarchy rooted at the passed group.")

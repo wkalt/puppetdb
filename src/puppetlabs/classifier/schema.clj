@@ -43,7 +43,14 @@
          :name String
          (sc/optional-key :id) java.util.UUID
          :parent String
-         :rule Rule))
+         :rule Rule
+         :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}))
+
+(def AnnotatedGroup
+  (assoc Group
+         (sc/optional-key :deleted) {sc/Keyword {:puppetlabs.classifier/deleted boolean
+                                                 sc/Keyword {:puppetlabs.classifier/deleted boolean
+                                                             :value String}}}))
 
 (def HierarchyNode
   {:group Group
