@@ -24,7 +24,7 @@ createdb classifier -U classifier
 
 The first command will prompt for the user's password.
 
-Edit (or copy to another location) the `ext/classifier.ini` configuration file, and add a `database` section with the database name, user, and password.
+Edit (or copy to another location) the `ext/classifier.ini` configuration file and add a `database` section with the database name, user, and password.
 For the example above, assuming `classifier` was entered for the user's password, this section should look like:
 
 ```ini
@@ -40,10 +40,10 @@ Now you can start the service with (use the path to the location of your ini fil
 lein run --config ext/classifier.ini
 ```
 
-Once the service is running, let's give it a rough smoke test by creating a simple group hierarchy and using it to classify a node.
+Once the service is running, you can give it a rough smoke test by creating a simple group hierarchy and using it to classify a node.
 
-First, let's add a class that we can reference in our groups.
-Note that, when using the classifier with Puppet, all class definitions will be pulled from the master, but for this smoke test we'll use (undocumented) API routes to define the class.
+First, add a class that you can reference in your groups.
+Note that, when using the classifier with Puppet, all class definitions will be pulled from the master, but for this smoke test you'll use API routes to define the class.
 
 ```sh
 curl -X PUT -H 'Content-Type: application/json' \
@@ -60,7 +60,7 @@ curl -X PUT -H 'Content-Type: application/json' \
 
 If all went well, the output from curl should echo back the same class JSON object that you submitted.
 
-Now, we'll create a group that uses this class.
+Now, you can create a group that uses this class.
 
 ```sh
 curl -X PUT -H 'Content-Type: application/json' \
@@ -80,7 +80,7 @@ curl -X PUT -H 'Content-Type: application/json' \
 
 Again, if you see the group object that was submitted echoed back in curl's output, then the submission worked.
 
-Now we can try to get the classification for a node.
+Now you can classify a node:
 
 ```sh
 curl http://localhost:1261/v1/classified/nodes/argon.atlanta.www.example.com
@@ -109,4 +109,4 @@ The response should be:
 ```
 
 It worked!
-As you can see, the node was classified into the `webservers` group that we created, and picked up the parameters that the group set for the `apache` class.
+As you can see, the node was classified into the `webservers` group that you created, and picked up the parameters that the group set for the `apache` class.
