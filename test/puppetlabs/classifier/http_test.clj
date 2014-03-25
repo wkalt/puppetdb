@@ -7,7 +7,7 @@
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
-            [puppetlabs.classifier.storage :refer [Storage]]))
+            [puppetlabs.classifier.storage :as storage :refer [Storage]]))
 
 (defn is-http-status
   "Assert an http status code"
@@ -115,7 +115,19 @@
        req))))
 
 (deftest groups
-  (let [groups [{:name "default", :environment "production", :parent "default"
+  (let [annotated {:name "annotated"
+                   :environment "production"
+                   :parent "default"
+                   :rule {:when ["=" "name" "kermit"]}
+                   :variables {}
+                   :classes {:foo {}
+                             :baz {:buzz "37"}}}
+        with-annotations (assoc annotated
+                                :deleted {:foo {:puppetlabs.classifier/deleted true}
+                                          :baz {:puppetlabs.classifier/deleted false
+                                                :buzz {:puppetlabs.classifier/deleted true
+                                                       :value "37"}}})
+        groups [{:name "default", :environment "production", :parent "default"
                  :rule {:when ["=" "nofact" "noval"]}, :classes {}, :variables {}}
                 {:name "agroup"
                  :environment "bar"
@@ -134,7 +146,8 @@
                  :parent "default"
                  :rule {:when ["=" "name" "elmo"]}
                  :classes {}
-                 :variables {}}]
+                 :variables {}}
+                annotated]
         classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
         group-map (into {} (map (juxt :name identity) groups))
         !created? (atom {})
@@ -146,6 +159,10 @@
                     [])
                   (get-groups [_]
                     groups)
+                  (annotate-group [_ group]
+                    (if (= (:name group) "annotated")
+                      with-annotations
+                      group))
                   (create-group [_ group]
                     (sc/validate Group group)
                     (is (= (get group-map (:name group)) group))
@@ -179,10 +196,17 @@
         (is (= (get group-map "agroup") (parse-string body true)))))
 
     (testing "returns all groups"
-      (let [{body :body, :as resp} (app (group-request))]
-      (app (group-request :put "bgroup" (encode (get group-map "bgroup"))))
+      (let [{body :body, :as resp} (app (group-request))
+            groups-with-annotations (map (partial storage/annotate-group mock-db) groups)]
         (is-http-status 200 resp)
-        (is (= (set groups) (-> body (decode true) set)))))
+        (is (= (set groups-with-annotations) (-> body (decode true) set)))))
+
+    (testing "returns annotated version of a group"
+      (app (group-request :put "annotated" (encode annotated)))
+      (let [{body :body, :as resp} (app (group-request :get "annotated"))
+            annotated-resp (decode body true)]
+        (is-http-status 200 resp)
+        (is (= with-annotations annotated-resp))))
 
     (testing "updates a group"
       (let [req-body (encode {:classes {:foo {:param nil}}

@@ -179,7 +179,10 @@
                 (if delta
                   {::updated (storage/update-group db (validate GroupDelta delta))}
                   (let [delta (group-delta retrieved (validate Group submitted))]
-                    {::created (storage/update-group db delta)})))]
+                    {::created (storage/update-group db delta)})))
+        ok (fn [{updated ::updated, retrieved ::retrieved}]
+             (if-let [g (or updated retrieved)]
+               (storage/annotate-group db g)))]
     (fn [req]
       (run-resource
         req
@@ -190,7 +193,7 @@
          :available-media-types ["application/json"]
          :malformed? (malformed-group? group-name uuid)
          :exists? exists?
-         :handle-ok #(or (::updated %) (::retrieved %))
+         :handle-ok ok
          :post-to-existing? submitting-overwrite?
          :can-post-to-missing? false
          :put-to-existing? (constantly false)
@@ -279,7 +282,10 @@
                                        :delete storage/delete-class})))
 
           (GET "/groups" []
-               (listing-resource db storage/get-groups))
+               (listing-resource db
+                                 (fn [db]
+                                   (->> (storage/get-groups db)
+                                     (map (partial storage/annotate-group db))))))
 
           (ANY "/groups/:group-name-or-uuid" [group-name-or-uuid]
                (group-resource db group-name-or-uuid))
