@@ -408,3 +408,38 @@
                                      WHERE class_name = ? AND parameter = ?"
                                      "changed-class" "used-param"])]
         (is (false? (:deleted param-row)))))))
+
+(deftest ^:database group-annotations
+  (let [rocket-class {:name "rocket", :environment "space", :parameters {:stages "1"}}
+        rocket-class-no-stages (assoc rocket-class :parameters {})
+        payload-class {:name "payload", :environment "space", :parameters {}}
+        avionics-class {:name "avionics", :environment "space", :parameters {:log "/dev/null"}}
+        spaceship {:name "spaceship", :environment "space", :parent "default"
+                   :rule {:when ["=" "foo" "foo"]}, :variables {}
+                   :classes {:rocket {:stages "3"}
+                             :avionics {:log "/var/log/avionics-data"}
+                             :payload {}}}]
+
+    (synchronize-classes db [payload-class avionics-class rocket-class])
+    (create-group db spaceship)
+    (synchronize-classes db [rocket-class-no-stages])
+
+    (testing "group references to deleted classes and parameters are annotated as such"
+      (let [spaceship' (->> (get-group-by-name db "spaceship")
+                         (annotate-group db))]
+        (is (= (:deleted spaceship')
+               {:payload {:puppetlabs.classifier/deleted true}
+                :avionics {:puppetlabs.classifier/deleted true
+                           :log {:puppetlabs.classifier/deleted true
+                                 :value "/var/log/avionics-data"}}
+                :rocket {:puppetlabs.classifier/deleted false
+                         :stages {:puppetlabs.classifier/deleted true
+                                  :value "3"}}}))
+        (is (= spaceship (dissoc spaceship' :id, :deleted)))))
+
+    (testing "the annotated version of groups without references to deleted classes and parameters are identical to the regular old group"
+      (synchronize-classes db [payload-class avionics-class rocket-class])
+      (let [annotated-spaceship (-> (get-group-by-name db "spaceship")
+                                  (->> (annotate-group db))
+                                  (dissoc :id))]
+        (is (= spaceship annotated-spaceship))))))

@@ -20,10 +20,15 @@ Each group object contains the following keys:
 * `rule`: an object with a single key, "when", whose value is a boolean condition on node facts.
           See the "Rule Condition Grammar" section below for more information on how this condition must be structured.
 * `classes`: an object that defines both the classes consumed by nodes in this group and any non-default values for their parameters.
-             The keys of the object are the class names (strings), and the values are more objects mapping between the parameter name (a string) and the value set by the group (which could be any sort of JSON value).
-             If the group does not set any parameters for a class, the object under that class's name will be empty.
+             The keys of the object are the class names, and the values are objects describing the parameters.
+             The parameter objects' keys are parameter names, and the values are what the group sets for that parameter (always a string).
+* `deleted`: an object similar the `classes` object that shows which classes and class parameters set by the group have since been deleted from Puppet.
+             If none of the group's classes or parameters have been deleted, this key will not be present, so checking the presence of this key is an easy way to check whether the group has references that need updating.
+             The keys of this object are class names, and the values are further objects.
+             These secondary objects always contain the `puppetlabs.classifier/deleted` key, whose value is a boolean indicating whether the entire class has been deleted from Puppet.
+             The other keys of these objects are parameter names, and the other values are objects that always contain two keys: `puppetlabs.classifier/deleted`, mapping to a boolean indicating whether the specific class parameter has been deleted from Puppet; and `value`, mapping to the string value set by the group for this parameter (the value is duplicated for convenience, as it also appears in the `classes` object).
 * `variables`: an object that defines the values of any top-level variables set by the group.
-               The object is a mapping between variable names (strings) and their values, which can be any JSON value.
+               The object is a mapping between variable names and their values (which can be any JSON value).
 
 Here is an example of group object:
 
@@ -38,13 +43,47 @@ Here is an example of group object:
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
-          "keepalive_timeout": 5
+          "keepalive_timeout": "5"
         }
       },
       "variables": {
         "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"]
       }
     }
+
+Here is an example of a group object that refers to some classes and parameters that have been deleted from Puppet:
+
+    {
+      "name": "Spaceship",
+      "environment": "space",
+      "parent": "default",
+      "rule": {
+        "when": ["=", "is_spaceship", "true"]
+      },
+      "classes": {
+        "payload": {
+          "type": "cubesat",
+          "count": "8",
+          "mass": "10.64"
+        },
+        "rocket": {
+          "stages": "3"
+        }
+      },
+      "deleted": {
+        "payload": {"puppetlabs.classifier/deleted": true},
+        "rocket": {
+          "puppetlabs.classifier/deleted": false,
+          "stages": {
+            "puppetlabs.classifier/deleted": true,
+            "value": "3"
+          }
+        }
+      },
+      "variables": {}
+    }
+
+The entire `payload` class has been deleted, since its deleted parameters object's `puppetlabs.classifier/deleted` key maps to `true`, in contrast to the `rocket` class, which has only had its `stages` parameter deleted.
 
 ##### Rule Condition Grammar
 

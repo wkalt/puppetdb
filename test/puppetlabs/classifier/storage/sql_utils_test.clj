@@ -64,3 +64,16 @@
               {:white 1 :blues [16 17] :green 7}
               {:white 1 :blues [18 19] :green 8}]
              (aggregate-column :blue :blues rows))))))
+
+(deftest seq-param-expansion
+  (testing "expand-seq-params expands sequential parameters with appropriate
+           placeholder while ignoring other parameters"
+    (is (= ["SELECT * FROM kerjiggers WHERE version = ? AND name IN (?,?,?) AND manufacturer IN (?,?,?,?)"
+            "2.0.0"
+            "doohickey" "jobby" "thingie"
+            "US Robotics" "Omnicorp" "Cyberdyne Systems" "Morgan Industries"]
+           (expand-seq-params
+             ["SELECT * FROM kerjiggers WHERE version = ? AND name IN ? AND manufacturer IN ?"
+              "2.0.0"
+              ["doohickey" "jobby" "thingie"]
+              ["US Robotics" "Omnicorp" "Cyberdyne Systems" "Morgan Industries"]])))))
