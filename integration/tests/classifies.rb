@@ -2,7 +2,7 @@ require 'httparty'
 
 test_name "puppet retrieves a static classification"
 
-# TODO Reset classifier state
+clear_and_restart_classifier(database)
 
 testdir = master.tmpdir('test_classifies')
 
@@ -19,6 +19,7 @@ master_opts = {
   'master' => {
     'node_terminus' => 'classifier',
     'manifest' => "#{testdir}/site.pp",
+    'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
     'verbose' => true,
     'debug' => true,

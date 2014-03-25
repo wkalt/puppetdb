@@ -2,6 +2,8 @@ require 'httparty'
 
 test_name "puppet understands parameters from classification"
 
+clear_and_restart_classifier(database)
+
 testdir = master.tmpdir('test_fields')
 
 on master, "mkdir -p #{testdir}/environments/production/manifests"
@@ -29,6 +31,7 @@ master_opts = {
     'node_terminus' => 'classifier',
     'environmentpath' => "#{testdir}/environments",
     'rest_authconfig' => "#{testdir}/auth.conf",
+    'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
     'verbose' => true,
     'debug' => true,

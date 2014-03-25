@@ -381,7 +381,7 @@ module ClassifierExtensions
   end
 
   def sleep_until_stopped(host)
-    curl_with_retries("stop classifier", host, "http://localhost:CLASSIFIER_PORT", 7)
+    curl_with_retries("stop classifier", host, "http://localhost:#{CLASSIFIER_PORT}", 7)
   end
 
   def restart_classifier(host)
