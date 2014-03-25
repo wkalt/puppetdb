@@ -218,13 +218,10 @@
                          (concat [(group->classification group)]
                                  (map group->classification ancestors)))))
           classes (->> class8ns
-                    (mapcat #(-> % :classes keys))
-                    set)
-          parameters (->> class8ns
                        (map :classes)
                        (apply merge))
           environments (set (map :environment class8ns))
-          variables (apply merge (map :variables class8ns))]
+          parameters (apply merge (map :variables class8ns))]
       (when-not (= (count environments) 1)
         (log/warn "Node" node-name "is classified into groups"
                   group-names
@@ -233,8 +230,7 @@
              :groups group-names
              :classes classes
              :parameters parameters
-             :environment (first environments)
-             :variables variables))))
+             :environment (first environments)))))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
