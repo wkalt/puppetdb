@@ -10,5 +10,5 @@ def location_for(place, fake_version = nil)
   end
 end
 
-gem "puppet", *location_for(ENV['PUPPET_LOCATION'] || '~> 3.0')
+gem "puppet", *location_for(ENV['PUPPET_LOCATION'] || '>= 3.5')
 gem "rspec", "~> 2.14.0"
