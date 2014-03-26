@@ -383,10 +383,12 @@
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
-                 :allowed-methods [:get]
+                 :allowed-methods [:get :post]
                  :available-media-types ["application/json"]
                  :exists? true
-                 :handle-ok (classify-node db node-name)))
+                 :handle-ok (classify-node db node-name)
+                 :new? false
+                 :respond-with-entity? true))
 
           (ANY "/update-classes" []
                (resource

@@ -305,6 +305,36 @@
                (:classes classification)))
         (is (= {:dothings "yes"} (:parameters classification)))))))
 
+(deftest ^:acceptance fact-classification
+  (let [base-url (base-url test-config)]
+    (testing "classify a static group with one class"
+      (let [class-resp (http/put (str base-url "/v1/environments/staging/classes/riscybusiness")
+                                 {:content-type :json
+                                  :body (json/generate-string {:parameters {}
+                                                               :environment "staging"})})
+            group {:name "risc-group"
+                   :id (UUID/randomUUID)
+                   :classes {:riscybusiness {}}
+                   :environment "staging"
+                   :parent root-group-uuid
+                   :rule {:when ["=" "name" "factnode"]}
+                   :variables {:riscisgood "yes"}}
+            group-resp (http/put (str base-url "/v1/groups/" (:id group))
+                                 {:content-type :json
+                                  :body (json/generate-string group)
+                                  :throw-entire-message? true})
+            classification (-> (http/post (str base-url "/v1/classified/nodes/factnode")
+                                          {:accept :json
+                                           :body (json/generate-string {:architecture "alpha"})})
+                             :body
+                             (json/parse-string true))]
+        (is (= 201 (:status class-resp)))
+        (is (= 201 (:status group-resp)))
+        (is (= [(str (:id group))] (:groups classification)))
+        (is (= {:riscybusiness {}}
+               (:classes classification)))
+        (is (= {:riscisgood "yes"} (:parameters classification)))))))
+
 (deftest ^:acceptance update-resources
   (let [base-url (base-url test-config)
         aclass {:name "aclass"
