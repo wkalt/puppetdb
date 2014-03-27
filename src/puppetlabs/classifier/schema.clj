@@ -7,6 +7,11 @@
 
 (def Node {:name String})
 
+(def SubmittedNode
+  {:name String
+   :facts {sc/Keyword sc/Any}
+   :trusted {sc/Keyword sc/Any}})
+
 (def Environment {:name String})
 
 (def PuppetClass ; so named to avoid clashing with java.lang.Class

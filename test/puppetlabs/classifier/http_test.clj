@@ -307,6 +307,30 @@
       (let [response (app (class-request :delete "test" "myclass"))]
         (is-http-status 204 response)))))
 
+(defn classification-request
+  ([] (classification-request :get nil nil))
+  ([method node-name] (classification-request method node-name nil))
+  ([method node-name body]
+   (let [req (request method (str "/v1/classified/nodes" (if node-name (str "/" node-name))))]
+     (if body
+       (mock/body req body)
+       req))))
+
+(deftest classification
+  (let [mock-db (reify Storage
+                  (get-rules [_]
+                    [])
+                  (get-group [_ _]
+                    nil)
+                  (get-ancestors [_ _]
+                    nil))
+        app (app {:db mock-db})]
+    (testing "facts submitted via POST pass the schema"
+      (let [facts {:name "qwkeju" :values {:a "b"}}
+            trusted {:certname "abcdefg"}
+            response (app (classification-request :post "qwkeju"))]
+        (is-http-status 200 response)))))
+
 (deftest errors
   (let [mock-db (reify Storage
                   (get-group [_ _]
