@@ -128,27 +128,62 @@
 ;; Liberator Group Resource Decisions & Actions
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn handle-malformed-group
+  "Checks the context for signs that a malformed group has been submitted;
+  namely if there's a malformed UUID or if the id in the request's body differs
+  from that in the request's URI. If none of these signs are found, pass the
+  buck up to `handle-malformed`."
+  [ctx]
+  (let [{malformed-uuid ::malformed-uuid
+         submitted-id ::submitted-id
+         uri-id ::uri-id} ctx]
+    (cond
+      malformed-uuid
+      {:kind "malformed-uuid"
+       :msg (str "The group id in the request's URI is not a valid UUID")
+       :details malformed-uuid}
+
+      (and submitted-id uri-id)
+      {:kind "conflicting-ids"
+       :msg (str "The group id submitted in the request body differs from the id"
+                 " present in the URL's request.")
+       :details {:submitted submitted-id, :fromUrl uri-id}}
+
+      :otherwise (handle-malformed ctx))))
+
+(defn convert-uuids
+  "Takes a raw group representation straight from JSON decoding, and coerces
+  fields that should be uuids into uuids so that it meets the Group schema."
+  [{:keys [id parent] :as group}]
+  (merge group
+         (if (and id (uuid? id)) {:id (UUID/fromString id)})
+         (if (and parent (uuid? parent)) {:parent (UUID/fromString parent)})))
+
 (defn malformed-group?
-  "Given a group name and a uuid (only one of which need be non-nil), produces
-  a function that takes one argument (the liberator context) and parses the body
-  of the request in the context if said body is non-empty, as with
-  `parse-if-body`. After parsing, merge in the group name and default attribute
-  values and stick the result in the context under the ::submitted-group key."
-  [group-name uuid]
+  "Given a group uuid, produces a function that takes one argument (the
+  liberator context) and parses the body of the request in the context if said
+  body is non-empty, as with `parse-if-body`. After parsing, merge in the group
+  name and default attribute values and stick the result in the context under
+  the ::submitted-group key."
+  [uuid]
   (fn [ctx]
-    (let [parse-result (parse-if-body ctx)]
-      ;; matches when parse-if-body successfully parsed a body
-      (if (and (vector? parse-result) (not (first parse-result)))
-        (let [{data ::data} (second parse-result)
-              group (merge {:environment "production", :variables {}}
-                           (if group-name
-                             (assoc data :name group-name)
-                             (assoc data :id uuid)))]
-          (condp = (get-in ctx [:request :request-method])
-            :put [false {::submitted-group group}]
-            :post [false {::delta group}]))
-        ;; else (either no body, or a malformed one)
-        parse-result))))
+    (if-not (uuid? uuid)
+      [true {::malformed-uuid uuid, :representation {:media-type "application/json"}}]
+      (let [parse-result (parse-if-body ctx)]
+        ;; matches when parse-if-body successfully parsed a body
+        (if (and (vector? parse-result) (false? (first parse-result)))
+          (let [{{id :id :as data} ::data} (second parse-result)
+                group (merge {:environment "production", :variables {}}
+                             {:id uuid}
+                             (convert-uuids data))]
+            (if (and uuid id (not= (str uuid) (str id)))
+              [true {::submitted-id id, ::uri-id uuid
+                     :representation {:media-type "application/json"}}]
+              (condp = (get-in ctx [:request :request-method])
+                :put [false {::submitted-group group}]
+                :post [false {::delta group}])))
+          ;; else (either no body, or a malformed one)
+          parse-result)))))
 
 (defn- submitting-overwrite?
   [{retrieved ::retrieved, submitted ::submitted-group, delta ::delta
@@ -164,30 +199,33 @@
     :otherwise false))
 
 (defn group-resource
-  [db group-name-or-uuid]
-  (let [uuid (if (uuid? group-name-or-uuid) (UUID/fromString group-name-or-uuid))
-        group-name (if-not uuid group-name-or-uuid)
+  [db uuid-str]
+  (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
         exists? (fn [_]
                   (if-let [g (storage/get-group db uuid)]
                     {::retrieved g}))
         delete! (fn [_] (storage/delete-group db uuid))
         post! (fn [{delta ::delta, submitted ::submitted-group, retrieved ::retrieved}]
-                (if delta
+                (cond
+                  delta
                   {::updated (storage/update-group db (validate GroupDelta delta))}
+
+                  (= submitted retrieved)
+                  nil
+
+                  :else
                   (let [delta (group-delta retrieved (validate Group submitted))]
-                    {::created (storage/update-group db delta)})))
+                    {::created (storage/update-group db (validate GroupDelta delta))})))
         ok (fn [{updated ::updated, retrieved ::retrieved}]
              (if-let [g (or updated retrieved)]
                (storage/annotate-group db g)))]
     (fn [req]
       (run-resource
         req
-        {:allowed-methods (if uuid
-                            [:post :get :delete]
-                            [:put :post :get :delete])
+        {:allowed-methods [:put :post :get :delete]
          :respond-with-entity? (not= (:request-method req) :delete)
          :available-media-types ["application/json"]
-         :malformed? (malformed-group? group-name uuid)
+         :malformed? (malformed-group? uuid)
          :exists? exists?
          :handle-ok ok
          :post-to-existing? submitting-overwrite?
@@ -199,7 +237,7 @@
          :new? ::created
          :handle-created ::created
          :delete! delete!
-         :handle-malformed handle-malformed}))))
+         :handle-malformed handle-malformed-group}))))
 
 ;; Classification
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -283,8 +321,8 @@
                                    (->> (storage/get-groups db)
                                      (map (partial storage/annotate-group db))))))
 
-          (ANY "/groups/:group-name-or-uuid" [group-name-or-uuid]
-               (group-resource db group-name-or-uuid))
+          (ANY "/groups/:uuid" [uuid]
+               (group-resource db uuid))
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
