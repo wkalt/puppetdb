@@ -430,7 +430,7 @@
                                                ["SELECT name FROM classes
                                                 WHERE name IN ? AND deleted = true" class-names]))
                            (map (comp keyword :name))))
-        marked-params (if-not (empty? class-names)
+        marked-params (if-not (or (empty? class-names) (empty? param-names))
                         (->> (jdbc/query
                                db
                                (expand-seq-params

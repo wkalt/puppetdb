@@ -409,6 +409,19 @@
                                      "changed-class" "used-param"])]
         (is (false? (:deleted param-row)))))))
 
+(deftest ^:database annotation-class-with-no-params
+  (let [simple-class {:name "simple", :environment "production", :parameters {}}
+        simple-group {:environment "production"
+                      :name "simple"
+                      :classes {:simple {}}
+                      :variables {}
+                      :parent "default"
+                      :rule {:when ["=" "something" "somethingelse"]}}]
+    (synchronize-classes db [simple-class])
+    (create-group db simple-group)
+    (testing "annotation works for a class with no parameters"
+      (annotate-group db (get-group-by-name db "simple")))))
+
 (deftest ^:database group-annotations
   (let [rocket-class {:name "rocket", :environment "space", :parameters {:stages "1"}}
         rocket-class-no-stages (assoc rocket-class :parameters {})
