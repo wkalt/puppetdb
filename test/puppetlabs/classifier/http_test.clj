@@ -301,8 +301,7 @@
         (is-http-status 204 response)))))
 
 (deftest errors
-  (let [incomplete-group {:classes ["foo" "bar" "baz"]}
-        mock-db (reify Storage
+  (let [mock-db (reify Storage
                   (get-group [_ _]
                     nil)
                   (create-group [_ group]
@@ -317,10 +316,19 @@
         (is (= 400 status))
         (is (= #{:kind :msg :details}) (-> error keys set))
         (is (= "malformed-uuid" (:kind error)))
+        (is (= (:details error) "not-a-uuid")))
+
+      (let [{:keys [status body]} (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                                         (mock/body (encode {:parent "not-a-uuid"}))))
+            error (decode body true)]
+        (is (= 400 status))
+        (is (= #{:kind :msg :details}) (-> error keys set))
+        (is (= "malformed-uuid" (:kind error)))
         (is (= (:details error) "not-a-uuid"))))
 
     (testing "requests that don't match schema get a structured 400 response."
-      (let [resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+      (let [incomplete-group {:classes ["foo" "bar" "baz"]}
+            resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
                         (mock/body (encode incomplete-group))))
             error (decode (:body resp) true)]
         (is-http-status 400 resp)

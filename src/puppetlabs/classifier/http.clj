@@ -30,6 +30,13 @@
   [data _]
   (json/encode data))
 
+(defn- err-with-rep
+  "Necessary when returning errors early in liberator's decision chain (e.g.
+  from `malformed?`) because it doesn't know how to render error responses until
+  the `media-type-available?` decision has been executed"
+  [err]
+  (assoc err :representation {:media-type "application/json"}))
+
 (defn handle-malformed
   [ctx]
   {:kind "malformed-request"
@@ -49,8 +56,7 @@
       [false {::data data}]
       true)
     (catch JsonParseException e
-      [true {::error e, ::request-body body
-             :representation {:media-type "application/json"}}])))
+      [true (err-with-rep {::error e, ::request-body body})])))
 
 (defn parse-if-body
   "If the request in ctx has a non-empty body, tries to parse it with
@@ -135,6 +141,7 @@
   buck up to `handle-malformed`."
   [ctx]
   (let [{malformed-uuid ::malformed-uuid
+         malformed-parent-uuid ::malformed-parent-uuid
          submitted-id ::submitted-id
          uri-id ::uri-id} ctx]
     (cond
@@ -142,6 +149,11 @@
       {:kind "malformed-uuid"
        :msg (str "The group id in the request's URI is not a valid UUID")
        :details malformed-uuid}
+
+      malformed-parent-uuid
+      {:kind "malformed-uuid"
+       :msg (str "The group's parent id is not a valid UUID")
+       :details malformed-parent-uuid}
 
       (and submitted-id uri-id)
       {:kind "conflicting-ids"
@@ -167,23 +179,26 @@
   the ::submitted-group key."
   [uuid]
   (fn [ctx]
-    (if-not (uuid? uuid)
-      [true {::malformed-uuid uuid, :representation {:media-type "application/json"}}]
-      (let [parse-result (parse-if-body ctx)]
-        ;; matches when parse-if-body successfully parsed a body
-        (if (and (vector? parse-result) (false? (first parse-result)))
-          (let [{{id :id :as data} ::data} (second parse-result)
-                group (merge {:environment "production", :variables {}}
-                             {:id uuid}
-                             (convert-uuids data))]
-            (if (and uuid id (not= (str uuid) (str id)))
-              [true {::submitted-id id, ::uri-id uuid
-                     :representation {:media-type "application/json"}}]
-              (condp = (get-in ctx [:request :request-method])
-                :put [false {::submitted-group group}]
-                :post [false {::delta group}])))
-          ;; else (either no body, or a malformed one)
-          parse-result)))))
+    (let [parse-result (parse-if-body ctx)]
+      ;; matches when parse-if-body successfully parsed a body
+      (if (and (vector? parse-result) (false? (first parse-result)))
+        (let [{{id :id :as data} ::data} (second parse-result)
+              {:keys [parent] :as group} (merge {:environment "production", :variables {}}
+                                                {:id uuid}
+                                                (convert-uuids data))]
+          (cond
+            (and uuid id (not= (str uuid) (str id)))
+            [true (err-with-rep {::submitted-id id, ::uri-id uuid})]
+
+            (and (contains? group :parent) (not (uuid? parent)))
+            [true (err-with-rep {::malformed-parent-uuid parent})]
+
+            :else
+            (condp = (get-in ctx [:request :request-method])
+              :put [false {::submitted-group group}]
+              :post [false {::delta group}])))
+        ;; else (either no body, or a malformed one)
+        parse-result))))
 
 (defn- submitting-overwrite?
   [{retrieved ::retrieved, submitted ::submitted-group, delta ::delta
@@ -225,7 +240,9 @@
         {:allowed-methods [:put :post :get :delete]
          :respond-with-entity? (not= (:request-method req) :delete)
          :available-media-types ["application/json"]
-         :malformed? (malformed-group? uuid)
+         :malformed? (if-not (uuid? uuid)
+                       (err-with-rep {::malformed-uuid uuid})
+                       (malformed-group? uuid))
          :exists? exists?
          :handle-ok ok
          :post-to-existing? submitting-overwrite?
