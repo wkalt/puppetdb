@@ -113,13 +113,6 @@
     (conj (mapcat (partial flatten-tree-with f) children)
           (f group))))
 
-(defn uuid?
-  [x]
-  (boolean (or (instance? UUID x)
-               (try (UUID/fromString x)
-                 (catch IllegalArgumentException _
-                   nil)))))
-
 (defn ->uuid
   "Attempts to convert `x` to a java.util.UUID, returning nil if the conversion
   fails."
@@ -128,6 +121,8 @@
     (instance? UUID x) x
     (string? x) (try (UUID/fromString x) (catch IllegalArgumentException _ nil))
     :otherwise nil))
+
+(def uuid? (comp boolean ->uuid))
 
 (defn relative-complements-by-key
   "Given two sorted sequences and a key function, give each of the relative
