@@ -247,8 +247,8 @@
   (fn [ctx]
     (let [node {:name node-name}
           rules (storage/get-rules db)
-          group-names (class8n/matching-groups node rules)
-          class8ns (for [gn group-names]
+          group-ids (class8n/matching-groups node rules)
+          class8ns (for [gn group-ids]
                      (let [group (storage/get-group db gn)
                            ancestors (storage/get-ancestors db group)]
                        (class8n/collapse-to-inherited
@@ -261,10 +261,10 @@
           parameters (apply merge (map :variables class8ns))]
       (when-not (= (count environments) 1)
         (log/warn "Node" node-name "is classified into groups"
-                  group-names
+                  group-ids
                   "with inconsistent environments" environments))
       (assoc node
-             :groups group-names
+             :groups group-ids
              :classes classes
              :parameters parameters
              :environment (first environments)))))

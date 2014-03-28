@@ -2,13 +2,15 @@
   (:require [clojure.test :refer :all]
             schema.test
             [puppetlabs.classifier.classification :refer :all]
-            [puppetlabs.classifier.schema :refer [group->classification]]))
+            [puppetlabs.classifier.schema :refer [group->classification]]
+            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]])
+  (:import java.util.UUID))
 
 (use-fixtures :once schema.test/validate-schemas)
 
 (defn base-group
   [name]
-  {:name name, :environment "production", :parent "root"
+  {:name name, :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
    :rule {:when ["=" "foo" "bar"]}, :variables {}})
 
 (defn vec->tree

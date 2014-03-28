@@ -8,8 +8,8 @@
             [schema.core :as sc]))
 
 (sc/defn matching-groups :- [String]
-  "Given a node and the set of rules to apply, find the names of all groups
-  the node is classified into."
+  "Given a node and the set of rules to apply, return the ids of all groups the
+  node is classified into."
   [node :- Node, rules :- [Rule]]
   (->> rules
        (map (partial rules/apply-rule node))
