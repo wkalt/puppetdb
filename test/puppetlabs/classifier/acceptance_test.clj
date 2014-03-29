@@ -6,8 +6,10 @@
             [clj-http.client :as http]
             [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
             [schema.test]
-            [puppetlabs.classifier.util :refer [merge-and-clean]]
-            [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]])
+            [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]]
+            [puppetlabs.classifier.http :refer [convert-uuids]]
+            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
+            [puppetlabs.classifier.util :refer [merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
            java.util.regex.Pattern
            java.util.UUID))
@@ -123,7 +125,7 @@
       (let [resp (quiet-put (str base-url "/v1/environments/production/classes/foo"))]
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp))))
-      (let [resp (quiet-put (str base-url "/v1/groups/test-group"))]
+      (let [resp (quiet-put (str base-url "/v1/groups/" (UUID/randomUUID)))]
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp)))))))
 
@@ -133,54 +135,54 @@
                :id (UUID/randomUUID)
                :environment "production"
                :rule {:when ["=" "foo" "foo"]}
-               :parent "default"
-               :classes {}}]
-    (testing "trying to create a group by specifying id in URI causes a 405"
-      (let [{:keys [status]} (http/put (str base-url "/v1/groups/" (:id group))
-                                       {:throw-exceptions false
-                                        :content-type :json
-                                        :body (json/encode group)})]
-        (is (= 405 status))))
-    (let [stored-group (-> (http/put (str base-url "/v1/groups/" (:name group))
-                                     {:content-type :json, :body (json/encode (dissoc group :id))})
-                         :body
-                         (json/decode true))
-          group-uuid-url (str base-url "/v1/groups/" (:id stored-group))]
-      (testing "can retrieve a group by giving its UUID"
-        (let [{:keys [body status]} (http/get group-uuid-url)]
-          (is (= 200 status))
-          (is (= stored-group (json/decode body true)))))
+               :parent root-group-uuid
+               :classes {}
+               :variables {}}
+        group-uri (str base-url "/v1/groups/" (:id group))]
+
+    (http/put group-uri {:content-type :json, :body (json/encode group)})
+
+    (testing "can retrieve a group by giving its UUID"
+      (let [{:keys [body status]} (http/get group-uri)]
+        (is (= 200 status))
+        (is (= group (convert-uuids (json/decode body true))))))
+
       (testing "can update a group through its UUID URI"
         (let [delta {:variables {:spirit_animal "turtle"}}
-              {:keys [body status]} (http/post group-uuid-url
+              {:keys [body status]} (http/post group-uri
                                                {:content-type :json, :body (json/encode delta)})]
           (is (= 200 status))
-          (is (= (merge stored-group delta) (json/decode body true)))))
+          (is (= (merge group delta) (convert-uuids (json/decode body true))))))
+
       (testing "can delete a group through its UUID URI"
-        (let [{:keys [body status]} (http/delete group-uuid-url)]
+        (let [{:keys [body status]} (http/delete group-uri)]
           (is (= 204 status))
-          (is (empty? body)))))))
+          (is (empty? body))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
         node-url #(str base-url "/v1/nodes/" %)
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
         nodes (for [nn node-names] {:name nn})
-        group {:name "bargroup", :environment "production", :parent "default"
-               :rule {:when ["=" "foo" "foo"]}, :classes {}}]
+        group {:name "bargroup", :id (UUID/randomUUID), :environment "production",
+               :parent root-group-uuid, :rule {:when ["=" "foo" "foo"]}, :classes {}}]
+
+    (doseq [nn node-names] (http/put (node-url nn)))
+
     (testing "lists all resource instances"
-      (http/put (str base-url "/v1/groups/" (:name group))
-                {:content-type :json, :body (json/encode group)})
-      (doseq [nn node-names] (http/put (node-url nn)))
       (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
         (is (= 200 (:status resp)))
         (is (= (set nodes) (set (json/decode body true))))))
+
+    (http/put (str base-url "/v1/groups/" (:id group))
+              {:content-type :json, :body (json/encode group)})
+
     (testing "deletes resource instances"
       (doseq [nn node-names]
         (is (= 204 (:status (http/delete (node-url nn))))))
       (let [{body :body} (http/get (str base-url "/v1/nodes"))]
         (is (empty? (json/decode body))))
-      (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:name group))))))
+      (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
                           (json/decode true)
@@ -191,11 +193,15 @@
 (deftest ^:acceptance hierarchy-validation
   (let [base-url (base-url test-config)]
     (testing "validates group when creating"
-      (let [group-with-missing-class {:parent "default", :rule {:when ["=" "foo" "foo"]}
-                                      :classes {:missing {}}}
-            {:keys [body status]} (http/put (str base-url "/v1/groups/with-missing")
+      (let [id (UUID/randomUUID)
+            with-missing-class {:name "with-missing"
+                                :id id
+                                :parent root-group-uuid
+                                :rule {:when ["=" "foo" "foo"]}
+                                :classes {:missing {}}}
+            {:keys [body status]} (http/put (str base-url "/v1/groups/" id)
                                             {:content-type :json
-                                             :body (json/encode group-with-missing-class)
+                                             :body (json/encode with-missing-class)
                                              :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
         (is (= 412 status))
@@ -208,23 +214,37 @@
 
     (testing "validates children when changing an ancestor's parent link"
       (let [high-class {:name "high", :parameters {:refined "surely"}}
-            top-group {:name "top", :environment "production", :parent "default"
-                       :classes {:high {:refined "most"}}, :rule {:when ["=" "foo" "foo"]}}
-            side-group {:name "side", :environment "production", :parent "default"
-                        :classes {}, :rule {:when ["=" "foo" "foo"]}}
-            bottom-group {:name "bottom", :environment "staging", :parent "side"
-                          :classes {}, :rule {:when ["=" "foo" "foo"]}}]
+            top-group {:name "top"
+                       :id (UUID/randomUUID)
+                       :parent root-group-uuid
+                       :environment "production",
+                       :classes {:high {:refined "most"}}
+                       :rule {:when ["=" "foo" "foo"]}}
+            side-group {:name "side"
+                        :id (UUID/randomUUID)
+                        :parent root-group-uuid
+                        :environment "production"
+                        :classes {}
+                        :rule {:when ["=" "foo" "foo"]}}
+            bottom-group {:name "bottom"
+                          :id (UUID/randomUUID)
+                          :parent (:id side-group)
+                          :environment "staging"
+                          :classes {}
+                          :rule {:when ["=" "foo" "foo"]}}]
+
         (http/put (str base-url "/v1/environments/production/classes/" (:name high-class))
                   {:content-type :json, :body (json/encode high-class)})
-        (http/put (str base-url "/v1/groups/" (:name top-group))
+        (http/put (str base-url "/v1/groups/" (:id top-group))
                   {:content-type :json, :body (json/encode top-group)})
-        (http/put (str base-url "/v1/groups/" (:name side-group))
+        (http/put (str base-url "/v1/groups/" (:id side-group))
                   {:content-type :json, :body (json/encode side-group)})
-        (http/put (str base-url "/v1/groups/" (:name bottom-group))
+        (http/put (str base-url "/v1/groups/" (:id bottom-group))
                   {:content-type :json, :body (json/encode bottom-group)})
-        (let [{:keys [body status]} (http/post (str base-url "/v1/groups/" (:name side-group))
+
+        (let [{:keys [body status]} (http/post (str base-url "/v1/groups/" (:id side-group))
                                                {:content-type :json,
-                                                :body (json/encode {:parent "top"})
+                                                :body (json/encode {:parent (:id top-group)})
                                                 :throw-exceptions false})
               {:keys [details kind msg]} (json/decode body true)]
           (is (= 409 status))
@@ -241,21 +261,22 @@
                                  {:content-type :json
                                   :body (json/generate-string {:parameters {:verbose "true"}
                                                                :environment "staging"})})
-            group-resp (http/put (str base-url "/v1/groups/test-group")
-                                 {:content-type :json
-                                  :body (json/generate-string
-                                          {:classes {:noisyclass {:verbose "false"}}
-                                           :environment "staging"
-                                           :parent "default"
-                                           :rule {:when ["=" "name" "thenode"]}
-                                           :variables {:dothings "yes"}})})
+            group {:name "test-group"
+                   :id (UUID/randomUUID)
+                   :environment "staging"
+                   :parent root-group-uuid
+                   :rule {:when ["=" "name" "thenode"]}
+                   :classes {:noisyclass {:verbose "false"}}
+                   :variables {:dothings "yes"}}
+            group-resp (http/put (str base-url "/v1/groups/" (:id group))
+                                 {:content-type :json, :body (json/generate-string group)})
             classification (-> (http/get (str base-url "/v1/classified/nodes/thenode")
                                          {:accept :json})
                              :body
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
-        (is (= ["test-group"] (:groups classification)))
+        (is (= [(str (:id group))] (:groups classification)))
         (is (= {:noisyclass {:verbose "false"}}
                (:classes classification)))
         (is (= {:dothings "yes"} (:parameters classification)))))))
@@ -267,7 +288,8 @@
                 :parameters {:log "warn", :verbose "false", :loglocation "/var/log"}}
         bclass {:name "bclass", :environment "production", :parameters {}}
         group {:name "agroup"
-               :parent "default"
+               :id (UUID/randomUUID)
+               :parent root-group-uuid
                :environment "production"
                :rule {:when ["=" "name" "gary"]}
                :classes {:aclass {:verbose "true" :log "info"}
@@ -282,11 +304,12 @@
             :let [class-with-env (assoc class :environment env)]]
       (http/put (str base-url "/v1/environments/" env "/classes/" (:name class-with-env))
                 {:content-type :json, :body (json/encode class-with-env)}))
-    (http/put (str base-url "/v1/groups/agroup")
+    (http/put (str base-url (str "/v1/groups/" (:id group)))
               {:content-type :json, :body (json/encode group)})
 
     (testing "can update group rule, classes, class parameters, variables, and environment."
-      (let [group-delta {:environment new-env
+      (let [group-delta {:id (:id group)
+                         :environment new-env
                          :rule {:when ["=" "name" "jerry"]}
                          :classes {:aclass {:log "fatal"
                                             :verbose nil
@@ -296,21 +319,21 @@
                                      :ntp_servers ["0.us.pool.ntp.org"]}}
             group' (merge-and-clean group group-delta)
             update-resp (http/post
-                          (str base-url "/v1/groups/agroup")
+                          (str base-url (str "/v1/groups/" (:id group)))
                           {:content-type :json, :body (json/encode group-delta)})
             {:keys [body status]} update-resp]
         (is (= 200 status))
-        (is (= group' (-> body (json/decode true) (dissoc :id))))))
+        (is (= group' (-> body (json/decode true) convert-uuids)))))
 
     (testing "when trying to update a group's environment fails, a useful error message is produced"
       (let [new-env "dne"
-            group-env-delta {:environment new-env}
-            update-resp (http/post (str base-url "/v1/groups/agroup")
-                                   {:content-type :json
-                                    :body (json/encode group-env-delta)
-                                    :throw-exceptions false})
-            {:keys [body status]} update-resp
+            group-env-delta {:id (:id group), :environment new-env}
+            {:keys [body status]} (http/post (str base-url "/v1/groups/" (:id group))
+                                             {:content-type :json
+                                              :body (json/encode group-env-delta)
+                                              :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
+
         (is (= 412 status))
         (is (re-find #"not exist in the group's environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
@@ -327,24 +350,22 @@
         (is (= 200 status))
         (is (= {:name "space"} (json/decode body true)))))
 
-    (let [group {:name "groucho", :environment "space"
-                 :parent "default", :rule {:when ["=" "x" "y"]}
-                 :classes {}, :variables {}}
-          group-url (str base-url "/v1/groups/" (:name group))
+    (let [group {:name "groucho", :id (UUID/randomUUID)
+                 :environment "space", :parent root-group-uuid
+                 :rule {:when ["=" "x" "y"]}, :classes {}, :variables {}}
+          group-url (str base-url "/v1/groups/" (:id group))
           put-opts {:content-type :json, :body (json/encode group)}]
       (http/put group-url put-opts)
+
       (testing "can PUT to an existing group and get a 200 back with the group"
-        (let [{:keys [body status]} (http/put group-url put-opts)]
+        (let [{:keys [body status]} (http/put group-url (assoc put-opts :throw-exceptions false))]
           (is (= 200 status))
-          (is (= group (-> body
-                         (json/decode true)
-                         (dissoc :id))))))
-      (testing "a PUT that overwrites an existing group that \"creates\" the new one"
+          (is (= group (-> body (json/decode true) convert-uuids)))))
+
+      (testing "a PUT that overwrites an existing group then \"creates\" the new one"
         (let [diff-group (assoc group :environment "spaaaaace")
               {:keys [body status]} (http/put group-url (assoc put-opts
                                                                :body (json/encode diff-group)
                                                                :throw-exceptions false))]
           (is (= 201 status))
-          (is (= diff-group (-> body
-                              (json/decode true)
-                              (dissoc :id)))))))))
+          (is (= diff-group (-> body (json/decode true) convert-uuids))))))))
