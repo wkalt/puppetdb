@@ -30,6 +30,12 @@
   [data _]
   (json/encode data))
 
+(defn handle-404
+  [ctx]
+  {:kind "not-found"
+   :msg "The resource could not be found."
+   :details (get-in ctx [:request :uri])})
+
 (defn- err-with-rep
   "Necessary when returning errors early in liberator's decision chain (e.g.
   from `malformed?`) because it doesn't know how to render error responses until
@@ -113,6 +119,7 @@
          :respond-with-entity? (not= (:request-method request) :delete)
          :available-media-types ["application/json"]
          :exists? exists?
+         :handle-not-found handle-404
          :handle-ok ::retrieved
          :put-to-existing? (partial not-if-exists request)
          :put! put!
@@ -244,6 +251,7 @@
                        (err-with-rep {::malformed-uuid uuid})
                        (malformed-group? uuid))
          :exists? exists?
+         :handle-not-found handle-404
          :handle-ok ok
          :post-to-existing? submitting-overwrite?
          :can-post-to-missing? false

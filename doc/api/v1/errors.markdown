@@ -4,7 +4,7 @@ title: "Node Classifier 1.0 >> API >> v1 >> Errors
 
 ## Error Response Description
 
-Every non-500 error response from the classifier service will be a JSON response.
+Every error response from the classifier service will be a JSON response.
 Each such response will be an object containing the following keys:
 
 * `kind`: A string classifying the error.
@@ -26,3 +26,8 @@ A `database-corruption` 500 response occurs when a resource that is retrived fro
 This is probably just a bug in the software, but it could potentially be indicative of either genuine corruption in the database or that a third party has gone and changed values directly in the database.
 The `msg` of such a response contains a description of how the database corruption could have occured.
 The `details` will contain `retrieved`, `schema`, and `error` keys, which have the resource as retrieved, the schema it should conform to, and a description of how it fails to conform to that schema as the respective values.
+
+Any endpoint where a resource identifier is supplied can produce a 404 Not Found error response if a resource with that identifier could not be found.
+All such 404 Not Found error responses have the same form.
+The `kind` will be "not-found", the `msg` will be "The resource could not be found.", and the `details` key will contain the URI of the request that resulted in this response.
+
