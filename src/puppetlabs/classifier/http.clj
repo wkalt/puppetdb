@@ -168,13 +168,9 @@
   (let [uuid (if (uuid? group-name-or-uuid) (UUID/fromString group-name-or-uuid))
         group-name (if-not uuid group-name-or-uuid)
         exists? (fn [_]
-                  (if-let [g (if uuid
-                                 (storage/get-group-by-id db uuid)
-                                 (storage/get-group-by-name db group-name))]
+                  (if-let [g (storage/get-group db uuid)]
                     {::retrieved g}))
-        delete! (fn [_] (if uuid
-                          (storage/delete-group-by-id db uuid)
-                          (storage/delete-group-by-name db group-name)))
+        delete! (fn [_] (storage/delete-group db uuid))
         post! (fn [{delta ::delta, submitted ::submitted-group, retrieved ::retrieved}]
                 (if delta
                   {::updated (storage/update-group db (validate GroupDelta delta))}
@@ -215,7 +211,7 @@
           rules (storage/get-rules db)
           group-names (class8n/matching-groups node rules)
           class8ns (for [gn group-names]
-                     (let [group (storage/get-group-by-name db gn)
+                     (let [group (storage/get-group db gn)
                            ancestors (storage/get-ancestors db group)]
                        (class8n/collapse-to-inherited
                          (concat [(group->classification group)]

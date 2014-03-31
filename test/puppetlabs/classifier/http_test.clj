@@ -152,7 +152,7 @@
         group-map (into {} (map (juxt :name identity) groups))
         !created? (atom {})
         mock-db (reify Storage
-                  (get-group-by-name [_ group-name]
+                  (get-group [_ group-name]
                     (if (get @!created? group-name)
                       (get group-map group-name)))
                   (get-ancestors [_ group]
@@ -170,7 +170,7 @@
                     (get group-map (:name group)))
                   (update-group [_ _]
                     (get group-map "agroupprime"))
-                  (delete-group-by-name [_ group-name]
+                  (delete-group [_ group-name]
                     (is (contains? group-map group-name))
                     '(1))
                   (get-classes [_ _] classes))
@@ -280,7 +280,7 @@
 (deftest errors
   (let [incomplete-group {:classes ["foo" "bar" "baz"]}
         mock-db (reify Storage
-                  (get-group-by-name [_ _]
+                  (get-group [_ _]
                     nil)
                   (create-group [_ group]
                     (sc/validate Group group))
