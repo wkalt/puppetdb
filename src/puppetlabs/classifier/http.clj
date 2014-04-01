@@ -175,8 +175,8 @@
   fields that should be uuids into uuids so that it meets the Group schema."
   [{:keys [id parent] :as group}]
   (merge group
-         (if (and id (uuid? id)) {:id (UUID/fromString id)})
-         (if (and parent (uuid? parent)) {:parent (UUID/fromString parent)})))
+         (if (and (uuid? id) (string? id)) {:id (UUID/fromString id)})
+         (if (and (uuid? parent) (string? parent)) {:parent (UUID/fromString parent)})))
 
 (defn malformed-group?
   "Given a group uuid, produces a function that takes one argument (the
