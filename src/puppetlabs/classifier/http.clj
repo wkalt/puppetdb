@@ -183,7 +183,7 @@
   liberator context) and parses the body of the request in the context if said
   body is non-empty, as with `parse-if-body`. After parsing, merge in the group
   name and default attribute values and stick the result in the context under
-  the ::submitted-group key."
+  the ::submitted key."
   [uuid]
   (fn [ctx]
     (let [parse-result (parse-if-body ctx)]
@@ -201,24 +201,43 @@
             [true (err-with-rep {::malformed-parent-uuid parent})]
 
             :else
-            (condp = (get-in ctx [:request :request-method])
-              :put [false {::submitted-group group}]
-              :post [false {::delta group}])))
+            [false {::submitted group}]))
         ;; else (either no body, or a malformed one)
         parse-result))))
 
+(def ^:private group-uri-regex
+  #"^/v1/groups/\p{XDigit}{8}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{12}")
+
+(defn post-delta-update?
+  "A predicate that determines whether the context represents a POST request to
+  update a group with a delta."
+  [{submitted ::submitted, {method :request-method, uri :uri} :request}]
+  (boolean (and (= method :post)
+                submitted
+                (re-find group-uri-regex uri))))
+
+(defn post-new-group?
+  "A predicate that determines whether the context represents a POST request to
+  create a new group."
+  [{submitted ::submitted, {method :request-method, uri :uri} :request}]
+  (boolean (and (= method :post)
+                submitted
+                (= uri "/v1/groups"))))
+
+(defn put-group?
+  "A predicate that determines whether the context represents a PUT request to
+  submit a group wholesale."
+  [{submitted ::submitted, {method :request-method, uri :uri} :request}]
+  (boolean (and (= method :put)
+                submitted
+                (re-find group-uri-regex uri))))
+
 (defn- submitting-overwrite?
-  [{retrieved ::retrieved, submitted ::submitted-group, delta ::delta
-    {method :request-method} :request}]
+  [{:as ctx, retrieved ::retrieved, submitted ::submitted}]
   (cond
-    (and (= method :post) retrieved delta)
-    true
-
-    (and (= method :put), retrieved, submitted
-         (not= submitted (dissoc retrieved :id)))
-    true
-
-    :otherwise false))
+    (and (post-delta-update? ctx) retrieved) true
+    (and (put-group? ctx) retrieved (not= submitted retrieved)) true
+    :else false))
 
 (defn group-resource
   [db uuid-str]
@@ -227,15 +246,15 @@
                   (if-let [g (storage/get-group db uuid)]
                     {::retrieved g}))
         delete! (fn [_] (storage/delete-group db uuid))
-        post! (fn [{delta ::delta, submitted ::submitted-group, retrieved ::retrieved}]
+        post! (fn [{:as ctx, submitted ::submitted, retrieved ::retrieved}]
                 (cond
-                  delta
-                  {::updated (storage/update-group db (validate GroupDelta delta))}
+                  (post-delta-update? ctx)
+                  {::updated (storage/update-group db (validate GroupDelta submitted))}
 
-                  (= submitted retrieved)
-                  nil
+                  (and (put-group? ctx) (not retrieved))
+                  {::created (storage/create-group db (validate Group submitted))}
 
-                  :else
+                  (and (put-group? ctx) retrieved (not= submitted retrieved))
                   (let [delta (group-delta retrieved (validate Group submitted))]
                     {::created (storage/update-group db (validate GroupDelta delta))})))
         ok (fn [{updated ::updated, retrieved ::retrieved}]
@@ -256,7 +275,7 @@
          :post-to-existing? submitting-overwrite?
          :can-post-to-missing? false
          :put-to-existing? (constantly false)
-         :put! (fn [{submitted ::submitted-group}]
+         :put! (fn [{submitted ::submitted}]
                  {::created (storage/create-group db (validate Group submitted))})
          :post! post!
          :new? ::created
