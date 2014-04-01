@@ -421,16 +421,17 @@
 
 (deftest ^:database annotation-class-with-no-params
   (let [simple-class {:name "simple", :environment "production", :parameters {}}
-        simple-group {:environment "production"
-                      :name "simple"
+        simple-group {:name "simple"
+                      :id (UUID/randomUUID)
+                      :environment "production"
+                      :parent root-group-uuid
                       :classes {:simple {}}
                       :variables {}
-                      :parent "default"
                       :rule {:when ["=" "something" "somethingelse"]}}]
     (synchronize-classes db [simple-class])
     (create-group db simple-group)
     (testing "annotation works for a class with no parameters"
-      (annotate-group db (get-group-by-name db "simple")))))
+      (annotate-group db (get-group db (:id simple-group))))))
 
 (deftest ^:database group-annotations
   (let [rocket-class {:name "rocket", :environment "space", :parameters {:stages "1"}}
