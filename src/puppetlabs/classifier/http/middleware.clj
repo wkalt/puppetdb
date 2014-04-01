@@ -82,11 +82,6 @@
   (-> data
     remove-passing-arguments, remove-credentialed-arguments, remove-argument-annotations))
 
-(defn argument-schema?
-  [schema]
-  (and (sequential? schema)
-       (every? (partial re-find #"^arg\d+") (map #(-> % (:name "") str) schema))))
-
 (defn explain-schema-exception-data
   [{:keys [value schema error]}]
   {:value value
@@ -101,7 +96,7 @@
   (let [explained (explain-schema-exception-data data)
         {schema-exp :schema
          error-exp :error
-         value :value} (if (argument-schema? schema)
+         value :value} (if (sequential? schema)
                          (simplify-argument-schema-exception-data explained)
                          explained)]
     {:schema schema-exp
