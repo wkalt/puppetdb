@@ -3,4 +3,5 @@ source ENV['GEM_SOURCE'] || 'https://rubygems.org'
 group :test do
   gem 'beaker', :git => "git://github.com/puppetlabs/beaker.git"
   gem 'httparty'
+  gem 'uuidtools'
 end
