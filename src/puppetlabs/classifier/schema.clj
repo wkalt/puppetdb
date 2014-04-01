@@ -30,7 +30,7 @@
 
 (def Rule
   {:when RuleCondition
-   (sc/optional-key :group-name) String
+   (sc/optional-key :group-id) java.util.UUID
    (sc/optional-key :id) Number})
 
 (def Classification
@@ -41,8 +41,8 @@
 (def Group
   (assoc Classification
          :name String
-         (sc/optional-key :id) java.util.UUID
-         :parent String
+         :id java.util.UUID
+         :parent java.util.UUID
          :rule Rule
          :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}))
 
@@ -61,17 +61,14 @@
          :errors (sc/maybe {sc/Keyword sc/Any})
          :children #{(sc/recursive #'ValidationNode)}))
 
-(def ^:private GroupDeltaShared
-  {(sc/optional-key :environment) String
-   (sc/optional-key :parent) String
+(def GroupDelta
+  {:id java.util.UUID
+   (sc/optional-key :name) String
+   (sc/optional-key :environment) String
+   (sc/optional-key :parent) java.util.UUID
    (sc/optional-key :rule) Rule
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
-
-(def GroupDelta
-  (sc/either
-    (assoc GroupDeltaShared :id java.util.UUID)
-    (assoc GroupDeltaShared :name String)))
 
 ;; Utilities for creating & converting maps conforming to the Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -83,6 +80,6 @@
 (sc/defn group-delta :- GroupDelta
   "Returns a delta that, when applied, turns group `g` into group `h`"
   [g :- Group, h :- Group]
-  (-> (map-delta g h)
-    (assoc :name (:name g))
-    (dissoc :id)))
+  {:pre [(= (:id g) (:id h))]}
+  (assoc (map-delta g h)
+         :id (:id g)))

@@ -7,7 +7,9 @@
             [schema.core :as sc]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [Storage]]))
+            [puppetlabs.classifier.storage :as storage :refer [Storage]]
+            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]])
+  (:import java.util.UUID))
 
 (defn is-http-status
   "Assert an http status code"
@@ -116,8 +118,9 @@
 
 (deftest groups
   (let [annotated {:name "annotated"
+                   :id (UUID/randomUUID)
                    :environment "production"
-                   :parent "default"
+                   :parent root-group-uuid
                    :rule {:when ["=" "name" "kermit"]}
                    :variables {}
                    :classes {:foo {}
@@ -127,34 +130,50 @@
                                           :baz {:puppetlabs.classifier/deleted false
                                                 :buzz {:puppetlabs.classifier/deleted true
                                                        :value "37"}}})
-        groups [{:name "default", :environment "production", :parent "default"
-                 :rule {:when ["=" "nofact" "noval"]}, :classes {}, :variables {}}
-                {:name "agroup"
+        agroup-id (UUID/randomUUID)
+        agroup {:name "agroup"
+                :id agroup-id
+                :environment "bar"
+                :parent root-group-uuid
+                :rule {:when ["=" "name" "bert"]}
+                :classes {:foo {:param "override"}}
+                :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
+        agroup' {:name "agroupprime"
+                 :id agroup-id
                  :environment "bar"
-                 :parent "default"
-                 :rule {:when ["=" "name" "bert"]}
-                 :classes {:foo {:param "override"}}
-                 :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
-                {:name "agroupprime"
-                 :environment "bar"
-                 :parent "default"
+                 :parent root-group-uuid
                  :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
-                {:name "bgroup"
-                 :environment "quux"
-                 :parent "default"
-                 :rule {:when ["=" "name" "elmo"]}
+        groups [agroup
+                annotated
+                {:name "default"
+                 :id root-group-uuid
+                 :environment "production"
+                 :parent root-group-uuid
+                 :rule {:when ["=" "nofact" "noval"]}
                  :classes {}
                  :variables {}}
-                annotated]
+                {:name "bgroup"
+                 :id (UUID/randomUUID)
+                 :environment "quux"
+                 :parent root-group-uuid
+                 :rule {:when ["=" "name" "elmo"]}
+                 :classes {}
+                 :variables {}}]
         classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
-        group-map (into {} (map (juxt :name identity) groups))
+        groups-by-name (into {} (map (juxt :name identity) groups))
+        groups-by-id (into {} (map (juxt :id identity) groups))
+        !agroup-updated? (atom false)
         !created? (atom {})
         mock-db (reify Storage
-                  (get-group-by-name [_ group-name]
-                    (if (get @!created? group-name)
-                      (get group-map group-name)))
+                  (get-group [_ id]
+                    (cond
+                      (and (= id agroup-id) (get @!created? id))
+                      (if @!agroup-updated? agroup' agroup)
+
+                      (get @!created? id)
+                      (get groups-by-id id)))
                   (get-ancestors [_ group]
                     [])
                   (get-groups [_]
@@ -165,58 +184,62 @@
                       group))
                   (create-group [_ group]
                     (sc/validate Group group)
-                    (is (= (get group-map (:name group)) group))
-                    (swap! !created? assoc (:name group) true)
-                    (get group-map (:name group)))
+                    (is (= (get groups-by-id (:id group)) group))
+                    (swap! !created? assoc (:id group) true)
+                    (get groups-by-id (:id group)))
                   (update-group [_ _]
-                    (get group-map "agroupprime"))
-                  (delete-group-by-name [_ group-name]
-                    (is (contains? group-map group-name))
+                    (reset! !agroup-updated? true)
+                    agroup')
+                  (delete-group [_ id]
+                    (is (contains? groups-by-id id))
                     '(1))
                   (get-classes [_ _] classes))
         app (app {:db mock-db})]
 
     (testing "returns 404 to a GET request if the group doesn't exist"
-      (let [{status :status} (app (group-request :get "agroupthatdoesntexist"))]
+      (let [{status :status} (app (group-request :get (UUID/randomUUID)))]
         (is (= 404 status))))
 
     (testing "returns 404 to a POST request if the group doesn't exist"
-      (let [{status :status} (app (group-request :post "dne" (encode {:environment "staging"})))]
+      (let [{status :status} (app (group-request :post, (UUID/randomUUID)
+                                                 (encode {:environment "staging"})))]
         (is (= 404 status))))
 
     (testing "tells storage to create the group and returns 201 with the group object in its body"
-      (let [req-body (encode (get group-map "agroup"))
-            {body :body, :as resp} (app (group-request :put "agroup" req-body))]
+      (let [{body :body, :as resp} (app (group-request :put (:id agroup) (encode agroup)))]
         (is-http-status 201 resp)
-        (is (= (get group-map "agroup") (decode body true)))))
+        (is (= agroup (-> body (decode true) convert-uuids)))))
 
     (testing "returns the group if it exists"
-      (let [{body :body, :as resp} (app (group-request :get "agroup"))]
+      (let [{body :body, :as resp} (app (group-request :get (:id agroup)))]
         (is-http-status 200 resp)
-        (is (= (get group-map "agroup") (parse-string body true)))))
+        (is (= agroup (-> body (decode true) convert-uuids)))))
 
     (testing "returns all groups"
       (let [{body :body, :as resp} (app (group-request))
             groups-with-annotations (map (partial storage/annotate-group mock-db) groups)]
         (is-http-status 200 resp)
-        (is (= (set groups-with-annotations) (-> body (decode true) set)))))
+        (is (= (set groups-with-annotations) (-> body
+                                               (decode true)
+                                               (->> (map convert-uuids))
+                                               set)))))
 
     (testing "returns annotated version of a group"
-      (app (group-request :put "annotated" (encode annotated)))
-      (let [{body :body, :as resp} (app (group-request :get "annotated"))
-            annotated-resp (decode body true)]
+      (app (group-request :put (:id annotated) (encode annotated)))
+      (let [{body :body, :as resp} (app (group-request :get (:id annotated)))]
         (is-http-status 200 resp)
-        (is (= with-annotations annotated-resp))))
+        (is (= with-annotations (-> body (decode true) convert-uuids)))))
 
     (testing "updates a group"
       (let [req-body (encode {:classes {:foo {:param nil}}
                               :variables {:ntp_servers nil}})
-            {body :body, :as resp} (app (group-request :post "agroup" req-body))]
+            {body :body, :as resp} (app (group-request :post (:id agroup') req-body))]
         (is-http-status 200 resp)
-        (is (= (get group-map "agroupprime") (decode body true)))))
+        (is (= agroup' (-> body (decode true) convert-uuids)))))
 
     (testing "tells storage to delete the group and returns 204"
-      (let [response (app (group-request :delete "agroup"))]
+      (let [agroup (get groups-by-name "agroup")
+            response (app (group-request :delete (:id agroup)))]
         (is-http-status 204 response)))))
 
 (defn class-request
@@ -278,30 +301,49 @@
         (is-http-status 204 response)))))
 
 (deftest errors
-  (let [incomplete-group {:classes ["foo" "bar" "baz"]}
-        mock-db (reify Storage
-                  (get-group-by-name [_ _]
+  (let [mock-db (reify Storage
+                  (get-group [_ _]
                     nil)
                   (create-group [_ group]
                     (sc/validate Group group))
                   (get-ancestors [_ _]
                     []))
         app (app {:db mock-db})]
-    (testing "bad requests get a structured 400 response."
-      (let [resp (app (-> (request :put "/v1/groups/badgroup")
-                        (mock/body (encode incomplete-group))))]
+
+    (testing "requests with a malformed UUID get a structured 400 response"
+      (let [{:keys [status body]} (app (request :get "/v1/groups/not-a-uuid"))
+            error (decode body true)]
+        (is (= 400 status))
+        (is (= #{:kind :msg :details}) (-> error keys set))
+        (is (= "malformed-uuid" (:kind error)))
+        (is (= (:details error) "not-a-uuid")))
+
+      (let [{:keys [status body]} (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                                         (mock/body (encode {:parent "not-a-uuid"}))))
+            error (decode body true)]
+        (is (= 400 status))
+        (is (= #{:kind :msg :details}) (-> error keys set))
+        (is (= "malformed-uuid" (:kind error)))
+        (is (= (:details error) "not-a-uuid"))))
+
+    (testing "requests that don't match schema get a structured 400 response."
+      (let [incomplete-group {:classes ["foo" "bar" "baz"]}
+            resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                        (mock/body (encode incomplete-group))))
+            error (decode (:body resp) true)]
         (is-http-status 400 resp)
         (is (= "application/json" (get-in resp [:headers "Content-Type"])))
-        (is (= #{:kind :msg :details}
-               (-> (decode (:body resp) true)
-                 keys set)))))
+        (is (= #{:kind :msg :details} (-> error keys set)))
+        (is (= "schema-violation" (:kind error)))
+        (is (= #{:submitted :schema :error} (-> error :details keys set)))))
+
     (testing "malformed requests get a structured 400 response."
       (let [bad-body "{\"haha\": [\"i'm broken\"})"
-            resp (app (-> (request :put "/v1/groups/badgroup")
+            resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
                         (mock/body bad-body)))
-            err (decode (:body resp) true)]
+            error (decode (:body resp) true)]
         (is-http-status 400 resp)
         (is (re-find #"application/json" (get-in resp [:headers "Content-Type"])))
-        (is (= #{:kind :msg :details} (-> err keys set)))
-        (is (= bad-body (-> err :details :body)))
-        (is (re-find #"Unexpected close marker" (-> err :details :error)))))))
+        (is (= #{:kind :msg :details} (-> error keys set)))
+        (is (= bad-body (-> error :details :body)))
+        (is (re-find #"Unexpected close marker" (-> error :details :error)))))))

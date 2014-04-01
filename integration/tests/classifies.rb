@@ -1,4 +1,5 @@
 require 'httparty'
+require 'uuidtools'
 
 test_name "puppet retrieves a static classification"
 
@@ -59,9 +60,17 @@ match_nodes = ["or", *node_names.map{|nn| ["=", "name", nn]}]
 
 step "Create group"
 
-group_response = Classifier.put(
-  "/v1/groups/foogroup",
-  :body => {"classes" => {"foo" => {}}, "parent" => "default", "rule" => {"when" => match_nodes}}.to_json)
+RootUUID = "00000000-0000-4000-8000-000000000000"
+group_uuid = UUIDTools::UUID.random_create()
+group = {
+  "name" => "foogroup",
+  "classes" => {"foo" => {}},
+  "parent" => RootUUID.to_str,
+  "rule" => {"when" => match_nodes}
+}
+
+group_response = Classifier.put("/v1/groups/#{group_uuid.to_str}",
+                                :body => group.to_json)
 assert(group_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the group: " +
        "HTTP Code #{group_response.code}: #{group_response.message}")

@@ -4,6 +4,13 @@ title: "Node Classifier 1.0 >> API >> v1 >> Groups"
 
 ## Groups Endpoint
 
+### General Error Responses
+
+Whenever the request path contains a group's ID, which must be a UUID, there is the potential for that ID to be malformed.
+If it is, a 400 Bad Request response will be returned to the client.
+The body of the response will contain a JSON error object as described in the [errors documentation](errors.markdown).
+The object's `kind` key will be "malformed-uuid", and the value of the `details` key will be a string containing the malformed UUID as received by the server.
+
 ### GET /v1/groups
 
 Retrieve a list of all groups in the classifier.
@@ -14,9 +21,11 @@ The response is a JSON array of group objects.
 Each group object contains the following keys:
 
 * `name`: the name of the group (a string).
+* `id`: the group's ID, which is a string containing a type-4 (random) UUID.
 * `environment`: the name of the group's environment (a string), which indirectly defines what classes will be available for the group to set, and will be the environment that nodes classified into this group will run under.
-* `parent`: the name of the group's parent (a string).
+* `parent`: the ID of the group's parent (a string).
             A group is not permitted to be its own parent, unless it is the default group (which is the root of the hierarchy).
+            Note that the root group always has the lowest-possible random UUID, `00000000-0000-4000-8000-000000000000`.
 * `rule`: an object with a single key, "when", whose value is a boolean condition on node facts.
           See the "Rule Condition Grammar" section below for more information on how this condition must be structured.
 * `classes`: an object that defines both the classes consumed by nodes in this group and any non-default values for their parameters.
@@ -34,8 +43,9 @@ Here is an example of group object:
 
     {
       "name": "Webservers",
+      "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "production",
-      "parent": "default",
+      "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
         "when": ["and", ["~", "certname", "www"],
                         [">=", "total_ram", "512"]]
@@ -55,8 +65,9 @@ Here is an example of a group object that refers to some classes and parameters 
 
     {
       "name": "Spaceship",
+      "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "space",
-      "parent": "default",
+      "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
         "when": ["=", "is_spaceship", "true"]
       },
@@ -104,9 +115,9 @@ If the value cannot be coerced to a number, then the numeric operation will alwa
 
 No error responses specific to this request are expected.
 
-### GET /v1/groups/\<name-or-uuid\>
+### GET /v1/groups/:id
 
-Retrieve the group with the given name or UUID.
+Retrieve the group with the given ID.
 
 #### Response Format
 
@@ -114,21 +125,22 @@ If the group exists, the response will be a group object as described above, in 
 
 #### Error Responses
 
-If the group with the given name cannot be found, a 404 Not Found response with an empty body will be returned.
+In addition to the general `malformed-uuid` error response, if the group with the given ID cannot be found, a 404 Not Found response with an empty body will be returned.
 
-### PUT /v1/groups/\<name\>
+### PUT /v1/groups/:id
 
-Create a new group with the given name.
-Note that any existing group with that name will be silently overwritten!
+Create a new group with the given ID.
+Note that any existing group with that ID will be silently overwritten!
 
 #### Request Format
 
 The request body must be a JSON object describing the group to be created.
 The keys allowed in this object are:
 
+* `name`: the name of the group (required).
 * `environment`: the name of the group's environment.
                  This key is optional; if it's not provided, the default environment (`production`) will be used.
-* `parent`: the name of the group's parent (required).
+* `parent`: the ID of the group's parent (required).
 * `rule`: an object describing the conditions that must be met for a node to be classified into this group (required).
           The only key allowed in the object is `when`, and its value should be a representation of a boolean expression on node facts as described in the "Rule Condition Grammar" section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
@@ -143,10 +155,16 @@ The keys allowed in this object are:
 #### Response Format
 
 If the group was successfully created, the server will return a 201 Created response, with the group object (in JSON) as the body.
-If the group already exists and is identical (modulo UUID) to the submitted group, then the server will take no action and return a 200 OK response, again with the group object as the body.
+If the group already exists and is identical to the submitted group, then the server will take no action and return a 200 OK response, again with the group object as the body.
 See above for a complete description of a group object.
 
 #### Error Responses
+
+In addition to the general `malformed-uuid` error response, this endpoint can also generate other error responses.
+
+If the request's group object contains the `id` key and its value differs from the UUID specified in the request's path, a 400 Bad Request response will be returned.
+The response will contain an error object as described in the [errors documentation](errors.markdown).
+The object's `kind` key will be "conflicting-ids", and its `details` key will itself contain an object with two keys: `submitted`, which contains the ID submitted in the request's body, and `fromUrl`, which contains the ID taken from the request's URL.
 
 If any of the required keys are missing, or if the values of any of the defined keys do not match the required type, or if the request's body could not be parsed as JSON, the server will return a 400 Bad Request response.
 In all cases, the response will contain an error object as described in the [errors documentation](errors.markdown).
@@ -155,7 +173,7 @@ In the last case, the `kind` key will be "malformed-request" and the `details` k
 
 If any classes or class parameters inherited by the group from its parents do not exist in the submitted group's environment, the server will return a 409 Conflict response.
 If any classes or class parameters defined by the submitted group do not exist in the group's environment, but all inherited classes and parameters are satisfied, then the server will return a 412 Precondition Failed response.
-In both cases the response will contain the usual error object, whose `kind` key will be "missing-referents" and whose `msg` key will describe the number of missing referents.
+In both cases the response will contain the usual [error object](errors.markdown), whose `kind` key will be "missing-referents" and whose `msg` key will describe the number of missing referents.
 The `details` key of the error object will be an array of objects, where each object describes a single missing referent, and has the following keys:
 
 * `kind`: "missing-class" or "missing-parameter", depending on whether the entire class doesn't exist, or the class just doesn't have the parameter.
@@ -165,9 +183,9 @@ The `details` key of the error object will be an array of objects, where each ob
            Note that this may not be the group where the class or parameter was defined due to inheritance.
 * `defined-by`: The name of the group that defines the class or parameter.
 
-### POST /v1/groups/\<name-or-uuid\>
+### POST /v1/groups/:id
 
-Update the environment, rule, classes, class parameters, and variables of the group with the given name or UUID by submitting a group delta.
+Update the environment, rule, classes, class parameters, and variables of the group with the given ID by submitting a group delta.
 
 #### Request Format
 
@@ -180,8 +198,9 @@ For example, given the following group:
 
     {
       "name": "Webservers",
+      "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "staging",
-      "parent": "default",
+      "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
         "when": ["~", "certname", "www"]
       },
@@ -203,7 +222,7 @@ and this delta:
 
     {
       "environment": "production",
-      "parent": "PubliclyReachable",
+      "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
       "classes": {
         "apache": {
           "serveradmin": "roy@reynholm.co.uk",
@@ -220,8 +239,9 @@ then the value of the group after the update will be:
 
     {
       "name": "Webservers",
+      "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "production",
-      "parent": "PubliclyReachable",
+      "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
       "rule": {
         "when": ["~", "certname", "www"]
       },
@@ -238,9 +258,15 @@ then the value of the group after the update will be:
 
 Note how the "ssl" class was deleted because its entire object was mapped to null, whereas for the "apache" class only the "keepalive_timeout" parameter was deleted.
 
-### DELETE /v1/groups/\<name-or-uuid\>
+#### Error Responses
 
-Delete the group with the given name or UUID.
+This operation can return any of the errors that could be returned to a PUT request on this same endpoint.
+See [above](#response-format) for details on these responses.
+Note that 409 and 412 responses to POST requests can include errors that were caused by the group's children, but a group being created with a PUT request cannot have any children.
+
+### DELETE /v1/groups/:id
+
+Delete the group with the given ID.
 
 #### Response Format
 
@@ -248,6 +274,4 @@ If the delete operation is successful, then a 204 No Content with an empty body 
 
 #### Error Responses
 
-This operation can return any of the errors that could be returned to a PUT request on this same endpoint.
-See [above](#response-format) for details on these responses.
-Note that 409 and 412 responses to POST requests can include errors that were caused by the group's children, but a group being created with a PUT request cannot have any children.
+In addition to the general `malformed-uuid` response, if the group with the given ID does not exist, then a 404 Not Found response as described in the [errors documentation](errors.markdown) will be returned to the client.

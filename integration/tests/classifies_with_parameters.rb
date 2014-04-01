@@ -1,4 +1,5 @@
 require 'httparty'
+require 'uuidtools'
 
 test_name "puppet understands parameters from classification"
 
@@ -59,11 +60,16 @@ end
 
 match_nodes = ["or", *node_names.map{|nn| ["=", "name", nn]}]
 
+RootUUID = "00000000-0000-4000-8000-000000000000"
+group_uuid = UUIDTools::UUID.random_create()
 
-group = {"classes" => {"param_test" => {"a" => "parameterized"}},
-         "parent" => "default",
-         "variables" => {"hello" => "goodbye"},
-         "rule" => {"when" => match_nodes}}
+group = {
+  "name" => "paramgroup",
+  "classes" => {"param_test" => {"a" => "parameterized"}},
+  "parent" => RootUUID,
+  "variables" => {"hello" => "goodbye"},
+  "rule" => {"when" => match_nodes}
+}
 
 step "Run puppet"
 
@@ -76,9 +82,8 @@ with_puppet_running_on(master, master_opts, testdir) do
   step "Create group"
 
   Classifier.get("/v1/environments/production/classes")
-  group_response = Classifier.put(
-    "/v1/groups/paramgroup",
-    :body => group.to_json)
+  group_response = Classifier.put("/v1/groups/#{group_uuid}",
+                                  :body => group.to_json)
   assert(group_response.response.is_a?(Net::HTTPSuccess),
          "Received failure response when trying to create the group: " +
          "HTTP Code #{group_response.code}: #{group_response.message}")

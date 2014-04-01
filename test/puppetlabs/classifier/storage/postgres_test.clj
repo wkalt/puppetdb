@@ -76,81 +76,96 @@
     (delete-node db "test3")
     (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
 
-(defn- get-group-by-name-less-id
-  [db group-name]
-  (-> (get-group-by-name db group-name)
-    (dissoc :id)))
-
-(defn- get-groups-less-ids
-  [db]
-  (->> (get-groups db)
-    (map #(dissoc % :id))))
-
-(defn- update-group-less-id
-  [db delta]
-  (-> (update-group db delta)
-    (dissoc :id)))
-
 (deftest ^:database groups
-  (let [simplest-group {:name "simplest"
+  (let [simplest {:name "simplest"
+                  :id (UUID/randomUUID)
+                  :environment "test"
+                  :parent root-group-uuid
+                  :rule {:when ["=" "name" "foo"]}
+                  :classes {}
+                  :variables {}}
+        with-classes {:name "with-classes"
+                      :id (UUID/randomUUID)
+                      :environment "test"
+                      :parent root-group-uuid
+                      :rule {:when ["=" "name" "bar"]}
+                      :classes {:hi {:greetings "salutations"} :bye {}}
+                      :variables {}}
+        with-variables {:name "with-variables"
+                        :id (UUID/randomUUID)
                         :environment "test"
-                        :parent "default"
-                        :rule {:when ["=" "name" "foo"]}
+                        :parent root-group-uuid
+                        :rule {:when ["=" "name" "baz"]}
                         :classes {}
-                        :variables {}}
-        group-with-classes {:name "with-classes"
-                            :parent "default"
-                            :environment "test"
-                            :rule {:when ["=" "name" "bar"]}
-                            :classes {:hi {} :bye {}}
-                            :variables {}}
-        root (get-group-by-name-less-id db "default")]
-    (testing "inserts a group"
-      (create-group db simplest-group)
-      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups WHERE NOT name = ?" "default"])))))
+                        :variables {:is-a-variable "yup totes"}}
+        root (get-group db root-group-uuid)]
 
-    (testing "does not insert a group that has a UUID for the name"
-      (is (thrown? IllegalArgumentException
-                   (create-group db (assoc simplest-group :name (str (UUID/randomUUID)))))))
+    (testing "stores a group"
+      (create-group db simplest)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups WHERE NOT id = ?"
+                                           root-group-uuid])))))
 
     (testing "stores a group with multiple classes"
-      (create-class db {:name "hi" :parameters {} :environment "test"})
-      (create-class db {:name "bye" :parameters {} :environment "test"})
-      (create-group db group-with-classes)
+      (create-class db {:name "hi", :parameters {:greetings "hello"}, :environment "test"})
+      (create-class db {:name "bye", :parameters {}, :environment "test"})
+      (create-group db with-classes)
       (is (= 2 (count (jdbc/query test-db
-                                  ["SELECT * FROM groups g join group_classes gc on gc.group_name = g.name WHERE g.name = ?" "with-classes"])))))
+                                  ["SELECT * FROM groups g
+                                   JOIN group_classes gc ON gc.group_id = g.id
+                                   WHERE g.id = ?"
+                                   (:id with-classes)])))))
+
+    (testing "stores a group with variables"
+      (create-group db with-variables)
+      (is (= 1 (count (jdbc/query test-db
+                                  ["SELECT * FROM group_variables
+                                   WHERE group_id = ?"
+                                   (:id with-variables)])))))
 
     (testing "retrieves a group"
-      (is (= simplest-group (get-group-by-name-less-id db "simplest"))))
+      (is (= simplest (get-group db (:id simplest)))))
 
-    (testing "retrieves a group by UUID"
-      (let [simplest-group' (get-group-by-name db "simplest")
-            uuid-str (-> simplest-group' :id str)]
-        (is (= simplest-group' (get-group-by-id db (:id simplest-group'))))
-        (is (= simplest-group' (get-group-by-id db uuid-str)))))
+    (testing "retrieves a group with classes and parameters"
+      (is (= with-classes (get-group db (:id with-classes)))))
 
-    (testing "retrieves a group with classes"
-      (is (= group-with-classes (get-group-by-name-less-id db "with-classes"))))
+    (testing "retrieves a group with variables"
+      (is (= with-variables (get-group db (:id with-variables)))))
 
     (testing "retrieves all groups"
-      (is (= #{simplest-group group-with-classes root} (set (get-groups-less-ids db)))))
+      (is (= #{simplest with-classes with-variables root} (set (get-groups db)))))
 
     (testing "deletes a group"
-      (delete-group-by-name db "simplest")
-      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM groups WHERE name = ?" "simplest"]))))
-      (is (= 0 (count (jdbc/query test-db ["SELECT * FROM rules WHERE group_name = ?"
-                                           (:name simplest-group)])))))
+      (delete-group db (:id simplest))
+      (is (nil? (get-group db (:id simplest))))
+      (is (empty? (jdbc/query test-db ["SELECT * FROM groups WHERE id = ?"
+                                       (:id simplest)])))
+      (is (empty? (jdbc/query test-db ["SELECT * FROM rules WHERE group_id = ?"
+                                       (:id simplest)]))))
+
+    (testing "deletes a group with classes and parameters"
+      (delete-group db (:id with-classes))
+      (is (nil? (get-group db (:id with-classes))))
+      (is (empty? (jdbc/query test-db ["SELECT * FROM group_classes WHERE group_id = ?"
+                                       (:id with-classes)])))
+      (is (empty? (jdbc/query test-db ["SELECT * FROM group_class_parameters WHERE group_id = ?"
+                                       (:id with-classes)]))))
+
+    (testing "deletes a group with variables"
+      (delete-group db (:id with-variables))
+      (is (nil? (get-group db (:id with-variables))))
+      (is (empty? (jdbc/query test-db ["SELECT * FROM group_variables WHERE group_id = ?"
+                                       (:id with-variables)]))))
 
     (testing "can't delete the root group"
-      (is (thrown? IllegalArgumentException (delete-group-by-id db root-group-uuid)))
-      (is (thrown? IllegalArgumentException (delete-group-by-name db "default"))))))
+      (is (thrown? IllegalArgumentException (delete-group db root-group-uuid))))))
 
 (deftest ^:database create-missing-environments
   (let [c {:name "chrono-manipulator"
            :environment "thefuture"
            :parameters {}}
         g {:name "time-machines"
-           :parent "default"
+           :id (UUID/randomUUID)
+           :parent root-group-uuid
            :environment "rnd"
            :rule {:when ["=" "foo" "foo"]}
            :classes {}
@@ -172,11 +187,12 @@
                                    :four nil
                                    :five "default"}}
         g1 {:name "complex-group"
+            :id (UUID/randomUUID)
             :environment "test"
+            :parent root-group-uuid
             :rule {:when ["or"
                           ["=" "name" "foo"]
                           ["=" "name" "bar"]]}
-            :parent "default"
             :classes {:first {:one "one-val"
                               :two "two-val"}
                       :second {:three "three-val"
@@ -186,13 +202,14 @@
                         :cluster_index 8
                         :some_bool false}}
         g2 {:name "another-complex-group"
-            :parent "default"
+            :id (UUID/randomUUID)
             :environment "tropical"
+            :parent root-group-uuid
             :rule {:when ["=" "name" "baz"]}
             :classes {:first {:two "another-two-val"}
                       :second {:four "four-val"}}
             :variables {:island false, :rainforest true}}
-        root (get-group-by-name-less-id db "default")]
+        root (get-group db root-group-uuid)]
 
     (doseq [env envs, c [first-class second-class]]
       (create-class db (assoc c :environment env)))
@@ -200,16 +217,16 @@
     (testing "stores groups with rule, class parameters, and top-level variables"
       (create-group db g1)
       (create-group db g2)
-      (is (= g1 (get-group-by-name-less-id db (:name g1))))
-      (is (= g2 (get-group-by-name-less-id db (:name g2))))
-      (is (= #{g1 g2 root} (set (get-groups-less-ids db))))
-      (let [all-rules [(assoc (:rule root) :group-name (:name root))
-                       (assoc (:rule g1) :group-name (:name g1))
-                       (assoc (:rule g2) :group-name (:name g2))]]
+      (is (= g1 (get-group db (:id g1))))
+      (is (= g2 (get-group db (:id g2))))
+      (is (= #{g1 g2 root} (set (get-groups db))))
+      (let [all-rules [(assoc (:rule root) :group-id (:id root))
+                       (assoc (:rule g1) :group-id (:id g1))
+                       (assoc (:rule g2) :group-id (:id g2))]]
         (is (= all-rules (get-rules db)))))
 
     (testing "can update group rule, classes, class parameters, and variables"
-      (let [g1-delta {:name "complex-group"
+      (let [g1-delta {:id (:id g1)
                       :rule {:when ["and"
                                     ["=" "name" "baz"]
                                     ["=" "osfamily" "linux"]]}
@@ -223,22 +240,22 @@
                                   :cluster_size 16
                                   :spirit_animal "turtle"}}
             g1' (merge-and-clean g1 g1-delta)]
-        (is (= g1' (update-group-less-id db g1-delta)))
-        (is (= g1' (get-group-by-name-less-id db (:name g1))))))
+        (is (= g1' (update-group db g1-delta)))
+        (is (= g1' (get-group db (:id g1))))))
 
     (testing "returns nil when attempting to update unknown group"
-      (is (nil? (update-group db {:name "DNE"}))))
+      (is (nil? (update-group db {:id (UUID/randomUUID)}))))
 
     (testing "can update group environments"
-      (let [g2-env-change {:name "another-complex-group", :environment "test"}
+      (let [g2-env-change {:id (:id g2), :environment "test"}
             g2' (merge-and-clean g2 g2-env-change)]
-        (is (= g2' (update-group-less-id db g2-env-change)))
-        (is (= g2' (get-group-by-name-less-id db (:name g2))))))
+        (is (= g2' (update-group db g2-env-change)))
+        (is (= g2' (get-group db (:id g2))))))
 
     (testing "trying to update environments when the group refers to classes
              that don't exist in the new environment results in a foreign-key
              violation exception"
-      (let [g2-bad-env-change {:name "another-complex-group"
+      (let [g2-bad-env-change {:id (:id g2)
                                :environment "dne"}
             e (try+ (do
                       (update-group db g2-bad-env-change)
@@ -250,36 +267,29 @@
         (is (= (get-in e [:tree :errors] {:first nil, :second nil})))))))
 
 (deftest ^:database group-hierarchy
-  (let [blank-group-named (fn [n] {:name n, :environment "test", :rule {:when ["=" "foo" "bar"]}
-                                   :classes {}, :variables {}})
-        root (get-group-by-name-less-id db "default")
+  (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
+                                   :rule {:when ["=" "foo" "bar"]}, :classes {}, :variables {}})
+        root (get-group db root-group-uuid)
         top (-> (blank-group-named "top")
-              (assoc :parent "default"))
+              (assoc :parent root-group-uuid))
         child-1 (-> (blank-group-named "child1")
-                  (assoc :parent (:name top)))
+                  (assoc :parent (:id top)))
         child-2 (-> (blank-group-named "child2")
-                  (assoc :parent (:name top)))
+                  (assoc :parent (:id top)))
         grandchild (-> (blank-group-named "grandchild")
-                     (assoc :parent (:name child-1)))]
+                     (assoc :parent (:id child-1)))]
     (doseq [g [top child-1 child-2 grandchild]]
       (create-group db g))
 
     (testing "can retrieve the ancestors of a group up through the root"
-      (is (= [child-1 top root]
-             (->> (get-ancestors db grandchild)
-               (map #(dissoc % :id))))))
+      (is (= [child-1 top root] (get-ancestors db grandchild))))
 
     (let [tree {:group top
                 :children #{{:group child-2, :children #{}}
                             {:group child-1
-                             :children #{{:group grandchild, :children #{}}}}}}
-          retrieved-tree (->> (get-subtree db top)
-                           (prewalk (fn [x]
-                                      (if (map? x)
-                                        (dissoc x :id)
-                                        x))))]
+                             :children #{{:group grandchild, :children #{}}}}}}]
       (testing "can retrieve the subtree rooted at a particular group"
-        (is (= tree retrieved-tree))))))
+        (is (= tree (get-subtree db top)))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}
@@ -345,7 +355,7 @@
                {:name "changed-class", :environment "production"
                 :parameters {:added "1", :changed-param "2"}}]
         after-by-name (into {} (map (juxt :name identity) after))
-        referrer {:name "referrer", :environment "production", :parent "default"
+        referrer {:name "referrer", :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
                   :classes {:used-class {}, :changed-class {:used-param "hi"}}
                   :rule {:when ["=" "foo" "foo"]} , :variables {}}]
 
@@ -427,8 +437,8 @@
         rocket-class-no-stages (assoc rocket-class :parameters {})
         payload-class {:name "payload", :environment "space", :parameters {}}
         avionics-class {:name "avionics", :environment "space", :parameters {:log "/dev/null"}}
-        spaceship {:name "spaceship", :environment "space", :parent "default"
-                   :rule {:when ["=" "foo" "foo"]}, :variables {}
+        spaceship {:name "spaceship", :id (UUID/randomUUID,) :environment "space",
+                   :parent root-group-uuid, :rule {:when ["=" "foo" "foo"]}, :variables {}
                    :classes {:rocket {:stages "3"}
                              :avionics {:log "/var/log/avionics-data"}
                              :payload {}}}]
@@ -438,9 +448,9 @@
     (synchronize-classes db [rocket-class-no-stages])
 
     (testing "group references to deleted classes and parameters are annotated as such"
-      (let [spaceship' (->> (get-group-by-name db "spaceship")
+      (let [annotated (->> (get-group db (:id spaceship))
                          (annotate-group db))]
-        (is (= (:deleted spaceship')
+        (is (= (:deleted annotated)
                {:payload {:puppetlabs.classifier/deleted true}
                 :avionics {:puppetlabs.classifier/deleted true
                            :log {:puppetlabs.classifier/deleted true
@@ -448,11 +458,10 @@
                 :rocket {:puppetlabs.classifier/deleted false
                          :stages {:puppetlabs.classifier/deleted true
                                   :value "3"}}}))
-        (is (= spaceship (dissoc spaceship' :id, :deleted)))))
+        (is (= spaceship (dissoc annotated :deleted)))))
 
     (testing "the annotated version of groups without references to deleted classes and parameters are identical to the regular old group"
       (synchronize-classes db [payload-class avionics-class rocket-class])
-      (let [annotated-spaceship (-> (get-group-by-name db "spaceship")
-                                  (->> (annotate-group db))
-                                  (dissoc :id))]
-        (is (= spaceship annotated-spaceship))))))
+      (let [annotated (->> (get-group db (:id spaceship))
+                        (annotate-group db))]
+        (is (= spaceship annotated))))))

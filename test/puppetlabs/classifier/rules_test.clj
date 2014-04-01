@@ -10,7 +10,7 @@
 
 (defn is-rule-match
   [rule node]
-  (is (= (apply-rule node rule) (:group-name rule))))
+  (is (= (apply-rule node rule) (:group-id rule))))
 
 (defn is-not-rule-match
   [rule node]
@@ -21,7 +21,7 @@
     (let [foo-node {:name "foo"}
           bar-node {:name "bar"}
           rule {:when ["=" "name" "foo"]
-                :group-name "some-group"}]
+                :group-id (UUID/randomUUID)}]
       (is-rule-match rule foo-node)
       (is-not-rule-match rule bar-node))))
 
@@ -31,9 +31,9 @@
           bar-node {:name "bar.example.com"}
           baz-node {:name "foo.template.com"}
           containment-rule {:when ["~" "name" "foo"]
-                            :group-name "foos"}
+                            :group-id (UUID/randomUUID)}
           regex-rule {:when ["~" "name" "^[^.]+\\.example\\.com$"]
-                      :group-name "regex"}]
+                      :group-id (UUID/randomUUID)}]
       (testing "simple containment rules match or don't as expected"
         (is-rule-match containment-rule foo-node)
         (is-rule-match containment-rule baz-node))
@@ -55,11 +55,11 @@
                      "load" "0.8"}
           badval-node {"load" "what's a number?"}
           database-rule {:when [">=" "total_ram" (-> 6.442e9 long str)]
-                         :group-name "databases"}
+                         :group-id (UUID/randomUUID)}
           filebucket-rule {:when [">" "total_disk" (-> 5e10 long str)]
-                           :group-name "fileservers"}
-          yungins-rule {:when ["<=" "uptime" "3600"] :group-name "recently_booted"}
-          slackers-rule {:when ["<" "load" "0.1"] :group-name "underutilized"}]
+                           :group-id (UUID/randomUUID)}
+          yungins-rule {:when ["<=" "uptime" "3600"] :group-id (UUID/randomUUID)}
+          slackers-rule {:when ["<" "load" "0.1"] :group-id (UUID/randomUUID)}]
       (testing "> operator works as expected"
         (is-rule-match filebucket-rule match-node)
         (is-not-rule-match filebucket-rule miss-node))
@@ -90,11 +90,11 @@
                            [">" "holodecks" "5"]
                            ["not" [">" "warp_cores" "0"]]
                            ["=" "docking_pylons" "3"]]
-                    :group-name "DS9"}
+                    :group-id (UUID/randomUUID)}
           ncc-1701-d-rule {:when ["or"
                                   ["=" "warp_cores" "1"]
                                   ["=" "docking_pylons" "0"]]
-                           :group-name "NCC-1701-D"}]
+                           :group-id (UUID/randomUUID)}]
       (is-rule-match ds9-rule ds9-node)
       (is-not-rule-match ds9-rule ncc-1701-d-node)
       (is-rule-match ncc-1701-d-rule ncc-1701-d-node)

@@ -4,7 +4,8 @@
             [clojure.walk :refer [postwalk]]
             [schema.core :as sc]
             [puppetlabs.classifier.schema :refer [PuppetClass]]
-            [puppetlabs.classifier.util :refer :all]))
+            [puppetlabs.classifier.util :refer :all])
+  (:import java.util.UUID))
 
 (defn no-java-lang-prefixes?
   [explanation]
@@ -93,3 +94,15 @@
               [{:a "four" :b "7896"}]
               [[{:a "two" :b "sdf"} {:a "two" :b "234"}]
                [{:a "three" :b "kjher"} {:a "three" :b "123"}]]])))))
+
+(deftest uuid-handling
+  (testing "nil is not a uuid" (is (false? (uuid? nil))))
+  (testing "numbers are not UUIDs" (is (false? (uuid? 42))))
+  (testing "strings that don't have UUIDS are not UUIDs" (is (false? (uuid? (str "not-uuid")))))
+  (testing "UUID strings are UUIDs" (is (uuid? (str (UUID/randomUUID)))))
+  (testing "UUIDs are UUIDs" (is (uuid? (UUID/randomUUID))))
+
+  (testing "nil does not convert to a UUID" (is (nil? (->uuid nil))))
+  (testing "numbers do not convert to a UUID" (is (nil? (->uuid 42))))
+  (testing "UUID strings do convert to a UUID" (is (->uuid (str (UUID/randomUUID)))))
+  (testing "UUIDs do convert to a UUID" (is (->uuid (UUID/randomUUID)))))
