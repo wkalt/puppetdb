@@ -317,7 +317,7 @@
                    :classes {:riscybusiness {}}
                    :environment "staging"
                    :parent root-group-uuid
-                   :rule {:when ["=" "name" "factnode"]}
+                   :rule {:when ["=" ["facts" "architecture"] "alpha"]}
                    :variables {:riscisgood "yes"}}
             group-resp (http/put (str base-url "/v1/groups/" (:id group))
                                  {:content-type :json
@@ -325,7 +325,7 @@
                                   :throw-entire-message? true})
             classification (-> (http/post (str base-url "/v1/classified/nodes/factnode")
                                           {:accept :json
-                                           :body (json/generate-string {:architecture "alpha"})})
+                                           :body (json/generate-string {:facts {:values {:architecture "alpha"}}})})
                              :body
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
