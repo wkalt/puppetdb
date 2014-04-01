@@ -5,6 +5,13 @@
   (:import java.util.regex.Pattern
            java.util.UUID))
 
+(defn- lookup-field
+  [m ks]
+  (let [get* (fn [m k] (or (get m (keyword k)) (get m k)))]
+    (if (sequential? ks)
+      (reduce get* m ks)
+      (get* m ks))))
+
 (sc/defn match?
   [rule-condition :- RuleCondition, node]
   (let [[operator & args] rule-condition]
@@ -14,8 +21,7 @@
       "or" (boolean (some identity (map #(match? % node) args)))
       (let [[field target] args
             numeric-operator? (contains? #{"<" "<=" ">" ">="} operator)
-            node-value (let [v (or (get node (keyword field))
-                                   (get node field))]
+            node-value (let [v (lookup-field node field)]
                          (if numeric-operator? (parse-number v) v))
             target-value (if numeric-operator? (parse-number target) target)]
         (if (and node-value target-value)

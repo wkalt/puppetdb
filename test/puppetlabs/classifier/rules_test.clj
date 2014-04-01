@@ -25,6 +25,17 @@
       (is-rule-match rule foo-node)
       (is-not-rule-match rule bar-node))))
 
+(deftest structured-lookups
+  (let [red-node {:facts {:appearance {:color "red"}}}
+        blue-node {:facts {:appearance {:color "blue"}}}
+        empty-node {}
+        red? {:when ["=" ["facts" "appearance" "color"] "red"]
+              :group-id (UUID/randomUUID)}]
+    (testing "equality against a nested lookup"
+      (is-rule-match red? red-node)
+      (is-not-rule-match red? blue-node)
+      (is-not-rule-match red? empty-node))))
+
 (deftest regex-rules
   (testing "regex-based classification"
     (let [foo-node {:name "foo.example.com"}

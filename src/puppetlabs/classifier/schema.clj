@@ -30,7 +30,7 @@
      (sc/one (sc/recursive #'RuleCondition) "first-term") (sc/recursive #'RuleCondition)]
 
     [(sc/one (sc/enum "=" "~" "<" "<=" ">" ">=") "operator")
-     (sc/one String "field")
+     (sc/one (sc/either String [String]) "field")
      (sc/one String "target-value")]))
 
 (def Rule
