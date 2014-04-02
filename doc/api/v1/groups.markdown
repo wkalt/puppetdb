@@ -185,7 +185,7 @@ The `details` key of the error object will be an array of objects, where each ob
 
 ### POST /v1/groups/:id
 
-Update the environment, rule, classes, class parameters, and variables of the group with the given ID by submitting a group delta.
+Update the name, environment, parent, rule, classes, class parameters, and variables of the group with the given ID by submitting a group delta.
 
 #### Request Format
 
@@ -221,6 +221,8 @@ For example, given the following group:
 and this delta:
 
     {
+      "name": "Production Webservers",
+      "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "production",
       "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
       "classes": {
@@ -238,7 +240,7 @@ and this delta:
 then the value of the group after the update will be:
 
     {
-      "name": "Webservers",
+      "name": "Production Webservers",
       "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "production",
       "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
