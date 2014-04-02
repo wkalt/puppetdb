@@ -631,6 +631,13 @@
       (jdbc/update! db, :rules, {:match (json/generate-string (:when new-rule))}
                     (sql/where {:group_id (:id extant)})))))
 
+(defn- update-group-name
+  [db extant delta]
+  (let [new-name (:name delta)]
+    (when (and new-name (not= new-name (:name extant)))
+      (jdbc/update! db, :groups, {:name new-name}
+                    (sql/where {:id (:id delta)})))))
+
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
@@ -642,6 +649,7 @@
                           (update-group-environment t-db extant delta)
                           (update-group-parent t-db extant delta)
                           (update-group-rule t-db extant delta)
+                          (update-group-name t-db extant delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} (:id delta))))]
     (loop [retries 3]
