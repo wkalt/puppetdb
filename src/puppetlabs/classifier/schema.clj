@@ -7,6 +7,11 @@
 
 (def Node {:name String})
 
+(def SubmittedNode
+  {:name String
+   :facts {sc/Keyword sc/Any}
+   :trusted {sc/Keyword sc/Any}})
+
 (def Environment {:name String})
 
 (def PuppetClass ; so named to avoid clashing with java.lang.Class
@@ -25,7 +30,7 @@
      (sc/one (sc/recursive #'RuleCondition) "first-term") (sc/recursive #'RuleCondition)]
 
     [(sc/one (sc/enum "=" "~" "<" "<=" ">" ">=") "operator")
-     (sc/one String "field")
+     (sc/one (sc/either String [String]) "field")
      (sc/one String "target-value")]))
 
 (def Rule

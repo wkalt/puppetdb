@@ -1,4 +1,5 @@
 require 'puppet/network/http_pool'
+require 'json'
 
 class Puppet::Node::Classifier < Puppet::Indirector::Code
   def new_connection
@@ -7,14 +8,31 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
 
   def find(request)
     connection = new_connection
+    node_name = request.key
 
-    response = connection.get("/v1/classified/nodes/#{request.key}")
+    facts = Puppet::Node::Facts.indirection.find(node_name,
+                                                 :environment => request.environment)
+    facts.sanitize
+
+    trusted_data = Puppet.lookup(:trusted_information) do
+      # This block contains a default implementation for trusted
+      # information. It should only get invoked if the node is local
+      # (e.g. running puppet apply)
+      temp_node = Puppet::Node.new(node_name)
+      temp_node.parameters['clientcert'] = Puppet[:certname]
+      Puppet::Context::TrustedInformation.local(temp_node)
+    end.to_h
+
+    request_body = {"facts" => facts.to_data_hash, "trusted" => trusted_data}
+    response = connection.post("/v1/classified/nodes/#{node_name}", request_body.to_json)
 
     node = nil
     if response.is_a? Net::HTTPSuccess
-      result = PSON.parse(response.body)
-      node = Puppet::Node.from_pson(result)
+      result = JSON.parse(response.body)
+      node = Puppet::Node.from_data_hash(result)
       node.fact_merge
+    else
+      response.error!
     end
 
     node

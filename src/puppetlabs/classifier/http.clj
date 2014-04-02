@@ -13,7 +13,8 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
-                                                  group->classification Node PuppetClass]]
+                                                  group->classification Node PuppetClass
+                                                  SubmittedNode]]
             [puppetlabs.classifier.util :refer [uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID))
@@ -299,7 +300,12 @@
 (defn classify-node
   [db node-name]
   (fn [ctx]
-    (let [node {:name node-name}
+    (let [data (::data ctx {})
+          node (validate
+                 SubmittedNode
+                 {:name node-name
+                  :facts (get-in data [:facts :values] {})
+                  :trusted (:trusted data {})})
           rules (storage/get-rules db)
           group-ids (class8n/matching-groups node rules)
           class8ns (for [gn group-ids]
@@ -309,19 +315,19 @@
                          (concat [(group->classification group)]
                                  (map group->classification ancestors)))))
           classes (->> class8ns
-                       (map :classes)
-                       (apply merge))
+                    (map :classes)
+                    (apply merge))
           environments (set (map :environment class8ns))
           parameters (apply merge (map :variables class8ns))]
       (when-not (= (count environments) 1)
         (log/warn "Node" node-name "is classified into groups"
                   group-ids
                   "with inconsistent environments" environments))
-      (assoc node
-             :groups group-ids
-             :classes classes
-             :parameters parameters
-             :environment (first environments)))))
+      {:name node-name
+       :groups group-ids
+       :classes classes
+       :parameters parameters
+       :environment (first environments)})))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -383,10 +389,14 @@
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
-                 :allowed-methods [:get]
+                 :allowed-methods [:get :post]
                  :available-media-types ["application/json"]
                  :exists? true
-                 :handle-ok (classify-node db node-name)))
+                 :handle-ok (classify-node db node-name)
+                 :new? false
+                 :respond-with-entity? true
+                 :malformed? parse-if-body
+                 :handle-malformed handle-malformed))
 
           (ANY "/update-classes" []
                (resource

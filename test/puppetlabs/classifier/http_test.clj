@@ -312,6 +312,44 @@
       (let [response (app (class-request :delete "test" "myclass"))]
         (is-http-status 204 response)))))
 
+(defn classification-request
+  ([] (classification-request :get nil nil))
+  ([method node-name] (classification-request method node-name nil))
+  ([method node-name body]
+   (let [req (request method (str "/v1/classified/nodes" (if node-name (str "/" node-name))))]
+     (if body
+       (mock/body req body)
+       req))))
+
+(deftest classification
+  (let [group-id (UUID/randomUUID)
+        rule {:when ["and" ["=" ["facts" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]
+              :group-id group-id}
+        group {:name "factgroup"
+               :id (UUID/randomUUID)
+               :environment "production"
+               :parent root-group-uuid
+               :rule rule
+               :classes {}
+               :variables {}}
+        mock-db (reify Storage
+                  (get-rules [_]
+                    [rule])
+                  (get-group [_ _]
+                    group)
+                  (get-ancestors [_ _]
+                    nil))
+        app (app {:db mock-db})]
+    (testing "facts submitted via POST can be used for classification"
+      (let [facts {:name "qwkeju" :values {:a "b"}}
+            trusted {:certname "abcdefg"}
+            {body :body, :as response} (app (classification-request
+                                             :post
+                                             "qwkeju"
+                                             (encode {:facts facts :trusted trusted})))]
+        (is-http-status 200 response)
+        (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body true)))))))))
+
 (deftest errors
   (let [mock-db (reify Storage
                   (get-group [_ _]

@@ -47,8 +47,8 @@ Here is an example of group object:
       "environment": "production",
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
-        "when": ["and", ["~", "certname", "www"],
-                        [">=", "total_ram", "512"]]
+        "when": ["and", ["~", ["trusted", "certname"], "www"],
+                        [">=", ["facts", "total_ram"], "512"]]
       },
       "classes": {
         "apache": {
@@ -69,7 +69,7 @@ Here is an example of a group object that refers to some classes and parameters 
       "environment": "space",
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
-        "when": ["=", "is_spaceship", "true"]
+        "when": ["=", ["facts", "is_spaceship"], "true"]
       },
       "classes": {
         "payload": {
@@ -100,16 +100,19 @@ The entire `payload` class has been deleted, since its deleted parameters object
 
 The grammar for a rule condition is:
 
-    condition : [ {bool} {condition}+ ] | [ "not" {condition} ] | operation
-         bool : "and" | "or"
-    operation : [ {operator} {fact-name} {value} ]
-     operator : "=" | "~" | ">" | ">=" | "<" | "<="
-    fact-name : string
-        value : string
+    condition  : [ {bool} {condition}+ ] | [ "not" {condition} ] | {operation}
+         bool  : "and" | "or"
+    operation  : [ {operator} {fact-path} {value} ]
+     operator  : "=" | "~" | ">" | ">=" | "<" | "<="
+    fact-path  : {field-name} | [ {field-name} + ]
+    field-name : string
+        value  : string
 
 For the regex operator `"~"`, the value will be interpreted as a Java regular expression, and literal backslashes will have to be used to escape regex characters in order to match those characters in the fact value.
 For the numeric comparison operators (`">"`, `">="`, `"<"`, and `"<="`), the fact value (which is always a string) will be coerced to a number (either integral or floating-point).
 If the value cannot be coerced to a number, then the numeric operation will always evaluate to false.
+
+For the fact path, this can be either a string representing a top level field (the only current meaningful value here would be "name" representing the node name) or a list of strings that represent looking up a field in a nested data structure. Regular facts will all start with "facts" (e.g. `["facts", "architecture"] ` and trusted facts start with "trusted" (e.g. `["trusted", "certname"]`).
 
 #### Error Responses
 
@@ -216,7 +219,7 @@ For example, given the following group:
       "environment": "staging",
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": {
-        "when": ["~", "certname", "www"]
+        "when": ["~", ["trusted", "certname"], "www"]
       },
       "classes": {
         "apache": {
@@ -259,7 +262,7 @@ then the value of the group after the update will be:
       "environment": "production",
       "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
       "rule": {
-        "when": ["~", "certname", "www"]
+        "when": ["~", ["trusted", "certname"], "www"]
       },
       "classes": {
         "apache": {
