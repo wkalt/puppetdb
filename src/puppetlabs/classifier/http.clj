@@ -395,7 +395,11 @@
                  :post! (fn [_]
                           (class-updater/update-classes! (select-keys config [:puppet-master :ssl-context]) db)))))
 
-        (route/not-found "Not found"))
+        (ANY "*" [:as req]
+             (prn req)
+             {:status 404
+              :headers {"Content-Type" "application/json"}
+              :body (json/encode (handle-404 {:request req}))}))
 
     middleware/wrap-schema-fail-explanations!
     middleware/wrap-hierarchy-validation-fail-explanations
