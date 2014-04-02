@@ -7,7 +7,7 @@
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
-(sc/defn matching-groups :- [String]
+(sc/defn matching-groups :- [java.util.UUID]
   "Given a node and the set of rules to apply, return the ids of all groups the
   node is classified into."
   [node :- SubmittedNode, rules :- [Rule]]

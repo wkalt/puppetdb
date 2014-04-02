@@ -317,19 +317,33 @@
        req))))
 
 (deftest classification
-  (let [mock-db (reify Storage
+  (let [group-id (UUID/randomUUID)
+        rule {:when ["and" ["=" ["facts" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]
+              :group-id group-id}
+        group {:name "factgroup"
+               :id (UUID/randomUUID)
+               :environment "production"
+               :parent root-group-uuid
+               :rule rule
+               :classes {}
+               :variables {}}
+        mock-db (reify Storage
                   (get-rules [_]
-                    [])
+                    [rule])
                   (get-group [_ _]
-                    nil)
+                    group)
                   (get-ancestors [_ _]
                     nil))
         app (app {:db mock-db})]
-    (testing "facts submitted via POST pass the schema"
+    (testing "facts submitted via POST can be used for classification"
       (let [facts {:name "qwkeju" :values {:a "b"}}
             trusted {:certname "abcdefg"}
-            response (app (classification-request :post "qwkeju"))]
-        (is-http-status 200 response)))))
+            {body :body, :as response} (app (classification-request
+                                             :post
+                                             "qwkeju"
+                                             (encode {:facts facts :trusted trusted})))]
+        (is-http-status 200 response)
+        (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body true)))))))))
 
 (deftest errors
   (let [mock-db (reify Storage
