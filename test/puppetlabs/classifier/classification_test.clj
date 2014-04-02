@@ -11,7 +11,7 @@
 (defn base-group
   [name]
   {:name name, :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
-   :rule {:when ["=" "foo" "bar"]}, :variables {}})
+   :rule ["=" "foo" "bar"], :variables {}})
 
 (defn vec->tree
   [[group & children]]

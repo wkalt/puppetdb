@@ -35,7 +35,7 @@
 
 (def Rule
   {:when RuleCondition
-   (sc/optional-key :group-id) java.util.UUID
+   :group-id java.util.UUID
    (sc/optional-key :id) Number})
 
 (def Classification
@@ -48,7 +48,7 @@
          :name String
          :id java.util.UUID
          :parent java.util.UUID
-         :rule Rule
+         :rule RuleCondition
          :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}))
 
 (def AnnotatedGroup
@@ -71,7 +71,7 @@
    (sc/optional-key :name) String
    (sc/optional-key :environment) String
    (sc/optional-key :parent) java.util.UUID
-   (sc/optional-key :rule) Rule
+   (sc/optional-key :rule) RuleCondition
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
 

@@ -121,7 +121,7 @@
                    :id (UUID/randomUUID)
                    :environment "production"
                    :parent root-group-uuid
-                   :rule {:when ["=" "name" "kermit"]}
+                   :rule ["=" "name" "kermit"]
                    :variables {}
                    :classes {:foo {}
                              :baz {:buzz "37"}}}
@@ -135,28 +135,28 @@
                 :id agroup-id
                 :environment "bar"
                 :parent root-group-uuid
-                :rule {:when ["=" "name" "bert"]}
+                :rule ["=" "name" "bert"]
                 :classes {:foo {:param "override"}}
                 :variables {:ntp_servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
         agroup' {:name "agroupprime"
                  :id agroup-id
                  :environment "bar"
                  :parent root-group-uuid
-                 :rule {:when ["=" "name" "ernie"]}
+                 :rule ["=" "name" "ernie"]
                  :classes {:foo {}}
                  :variables {}}
         root {:name "default"
               :id root-group-uuid
               :environment "production"
               :parent root-group-uuid
-              :rule {:when ["=" "nofact" "noval"]}
+              :rule ["=" "nofact" "noval"]
               :classes {}
               :variables {}}
         bgroup {:name "bgroup"
                 :id (UUID/randomUUID)
                 :environment "quux"
                 :parent root-group-uuid
-                :rule {:when ["=" "name" "elmo"]}
+                :rule ["=" "name" "elmo"]
                 :classes {}
                 :variables {}}
         groups [root agroup annotated bgroup]
@@ -329,7 +329,7 @@
                :id (UUID/randomUUID)
                :environment "production"
                :parent root-group-uuid
-               :rule rule
+               :rule (:when rule)
                :classes {}
                :variables {}}
         mock-db (reify Storage

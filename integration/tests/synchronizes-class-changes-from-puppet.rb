@@ -87,7 +87,7 @@ with_puppet_running_on(master, master_opts, testdir) do
     "environment" => "one",
     "parent" => RootUUID,
     "classes" => { "referred" => {}, "changed" => {"referred" => "82"} },
-    "rule" => {"when" => ["=", "fact", "value"]}
+    "rule" => ["=", "fact", "value"]
   }
 
   group_response = Classifier.put("/v1/groups/#{group_uuid}",
