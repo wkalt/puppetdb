@@ -64,18 +64,20 @@ Now, you can create a group that uses this class.
 
 ```sh
 curl -X PUT -H 'Content-Type: application/json' \
-  -d '{ "name": "webservers",
-        "environment": "production",
-        "parent": "default",
-        "rule": {"when": ["~", "name", "\\.www\\.example\\.com$"]},
-        "classes": {
-          "apache": {
-            "confd_dir": "/opt/mywebapp/etc/apache2",
-            "logroot": "/opt/mywebapp/log"
-          }
-        }
-      }' \
-  http://localhost:1261/v1/groups/webservers
+-d '{ 
+  "id": "ddab2071-26ea-4261-af09-7b6b97fa04c2", 
+  "name": "webservers",
+  "environment": "production",
+  "parent": "00000000-0000-4000-8000-000000000000",
+  "rule": {"when": ["~", "name", "\\.www\\.example\\.com$"]},
+  "classes": {
+    "apache": {
+      "confd_dir": "/opt/mywebapp/etc/apache2",
+      "logroot": "/opt/mywebapp/log"
+    }
+  }
+}' \
+  http://localhost:1261/v1/groups/ddab2071-26ea-4261-af09-7b6b97fa04c2
 ```
 
 Again, if you see the group object that was submitted echoed back in curl's output, then the submission worked.
