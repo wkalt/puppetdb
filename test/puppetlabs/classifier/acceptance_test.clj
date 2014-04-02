@@ -307,8 +307,9 @@
     (http/put (str base-url (str "/v1/groups/" (:id group)))
               {:content-type :json, :body (json/encode group)})
 
-    (testing "can update group rule, classes, class parameters, variables, and environment."
+    (testing "can update group's name, rule, classes, class parameters, variables, and environment."
       (let [group-delta {:id (:id group)
+                         :name "zgroup"
                          :environment new-env
                          :rule {:when ["=" "name" "jerry"]}
                          :classes {:aclass {:log "fatal"
@@ -338,7 +339,7 @@
         (is (re-find #"not exist in the group's environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
                           (= (:environment %) "dne")
-                          (= (:defined-by %) "agroup"))
+                          (= (:defined-by %) "zgroup"))
                     details))))))
 
 (deftest ^:acceptance put-to-existing

@@ -225,8 +225,9 @@
                        (assoc (:rule g2) :group-id (:id g2))]]
         (is (= all-rules (get-rules db)))))
 
-    (testing "can update group rule, classes, class parameters, and variables"
+    (testing "can update group's name, rule, classes, class parameters, and variables"
       (let [g1-delta {:id (:id g1)
+                      :name "sally"
                       :rule {:when ["and"
                                     ["=" "name" "baz"]
                                     ["=" "osfamily" "linux"]]}
