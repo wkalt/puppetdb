@@ -171,17 +171,27 @@
             (is (= 200 status))
             (is (= group (convert-uuids (json/decode body true)))))))
 
-    (testing "can update a group through its UUID URI"
-      (let [delta {:variables {:spirit_animal "turtle"}}
-            {:keys [body status]} (http/post group-uri
-                                             {:content-type :json, :body (json/encode delta)})]
-        (is (= 200 status))
-        (is (= (merge group delta) (convert-uuids (json/decode body true))))))
+      (testing "can update a group through its UUID URI"
+        (let [delta {:variables {:spirit_animal "turtle"}}
+              {:keys [body status]} (http/post group-uri
+                                               {:content-type :json, :body (json/encode delta)})]
+          (is (= 200 status))
+          (is (= (merge group delta) (convert-uuids (json/decode body true))))))
 
-    (testing "can delete a group through its UUID URI"
-      (let [{:keys [body status]} (http/delete group-uri)]
-        (is (= 204 status))
-        (is (empty? body)))))))
+      (testing "attempting to update a group that doesn't exist produces a 404"
+        (let [delta {:variables {:exists true}}
+              {:keys [body status]} (http/post (str base-url "/v1/groups/" (UUID/randomUUID))
+                                               {:throw-exceptions false
+                                                :content-type :json, :body (json/encode delta)})
+              error (json/decode body true)]
+          (is (= 404 status))
+          (is (= #{:kind :msg :details} (-> error keys set)))
+          (is (= "not-found" (:kind error)))))
+
+      (testing "can delete a group through its UUID URI"
+        (let [{:keys [body status]} (http/delete group-uri)]
+          (is (= 204 status))
+          (is (empty? body)))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)

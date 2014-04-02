@@ -245,6 +245,11 @@
         (is-http-status 200 resp)
         (is (= agroup' (-> body (decode true) convert-uuids)))))
 
+    (testing "updating a group that doesn't exist produces a 404"
+      (let [post-body (encode {:name "different", :variables {:exists false}})
+            {:keys [status]} (app (group-request :post (UUID/randomUUID) post-body))]
+        (is (= 404 status))))
+
     (testing "tells storage to delete the group and returns 204"
       (let [response (app (group-request :delete (:id agroup)))]
         (is-http-status 204 response)))))
