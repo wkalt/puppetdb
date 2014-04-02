@@ -396,7 +396,6 @@
                           (class-updater/update-classes! (select-keys config [:puppet-master :ssl-context]) db)))))
 
         (ANY "*" [:as req]
-             (prn req)
              {:status 404
               :headers {"Content-Type" "application/json"}
               :body (json/encode (handle-404 {:request req}))}))
