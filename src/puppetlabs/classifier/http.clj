@@ -181,9 +181,10 @@
 (defn malformed-group?
   "Given a group uuid, produces a function that takes one argument (the
   liberator context) and parses the body of the request in the context if said
-  body is non-empty, as with `parse-if-body`. After parsing, merge in the group
-  name and default attribute values and stick the result in the context under
-  the ::submitted key."
+  body is non-empty, as with `parse-if-body`. After parsing, merge in default
+  values and then validate that multiple IDs for the group match if given, and
+  that the parent ID if supplied is actually a UUID. If so, stick the result
+  in the context under the ::submitted key."
   [uuid]
   (fn [ctx]
     (let [parse-result (parse-if-body ctx)]
@@ -191,7 +192,7 @@
       (if (and (vector? parse-result) (false? (first parse-result)))
         (let [{{id :id :as data} ::data} (second parse-result)
               {:keys [parent] :as group} (merge {:environment "production", :variables {}}
-                                                {:id uuid}
+                                                (if uuid {:id uuid})
                                                 (convert-uuids data))]
           (cond
             (and uuid id (not= (str uuid) (str id)))
@@ -242,12 +243,19 @@
 (defn group-resource
   [db uuid-str]
   (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
+        malformed? (if (and uuid (not (uuid? uuid)))
+                     (err-with-rep {::malformed-uuid uuid})
+                     (malformed-group? uuid))
         exists? (fn [_]
-                  (if-let [g (storage/get-group db uuid)]
+                  (if-let [g (and uuid (storage/get-group db uuid))]
                     {::retrieved g}))
         delete! (fn [_] (storage/delete-group db uuid))
         post! (fn [{:as ctx, submitted ::submitted, retrieved ::retrieved}]
                 (cond
+                  (post-new-group? ctx)
+                  (let [with-id (assoc submitted :id (UUID/randomUUID))]
+                    {::created (storage/create-group db (validate Group with-id))})
+
                   (post-delta-update? ctx)
                   {::updated (storage/update-group db (validate GroupDelta submitted))}
 
@@ -257,6 +265,9 @@
                   (and (put-group? ctx) retrieved (not= submitted retrieved))
                   (let [delta (group-delta retrieved (validate Group submitted))]
                     {::created (storage/update-group db (validate GroupDelta delta))})))
+        redirect? (fn [{:as ctx, created ::created}]
+                    (if (post-new-group? ctx)
+                      {:location (str "/v1/groups/" (:id created))}))
         ok (fn [{updated ::updated, retrieved ::retrieved}]
              (if-let [g (or updated retrieved)]
                (storage/annotate-group db g)))]
@@ -266,18 +277,17 @@
         {:allowed-methods [:put :post :get :delete]
          :respond-with-entity? (not= (:request-method req) :delete)
          :available-media-types ["application/json"]
-         :malformed? (if-not (uuid? uuid)
-                       (err-with-rep {::malformed-uuid uuid})
-                       (malformed-group? uuid))
+         :malformed? malformed?
          :exists? exists?
          :handle-not-found handle-404
          :handle-ok ok
          :post-to-existing? submitting-overwrite?
-         :can-post-to-missing? false
+         :can-post-to-missing? post-new-group?
          :put-to-existing? (constantly false)
          :put! (fn [{submitted ::submitted}]
                  {::created (storage/create-group db (validate Group submitted))})
          :post! post!
+         :post-redirect? redirect?
          :new? ::created
          :handle-created ::created
          :delete! delete!
@@ -364,6 +374,9 @@
                                  (fn [db]
                                    (->> (storage/get-groups db)
                                      (map (partial storage/annotate-group db))))))
+
+          (POST "/groups" []
+                (group-resource db nil))
 
           (ANY "/groups/:uuid" [uuid]
                (group-resource db uuid))

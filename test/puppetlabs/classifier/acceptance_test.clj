@@ -129,42 +129,66 @@
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp)))))))
 
-(deftest ^:acceptance groups-and-uuids
-  (let [base-url (base-url test-config)
-        group {:name "foogroup"
-               :id (UUID/randomUUID)
-               :environment "production"
-               :rule {:when ["=" "foo" "foo"]}
-               :parent root-group-uuid
-               :classes {}
-               :variables {}}
-        group-uri (str base-url "/v1/groups/" (:id group))]
+(deftest ^:acceptance group-api
+  (let [base-url (base-url test-config)]
 
-    (http/put group-uri {:content-type :json, :body (json/encode group)})
+    (testing "can create a group by POSTing to the group collection endpoint"
+      (let [group {:name "bargroup"
+                   :environment "production"
+                   :rule {:when ["=" "bar" "bar"]}
+                   :parent root-group-uuid
+                   :classes {}
+                   :variables {}}
+            {:keys [headers status body]} (http/post (str base-url "/v1/groups")
+                                                {:throw-entire-message? true
+                                                 :follow-redirects false
+                                                 :content-type :json
+                                                 :body (json/encode group)})]
+        (testing "and get a 303 back with the group's location"
+          (is (= 303 status))
+          (is (contains? headers "location")))
+        (testing "and retrieve the created group from the received location"
+          (let [id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
+                                (get headers "location" ""))
+                group-with-id (assoc group :id (UUID/fromString id))
+                {:keys [body status]} (http/get (str base-url "/v1/groups/" id))]
+            (is (= 200 status))
+            (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
 
-    (testing "can retrieve a group by giving its UUID"
-      (let [{:keys [body status]} (http/get group-uri)]
+    (let [group {:name "foogroup"
+                     :id (UUID/randomUUID)
+                     :environment "production"
+                     :rule {:when ["=" "foo" "foo"]}
+                     :parent root-group-uuid
+                     :classes {}
+                     :variables {}}
+          group-uri (str base-url "/v1/groups/" (:id group))]
+
+      (testing "can create a group by PUTting to its URI"
+        (http/put group-uri {:content-type :json, :body (json/encode group)})
+        (testing "and retrieve it from the same place"
+          (let [{:keys [body status]} (http/get group-uri)]
+            (is (= 200 status))
+            (is (= group (convert-uuids (json/decode body true)))))))
+
+    (testing "can update a group through its UUID URI"
+      (let [delta {:variables {:spirit_animal "turtle"}}
+            {:keys [body status]} (http/post group-uri
+                                             {:content-type :json, :body (json/encode delta)})]
         (is (= 200 status))
-        (is (= group (convert-uuids (json/decode body true))))))
+        (is (= (merge group delta) (convert-uuids (json/decode body true))))))
 
-      (testing "can update a group through its UUID URI"
-        (let [delta {:variables {:spirit_animal "turtle"}}
-              {:keys [body status]} (http/post group-uri
-                                               {:content-type :json, :body (json/encode delta)})]
-          (is (= 200 status))
-          (is (= (merge group delta) (convert-uuids (json/decode body true))))))
-
-      (testing "can delete a group through its UUID URI"
-        (let [{:keys [body status]} (http/delete group-uri)]
-          (is (= 204 status))
-          (is (empty? body))))))
+    (testing "can delete a group through its UUID URI"
+      (let [{:keys [body status]} (http/delete group-uri)]
+        (is (= 204 status))
+        (is (empty? body)))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
         node-url #(str base-url "/v1/nodes/" %)
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
         nodes (for [nn node-names] {:name nn})
-        group {:name "bargroup", :id (UUID/randomUUID), :environment "production",
+        group {:name "bazgroup", :id (UUID/randomUUID), :environment "production",
                :parent root-group-uuid, :rule {:when ["=" "foo" "foo"]}, :classes {}}]
 
     (doseq [nn node-names] (http/put (node-url nn)))

@@ -145,35 +145,29 @@
                  :rule {:when ["=" "name" "ernie"]}
                  :classes {:foo {}}
                  :variables {}}
-        groups [agroup
-                annotated
-                {:name "default"
-                 :id root-group-uuid
-                 :environment "production"
-                 :parent root-group-uuid
-                 :rule {:when ["=" "nofact" "noval"]}
-                 :classes {}
-                 :variables {}}
-                {:name "bgroup"
-                 :id (UUID/randomUUID)
-                 :environment "quux"
-                 :parent root-group-uuid
-                 :rule {:when ["=" "name" "elmo"]}
-                 :classes {}
-                 :variables {}}]
+        root {:name "default"
+              :id root-group-uuid
+              :environment "production"
+              :parent root-group-uuid
+              :rule {:when ["=" "nofact" "noval"]}
+              :classes {}
+              :variables {}}
+        bgroup {:name "bgroup"
+                :id (UUID/randomUUID)
+                :environment "quux"
+                :parent root-group-uuid
+                :rule {:when ["=" "name" "elmo"]}
+                :classes {}
+                :variables {}}
+        groups [root agroup annotated bgroup]
         classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
-        groups-by-name (into {} (map (juxt :name identity) groups))
-        groups-by-id (into {} (map (juxt :id identity) groups))
+        !group-storage (atom {})
         !agroup-updated? (atom false)
-        !created? (atom {})
         mock-db (reify Storage
                   (get-group [_ id]
-                    (cond
-                      (and (= id agroup-id) (get @!created? id))
+                    (if (and (= id agroup-id) (get @!group-storage id))
                       (if @!agroup-updated? agroup' agroup)
-
-                      (get @!created? id)
-                      (get groups-by-id id)))
+                      (get @!group-storage id)))
                   (get-ancestors [_ group]
                     [])
                   (get-groups [_]
@@ -184,14 +178,13 @@
                       group))
                   (create-group [_ group]
                     (sc/validate Group group)
-                    (is (= (get groups-by-id (:id group)) group))
-                    (swap! !created? assoc (:id group) true)
-                    (get groups-by-id (:id group)))
+                    (swap! !group-storage assoc (:id group) group)
+                    group)
                   (update-group [_ _]
                     (reset! !agroup-updated? true)
                     agroup')
                   (delete-group [_ id]
-                    (is (contains? groups-by-id id))
+                    (is (contains? @!group-storage id))
                     '(1))
                   (get-classes [_ _] classes))
         app (app {:db mock-db})]
@@ -205,10 +198,25 @@
                                                  (encode {:environment "staging"})))]
         (is (= 404 status))))
 
-    (testing "tells storage to create the group and returns 201 with the group object in its body"
+    (testing "can create a group with a PUT to the URI"
       (let [{body :body, :as resp} (app (group-request :put (:id agroup) (encode agroup)))]
-        (is-http-status 201 resp)
-        (is (= agroup (-> body (decode true) convert-uuids)))))
+        (testing "and get a 201 Created response"
+          (is-http-status 201 resp))
+        (testing "and get the group back in the response body"
+          (is (= agroup (-> body (decode true) convert-uuids))))))
+
+    (testing "can create a group with a POST to the group collection"
+      (let [{:keys [status headers]} (app (group-request :post nil (encode (dissoc bgroup :id))))]
+        (testing "and get a 303 back with the group's location"
+          (is (= 303 status))
+          (is (contains? headers "Location")))
+        (testing "and retrieve the group from the received location"
+          (let [{:keys [body status]} (app (request :get (get headers "Location" "dne")))
+                bgroup-id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
+                                   (get headers "Location" ""))
+                bgroup-with-id (-> bgroup (assoc :id bgroup-id), convert-uuids)]
+            (is (= 200 status))
+            (is (= bgroup-with-id (-> body (decode true) convert-uuids)))))))
 
     (testing "returns the group if it exists"
       (let [{body :body, :as resp} (app (group-request :get (:id agroup)))]
@@ -238,8 +246,7 @@
         (is (= agroup' (-> body (decode true) convert-uuids)))))
 
     (testing "tells storage to delete the group and returns 204"
-      (let [agroup (get groups-by-name "agroup")
-            response (app (group-request :delete (:id agroup)))]
+      (let [response (app (group-request :delete (:id agroup)))]
         (is-http-status 204 response)))))
 
 (defn class-request
