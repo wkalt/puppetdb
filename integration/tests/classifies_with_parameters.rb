@@ -68,7 +68,7 @@ group = {
   "classes" => {"param_test" => {"a" => "parameterized"}},
   "parent" => RootUUID,
   "variables" => {"hello" => "goodbye"},
-  "rule" => {"when" => match_nodes}
+  "rule" => match_nodes
 }
 
 step "Run puppet"

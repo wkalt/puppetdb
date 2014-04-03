@@ -318,7 +318,6 @@
 
 (sc/defn ^:always-validate create-rule :- Rule
   [db {:keys [when group-id] :as rule} :- Rule]
-  {:pre [(contains? rule :group-id)]}
   (jdbc/with-db-transaction
     [t-db db]
     (let [storage-rule {:group_id group-id
@@ -382,11 +381,11 @@
                (into {} (for [[k v] variables]
                           [k (json/parse-string v)])))))
 
-(defn- deserialize-rules
+(defn- deserialize-rule
   [row]
-  (let [deserialize-rule (fn [rule-str] (if-let [condition (json/decode rule-str)]
-                                          {:when condition}))]
-    (update-in row [:rule] deserialize-rule)))
+  (if-let [serialized-condition (:rule row)]
+    (assoc row :rule (json/decode serialized-condition))
+    (dissoc row :rule)))
 
 (defn- aggregate-fields-into-groups
   [result]
@@ -395,7 +394,7 @@
     (aggregate-submap-by :class :parameters :classes)
     (aggregate-submap-by :variable :variable_value :variables)
     (map deserialize-variable-values)
-    (map deserialize-rules)
+    (map deserialize-rule)
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
@@ -496,32 +495,30 @@
 
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
-   {:keys [classes environment id parent variables] group-name :name :as maybe-no-id} :- Group]
-  (let [uuid (or id (UUID/randomUUID))
-        group (assoc maybe-no-id :id uuid)]
-    (jdbc/with-db-transaction
-      [t-db db]
-      (validate-group t-db group)
-      (create-environment-if-missing {:db t-db} {:name environment})
-      (jdbc/insert! t-db :groups
-                    [:name :environment_name :id :parent_id]
-                    (conj ((juxt :name :environment) group) uuid parent))
-      (doseq [[v-key v-val] variables]
-        (jdbc/insert! t-db :group_variables
-                      [:variable :group_id :value]
-                      [(name v-key) uuid (json/generate-string v-val)]))
-      (doseq [class classes]
-        (let [[class-name class-params] class]
-          (jdbc/insert! t-db :group_classes
-                        [:group_id :class_name :environment_name]
-                        [uuid (name class-name) environment])
-          (doseq [class-param class-params]
-            (let [[param value] class-param]
-              (jdbc/insert! t-db :group_class_parameters
-                            [:parameter :class_name :environment_name :group_id :value]
-                            [(name param) (name class-name) environment uuid value])))))
-      (create-rule t-db (assoc (:rule group) :group-id uuid)))
-    (assoc group :id uuid)))
+   {:keys [classes environment id parent variables] group-name :name :as group} :- Group]
+  (jdbc/with-db-transaction
+    [t-db db]
+    (validate-group t-db group)
+    (create-environment-if-missing {:db t-db} {:name environment})
+    (jdbc/insert! t-db :groups
+                  [:name :environment_name :id :parent_id]
+                  (conj ((juxt :name :environment) group) id parent))
+    (doseq [[v-key v-val] variables]
+      (jdbc/insert! t-db :group_variables
+                    [:variable :group_id :value]
+                    [(name v-key) id (json/generate-string v-val)]))
+    (doseq [class classes]
+      (let [[class-name class-params] class]
+        (jdbc/insert! t-db :group_classes
+                      [:group_id :class_name :environment_name]
+                      [id (name class-name) environment])
+        (doseq [class-param class-params]
+          (let [[param value] class-param]
+            (jdbc/insert! t-db :group_class_parameters
+                          [:parameter :class_name :environment_name :group_id :value]
+                          [(name param) (name class-name) environment id value])))))
+    (create-rule t-db {:when (:rule group), :group-id (:id group)}))
+    group)
 
 (defn- delete-group-class-link
   [db group-id class-name]
@@ -628,8 +625,8 @@
   [db extant delta]
   (let [new-rule (:rule delta)]
     (when (and new-rule (not= new-rule (:rule extant)))
-      (jdbc/update! db, :rules, {:match (json/generate-string (:when new-rule))}
-                    (sql/where {:group_id (:id extant)})))))
+      (jdbc/update! db, :rules, {:match (json/generate-string new-rule)}
+                    (sql/where {:group_id (:id delta)})))))
 
 (defn- update-group-name
   [db extant delta]

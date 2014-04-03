@@ -38,6 +38,5 @@
 (sc/defn apply-rule :- (sc/maybe UUID)
   "Apply a single rule to a node"
   [node rule :- Rule]
-  {:pre [(contains? rule :group-id)]}
   (if (match? (:when rule) node)
     (:group-id rule)))

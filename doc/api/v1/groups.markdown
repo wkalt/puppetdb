@@ -26,8 +26,9 @@ Each group object contains the following keys:
 * `parent`: the ID of the group's parent (a string).
             A group is not permitted to be its own parent, unless it is the default group (which is the root of the hierarchy).
             Note that the root group always has the lowest-possible random UUID, `00000000-0000-4000-8000-000000000000`.
-* `rule`: an object with a single key, "when", whose value is a boolean condition on node facts.
-          See the "Rule Condition Grammar" section below for more information on how this condition must be structured.
+* `rule`: a boolean condition on node properties.
+          When a node's properties satisfies this condition, it will be classified into the group.
+          See the ["Rule Condition Grammar"](#rule-condition-grammar) section below for more information on how this condition must be structured.
 * `classes`: an object that defines both the classes consumed by nodes in this group and any non-default values for their parameters.
              The keys of the object are the class names, and the values are objects describing the parameters.
              The parameter objects' keys are parameter names, and the values are what the group sets for that parameter (always a string).
@@ -46,10 +47,8 @@ Here is an example of group object:
       "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "production",
       "parent": "00000000-0000-4000-8000-000000000000",
-      "rule": {
-        "when": ["and", ["~", ["trusted", "certname"], "www"],
-                        [">=", ["facts", "total_ram"], "512"]]
-      },
+      "rule": ["and", ["~", ["trusted", "certname"], "www"],
+                      [">=", ["facts", "total_ram"], "512"]],
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
@@ -68,9 +67,7 @@ Here is an example of a group object that refers to some classes and parameters 
       "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "space",
       "parent": "00000000-0000-4000-8000-000000000000",
-      "rule": {
-        "when": ["=", ["facts", "is_spaceship"], "true"]
-      },
+      "rule": ["=", ["facts", "is_spaceship"], "true"],
       "classes": {
         "payload": {
           "type": "cubesat",
@@ -131,8 +128,8 @@ The keys allowed in this object are:
 * `environment`: the name of the group's environment.
                  This key is optional; if it's not provided, the default environment (`production`) will be used.
 * `parent`: the ID of the group's parent (required).
-* `rule`: an object describing the conditions that must be met for a node to be classified into this group (required).
-          The only key allowed in the object is `when`, and its value should be a representation of a boolean expression on node facts as described in the "Rule Condition Grammar" section above.
+* `rule`: the condition that must be satisfied for a node to be classified into this group (required).
+          The structure of this condition is described in the ["Rule Condition Grammar"](#rule-condition-grammar) section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
                The keys of the object are the variable names, and the corresponding value is that variable's value, which can be any sort of JSON value.
                The `variables` keys is optional, and if a group does not define any top-level variables then it may be omitted.
@@ -218,9 +215,7 @@ For example, given the following group:
       "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "staging",
       "parent": "00000000-0000-4000-8000-000000000000",
-      "rule": {
-        "when": ["~", ["trusted", "certname"], "www"]
-      },
+      "rule": ["~", ["trusted", "certname"], "www"],
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
@@ -261,9 +256,7 @@ then the value of the group after the update will be:
       "id": "58463036-0efa-4365-b367-b5401c0711d3",
       "environment": "production",
       "parent": "01522c99-627c-4a07-b28e-a25dd563d756",
-      "rule": {
-        "when": ["~", ["trusted", "certname"], "www"]
-      },
+      "rule": ["~", ["trusted", "certname"], "www"],
       "classes": {
         "apache": {
           "serveradmin": "roy@reynholm.co.uk",

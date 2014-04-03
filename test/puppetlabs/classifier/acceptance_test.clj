@@ -135,7 +135,7 @@
     (testing "can create a group by POSTing to the group collection endpoint"
       (let [group {:name "bargroup"
                    :environment "production"
-                   :rule {:when ["=" "bar" "bar"]}
+                   :rule ["=" "bar" "bar"]
                    :parent root-group-uuid
                    :classes {}
                    :variables {}}
@@ -158,7 +158,7 @@
     (let [group {:name "foogroup"
                      :id (UUID/randomUUID)
                      :environment "production"
-                     :rule {:when ["=" "foo" "foo"]}
+                     :rule ["=" "foo" "foo"]
                      :parent root-group-uuid
                      :classes {}
                      :variables {}}
@@ -199,7 +199,7 @@
         node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
         nodes (for [nn node-names] {:name nn})
         group {:name "bazgroup", :id (UUID/randomUUID), :environment "production",
-               :parent root-group-uuid, :rule {:when ["=" "foo" "foo"]}, :classes {}}]
+               :parent root-group-uuid, :rule ["=" "foo" "foo"], :classes {}}]
 
     (doseq [nn node-names] (http/put (node-url nn)))
 
@@ -231,7 +231,7 @@
             with-missing-class {:name "with-missing"
                                 :id id
                                 :parent root-group-uuid
-                                :rule {:when ["=" "foo" "foo"]}
+                                :rule ["=" "foo" "foo"]
                                 :classes {:missing {}}}
             {:keys [body status]} (http/put (str base-url "/v1/groups/" id)
                                             {:content-type :json
@@ -253,19 +253,19 @@
                        :parent root-group-uuid
                        :environment "production",
                        :classes {:high {:refined "most"}}
-                       :rule {:when ["=" "foo" "foo"]}}
+                       :rule ["=" "foo" "foo"]}
             side-group {:name "side"
                         :id (UUID/randomUUID)
                         :parent root-group-uuid
                         :environment "production"
                         :classes {}
-                        :rule {:when ["=" "foo" "foo"]}}
+                        :rule ["=" "foo" "foo"]}
             bottom-group {:name "bottom"
                           :id (UUID/randomUUID)
                           :parent (:id side-group)
                           :environment "staging"
                           :classes {}
-                          :rule {:when ["=" "foo" "foo"]}}]
+                          :rule ["=" "foo" "foo"]}]
 
         (http/put (str base-url "/v1/environments/production/classes/" (:name high-class))
                   {:content-type :json, :body (json/encode high-class)})
@@ -299,7 +299,7 @@
                    :id (UUID/randomUUID)
                    :environment "staging"
                    :parent root-group-uuid
-                   :rule {:when ["=" "name" "thenode"]}
+                   :rule ["=" "name" "thenode"]
                    :classes {:noisyclass {:verbose "false"}}
                    :variables {:dothings "yes"}}
             group-resp (http/put (str base-url "/v1/groups/" (:id group))
@@ -327,7 +327,7 @@
                    :classes {:riscybusiness {}}
                    :environment "staging"
                    :parent root-group-uuid
-                   :rule {:when ["=" ["facts" "architecture"] "alpha"]}
+                   :rule ["=" ["facts" "architecture"] "alpha"]
                    :variables {:riscisgood "yes"}}
             group-resp (http/put (str base-url "/v1/groups/" (:id group))
                                  {:content-type :json
@@ -355,7 +355,7 @@
                :id (UUID/randomUUID)
                :parent root-group-uuid
                :environment "production"
-               :rule {:when ["=" "name" "gary"]}
+               :rule ["=" "name" "gary"]
                :classes {:aclass {:verbose "true" :log "info"}
                          :bclass {}}
                :variables {:dns "8.8.8.8"
@@ -375,7 +375,7 @@
       (let [group-delta {:id (:id group)
                          :name "zgroup"
                          :environment new-env
-                         :rule {:when ["=" "name" "jerry"]}
+                         :rule ["=" "name" "jerry"]
                          :classes {:aclass {:log "fatal"
                                             :verbose nil
                                             :loglocation "/dev/null"}}
@@ -417,7 +417,7 @@
 
     (let [group {:name "groucho", :id (UUID/randomUUID)
                  :environment "space", :parent root-group-uuid
-                 :rule {:when ["=" "x" "y"]}, :classes {}, :variables {}}
+                 :rule ["=" "x" "y"], :classes {}, :variables {}}
           group-url (str base-url "/v1/groups/" (:id group))
           put-opts {:content-type :json, :body (json/encode group)}]
       (http/put group-url put-opts)

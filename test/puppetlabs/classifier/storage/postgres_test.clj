@@ -81,21 +81,21 @@
                   :id (UUID/randomUUID)
                   :environment "test"
                   :parent root-group-uuid
-                  :rule {:when ["=" "name" "foo"]}
+                  :rule ["=" "name" "foo"]
                   :classes {}
                   :variables {}}
         with-classes {:name "with-classes"
                       :id (UUID/randomUUID)
                       :environment "test"
                       :parent root-group-uuid
-                      :rule {:when ["=" "name" "bar"]}
+                      :rule ["=" "name" "bar"]
                       :classes {:hi {:greetings "salutations"} :bye {}}
                       :variables {}}
         with-variables {:name "with-variables"
                         :id (UUID/randomUUID)
                         :environment "test"
                         :parent root-group-uuid
-                        :rule {:when ["=" "name" "baz"]}
+                        :rule ["=" "name" "baz"]
                         :classes {}
                         :variables {:is-a-variable "yup totes"}}
         root (get-group db root-group-uuid)]
@@ -166,8 +166,8 @@
         g {:name "time-machines"
            :id (UUID/randomUUID)
            :parent root-group-uuid
+            :rule ["=" "foo" "foo"]
            :environment "rnd"
-           :rule {:when ["=" "foo" "foo"]}
            :classes {}
            :variables {}}]
     (testing "creates missing environments on class insertion"
@@ -190,9 +190,9 @@
             :id (UUID/randomUUID)
             :environment "test"
             :parent root-group-uuid
-            :rule {:when ["or"
-                          ["=" "name" "foo"]
-                          ["=" "name" "bar"]]}
+            :rule ["or"
+                   ["=" "name" "foo"]
+                   ["=" "name" "bar"]]
             :classes {:first {:one "one-val"
                               :two "two-val"}
                       :second {:three "three-val"
@@ -205,7 +205,7 @@
             :id (UUID/randomUUID)
             :environment "tropical"
             :parent root-group-uuid
-            :rule {:when ["=" "name" "baz"]}
+            :rule ["=" "foo" "foo"]
             :classes {:first {:two "another-two-val"}
                       :second {:four "four-val"}}
             :variables {:island false, :rainforest true}}
@@ -220,17 +220,16 @@
       (is (= g1 (get-group db (:id g1))))
       (is (= g2 (get-group db (:id g2))))
       (is (= #{g1 g2 root} (set (get-groups db))))
-      (let [all-rules [(assoc (:rule root) :group-id (:id root))
-                       (assoc (:rule g1) :group-id (:id g1))
-                       (assoc (:rule g2) :group-id (:id g2))]]
-        (is (= all-rules (get-rules db)))))
+      (let [rule-from-group (fn [g] {:when (:rule g), :group-id (:id g)})
+            all-rules (map rule-from-group [g1 g2 root])]
+        (is (= (set all-rules) (set (get-rules db))))))
 
     (testing "can update group's name, rule, classes, class parameters, and variables"
       (let [g1-delta {:id (:id g1)
                       :name "sally"
-                      :rule {:when ["and"
-                                    ["=" "name" "baz"]
-                                    ["=" "osfamily" "linux"]]}
+                      :rule ["and"
+                             ["=" "name" "baz"]
+                             ["=" "osfamily" "linux"]]
                       :classes {:first nil
                                 :second {:three nil
                                          :four "red fish"
@@ -269,7 +268,7 @@
 
 (deftest ^:database group-hierarchy
   (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
-                                   :rule {:when ["=" "foo" "bar"]}, :classes {}, :variables {}})
+                                   :rule ["=" "foo" "bar"], :classes {}, :variables {}})
         root (get-group db root-group-uuid)
         top (-> (blank-group-named "top")
               (assoc :parent root-group-uuid))
@@ -358,7 +357,7 @@
         after-by-name (into {} (map (juxt :name identity) after))
         referrer {:name "referrer", :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
                   :classes {:used-class {}, :changed-class {:used-param "hi"}}
-                  :rule {:when ["=" "foo" "foo"]} , :variables {}}]
+                  :rule ["=" "foo" "foo"] , :variables {}}]
 
     (synchronize-classes db before)
     (create-group db referrer)
@@ -428,7 +427,7 @@
                       :parent root-group-uuid
                       :classes {:simple {}}
                       :variables {}
-                      :rule {:when ["=" "something" "somethingelse"]}}]
+                      :rule ["=" "something" "somethingelse"]}]
     (synchronize-classes db [simple-class])
     (create-group db simple-group)
     (testing "annotation works for a class with no parameters"
@@ -440,7 +439,7 @@
         payload-class {:name "payload", :environment "space", :parameters {}}
         avionics-class {:name "avionics", :environment "space", :parameters {:log "/dev/null"}}
         spaceship {:name "spaceship", :id (UUID/randomUUID,) :environment "space",
-                   :parent root-group-uuid, :rule {:when ["=" "foo" "foo"]}, :variables {}
+                   :parent root-group-uuid, :rule ["=" "foo" "foo"], :variables {}
                    :classes {:rocket {:stages "3"}
                              :avionics {:log "/var/log/avionics-data"}
                              :payload {}}}]

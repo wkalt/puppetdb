@@ -66,7 +66,7 @@ group = {
   "name" => "foogroup",
   "classes" => {"foo" => {}},
   "parent" => RootUUID.to_str,
-  "rule" => {"when" => match_nodes}
+  "rule" => match_nodes
 }
 
 group_response = Classifier.put("/v1/groups/#{group_uuid.to_str}",

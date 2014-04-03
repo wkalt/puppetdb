@@ -64,12 +64,12 @@ Now, you can create a group that uses this class.
 
 ```sh
 curl -X PUT -H 'Content-Type: application/json' \
--d '{ 
-  "id": "ddab2071-26ea-4261-af09-7b6b97fa04c2", 
+-d '{
+  "id": "ddab2071-26ea-4261-af09-7b6b97fa04c2",
   "name": "webservers",
   "environment": "production",
   "parent": "00000000-0000-4000-8000-000000000000",
-  "rule": {"when": ["~", "name", "\\.www\\.example\\.com$"]},
+  "rule": ["~", "name", "\\.www\\.example\\.com$"],
   "classes": {
     "apache": {
       "confd_dir": "/opt/mywebapp/etc/apache2",
