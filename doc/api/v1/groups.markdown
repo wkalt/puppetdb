@@ -150,9 +150,17 @@ In all cases, the response will contain an error object as described in the [err
 In the first two cases, the `kind` key will be "schema-violation", and the  `details` key of the error will be an object with `submitted`, `schema`, and `error` keys which respectively describe the submitted object, the schema that object should conform to, and how the submitted object failed to conform to the schema.
 In the last case, the `kind` key will be "malformed-request" and the `details` key will be an object with `body` and `error` keys, which respectively hold the request body as received and the error message encountered while trying to parse the JSON.
 
+If attempting to create the group violates uniqueness constraints (such as the constraint that each group name's must be unique within its environment), the server will return a 409 Conflict response.
+The `kind` key of the error object will be "uniqueness-violation", and the `msg` will describe which fields of the group caused the constraint to be violated, along with their values.
+The `details` key will contain an object that itself has three keys:
+
+* `conflict`: an object whose keys are the fields of the group that violated the constraint and whose values are the corresponding field values.
+* `constraintName`: the name of the database constraint that was violated.
+* `submitted`: the group that the server tried to create.
+
 If any classes or class parameters inherited by the group from its parents do not exist in the submitted group's environment, the server will return a 409 Conflict response.
 If any classes or class parameters defined by the submitted group do not exist in the group's environment, but all inherited classes and parameters are satisfied, then the server will return a 412 Precondition Failed response.
-In both cases the response will contain the usual [error object](errors.markdown), whose `kind` key will be "missing-referents" and whose `msg` key will describe the number of missing referents.
+In both cases the response object's `kind` key will be "missing-referents" and the `msg` key will describe the number of missing referents.
 The `details` key of the error object will be an array of objects, where each object describes a single missing referent, and has the following keys:
 
 * `kind`: "missing-class" or "missing-parameter", depending on whether the entire class doesn't exist, or the class just doesn't have the parameter.

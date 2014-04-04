@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys]]
             [java-jdbc.sql :as sql]
             [cheshire.core :as json]
@@ -17,10 +18,12 @@
             [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
                                                 relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
-  (:import org.postgresql.util.PSQLException
-           java.util.UUID))
+  (:import java.sql.BatchUpdateException
+           java.util.UUID
+           org.postgresql.util.PSQLException))
 
 (def foreign-key-violation-code "23503")
+(def uniqueness-violation-code "23505")
 (def serialization-failure-code "40001")
 
 (def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
@@ -493,32 +496,55 @@
                :ancestors ancestors
                :classes classes}))))
 
+(defn- throw-uniqueness-failure
+  [e entity-kind offender]
+  (let [msg (.getMessage e)
+        [_ constraint-name] (re-find #"violates unique constraint \"(.+?)\"" msg)
+        [_ & tuples] (re-find #"Detail: Key \((.+?)\)=\((.+?)\)" msg)
+        [fields values] (map #(str/split % #", ") tuples)]
+    (throw+ {:kind ::uniqueness-violation
+             :entity-kind entity-kind
+             :constraint constraint-name
+             :fields fields
+             :values values
+             :offender offender})))
+
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
    {:keys [classes environment id parent variables] group-name :name :as group} :- Group]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (validate-group t-db group)
-    (create-environment-if-missing {:db t-db} {:name environment})
-    (jdbc/insert! t-db :groups
-                  [:name :environment_name :id :parent_id]
-                  (conj ((juxt :name :environment) group) id parent))
-    (doseq [[v-key v-val] variables]
-      (jdbc/insert! t-db :group_variables
-                    [:variable :group_id :value]
-                    [(name v-key) id (json/generate-string v-val)]))
-    (doseq [class classes]
-      (let [[class-name class-params] class]
-        (jdbc/insert! t-db :group_classes
-                      [:group_id :class_name :environment_name]
-                      [id (name class-name) environment])
-        (doseq [class-param class-params]
-          (let [[param value] class-param]
-            (jdbc/insert! t-db :group_class_parameters
-                          [:parameter :class_name :environment_name :group_id :value]
-                          [(name param) (name class-name) environment id value])))))
-    (create-rule t-db {:when (:rule group), :group-id (:id group)}))
-    group)
+  (try
+    (jdbc/with-db-transaction
+      [t-db db]
+      (validate-group t-db group)
+      (create-environment-if-missing {:db t-db} {:name environment})
+      (jdbc/insert! t-db :groups
+                    [:name :environment_name :id :parent_id]
+                    (conj ((juxt :name :environment) group) id parent))
+      (doseq [[v-key v-val] variables]
+        (jdbc/insert! t-db :group_variables
+                      [:variable :group_id :value]
+                      [(name v-key) id (json/generate-string v-val)]))
+      (doseq [class classes]
+        (let [[class-name class-params] class]
+          (jdbc/insert! t-db :group_classes
+                        [:group_id :class_name :environment_name]
+                        [id (name class-name) environment])
+          (doseq [class-param class-params]
+            (let [[param value] class-param]
+              (jdbc/insert! t-db :group_class_parameters
+                            [:parameter :class_name :environment_name :group_id :value]
+                            [(name param) (name class-name) environment id value])))))
+      (create-rule t-db {:when (:rule group), :group-id (:id group)})
+      group)
+    (catch PSQLException e
+      (when-not (= (.getSQLState e) uniqueness-violation-code)
+        (throw e))
+      (throw-uniqueness-failure e :group group))
+    (catch BatchUpdateException  e
+      (let [root-e (-> e seq last)]
+        (when-not (= (.getSQLState root-e) uniqueness-violation-code)
+          (throw e)) ; seems safer to throw the original exception
+        (throw-uniqueness-failure root-e :group group)))))
 
 (defn- delete-group-class-link
   [db group-id class-name]

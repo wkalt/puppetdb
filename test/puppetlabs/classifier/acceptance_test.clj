@@ -5,9 +5,11 @@
             [cheshire.core :as json]
             [clj-http.client :as http]
             [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
+            [schema.core :as sc]
             [schema.test]
             [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]]
             [puppetlabs.classifier.http :refer [convert-uuids]]
+            [puppetlabs.classifier.schema :refer [Group]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
             [puppetlabs.classifier.util :refer [merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
@@ -169,6 +171,28 @@
           (let [{:keys [body status]} (http/get group-uri)]
             (is (= 200 status))
             (is (= group (convert-uuids (json/decode body true)))))))
+
+      (testing "when trying to create a group that would violate a uniqueness constraint"
+        (let [conflicting {:name "foogroup"
+                           :id (UUID/randomUUID)
+                           :environment "production"
+                           :rule ["=" "foo" "foo"]
+                           :parent root-group-uuid
+                           :classes {}}
+              {:keys [body status]} (http/put (str base-url "/v1/groups/" (:id conflicting))
+                                              {:content-type :json
+                                               :body (json/encode conflicting)
+                                               :throw-exceptions false})]
+          (testing "a 409 Conflict response is returned"
+            (is (= status 409))
+            (testing "that has an understandable error"
+              (let [{:keys [kind msg details] :as error} (json/decode body true)]
+                (is (= #{:kind :msg :details} (-> error keys set)))
+                (is (= "uniqueness-violation" kind))
+                (is (re-find #"violates a group uniqueness constraint" msg))
+                (is (re-find #"A group with name = foogroup, environment_name = production" msg))
+                (is (= #{:submitted :constraintName :conflict} (-> details keys set)))
+                (is (sc/validate Group (-> details :submitted convert-uuids))))))))
 
       (testing "can update a group through its UUID URI"
         (let [delta {:variables {:spirit_animal "turtle"}}

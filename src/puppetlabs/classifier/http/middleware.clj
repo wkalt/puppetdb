@@ -242,3 +242,23 @@
                                :msg (referent-error-message error-count
                                                             group-error-count
                                                             child-error-count)})})))))
+
+(defn wrap-uniqueness-violation-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/uniqueness-violation]
+        {:keys [entity-kind constraint fields values offender]}
+        (let [conflict-description (->> (map #(str %1 " = " %2) fields values)
+                                     (str/join ", "))
+              conflict (zipmap fields values)
+              msg (str "Could not complete the request because it violates a "
+                       (name entity-kind) " uniqueness constraint. A " (name entity-kind)
+                       " with " conflict-description " already exists.")]
+        {:status 409
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:kind "uniqueness-violation"
+                             :msg msg
+                             :details {:submitted offender
+                                       :constraintName constraint
+                                       :conflict (zipmap fields values)}})})))))
