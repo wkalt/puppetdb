@@ -261,3 +261,15 @@
                              :msg msg
                              :details {:constraintName constraint
                                        :conflict (zipmap fields values)}})})))))
+
+(defn wrap-inheritance-fail-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
+        {:keys [cycle]}
+        {:status 409
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:details cycle
+                             :kind "inheritance-cycle"
+                             :msg "Cannot create inheritance cycle"})}))))

@@ -478,7 +478,7 @@
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
-(sc/defn ^:always-validate get-parent :- Group
+(sc/defn ^:always-validate get-parent :- (sc/maybe Group)
   [db, group :- Group]
   (get-group* {:db db} (:parent group)))
 
@@ -513,20 +513,23 @@
   "Validates the classes and class parameters (including those inherited from
   ancestors) of a group and all its children."
   [db group]
-  (let [parent (get-parent db group)
-        ancestors (concat [parent] (get-ancestors* {:db db} parent))
-        subtree (-> (get-subtree* {:db db} group)
-                  (assoc :group group))
-        classes (->> subtree
-                  (flatten-tree-with :environment)
-                  set
-                  (mapcat (partial get-classes* {:db db})))
-        vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
-    (when-not (class8n/valid-tree? vtree)
-      (throw+ {:kind ::missing-referents
-               :tree vtree
-               :ancestors ancestors
-               :classes classes}))))
+  (when (= (:id group) (:parent group))
+    (throw+ {:kind ::inheritance-cycle
+             :cycle [group]}))
+  (let [parent (get-parent db group)]
+    (let [ancestors (concat [parent] (get-ancestors* {:db db} parent))
+          subtree (-> (get-subtree* {:db db} group)
+                    (assoc :group group))
+          classes (->> subtree
+                    (flatten-tree-with :environment)
+                    set
+                    (mapcat (partial get-classes* {:db db})))
+          vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
+      (when-not (class8n/valid-tree? vtree)
+        (throw+ {:kind ::missing-referents
+                 :tree vtree
+                 :ancestors ancestors
+                 :classes classes})))))
 
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}

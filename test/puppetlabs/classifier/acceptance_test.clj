@@ -456,3 +456,18 @@
                                                                :throw-exceptions false))]
           (is (= 201 status))
           (is (= diff-group (-> body (json/decode true) convert-uuids))))))))
+
+(deftest ^:acceptance group-cycles
+  (let [base-url (base-url test-config)
+        group-id (UUID/randomUUID)
+        group {:name "badgroupnono", :environment "production"
+               :id group-id, :parent group-id
+               :rule ["=" "a" "b"], :classes {}, :variables {}}
+        group-url (str base-url "/v1/groups/" (:id group))]
+
+    (testing "can't create a group parent set to itself"
+      (let [{:keys [body status]} (http/put group-url
+                                            {:content-type :json
+                                             :body (json/encode group)
+                                             :throw-exceptions false})]
+        (is (= 409 status))))))
