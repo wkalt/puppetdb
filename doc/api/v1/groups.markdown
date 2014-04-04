@@ -152,11 +152,10 @@ In the last case, the `kind` key will be "malformed-request" and the `details` k
 
 If attempting to create the group violates uniqueness constraints (such as the constraint that each group name's must be unique within its environment), the server will return a 409 Conflict response.
 The `kind` key of the error object will be "uniqueness-violation", and the `msg` will describe which fields of the group caused the constraint to be violated, along with their values.
-The `details` key will contain an object that itself has three keys:
+The `details` key will contain an object that itself has two keys:
 
 * `conflict`: an object whose keys are the fields of the group that violated the constraint and whose values are the corresponding field values.
 * `constraintName`: the name of the database constraint that was violated.
-* `submitted`: the group that the server tried to create.
 
 If any classes or class parameters inherited by the group from its parents do not exist in the submitted group's environment, the server will return a 409 Conflict response.
 If any classes or class parameters defined by the submitted group do not exist in the group's environment, but all inherited classes and parameters are satisfied, then the server will return a 412 Precondition Failed response.

@@ -259,6 +259,5 @@
          :headers {"Content-Type" "application/json"}
          :body (json/encode {:kind "uniqueness-violation"
                              :msg msg
-                             :details {:submitted offender
-                                       :constraintName constraint
+                             :details {:constraintName constraint
                                        :conflict (zipmap fields values)}})})))))

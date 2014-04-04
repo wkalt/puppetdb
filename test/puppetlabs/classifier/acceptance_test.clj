@@ -191,8 +191,7 @@
                 (is (= "uniqueness-violation" kind))
                 (is (re-find #"violates a group uniqueness constraint" msg))
                 (is (re-find #"A group with name = foogroup, environment_name = production" msg))
-                (is (= #{:submitted :constraintName :conflict} (-> details keys set)))
-                (is (sc/validate Group (-> details :submitted convert-uuids))))))))
+                (is (= #{:constraintName :conflict} (-> details keys set))))))))
 
       (testing "can update a group through its UUID URI"
         (let [delta {:variables {:spirit_animal "turtle"}}
