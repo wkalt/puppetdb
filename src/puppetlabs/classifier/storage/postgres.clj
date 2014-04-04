@@ -509,27 +509,36 @@
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- validate-group
+(defn- validate-group-classes
   "Validates the classes and class parameters (including those inherited from
   ancestors) of a group and all its children."
+  [db group ancestors]
+  (let [subtree (-> (get-subtree* {:db db} group)
+                  (assoc :group group))
+        classes (->> subtree
+                  (flatten-tree-with :environment)
+                  set
+                  (mapcat (partial get-classes* {:db db})))
+        vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
+    (when-not (class8n/valid-tree? vtree)
+      (throw+ {:kind ::missing-referents
+               :tree vtree
+               :ancestors ancestors
+               :classes classes}))))
+
+(defn- validate-group
+  "Validates a group's inheritance hierarchy and the classes and class
+  parameters of that hierarchy."
   [db group]
   (when (= (:id group) (:parent group))
     (throw+ {:kind ::inheritance-cycle
              :cycle [group]}))
-  (let [parent (get-parent db group)]
-    (let [ancestors (concat [parent] (get-ancestors* {:db db} parent))
-          subtree (-> (get-subtree* {:db db} group)
-                    (assoc :group group))
-          classes (->> subtree
-                    (flatten-tree-with :environment)
-                    set
-                    (mapcat (partial get-classes* {:db db})))
-          vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
-      (when-not (class8n/valid-tree? vtree)
-        (throw+ {:kind ::missing-referents
-                 :tree vtree
-                 :ancestors ancestors
-                 :classes classes})))))
+  (let [parent (get-parent db group)
+        ancestors (concat [parent] (get-ancestors* {:db db} parent))]
+    (when (some #(= (:id group) (:id %)) ancestors)
+      (throw+ {:kind ::inheritance-cycle
+               :cycle :pending}))
+    (validate-group-classes db group ancestors)))
 
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}

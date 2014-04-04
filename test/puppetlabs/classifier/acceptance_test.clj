@@ -470,4 +470,24 @@
                                             {:content-type :json
                                              :body (json/encode group)
                                              :throw-exceptions false})]
+        (is (= 409 status)))))
+  (let [base-url (base-url test-config)
+        group-url (str base-url "/v1/groups/")
+        enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
+              :rule ["=" "1" "2"], :classes {}, :variables {}}
+        yancy {:name "yancy", :id (UUID/randomUUID), :parent (:id enos)
+              :rule ["=" "3" "4"], :classes {}, :variables {}}
+        philip {:name "philip", :id (UUID/randomUUID), :parent (:id yancy)
+              :rule ["=" "5" "6"], :classes {}, :variables {}}
+        delta {:parent (:id philip)}]
+
+    (http/put (str group-url (:id enos)) {:content-type :json, :body (json/encode enos)})
+    (http/put (str group-url (:id yancy)) {:content-type :json, :body (json/encode yancy)})
+    (http/put (str group-url (:id philip)) {:content-type :json, :body (json/encode philip)})
+
+    (testing "can't change a parent to create a cycle"
+      (let [{:keys [body status]} (http/post (str group-url (:id yancy))
+                                             {:content-type :json
+                                              :body (json/encode delta)
+                                              :throw-exceptions false})]
         (is (= 409 status))))))
