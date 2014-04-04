@@ -158,11 +158,15 @@
   (fn [request]
     (try (handler request)
       (catch Throwable e
-        {:status 500
-         :headers {"Content-Type" "application/json"}
-         :body (json/encode {:kind "application-error"
-                             :msg (str (.getMessage e) ". See `details` for the full stack trace")
-                             :details {:trace (->> (.getStackTrace e) (map #(.toString %)))}})}))))
+        (let [root-e (if (instance? Iterable e)
+                       (-> e seq last)
+                       e)]
+          {:status 500
+           :headers {"Content-Type" "application/json"}
+           :body (json/encode
+                   {:kind "application-error"
+                    :msg (str (.getMessage root-e) ". See `details` for the full stack trace")
+                    :details {:trace (->> (.getStackTrace root-e) (map #(.toString %)))}})})))))
 
 
 (defn- referent-error-message
