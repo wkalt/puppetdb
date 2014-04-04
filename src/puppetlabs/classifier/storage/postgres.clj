@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.storage.postgres
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys]]
             [java-jdbc.sql :as sql]
             [cheshire.core :as json]
@@ -17,10 +18,12 @@
             [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
                                                 relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
-  (:import org.postgresql.util.PSQLException
-           java.util.UUID))
+  (:import java.sql.BatchUpdateException
+           java.util.UUID
+           org.postgresql.util.PSQLException))
 
 (def foreign-key-violation-code "23503")
+(def uniqueness-violation-code "23505")
 (def serialization-failure-code "40001")
 
 (def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
@@ -64,6 +67,31 @@
   (migratus/migrate {:store :database
                      :migration-dir "migrations"
                      :db db}))
+
+(defn- throw-uniqueness-failure
+  [e entity-kind]
+  (let [msg (.getMessage e)
+        [_ constraint-name] (re-find #"violates unique constraint \"(.+?)\"" msg)
+        [_ & tuples] (re-find #"Detail: Key \((.+?)\)=\((.+?)\)" msg)
+        [fields values] (map #(str/split % #", ") tuples)]
+    (throw+ {:kind ::uniqueness-violation
+             :entity-kind entity-kind
+             :constraint constraint-name
+             :fields fields
+             :values values})))
+
+(defn- wrap-uniqueness-failure-info
+  [entity-kind insertion-thunk]
+  (try (insertion-thunk)
+    (catch PSQLException e
+      (when-not (= (.getSQLState e) uniqueness-violation-code)
+        (throw e))
+      (throw-uniqueness-failure e entity-kind))
+    (catch BatchUpdateException  e
+      (let [root-e (-> e seq last)]
+        (when-not (= (.getSQLState root-e) uniqueness-violation-code)
+          (throw e)) ; seems safer to throw the original exception
+        (throw-uniqueness-failure root-e entity-kind)))))
 
 ;;; Storage protocol implementation
 ;;;
@@ -168,39 +196,43 @@
 (defn- create-parameter
   "Create or update and undelete a parameter"
   [db parameter default-value class-name environment-name]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (let [parameter (name parameter)
-          where-param (sql/where {:parameter parameter
-                                  :class_name class-name
-                                  :environment_name environment-name})
-          [deleted] (jdbc/query t-db (sql/select [:deleted] :class_parameters where-param))]
-      (if (nil? deleted)
-        ;; the parameter doesn't exist, so create it
-        (jdbc/insert! t-db, :class_parameters
-                      {:class_name class-name
-                       :parameter parameter
-                       :default_value default-value
-                       :environment_name environment-name})
-        ;; else the parameter exists but might be marked deleted, so update it
-        (jdbc/update! t-db, :class_parameters
-                      {:default_value default-value, :deleted false}
-                      where-param)))))
+  (wrap-uniqueness-failure-info "class parameter"
+   #(jdbc/with-db-transaction
+      [t-db db]
+      (let [parameter (name parameter)
+            where-param (sql/where {:parameter parameter
+                                    :class_name class-name
+                                    :environment_name environment-name})
+            [deleted] (jdbc/query t-db (sql/select [:deleted] :class_parameters where-param))]
+        (if (nil? deleted)
+          ;; the parameter doesn't exist, so create it
+          (jdbc/insert! t-db, :class_parameters
+                        {:class_name class-name
+                         :parameter parameter
+                         :default_value default-value
+                         :environment_name environment-name})
+          ;; else the parameter exists but might be marked deleted, so update it
+          (jdbc/update! t-db, :class_parameters
+                        {:default_value default-value, :deleted false}
+                        where-param))))))
 
 (sc/defn ^:always-validate create-class* :- PuppetClass
   "Create or update and undelete a class"
   [{db :db}
    {:keys [name parameters environment] :as class} :- PuppetClass]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (create-environment-if-missing {:db t-db} {:name environment})
-    (let [[deleted] (jdbc/query t-db (select-class-where-deleted name environment))]
-      (if deleted
-        (jdbc/update! t-db :classes {:deleted false} (sql/where {:name name, :environment_name environment}))
-        (jdbc/insert! t-db :classes {:name name, :environment_name environment, :deleted false})))
-    (doseq [[param value] parameters]
-      (create-parameter t-db param value name environment)))
-  class)
+  (wrap-uniqueness-failure-info "class"
+    #(jdbc/with-db-transaction
+       [t-db db]
+       (create-environment-if-missing {:db t-db} {:name environment})
+       (let [[deleted] (jdbc/query t-db (select-class-where-deleted name environment))
+             where-class (sql/where {:name name, :environment_name environment})
+             new-class-row {:name name, :environment_name environment, :deleted false}]
+         (if deleted
+           (jdbc/update! t-db :classes {:deleted false} where-class)
+           (jdbc/insert! t-db :classes new-class-row)))
+       (doseq [[param value] parameters]
+         (create-parameter t-db param value name environment))
+       class)))
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db}, environment-name :- String, class-name :- String]
@@ -230,6 +262,8 @@
   (jdbc/delete! db :classes (sql/where {:name class-name, :environment_name environment-name})))
 
 (defn- update-class
+  "This function does not create a transaction. If you are calling it, make sure
+  you are doing so inside of an existing transaction!"
   [db new-class old-class]
   (let [{:keys [environment name]} new-class
         [new-params old-params] (for [class [new-class old-class]]
@@ -284,34 +318,35 @@
 (sc/defn ^:always-validate synchronize-classes*
   [{db :db}
    puppet-classes :- [PuppetClass]]
-  (jdbc/with-db-transaction
-    [t-db db]
-    ;; Nothing else should lock this table, so we can use NOWAIT
-    (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
-    (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
-    (let [db-classes (get-all-classes t-db)
-          [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
-                                                                  (sort-classes puppet-classes)
-                                                                  (sort-classes db-classes))]
-      (doseq [{:keys [environment name] :as c} to-delete]
-        (let [where-class (sql/where {:environment_name environment, :name name})
-              [class-used?] (jdbc/query t-db (sql/select ["1"]
-                                                       :group_classes
-                                                       (sql/where
-                                                         {:environment_name environment
-                                                          :class_name name})))]
-          (if class-used?
-            (mark-class-deleted t-db c)
-            (try (delete-class* {:db t-db} environment name)
-              (catch PSQLException e
-                (when-not (= (.getSQLState e) foreign-key-violation-code)
-                  (throw e))
-                (mark-class-deleted t-db c))))))
-      (doseq [class to-add]
-        (create-class* {:db t-db} class))
-      (doseq [[new-class old-class] in-both]
-        (when-not (= new-class old-class)
-          (update-class t-db new-class old-class))))))
+  (wrap-uniqueness-failure-info "class"
+    #(jdbc/with-db-transaction
+       [t-db db]
+       ;; Nothing else should lock this table, so we can use NOWAIT
+       (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
+       (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
+       (let [db-classes (get-all-classes t-db)
+             [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
+                                                                     (sort-classes puppet-classes)
+                                                                     (sort-classes db-classes))]
+         (doseq [{:keys [environment name] :as c} to-delete]
+           (let [where-class (sql/where {:environment_name environment, :name name})
+                 [class-used?] (jdbc/query t-db (sql/select ["1"]
+                                                            :group_classes
+                                                            (sql/where
+                                                              {:environment_name environment
+                                                               :class_name name})))]
+             (if class-used?
+               (mark-class-deleted t-db c)
+               (try (delete-class* {:db t-db} environment name)
+                 (catch PSQLException e
+                   (when-not (= (.getSQLState e) foreign-key-violation-code)
+                     (throw e))
+                   (mark-class-deleted t-db c))))))
+         (doseq [class to-add]
+           (create-class* {:db t-db} class))
+         (doseq [[new-class old-class] in-both]
+           (when-not (= new-class old-class)
+             (update-class t-db new-class old-class)))))))
 
 ;; Rules
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -496,29 +531,30 @@
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
    {:keys [classes environment id parent variables] group-name :name :as group} :- Group]
-  (jdbc/with-db-transaction
-    [t-db db]
-    (validate-group t-db group)
-    (create-environment-if-missing {:db t-db} {:name environment})
-    (jdbc/insert! t-db :groups
-                  [:name :environment_name :id :parent_id]
-                  (conj ((juxt :name :environment) group) id parent))
-    (doseq [[v-key v-val] variables]
-      (jdbc/insert! t-db :group_variables
-                    [:variable :group_id :value]
-                    [(name v-key) id (json/generate-string v-val)]))
-    (doseq [class classes]
-      (let [[class-name class-params] class]
-        (jdbc/insert! t-db :group_classes
-                      [:group_id :class_name :environment_name]
-                      [id (name class-name) environment])
-        (doseq [class-param class-params]
-          (let [[param value] class-param]
-            (jdbc/insert! t-db :group_class_parameters
-                          [:parameter :class_name :environment_name :group_id :value]
-                          [(name param) (name class-name) environment id value])))))
-    (create-rule t-db {:when (:rule group), :group-id (:id group)}))
-    group)
+   (wrap-uniqueness-failure-info "group"
+     #(jdbc/with-db-transaction
+        [t-db db]
+        (validate-group t-db group)
+        (create-environment-if-missing {:db t-db} {:name environment})
+        (jdbc/insert! t-db :groups
+                      [:name :environment_name :id :parent_id]
+                      (conj ((juxt :name :environment) group) id parent))
+        (doseq [[v-key v-val] variables]
+          (jdbc/insert! t-db :group_variables
+                        [:variable :group_id :value]
+                        [(name v-key) id (json/generate-string v-val)]))
+        (doseq [class classes]
+          (let [[class-name class-params] class]
+            (jdbc/insert! t-db :group_classes
+                          [:group_id :class_name :environment_name]
+                          [id (name class-name) environment])
+            (doseq [class-param class-params]
+              (let [[param value] class-param]
+                (jdbc/insert! t-db :group_class_parameters
+                              [:parameter :class_name :environment_name :group_id :value]
+                              [(name param) (name class-name) environment id value])))))
+        (create-rule t-db {:when (:rule group), :group-id (:id group)})
+        group)))
 
 (defn- delete-group-class-link
   [db group-id class-name]
@@ -542,64 +578,69 @@
 
 (defn- add-group-class-parameter
   [db group-id class-name environment-name parameter value]
-  (jdbc/with-db-transaction [t-db db]
-    ;; create the group<->class link in the group_classes table if necessary
-    (jdbc/execute! t-db
-                   ["INSERT INTO group_classes (group_id, class_name, environment_name)
-                    SELECT ?, ?, ? WHERE NOT EXISTS
-                      (SELECT 1 FROM group_classes
+  (wrap-uniqueness-failure-info "group class parameter"
+    #(jdbc/with-db-transaction [t-db db]
+       ;; create the group<->class link in the group_classes table if necessary
+       (jdbc/execute! t-db
+                      ["INSERT INTO group_classes (group_id, class_name, environment_name)
+                       SELECT ?, ?, ? WHERE NOT EXISTS
+                       (SELECT 1 FROM group_classes
                        WHERE group_id = ? AND class_name = ? AND environment_name = ?)"
-                    group-id class-name environment-name group-id class-name environment-name])
-    (jdbc/insert! t-db :group_class_parameters
-                  {:group_id group-id
-                   :class_name class-name
-                   :environment_name environment-name
-                   :parameter parameter
-                   :value value})))
+                       group-id class-name environment-name group-id class-name environment-name])
+       (jdbc/insert! t-db :group_class_parameters
+                     {:group_id group-id
+                      :class_name class-name
+                      :environment_name environment-name
+                      :parameter parameter
+                      :value value}))))
 
 (defn- update-group-classes
   [db extant delta]
   (let [group-id (:id extant)
         environment (:environment extant)]
-    (jdbc/with-db-transaction [t-db db]
-      (doseq [[class parameters] (:classes delta)
-              :let [class-name (name class)]]
-        (if (nil? parameters)
-          (delete-group-class-link t-db group-id class-name)
-          ;; otherwise handle each parameter individually
-          (doseq [[parameter value] parameters
-                  :let [parameter-name (name parameter)]]
-            (cond
-              (nil? value)
-              (delete-group-class-parameter t-db group-id class-name parameter-name)
+    (wrap-uniqueness-failure-info "group-class link"
+      #(jdbc/with-db-transaction [t-db db]
+         (doseq [[class parameters] (:classes delta)
+                 :let [class-name (name class)]]
+           (if (nil? parameters)
+             (delete-group-class-link t-db group-id class-name)
+             ;; otherwise handle each parameter individually
+             (doseq [[parameter value] parameters
+                     :let [parameter-name (name parameter)]]
+               (cond
+                 (nil? value)
+                 (delete-group-class-parameter t-db group-id class-name parameter-name)
 
-              ;; parameter is set in extant group, so update
-              (not= (get-in extant [:classes class parameter] ::not-found) ::not-found)
-              (update-group-class-parameter t-db, group-id, class-name, parameter-name, value)
+                 ;; parameter is set in extant group, so update
+                 (not= (get-in extant [:classes class parameter] ::not-found) ::not-found)
+                 (update-group-class-parameter t-db, group-id, class-name, parameter-name, value)
 
-              :otherwise ; parameter is not nil and not previously set, so insert
-              (add-group-class-parameter t-db group-id, class-name, environment
-                                         parameter-name, value))))))))
+                 :otherwise ; parameter is not nil and not previously set, so insert
+                 (add-group-class-parameter t-db group-id, class-name, environment
+                                            parameter-name, value)))))))))
 
 (defn- update-group-variables
   [db extant delta]
   (let [group-id (:id extant)]
-    (jdbc/with-db-transaction [t-db db]
-      (doseq [[variable value] (:variables delta)
-              :let [variable-name (name variable)
-                    variable-value (json/encode value)]]
-        (cond
-          (nil? value)
-          (jdbc/delete! t-db :group_variables
-                        (sql/where {"group_id" group-id, "variable" variable-name}))
+    (wrap-uniqueness-failure-info "group variable"
+      #(jdbc/with-db-transaction [t-db db]
+         (doseq [[variable value] (:variables delta)
+                 :let [variable-name (name variable)
+                       variable-value (json/encode value)]]
+           (cond
+             (nil? value)
+             (jdbc/delete! t-db, :group_variables
+                           (sql/where {"group_id" group-id, "variable" variable-name}))
 
-          (not= (get-in extant [:variables variable] ::not-found) ::not-found)
-          (jdbc/update! t-db :group_variables {:value variable-value}
-                        (sql/where {"group_id" group-id, "variable" variable-name}))
+             (not= (get-in extant [:variables variable] ::not-found) ::not-found)
+             (jdbc/update! t-db, :group_variables, {:value variable-value}
+                           (sql/where {"group_id" group-id, "variable" variable-name}))
 
-          :otherwise ; new variable for the group
-          (jdbc/insert! t-db :group_variables
-                        {:group_id group-id, :variable variable-name :value, variable-value}))))))
+             :otherwise ; new variable for the group
+             (jdbc/insert! t-db, :group_variables
+                           {:group_id group-id
+                            :variable variable-name
+                            :value variable-value})))))))
 
 (defn- update-group-environment
   [db extant delta]
@@ -608,11 +649,14 @@
         group-id (:id extant)
         where-group-link (sql/where {"group_id" group-id})]
     (when (and new-env (not= new-env old-env))
-      (jdbc/with-db-transaction [t-db db]
-        (create-environment-if-missing {:db db} {:name new-env})
-        (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"id" group-id}))
-        (jdbc/update! t-db :group_classes {:environment_name new-env} where-group-link)
-        (jdbc/update! t-db :group_class_parameters {:environment_name new-env} where-group-link)))))
+      (wrap-uniqueness-failure-info "group"
+        #(jdbc/with-db-transaction [t-db db]
+          (create-environment-if-missing {:db db} {:name new-env})
+          (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"id" group-id}))
+          (jdbc/update! t-db :group_classes {:environment_name new-env} where-group-link)
+          (jdbc/update! t-db, :group_class_parameters
+                        {:environment_name new-env}
+                        where-group-link))))))
 
 (defn- update-group-parent
   [db extant delta]
@@ -650,7 +694,7 @@
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} (:id delta))))]
     (loop [retries 3]
-      (let [result (try (update-thunk)
+      (let [result (try (wrap-uniqueness-failure-info "group" update-thunk)
                      (catch PSQLException e
                        (when-not (= (.getSQLState e) serialization-failure-code)
                          (throw e))

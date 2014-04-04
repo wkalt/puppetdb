@@ -412,4 +412,5 @@
 
     middleware/wrap-schema-fail-explanations!
     middleware/wrap-hierarchy-validation-fail-explanations
+    middleware/wrap-uniqueness-violation-explanations
     middleware/wrap-error-catchall))

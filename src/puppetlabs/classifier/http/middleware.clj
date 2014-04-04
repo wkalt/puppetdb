@@ -158,11 +158,15 @@
   (fn [request]
     (try (handler request)
       (catch Throwable e
-        {:status 500
-         :headers {"Content-Type" "application/json"}
-         :body (json/encode {:kind "application-error"
-                             :msg (str (.getMessage e) ". See `details` for the full stack trace")
-                             :details {:trace (->> (.getStackTrace e) (map #(.toString %)))}})}))))
+        (let [root-e (if (instance? Iterable e)
+                       (-> e seq last)
+                       e)]
+          {:status 500
+           :headers {"Content-Type" "application/json"}
+           :body (json/encode
+                   {:kind "application-error"
+                    :msg (str (.getMessage root-e) ". See `details` for the full stack trace")
+                    :details {:trace (->> (.getStackTrace root-e) (map #(.toString %)))}})})))))
 
 
 (defn- referent-error-message
@@ -238,3 +242,22 @@
                                :msg (referent-error-message error-count
                                                             group-error-count
                                                             child-error-count)})})))))
+
+(defn wrap-uniqueness-violation-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/uniqueness-violation]
+        {:keys [entity-kind constraint fields values offender]}
+        (let [conflict-description (->> (map #(str %1 " = " %2) fields values)
+                                     (str/join ", "))
+              conflict (zipmap fields values)
+              msg (str "Could not complete the request because it violates a "
+                       (name entity-kind) " uniqueness constraint. A " (name entity-kind)
+                       " with " conflict-description " already exists.")]
+        {:status 409
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:kind "uniqueness-violation"
+                             :msg msg
+                             :details {:constraintName constraint
+                                       :conflict (zipmap fields values)}})})))))
