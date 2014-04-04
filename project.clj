@@ -29,7 +29,7 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [prismatic/schema "0.2.0"]
                  [slingshot "0.10.3"]
-                 [puppetlabs/http-client "0.1.0"]
+                 [puppetlabs/http-client "0.1.4"]
                  [puppetlabs/kitchensink "0.5.3"]
                  [puppetlabs/trapperkeeper "0.3.4"]
                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.3.4"]]
