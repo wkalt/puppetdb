@@ -140,10 +140,9 @@
                    :classes {}
                    :variables {}}
             {:keys [headers status body]} (http/post (str base-url "/v1/groups")
-                                                {:throw-entire-message? true
-                                                 :follow-redirects false
-                                                 :content-type :json
-                                                 :body (json/encode group)})]
+                                                     {:follow-redirects false
+                                                      :content-type :json
+                                                      :body (json/encode group)})]
         (testing "and get a 303 back with the group's location"
           (is (= 303 status))
           (is (contains? headers "location")))
@@ -156,12 +155,12 @@
             (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
 
     (let [group {:name "foogroup"
-                     :id (UUID/randomUUID)
-                     :environment "production"
-                     :rule ["=" "foo" "foo"]
-                     :parent root-group-uuid
-                     :classes {}
-                     :variables {}}
+                 :id (UUID/randomUUID)
+                 :environment "production"
+                 :rule ["=" "foo" "foo"]
+                 :parent root-group-uuid
+                 :classes {}
+                 :variables {}}
           group-uri (str base-url "/v1/groups/" (:id group))]
 
       (testing "can create a group by PUTting to its URI"
