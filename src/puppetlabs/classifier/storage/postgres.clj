@@ -490,7 +490,12 @@
       ;; if current is = to last parent, it is its own parent, so it's the root
       (if (= current (last ancestors))
         ancestors
-        (recur (get-parent db current) (conj ancestors current))))))
+        ;; if current is somewhere else in ancestors, we have as cycle
+        (if (some #(= (:id current) (:id %)) ancestors)
+          (throw+ {:kind ::inheritance-cycle
+                   :cycle :pending}) ; TODO Fix pending
+
+          (recur (get-parent db current) (conj ancestors current)))))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]

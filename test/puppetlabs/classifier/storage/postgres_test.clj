@@ -3,13 +3,16 @@
             [clojure.set :refer [project]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk]]
+            [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
-            [slingshot.slingshot :refer [try+]])
-  (:import org.postgresql.util.PSQLException
-           java.util.UUID))
+            [slingshot.slingshot :refer [try+]]
+            [slingshot.test])
+  (:import java.sql.BatchUpdateException
+           java.util.UUID
+           org.postgresql.util.PSQLException))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
@@ -25,19 +28,12 @@
   (migrate test-db)
   (f))
 
-(defn throw-next-exception
-  [ex]
-  (prn ex)
-  (cond (.getCause ex) (throw-next-exception (.getCause ex))
-        (.getNextException ex) (throw-next-exception (.getNextException ex))
-        :else (throw ex)))
-
 (defn expand-sql-exceptions
   [f]
   (try
     (f)
-    (catch Throwable t
-      (throw-next-exception t))))
+    (catch BatchUpdateException e
+      (throw (-> e seq last)))))
 
 (def db-fixtures
   (compose-fixtures expand-sql-exceptions with-test-db))
@@ -289,7 +285,13 @@
                             {:group child-1
                              :children #{{:group grandchild, :children #{}}}}}}]
       (testing "can retrieve the subtree rooted at a particular group"
-        (is (= tree (get-subtree db top)))))))
+        (is (= tree (get-subtree db top)))))
+
+    ;; Create a cycle
+    (jdbc/update! test-db :groups {:parent_id (:id child-2)} (sql/where {:id (:id top)}))
+    (testing "get-ancestors will detect cycles"
+      (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
+                    (get-ancestors db grandchild))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}
