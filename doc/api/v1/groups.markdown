@@ -169,6 +169,8 @@ The `details` key of the error object will be an array of objects, where each ob
            Note that this may not be the group where the class or parameter was defined due to inheritance.
 * `defined-by`: The name of the group that defines the class or parameter.
 
+If the request would cause an inheritance cycle to be created the server will return a 409 Conflict response. The response will contain a [error object](errors.markdown) whose `kind` key will be "inheritance-cycle".  The `details` key will be an array of group objects, and will contain each group involved in the cycle. The `msg` key will contain a shortened description of the cycle, including a list of the UUIDs with each followed by its parent until the first UUID is repeated.
+
 ### GET /v1/groups/:id
 
 Retrieve the group with the given ID.
