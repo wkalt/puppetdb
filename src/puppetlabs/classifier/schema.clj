@@ -43,6 +43,11 @@
    :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    :variables {sc/Keyword sc/Any}})
 
+(def ClassificationConflict
+  {:environment #{String}
+   :classes {sc/Keyword {sc/Keyword #{String}}}
+   :variables {sc/Keyword #{sc/Any}}})
+
 (def Group
   (assoc Classification
          :name String
