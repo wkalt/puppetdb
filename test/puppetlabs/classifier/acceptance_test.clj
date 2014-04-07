@@ -474,11 +474,11 @@
   (let [base-url (base-url test-config)
         group-url (str base-url "/v1/groups/")
         enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
-              :rule ["=" "1" "2"], :classes {}, :variables {}}
+              :rule ["=" "1" "2"], :classes {}, :variables {}, :environment "production"}
         yancy {:name "yancy", :id (UUID/randomUUID), :parent (:id enos)
-              :rule ["=" "3" "4"], :classes {}, :variables {}}
+              :rule ["=" "3" "4"], :classes {}, :variables {}, :environment "production"}
         philip {:name "philip", :id (UUID/randomUUID), :parent (:id yancy)
-              :rule ["=" "5" "6"], :classes {}, :variables {}}
+              :rule ["=" "5" "6"], :classes {}, :variables {}, :environment "production"}
         delta {:parent (:id philip)}]
 
     (http/put (str group-url (:id enos)) {:content-type :json, :body (json/encode enos)})
@@ -489,5 +489,17 @@
       (let [{:keys [body status]} (http/post (str group-url (:id yancy))
                                              {:content-type :json
                                               :body (json/encode delta)
-                                              :throw-exceptions false})]
-        (is (= 409 status))))))
+                                              :throw-exceptions false})
+            {:keys [details kind msg]} (json/decode body true)
+            new-yancy (assoc yancy :parent (:id philip))]
+        (is (= 409 status))
+        (is (= kind "inheritance-cycle"))
+        (is (= (map convert-uuids details) [new-yancy philip]))
+        (is (= msg
+               (str "Detected group inheritance cycle: "
+                    (:id yancy)
+                    " -> "
+                    (:id philip)
+                    " -> "
+                    (:id yancy)
+                    ". See the `details` key for the full groups of the cycle.")))))))

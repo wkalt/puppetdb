@@ -242,6 +242,10 @@
                                :msg (referent-error-message error-count
                                                             group-error-count
                                                             child-error-count)})})))))
+(defn- pretty-cycle [groups]
+  (->> (concat groups [(first groups)])
+    (map :id)
+    (str/join " -> ")))
 
 (defn wrap-uniqueness-violation-explanations
   [handler]
@@ -272,4 +276,6 @@
          :headers {"Content-Type" "application/json"}
          :body (json/encode {:details cycle
                              :kind "inheritance-cycle"
-                             :msg "Cannot create inheritance cycle"})}))))
+                             :msg (str "Detected group inheritance cycle: "
+                                       (pretty-cycle cycle)
+                                       ". See the `details` key for the full groups of the cycle.")})}))))
