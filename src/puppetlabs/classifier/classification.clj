@@ -90,3 +90,21 @@
     (if-not (empty? errors)
       false
       (every? identity (map valid-tree? children)))))
+
+(sc/defn inheritance-maxima :- [Group]
+  "Given a map of groups to their ancestors, determine the maxima according to
+  the partial ordering defined by inheritance (i.e. a < b if a is an ancestor of
+  b). Since it is a partial ordering, it is possible to have multiple maxima."
+  [group->ancestors :- {Group [Group]}]
+  (let [descendent-of? (fn [g descendent?]
+                         (let [ancs (->> (get group->ancestors descendent?)
+                                      (map :id)
+                                      set)]
+                           (contains? ancs (:id g))))]
+    (reduce (fn [maxima group]
+              (let [maxima' (remove #(descendent-of? % group) maxima)]
+                (if (some (partial descendent-of? group) maxima')
+                  maxima'
+                  (conj maxima' group))))
+            []
+            (keys group->ancestors))))
