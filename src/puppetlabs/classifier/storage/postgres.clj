@@ -502,13 +502,21 @@
   (->> (query db (select-group-children group-id))
     aggregate-fields-into-groups))
 
-(sc/defn ^:always-validate get-subtree* :- HierarchyNode
-  [{db :db}, group :- Group]
-  (let [children (get-immediate-children db (:id group))]
+(sc/defn ^:always-validate get-subtree' :- HierarchyNode
+  "A helper for get-subtree that retains the id of the root of the subtree in
+  order to break cycles."
+  [db, subtree-root-id :- java.util.UUID, group :- Group]
+  (let [children (->> (:id group)
+                   (get-immediate-children db)
+                   (remove #(= (:id %) subtree-root-id)))]
     {:group group
      :children (->> children
-                 (map (partial get-subtree* {:db db}))
+                 (map (partial get-subtree' db subtree-root-id))
                  set)}))
+
+(sc/defn ^:always-validate get-subtree* :- HierarchyNode
+  [{db :db}, group :- Group]
+  (get-subtree' db (:id group) group))
 
 
 ;; Creating & Updating Groups

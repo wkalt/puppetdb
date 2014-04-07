@@ -289,9 +289,14 @@
 
     ;; Create a cycle
     (jdbc/update! test-db :groups {:parent_id (:id child-2)} (sql/where {:id (:id top)}))
+
     (testing "get-ancestors will detect cycles"
       (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
-                    (get-ancestors db grandchild))))))
+                    (get-ancestors db grandchild))))
+
+    (testing "the cycle can be fixed"
+      (update-group db {:id (:id top), :parent root-group-uuid})
+      (is (= [child-1 top root] (get-ancestors db grandchild))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}
