@@ -287,18 +287,25 @@
       (testing "can retrieve the subtree rooted at a particular group"
         (is (= tree (get-subtree db top)))))
 
-    ;; Create a cycle
-    (jdbc/update! test-db :groups {:parent_id (:id child-1)} (sql/where {:id (:id top)}))
+    (testing "when a cycle is present"
+      (jdbc/update! test-db :groups {:parent_id (:id child-1)} (sql/where {:id (:id top)}))
 
-    (testing "get-ancestors will detect cycles and report the cycle in the error"
-      (let [top (get-group db (:id top))] ; shadow top since we modified it
-        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
-                       :cycle [child-1 top]]
-                      (get-ancestors db grandchild)))))
+      (let [new-top (get-group db (:id top))
+            new-top-subtree {:group new-top
+                             :children #{{:group child-2, :children #{}}
+                                         {:group child-1
+                                          :children #{{:group grandchild, :children #{}}}}}}]
+        (testing "get-ancestors will detect it and report the cycle in the error"
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                         :cycle [child-1 new-top]]
+                        (get-ancestors db grandchild))))
 
-    (testing "the cycle can be fixed"
-      (update-group db {:id (:id top), :parent root-group-uuid})
-      (is (= [child-1 top root] (get-ancestors db grandchild))))
+        (testing "get-subtree on a node in the cycle will not follow the cycle"
+          (is (= new-top-subtree (get-subtree db new-top))))
+
+        (testing "it can be fixed with a normal group update"
+          (update-group db {:id (:id top), :parent root-group-uuid})
+          (is (= [child-1 top root] (get-ancestors db grandchild))))))
 
     (testing "updating a group to add a cycle will report an error with that cycle"
       (let [delta {:id (:id top), :parent (:id child-1)}
