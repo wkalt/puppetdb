@@ -410,9 +410,4 @@
               :headers {"Content-Type" "application/json"}
               :body (json/encode (handle-404 {:request req}))}))
 
-    middleware/wrap-schema-fail-explanations!
-    middleware/wrap-hierarchy-validation-fail-explanations
-    middleware/wrap-uniqueness-violation-explanations
-    middleware/wrap-inheritance-fail-explanations
-    middleware/wrap-missing-parent-explanations
-    middleware/wrap-error-catchall))
+    middleware/wrap-errors-with-explanations))
