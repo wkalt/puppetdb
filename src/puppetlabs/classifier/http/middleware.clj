@@ -244,7 +244,7 @@
                                                             child-error-count)})})))))
 (defn- pretty-cycle [groups]
   (->> (concat groups [(first groups)])
-    (map :id)
+    (map :name)
     (str/join " -> ")))
 
 (defn wrap-uniqueness-violation-explanations

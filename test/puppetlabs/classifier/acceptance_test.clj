@@ -496,10 +496,5 @@
         (is (= kind "inheritance-cycle"))
         (is (= (map convert-uuids details) [new-yancy philip]))
         (is (= msg
-               (str "Detected group inheritance cycle: "
-                    (:id yancy)
-                    " -> "
-                    (:id philip)
-                    " -> "
-                    (:id yancy)
-                    ". See the `details` key for the full groups of the cycle.")))))))
+               (str "Detected group inheritance cycle: yancy -> philip -> yancy."
+                    " See the `details` key for the full groups of the cycle.")))))))
