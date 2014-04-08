@@ -3,13 +3,16 @@
             [clojure.set :refer [project]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk]]
+            [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
-            [slingshot.slingshot :refer [try+]])
-  (:import org.postgresql.util.PSQLException
-           java.util.UUID))
+            [slingshot.slingshot :refer [try+]]
+            [slingshot.test])
+  (:import java.sql.BatchUpdateException
+           java.util.UUID
+           org.postgresql.util.PSQLException))
 
 (def test-db {:subprotocol "postgresql"
               :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
@@ -25,19 +28,12 @@
   (migrate test-db)
   (f))
 
-(defn throw-next-exception
-  [ex]
-  (prn ex)
-  (cond (.getCause ex) (throw-next-exception (.getCause ex))
-        (.getNextException ex) (throw-next-exception (.getNextException ex))
-        :else (throw ex)))
-
 (defn expand-sql-exceptions
   [f]
   (try
     (f)
-    (catch Throwable t
-      (throw-next-exception t))))
+    (catch BatchUpdateException e
+      (throw (-> e seq last)))))
 
 (def db-fixtures
   (compose-fixtures expand-sql-exceptions with-test-db))
@@ -289,7 +285,42 @@
                             {:group child-1
                              :children #{{:group grandchild, :children #{}}}}}}]
       (testing "can retrieve the subtree rooted at a particular group"
-        (is (= tree (get-subtree db top)))))))
+        (is (= tree (get-subtree db top)))))
+
+    (testing "when a cycle is present"
+      (jdbc/update! test-db :groups {:parent_id (:id child-1)} (sql/where {:id (:id top)}))
+
+      (let [new-top (get-group db (:id top))
+            new-top-subtree {:group new-top
+                             :children #{{:group child-2, :children #{}}
+                                         {:group child-1
+                                          :children #{{:group grandchild, :children #{}}}}}}]
+        (testing "get-ancestors will detect it and report the cycle in the error"
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                         :cycle [child-1 new-top]]
+                        (get-ancestors db grandchild))))
+
+        (testing "get-subtree on a node in the cycle will not follow the cycle"
+          (is (= new-top-subtree (get-subtree db new-top))))
+
+        (testing "it can be fixed with a normal group update"
+          (update-group db {:id (:id top), :parent root-group-uuid})
+          (is (= [child-1 top root] (get-ancestors db grandchild))))))
+
+    (testing "updating a group to add a cycle will report an error with that cycle"
+      (let [delta {:id (:id top), :parent (:id child-1)}
+            new-top (assoc top :parent (:id child-1)) ]
+        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                       :cycle [new-top child-1]]
+                      (update-group db delta)))))
+
+    (testing "creating a group that inherits from itself will report a one-group cycle"
+      (let [self-id (UUID/randomUUID)
+            self (-> (blank-group-named "self")
+                   (assoc :id self-id :parent self-id))]
+        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                       :cycle [self]]
+                      (create-group db self)))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}

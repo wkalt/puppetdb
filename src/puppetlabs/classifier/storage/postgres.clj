@@ -478,7 +478,7 @@
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
-(sc/defn ^:always-validate get-parent :- Group
+(sc/defn ^:always-validate get-parent :- (sc/maybe Group)
   [db, group :- Group]
   (get-group* {:db db} (:parent group)))
 
@@ -487,9 +487,17 @@
   (if (= (:name group) (:parent group))
     []
     (loop [current (get-parent db group), ancestors []]
-      ;; if current is = to last parent, it is its own parent, so it's the root
-      (if (= current (last ancestors))
+      (cond
+        ;; if current is = to last parent, it is its own parent, so it's the root
+        (= current (last ancestors))
         ancestors
+
+        ;; if current is somewhere else in ancestors, we have as cycle
+        (some #(= (:id current) (:id %)) ancestors)
+        (throw+ {:kind ::inheritance-cycle
+                 :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
+
+        :else
         (recur (get-parent db current) (conj ancestors current))))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
@@ -497,25 +505,33 @@
   (->> (query db (select-group-children group-id))
     aggregate-fields-into-groups))
 
-(sc/defn ^:always-validate get-subtree* :- HierarchyNode
-  [{db :db}, group :- Group]
-  (let [children (get-immediate-children db (:id group))]
+(sc/defn ^:always-validate get-subtree** :- HierarchyNode
+  "A helper for get-subtree* that retains seen ids in order to break cycles.
+  It only checks for the root node repeating. Since there is only single
+  inheritance, any cycles are unreachable from the rest of the tree so there's
+  no need to check for cycles that don't involve the root node."
+  [db, subtree-root-id :- java.util.UUID, group :- Group]
+  (let [children (->> (:id group)
+                   (get-immediate-children db)
+                   (remove #(= (:id %) subtree-root-id)))]
     {:group group
      :children (->> children
-                 (map (partial get-subtree* {:db db}))
+                 (map (partial get-subtree** db subtree-root-id))
                  set)}))
+
+(sc/defn ^:always-validate get-subtree* :- HierarchyNode
+  [{db :db}, group :- Group]
+  (get-subtree** db (:id group) group))
 
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- validate-group
+(defn- validate-group-classes
   "Validates the classes and class parameters (including those inherited from
   ancestors) of a group and all its children."
-  [db group]
-  (let [parent (get-parent db group)
-        ancestors (concat [parent] (get-ancestors* {:db db} parent))
-        subtree (-> (get-subtree* {:db db} group)
+  [db group ancestors]
+  (let [subtree (-> (get-subtree* {:db db} group)
                   (assoc :group group))
         classes (->> subtree
                   (flatten-tree-with :environment)
@@ -527,6 +543,25 @@
                :tree vtree
                :ancestors ancestors
                :classes classes}))))
+
+(defn- validate-group
+  "Validates a group's inheritance hierarchy and the classes and class
+  parameters of that hierarchy."
+  [db group]
+  (when (= (:id group) (:parent group))
+    (throw+ {:kind ::inheritance-cycle
+             :cycle [group]}))
+  (let [parent (get-parent db group)
+        ancestors (concat [parent] (get-ancestors* {:db db} parent))]
+    ;; If the group parent is being changed, that edge is not yet in the
+    ;; database and get-ancestors* won't see it, so we have to check
+    ;; separately for cycles involving group
+    (when (some #(= (:id group) (:id %)) ancestors)
+      (throw+ {:kind ::inheritance-cycle
+               :cycle (->> ancestors ; Show the updated version of group
+                        (take-while #(not= (:id group) (:id %)))
+                        (concat [group]))}))
+    (validate-group-classes db group ancestors)))
 
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}

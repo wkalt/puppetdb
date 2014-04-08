@@ -456,3 +456,45 @@
                                                                :throw-exceptions false))]
           (is (= 201 status))
           (is (= diff-group (-> body (json/decode true) convert-uuids))))))))
+
+(deftest ^:acceptance group-cycles
+  (let [base-url (base-url test-config)
+        group-id (UUID/randomUUID)
+        group {:name "badgroupnono", :environment "production"
+               :id group-id, :parent group-id
+               :rule ["=" "a" "b"], :classes {}, :variables {}}
+        group-url (str base-url "/v1/groups/" (:id group))]
+
+    (testing "can't create a group parent set to itself"
+      (let [{:keys [body status]} (http/put group-url
+                                            {:content-type :json
+                                             :body (json/encode group)
+                                             :throw-exceptions false})]
+        (is (= 409 status)))))
+  (let [base-url (base-url test-config)
+        group-url (str base-url "/v1/groups/")
+        enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
+              :rule ["=" "1" "2"], :classes {}, :variables {}, :environment "production"}
+        yancy {:name "yancy", :id (UUID/randomUUID), :parent (:id enos)
+              :rule ["=" "3" "4"], :classes {}, :variables {}, :environment "production"}
+        philip {:name "philip", :id (UUID/randomUUID), :parent (:id yancy)
+              :rule ["=" "5" "6"], :classes {}, :variables {}, :environment "production"}
+        delta {:parent (:id philip)}]
+
+    (http/put (str group-url (:id enos)) {:content-type :json, :body (json/encode enos)})
+    (http/put (str group-url (:id yancy)) {:content-type :json, :body (json/encode yancy)})
+    (http/put (str group-url (:id philip)) {:content-type :json, :body (json/encode philip)})
+
+    (testing "can't change a parent to create a cycle"
+      (let [{:keys [body status]} (http/post (str group-url (:id yancy))
+                                             {:content-type :json
+                                              :body (json/encode delta)
+                                              :throw-exceptions false})
+            {:keys [details kind msg]} (json/decode body true)
+            new-yancy (assoc yancy :parent (:id philip))]
+        (is (= 409 status))
+        (is (= kind "inheritance-cycle"))
+        (is (= (map convert-uuids details) [new-yancy philip]))
+        (is (= msg
+               (str "Detected group inheritance cycle: yancy -> philip -> yancy."
+                    " See the `details` key for the full groups of the cycle.")))))))

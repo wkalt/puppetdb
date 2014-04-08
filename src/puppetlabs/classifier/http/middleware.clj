@@ -242,6 +242,10 @@
                                :msg (referent-error-message error-count
                                                             group-error-count
                                                             child-error-count)})})))))
+(defn- pretty-cycle [groups]
+  (->> (concat groups [(first groups)])
+    (map :name)
+    (str/join " -> ")))
 
 (defn wrap-uniqueness-violation-explanations
   [handler]
@@ -261,3 +265,17 @@
                              :msg msg
                              :details {:constraintName constraint
                                        :conflict (zipmap fields values)}})})))))
+
+(defn wrap-inheritance-fail-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
+        {:keys [cycle]}
+        {:status 409
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:details cycle
+                             :kind "inheritance-cycle"
+                             :msg (str "Detected group inheritance cycle: "
+                                       (pretty-cycle cycle)
+                                       ". See the `details` key for the full groups of the cycle.")})}))))
