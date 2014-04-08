@@ -279,3 +279,17 @@
                              :msg (str "Detected group inheritance cycle: "
                                        (pretty-cycle cycle)
                                        ". See the `details` key for the full groups of the cycle.")})}))))
+
+(defn wrap-missing-parent-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/missing-parent]
+        {:keys [group]}
+        {:status 409
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:details group
+                             :kind "missing-parent"
+                             :msg (str "The parent group "
+                                       (:parent group)
+                                       " does not exist.")})}))))

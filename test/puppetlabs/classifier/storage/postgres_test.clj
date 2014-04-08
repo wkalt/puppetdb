@@ -94,6 +94,13 @@
                         :rule ["=" "name" "baz"]
                         :classes {}
                         :variables {:is-a-variable "yup totes"}}
+        orphan {:name "orphan"
+                :id (UUID/randomUUID)
+                :environment "test"
+                :parent (UUID/randomUUID)
+                :rule ["=" "name" "foo"]
+                :classes {}
+                :variables {}}
         root (get-group db root-group-uuid)]
 
     (testing "stores a group"
@@ -153,7 +160,11 @@
                                        (:id with-variables)]))))
 
     (testing "can't delete the root group"
-      (is (thrown? IllegalArgumentException (delete-group db root-group-uuid))))))
+      (is (thrown? IllegalArgumentException (delete-group db root-group-uuid))))
+
+    (testing "specific error when parent doesn't exist"
+      (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent]
+                    (create-group db orphan))))))
 
 (deftest ^:database create-missing-environments
   (let [c {:name "chrono-manipulator"
