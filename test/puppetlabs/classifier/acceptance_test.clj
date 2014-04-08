@@ -498,3 +498,19 @@
         (is (= msg
                (str "Detected group inheritance cycle: yancy -> philip -> yancy."
                     " See the `details` key for the full groups of the cycle.")))))))
+
+(deftest ^:acceptance no-parent
+  (let [base-url (base-url test-config)
+        orphan {:name "orphan", :id (UUID/randomUUID)
+                :parent (UUID/randomUUID), :rule ["=" "a" "a"]
+                :classes {}, :variables {}, :environment "production"}]
+    (testing "referring to a nonexistent parent generates an understandable error"
+      (let [{:keys [body status]} (http/put (str base-url "/v1/groups/" (:id orphan))
+                                            {:content-type :json
+                                             :body (json/encode orphan)
+                                             :throw-exceptions false})
+            {:keys [details kind msg]} (json/decode body true)]
+        (is (= 409 status))
+        (is (= kind "missing-parent"))
+        (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
+        (is (= (convert-uuids details) orphan))))))
