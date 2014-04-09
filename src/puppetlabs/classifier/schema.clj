@@ -53,8 +53,7 @@
          :name String
          :id java.util.UUID
          :parent java.util.UUID
-         :rule RuleCondition
-         :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}))
+         :rule RuleCondition))
 
 (def AnnotatedGroup
   (assoc Group
