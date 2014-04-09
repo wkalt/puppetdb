@@ -8,6 +8,7 @@
             [slingshot.slingshot :refer [try+]]
             [schema.core :as sc]
             [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.schema :refer [group->classification]]
             [puppetlabs.classifier.util :refer [->client-explanation uuid?]]))
 
 (defn- log-exception
@@ -305,6 +306,45 @@
                                        (:parent group)
                                        " does not exist.")})}))))
 
+(defn conflict-details
+  [path values group->ancestors]
+  (let [class8n->group (into {} (for [[g ancs] group->ancestors]
+                                  (let [class8n (class8n/collapse-to-inherited
+                                                  (map group->classification (concat [g] ancs)))]
+                                    [class8n g])))]
+    (for [v values]
+      (let [class8n (first (filter #(= (get-in % path) v) (keys class8n->group)))
+            classified-group (class8n->group class8n)
+            defining-group (->> (concat [classified-group] (group->ancestors classified-group))
+                             (filter #(= v (get-in % path)))
+                             first)]
+        {:value v
+         :from classified-group
+         :defined-by defining-group}))))
+
+(defn wrap-classification-conflict-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.http/classification-conflict]
+        {:keys [group->ancestors conflicts]}
+        (let [g->as group->ancestors
+              details {:environment (conflict-details [:environment] (:environment conflicts) g->as)
+                       :classes (into {} (for [[c params] (:classes conflicts)]
+                                           [c (into {} (for [[p vs] params]
+                                                         [p (conflict-details [:classes c p]
+                                                                              vs, g->as)]))]))
+                       :variables (into {} (for [[v values] (:variables conflicts)]
+                                             [v (conflict-details [:variables v] values g->as)]))}]
+          {:status 500
+           :headers {"Content-Type" "application/json"}
+           :body (json/encode
+                   {:kind "classification-conflict"
+                    :msg (str "The node was classified into multiple unrelated groups that defined"
+                              " conflicting class parameters or top-level variables. See `details`"
+                              " for a list of the specific conflicts.")
+                    :details details})})))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -314,4 +354,5 @@
     wrap-uniqueness-violation-explanations
     wrap-inheritance-fail-explanations
     wrap-missing-parent-explanations
+    wrap-classification-conflict-explanations
     wrap-error-catchall))
