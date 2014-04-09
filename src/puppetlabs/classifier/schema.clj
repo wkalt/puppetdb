@@ -44,9 +44,9 @@
    :variables {sc/Keyword sc/Any}})
 
 (def ClassificationConflict
-  {:environment #{String}
-   :classes {sc/Keyword {sc/Keyword #{String}}}
-   :variables {sc/Keyword #{sc/Any}}})
+  {(sc/optional-key :environment) #{String}
+   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{String}}}
+   (sc/optional-key :variables) {sc/Keyword #{sc/Any}}})
 
 (def Group
   (assoc Classification
