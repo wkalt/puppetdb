@@ -1,12 +1,21 @@
 (ns puppetlabs.classifier.http.middleware
   (:require [clojure.string :as str]
+            [clojure.tools.logging :as log]
             [clojure.walk :refer [postwalk]]
             [cheshire.generate :as gen]
             [cheshire.core :as json]
+            [clj-stacktrace.repl]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as sc]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.util :refer [->client-explanation uuid?]]))
+
+(defn- log-exception
+  "Log an exception including request method and URI"
+  [request exception]
+  (let [method (-> request :request-method name str/upper-case)
+        message (str method " " (:uri request))]
+    (log/warn message (clj-stacktrace.repl/pst-str exception))))
 
 (defn- dissoc-indices
   [v & is]
@@ -132,6 +141,7 @@
         ;; re-throw things that aren't schema validation errors
         (when-not (re-find #"does not match schema" (.getMessage e))
           (throw e))
+        (log-exception request e)
         (let [{:keys [schema value error]} (process-schema-exception-data (.getData e))]
           {:status 500
            :headers {"Content-Type" "application/json"}
@@ -161,6 +171,7 @@
         (let [root-e (if (instance? Iterable e)
                        (-> e seq last)
                        e)]
+          (log-exception request e)
           {:status 500
            :headers {"Content-Type" "application/json"}
            :body (json/encode
@@ -293,3 +304,14 @@
                              :msg (str "The parent group "
                                        (:parent group)
                                        " does not exist.")})}))))
+
+(defn wrap-errors-with-explanations
+  [handler]
+  "The standard set of middleware wrappers to use"
+  (-> handler
+    wrap-schema-fail-explanations!
+    wrap-hierarchy-validation-fail-explanations
+    wrap-uniqueness-violation-explanations
+    wrap-inheritance-fail-explanations
+    wrap-missing-parent-explanations
+    wrap-error-catchall))
