@@ -7,6 +7,7 @@
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
+            [puppetlabs.kitchensink.core :refer [deep-merge]]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http.middleware :as middleware]
@@ -306,28 +307,27 @@
                  {:name node-name
                   :facts (get-in data [:facts :values] {})
                   :trusted (:trusted data {})})
-          rules (storage/get-rules db)
-          group-ids (class8n/matching-groups node rules)
-          class8ns (for [gn group-ids]
-                     (let [group (storage/get-group db gn)
-                           ancestors (storage/get-ancestors db group)]
-                       (class8n/collapse-to-inherited
-                         (concat [(group->classification group)]
-                                 (map group->classification ancestors)))))
-          classes (->> class8ns
-                    (map :classes)
-                    (apply merge))
-          environments (set (map :environment class8ns))
-          parameters (apply merge (map :variables class8ns))]
-      (when-not (= (count environments) 1)
-        (log/warn "Node" node-name "is classified into groups"
-                  group-ids
-                  "with inconsistent environments" environments))
-      {:name node-name
-       :groups group-ids
-       :classes classes
-       :parameters parameters
-       :environment (first environments)})))
+          matching-group-ids (class8n/matching-groups node (storage/get-rules db))
+          matching-groups (map (partial storage/get-group db) matching-group-ids)
+          group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))
+                                         matching-groups))
+          unrelated-groups (class8n/inheritance-maxima group->ancestors)
+          classifications (for [g unrelated-groups
+                                :let [ancs (group->ancestors g)
+                                      inheritance-chain (concat [g] ancs)]]
+                            (class8n/collapse-to-inherited
+                              (map group->classification inheritance-chain)))
+          conflicts (class8n/conflicts classifications)]
+      (if-not (nil? conflicts)
+        (throw+ {:kind ::classification-conflict
+                 :group->ancestors (into {} (map (juxt identity group->ancestors) unrelated-groups))
+                 :conflicts conflicts})
+        (let [classification (apply deep-merge classifications)]
+          {:name node-name
+           :environment (:environment classification)
+           :groups matching-group-ids
+           :classes (:classes classification)
+           :parameters (:variables classification)})))))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
