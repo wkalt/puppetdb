@@ -43,13 +43,17 @@
    :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
    :variables {sc/Keyword sc/Any}})
 
+(def ClassificationConflict
+  {(sc/optional-key :environment) #{String}
+   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{String}}}
+   (sc/optional-key :variables) {sc/Keyword #{sc/Any}}})
+
 (def Group
   (assoc Classification
          :name String
          :id java.util.UUID
          :parent java.util.UUID
-         :rule RuleCondition
-         :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}))
+         :rule RuleCondition))
 
 (def AnnotatedGroup
   (assoc Group

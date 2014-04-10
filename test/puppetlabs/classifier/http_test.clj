@@ -5,10 +5,12 @@
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
             [schema.core :as sc]
+            [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [Storage]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]])
+            [puppetlabs.classifier.storage :as storage :refer [get-group Storage]]
+            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
+            [puppetlabs.classifier.util :refer [merge-and-clean]])
   (:import java.util.UUID))
 
 (defn is-http-status
@@ -314,6 +316,7 @@
 
 (defn classification-request
   ([] (classification-request :get nil nil))
+  ([node-name] (classification-request :get node-name))
   ([method node-name] (classification-request method node-name nil))
   ([method node-name body]
    (let [req (request method (str "/v1/classified/nodes" (if node-name (str "/" node-name))))]
@@ -340,6 +343,7 @@
                   (get-ancestors [_ _]
                     nil))
         app (app {:db mock-db})]
+
     (testing "facts submitted via POST can be used for classification"
       (let [facts {:name "qwkeju" :values {:a "b"}}
             trusted {:certname "abcdefg"}
@@ -348,7 +352,112 @@
                                              "qwkeju"
                                              (encode {:facts facts :trusted trusted})))]
         (is-http-status 200 response)
-        (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body true)))))))))
+        (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body true))))))))
+
+  (let [red-class {:name "redclass"
+                   :environment "staging"
+                   :parameters {:red "the blood of angry men", :black "the dark of ages past"}}
+        blue-class {:name "blueclass"
+                    :environment "staging"
+                    :parameters {:blue "dabudi dabudai"}}
+        root {:name "default", :id root-group-uuid
+              :parent root-group-uuid
+              :environment "production"
+              :rule ["=" "foo" "foo"]
+              :classes {}, :variables {}}
+        left-child {:name "left-child", :id (UUID/randomUUID)
+                    :environment "staging"
+                    :parent root-group-uuid
+                    :rule ["=" "name" "multinode"]
+                    :classes {:redclass {:red "a world about to dawn"}
+                              :blueclass {:blue "since my baby left me"}}
+                    :variables {:snowflake "identical"}}
+        right-child {:name "right-child", :id (UUID/randomUUID)
+                     :environment "staging"
+                     :parent root-group-uuid
+                     :rule ["=" "name" "multinode"]
+                     :classes {:redclass {:black "the night that ends at last"}}
+                     :variables {:snowflake "identical"}}
+        grandchild {:name "grandchild", :id (UUID/randomUUID)
+                    :environment "staging"
+                    :parent (:id right-child)
+                    :rule ["=" "name" "multinode"]
+                    :classes {:blueclass {:blue "since my baby left me"}}
+                    :variables {:snowflake "identical"}}
+        group->rule (fn [g] {:when (:rule g), :group-id (:id g)})
+        db-from-groups (fn [& groups]
+                         (let [groups-by-id (into {} (map (juxt :id identity) groups))]
+                           (reify Storage
+                             (get-rules [_] (map group->rule groups))
+                             (get-group [_ id] (get groups-by-id id))
+                             (get-ancestors [this g]
+                               (let [get-parent (fn [g] (get-group this (:parent g)))]
+                                 (loop [curr (get-parent g), ancs []]
+                                   (if (= (:id curr) root-group-uuid)
+                                     (conj ancs curr)
+                                     (recur (get-parent curr) (conj ancs curr)))))))))
+        mock-db (db-from-groups root left-child right-child grandchild)
+        handler (app {:db mock-db})]
+
+    (testing "classifications are merged if they are disjoint"
+      (let [{:keys [status body]} (handler (classification-request "multinode"))]
+        (is (= 200 status))
+        (is (= {:name "multinode"
+                :environment "staging"
+                :groups (->> [left-child right-child grandchild]
+                          (map :id)
+                          set)
+                :classes {:blueclass {:blue "since my baby left me"}
+                          :redclass {:red "a world about to dawn"
+                                     :black "the night that ends at last"}}
+                :parameters {:snowflake "identical"}}
+               (-> body
+                 (decode true)
+                 (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
+
+    (testing "if classifications are not disjoint"
+      (let [right-child' (deep-merge right-child {:classes {:blueclass {:blue "suede shoes"}}})
+            left-child' (deep-merge left-child {:environment "production"})
+            grandchild' (merge-and-clean grandchild {:classes {:blueclass nil}
+                                                     :variables {:snowflake "unique"}})
+            mock-db' (db-from-groups root left-child' right-child' grandchild')
+            handler' (app {:db mock-db'})
+            {:keys [status body]} (handler' (classification-request "multinode"))
+            error (decode body true)
+            convert-uuids-if-group #(if (map? %) (convert-uuids %) %)]
+
+        (testing "a 500 error is thrown"
+          (is (= 500 status))
+          (testing "that has kind 'classification-conflict'"
+            (is (= "classification-conflict" (:kind error))))
+
+          (testing "that contains details for"
+            (testing "environment conflicts"
+              (let [environment-conflicts (->> (get-in error [:details :environment])
+                                            (map (partial mapvals convert-uuids-if-group)))]
+                (is (= #{{:value "production", :from left-child', :defined-by left-child'}
+                         {:value "staging", :from grandchild', :defined-by grandchild'}}
+                       (set environment-conflicts)))))
+
+            (testing "variable conflicts"
+              (let [variable-conflicts (get-in error [:details :variables])
+                    snowflake-conflicts (->> (:snowflake variable-conflicts)
+                                          (map (partial mapvals convert-uuids-if-group)))]
+                (is (= [:snowflake] (keys variable-conflicts)))
+                (is (= #{{:value "unique", :from grandchild', :defined-by grandchild'}
+                         {:value "identical", :from left-child', :defined-by left-child'}}))))
+
+            (testing "class parameter conflicts"
+              (let [class-conflicts (get-in error [:details :classes])
+                    blueclass-conflicts (:blueclass class-conflicts)
+                    blue-param-conflicts (->> (:blue blueclass-conflicts)
+                                           (map (partial mapvals convert-uuids-if-group)))]
+                (is (= [:blueclass] (keys class-conflicts)))
+                (is (= [:blue] (keys blueclass-conflicts)))
+                (is (= #{{:value "suede shoes", :from grandchild', :defined-by right-child'}
+                         {:value "since my baby left me"
+                          :from grandchild'
+                          :defined-by grandchild'}}))))))))))
 
 (deftest errors
   (let [mock-db (reify Storage

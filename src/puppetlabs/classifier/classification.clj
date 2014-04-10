@@ -1,9 +1,11 @@
 (ns puppetlabs.classifier.classification
-  (:require [clojure.set :refer [difference subset?]]
+  (:require [clojure.set :refer [difference intersection subset?]]
+            [clojure.walk :as walk]
+            [puppetlabs.kitchensink.core :refer [deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Classification Group group->classification
-                                                  HierarchyNode Node PuppetClass
-                                                  Rule SubmittedNode ValidationNode]]
+            [puppetlabs.classifier.schema :refer [Classification ClassificationConflict Group
+                                                  group->classification, HierarchyNode Node
+                                                  PuppetClass Rule SubmittedNode ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
@@ -23,6 +25,54 @@
   ([group-classification :- Classification
     ancestors :- [Classification]]
    (collapse-to-inherited (concat [group-classification] ancestors))))
+
+(sc/defn conflicts :- (sc/maybe ClassificationConflict)
+  "Return a map conforming to the ClassificationConflict schema that describes
+  the conflicts between the given classifications, or nil if there are no
+  conflicts. The ClassificationConflict only contains paths to conflicting
+  values; all others are omitted. A conflict is when multiple
+  classifications define different values for the environment, a class
+  parameter, or a variable."
+  [classifications :- [Classification]]
+  ;; it is easiest to understand this function by starting with the threading
+  ;; macro form in the let body, then working up from there.
+  (let [conflicts->sets (fn [& vs]
+                          (let [unique (set vs)]
+                            (if (= (count unique) 1)
+                              nil
+                              unique)))
+        map-entry? #(and (vector? %)
+                         (= (count %) 2)
+                         (keyword? (first %)))
+        conflicting-entry? (fn [[k v]]
+                             ;; A key-value entry in a map is a conflicting entry if its value is
+                             ;; a set, which represents a conflict. However, we don't want to
+                             ;; inadvertantly remove all the parents along a path to a conflicting
+                             ;; entry, so we preserve these paths by also considering an entry whose
+                             ;; value is a map a conflicting one. Since the omit-nonconflicting-keys
+                             ;; postwalk transformation removes empty maps (i.e. those containing
+                             ;; only non-conflicting entries) _after_ we have had a chance to remove
+                             ;; all the entries (due to the `post` part of the `postwalk`), we
+                             ;; should just preserve nested maps.
+                             (or (set? v) (map? v)))
+        omit-nonconflicting-keys (fn [form]
+                                   ;; replace with nil any form that is not either a map entry that
+                                   ;; leads directly or indirectly,
+                                   (if (or (and (map-entry? form) (not (conflicting-entry? form)))
+                                           (and (map? form) (empty? form)))
+                                     nil
+                                     form))]
+    (->> classifications
+      ;; conflicts->sets examines the provided values and produces a set
+      ;; whenever there are multiple distinct values to choose from during the
+      ;; merge (meaning there is a conflict).
+      (apply deep-merge-with conflicts->sets)
+      ;; After the deep merge above, all conflicts have been turned in to sets,
+      ;; so use a postwalk transformation to remove all paths that don't lead to
+      ;; sets. A postwalk is necessary in order to also eliminate empty maps
+      ;; coming up out of the leaves, otherwise classes without any conflicting
+      ;; parameters would still have an empty map in the returned value.
+      (walk/postwalk omit-nonconflicting-keys))))
 
 (sc/defn group-referencing-class :- (sc/maybe Group)
   "Given a class and a list of ancestors, returns the closest ancestral group
@@ -90,3 +140,21 @@
     (if-not (empty? errors)
       false
       (every? identity (map valid-tree? children)))))
+
+(sc/defn inheritance-maxima :- [Group]
+  "Given a map of groups to their ancestors, determine the maxima according to
+  the partial ordering defined by inheritance (i.e. a < b if a is an ancestor of
+  b). Since it is a partial ordering, it is possible to have multiple maxima."
+  [group->ancestors :- {Group [Group]}]
+  (let [descendent-of? (fn [g descendent?]
+                         (let [ancs (->> (get group->ancestors descendent?)
+                                      (map :id)
+                                      set)]
+                           (contains? ancs (:id g))))]
+    (reduce (fn [maxima group]
+              (let [maxima' (remove #(descendent-of? % group) maxima)]
+                (if (some (partial descendent-of? group) maxima')
+                  maxima'
+                  (conj maxima' group))))
+            []
+            (keys group->ancestors))))

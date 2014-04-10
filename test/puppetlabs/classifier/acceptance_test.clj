@@ -7,7 +7,7 @@
             [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
-            [puppetlabs.kitchensink.core :refer [ini-to-map spit-ini]]
+            [puppetlabs.kitchensink.core :refer [ini-to-map mapvals spit-ini]]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.schema :refer [Group]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
@@ -336,6 +336,101 @@
         (is (= {:noisyclass {:verbose "false"}}
                (:classes classification)))
         (is (= {:dothings "yes"} (:parameters classification)))))))
+
+(deftest ^:acceptance multiple-classifications
+  (let [base-url (base-url test-config)]
+    (testing "classifying a node into multiple groups"
+      (let [red-class {:name "redclass", :parameters {:red "the blood of angry men"
+                                                     :black "the dark of ages past"}}
+            blue-class {:name "blueclass", :parameters {:blue "dabudi dabudai"}}
+            left-child {:name "left-child", :id (UUID/randomUUID)
+                        :parent root-group-uuid
+                        :rule ["=" "name" "multinode"]
+                        :classes {:redclass {:red "a world about to dawn"}
+                                  :blueclass {:blue "since my baby left me"}}
+                        :variables {:snowflake "identical"}}
+            right-child {:name "right-child", :id (UUID/randomUUID)
+                         :parent root-group-uuid
+                         :rule ["=" "name" "multinode"]
+                         :classes {:redclass {:black "the night that ends at last"}}
+                         :variables {:snowflake "identical"}}
+            grandchild {:name "grandchild", :id (UUID/randomUUID)
+                        :parent (:id right-child)
+                        :rule ["=" "name" "multinode"]
+                        :classes {:blueclass {:blue "since my baby left me"}}
+                        :variables {:snowflake "identical"}}
+            groups [left-child right-child grandchild]]
+        (doseq [c [red-class blue-class], env ["production" "staging"]]
+          (http/put (str base-url "/v1/environments/" env "/classes/" (:name c))
+                    {:content-type :json, :body (json/encode c)}))
+        (doseq [g groups]
+          (http/put (str base-url "/v1/groups/" (:id g))
+                    {:content-type :json, :body (json/encode g)}))
+
+        (testing "merges the classifications if they are disjoint"
+          (let [{:keys [status body]} (http/get (str base-url "/v1/classified/nodes/multinode"))]
+            (is (= 200 status))
+            (is (= {:name "multinode"
+                    :environment "production"
+                    :groups (->> groups (map :id) set)
+                    :classes {:blueclass {:blue "since my baby left me"}
+                              :redclass {:red "a world about to dawn"
+                                         :black "the night that ends at last"}}
+                    :parameters {:snowflake "identical"}}
+                   (-> body
+                     (json/decode true)
+                     (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
+
+        (testing "when the classifications are not disjoint"
+          (doseq [[id delta] {(:id left-child) {:environment "staging"}
+                              (:id right-child) {:classes {:blueclass {:blue "suede shoes"}}}
+                              (:id grandchild) {:classes {:blueclass nil}
+                                                :variables {:snowflake "unique"}}}]
+            (http/post (str base-url "/v1/groups/" id)
+                       {:content-type :json, :body (json/encode delta)}))
+          (let [groups' (doall (for [id (map :id [left-child right-child grandchild])]
+                                 (-> (http/get (str base-url "/v1/groups/" id))
+                                   :body
+                                   (json/decode true)
+                                   convert-uuids)))
+                [left-child' right-child' grandchild'] groups'
+                {:keys [status body]} (http/get (str base-url "/v1/classified/nodes/multinode")
+                                                {:throw-exceptions false})
+                error (json/decode body true)
+                convert-uuids-if-group #(if (map? %) (convert-uuids %) %)]
+
+            (testing "throws a 500 error"
+              (is (= 500 status))
+              (testing "that has kind 'classification-conflict'"
+                (is (= "classification-conflict" (:kind error))))
+
+              (testing "that contains details for"
+                (testing "environment conflicts"
+                  (let [environment-conflicts (->> (get-in error [:details :environment])
+                                                (map (partial mapvals convert-uuids-if-group)))]
+                    (is (= #{{:value "staging", :from left-child', :defined-by left-child'}
+                             {:value "production", :from grandchild', :defined-by grandchild'}}
+                           (set environment-conflicts)))))
+
+                (testing "variable conflicts"
+                  (let [variable-conflicts (get-in error [:details :variables])
+                        snowflake-conflicts (->> (:snowflake variable-conflicts)
+                                              (map (partial mapvals convert-uuids-if-group)))]
+                    (is (= [:snowflake] (keys variable-conflicts)))
+                    (is (= #{{:value "unique", :from grandchild', :defined-by grandchild'}
+                             {:value "identical", :from left-child', :defined-by left-child'}}))))
+
+                (testing "class parameter conflicts"
+                  (let [class-conflicts (get-in error [:details :classes])
+                        blueclass-conflicts (:blueclass class-conflicts)
+                        blue-param-conflicts (->> (:blue blueclass-conflicts)
+                                               (map (partial mapvals convert-uuids-if-group)))]
+                    (is (= [:blueclass] (keys class-conflicts)))
+                    (is (= [:blue] (keys blueclass-conflicts)))
+                    (is (= #{{:value "suede shoes", :from grandchild', :defined-by right-child'}
+                             {:value "since my baby left me"
+                              :from grandchild'
+                              :defined-by grandchild'}}))))))))))))
 
 (deftest ^:acceptance fact-classification
   (let [base-url (base-url test-config)]

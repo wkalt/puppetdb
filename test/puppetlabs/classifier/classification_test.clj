@@ -106,3 +106,58 @@
               :variables {:new "whatsit"
                           :more "?"}}
              (collapse-to-inherited family))))))
+
+(deftest classification-conflicts
+  (testing "conflicts"
+    (let [conflicting [{:environment "production"
+                        :classes {:no-conflict {:foo "bar"}
+                                  :conflict {:does "conflict", :doesnt "conflict"}}
+                        :variables {:unique "snowflake"
+                                    :generic "conflict"}}
+                       {:environment "staging"
+                        :classes {:no-conflict {:baz "quux"}
+                                  :conflict {:does "conflicts" :doesnt "conflict"}}
+                        :variables {:generic "conflicts"
+                                    :also-unique "snowflake"}}]
+          disjoint [{:environment "production"
+                     :classes {:no-conflict {:foo "bar"}
+                               :conflict? {:not "conflict"}}
+                     :variables {:unique "snowflake"}}
+                    {:environment "production"
+                     :classes {:no-conflict {:baz "quux"}
+                               :conflict? {:not "conflict"}}
+                     :variables {:unique "snowflake"
+                                 :also-unique "'nother snowflake"}}]]
+
+      (testing "turns conflicting values into sets and omits all non-conflicting paths"
+        (is (= {:environment #{"production" "staging"}
+                :classes {:conflict {:does #{"conflict" "conflicts"}}}
+                :variables {:generic #{"conflict" "conflicts"}}}
+               (conflicts conflicting))))
+
+      (testing "returns nil if there are no conflicts at all"
+        (is (nil? (conflicts disjoint)))))))
+
+(deftest find-unrelated
+  (let [mk-group (fn [n]
+                   {:name n, :id (UUID/randomUUID), :rule ["=" "foo" "foo"]
+                    :environment "", :classes {}, :variables {}})
+        set-parent (fn [g p] (assoc g :parent (:id p)))
+        root (mk-group "root")
+        root (set-parent root root)
+        left-child (-> (mk-group "left-child")
+                     (set-parent root))
+        right-child (-> (mk-group "right-child")
+                      (set-parent root))
+        left-grandchild (-> (mk-group "left-grandchild")
+                          (set-parent right-child))
+        right-grandchild (-> (mk-group "right-grandchild")
+                           (set-parent right-child))
+        group->ancestors {root [root]
+                          left-child [root]
+                          right-child [root]
+                          left-grandchild [right-child root]
+                          right-grandchild [right-child root]}]
+    (testing "inheritance-maxima finds unrelated groups given every group in the hierarchy"
+      (is (= #{left-child left-grandchild right-grandchild}
+             (set (inheritance-maxima group->ancestors)))))))
