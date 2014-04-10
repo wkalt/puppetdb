@@ -322,6 +322,12 @@
          :from classified-group
          :defined-by defining-group}))))
 
+(defn- dissoc-if-empty
+  [m k]
+  (if (empty? (get m k))
+    (dissoc m k)
+    m))
+
 (defn wrap-classification-conflict-explanations
   [handler]
   (fn [request]
@@ -335,14 +341,31 @@
                                                          [p (conflict-details [:classes c p]
                                                                               vs, g->as)]))]))
                        :variables (into {} (for [[v values] (:variables conflicts)]
-                                             [v (conflict-details [:variables v] values g->as)]))}]
+                                             [v (conflict-details [:variables v] values g->as)]))}
+              details (reduce dissoc-if-empty details [:environment :classes :variables])
+              wrap-quotes #(str "\"" % "\"")
+              conflicting-things (str (if (contains? details :environment) "the environment, ")
+                                      (if (contains? details :classes)
+                                        (str "class parameters for "
+                                             (->> (:classes details) keys
+                                               (map (comp wrap-quotes name))
+                                               (str/join ", "))
+                                             " classes, "))
+                                      (if (contains? details :variables)
+                                        (str "variables named "
+                                             (->> (:variables details)
+                                               keys
+                                               (map (comp wrap-quotes name))
+                                               (str/join ", ")))))
+              msg (str "The node was classified into groups named "
+                       (str/join ", "  (map (comp wrap-quotes :name) (keys group->ancestors)))
+                       " that defined conflicting values for " conflicting-things "."
+                       " See `details` for full information on all conflicts.")]
           {:status 500
            :headers {"Content-Type" "application/json"}
            :body (json/encode
                    {:kind "classification-conflict"
-                    :msg (str "The node was classified into multiple unrelated groups that defined"
-                              " conflicting class parameters or top-level variables. See `details`"
-                              " for a list of the specific conflicts.")
+                    :msg msg
                     :details details})})))))
 
 (defn wrap-errors-with-explanations
