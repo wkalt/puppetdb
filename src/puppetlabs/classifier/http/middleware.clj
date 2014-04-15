@@ -153,8 +153,7 @@
                                 " expected schema. This is indicative of either database"
                                 " corruption, modification of the database by a third party, or a"
                                 " bug on our part. Please open an issue at"
-                                " https://tickets.puppetlabs.com so we can determine whether this"
-                                " is our fault.")
+                                " https://tickets.puppetlabs.com so that we can investigate.")
                       :details {:retrieved value, :schema schema, :error error}}
                      {:kind "application-error"
                       :msg (str (.getMessage e) ". See `details` for full schema, value, error, and"
