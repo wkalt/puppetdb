@@ -3,19 +3,15 @@
 (require '[clojure.java.shell :refer [sh]])
 
 (def tk-version "0.3.4")
-(def version-string
-  (memoize
-  (fn []
-    "Determine the version number using 'rake version -s'"
-    (if (.exists (file "version"))
-      (string/trim (slurp "version"))
-      (let [command ["rake" "package:version" "-s"]
-            {:keys [exit out err]} (apply sh command)]
-        (if (zero? exit)
-          (string/trim out)
-          "0.0-dev-build"))))))
 
-(defproject classifier (version-string)
+(defn deploy-info
+  [url]
+  {:url url
+   :username :env/nexus_jenkins_username
+   :password :env/nexus_jenkins_password
+   :sign-releases false})
+
+(defproject classifier "0.2.0-SNAPSHOT"
   :description "Node classifier"
   :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.5.1"]
@@ -48,4 +44,9 @@
                    :all (constantly true)}
   :aliases {"initdb" ["run" "--bootstrap-config" "resources/initdb.cfg"]}
   :uberjar-name "classifier.jar"
-  :main ^:skip-aot puppetlabs.trapperkeeper.main)
+  :main ^:skip-aot puppetlabs.trapperkeeper.main
+  ;; For release
+  :plugins [[lein-release "1.0.5"]]
+  :lein-release {:scm :git, :deploy-via :lein-deploy}
+  :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
+                        ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]])
