@@ -11,7 +11,7 @@
    :password :env/nexus_jenkins_password
    :sign-releases false})
 
-(defproject puppetlabs/classifier "0.2.1"
+(defproject puppetlabs/classifier "0.2.2-SNAPSHOT"
   :description "Node classifier"
   :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.5.1"]
