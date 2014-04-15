@@ -156,17 +156,17 @@
     (cond
       malformed-uuid
       {:kind "malformed-uuid"
-       :msg (str "The group id in the request's URI is not a valid UUID")
+       :msg (str "The group id in the request's URI is not a valid UUID.")
        :details malformed-uuid}
 
       malformed-parent-uuid
       {:kind "malformed-uuid"
-       :msg (str "The group's parent id is not a valid UUID")
+       :msg (str "The group's parent id is not a valid UUID.")
        :details malformed-parent-uuid}
 
       (and submitted-id uri-id)
       {:kind "conflicting-ids"
-       :msg (str "The group id submitted in the request body differs from the id"
+       :msg (str "The group id submitted in the request body differs from the id."
                  " present in the URL's request.")
        :details {:submitted submitted-id, :fromUrl uri-id}}
 
