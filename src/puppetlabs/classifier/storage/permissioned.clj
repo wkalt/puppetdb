@@ -1,4 +1,5 @@
-(ns puppetlabs.classifier.storage.permissioned)
+(ns puppetlabs.classifier.storage.permissioned
+  (:require [schema.core :as sc]))
 
 (defprotocol PermissionedStorage
   "This \"wraps\" the Storage protocol with permissions. It has all the same
@@ -32,3 +33,36 @@
   (get-environment [this token environment-name] "Retrieves an environment if permitted.")
   (get-environments [this token] "Retrieves all environments if permitted.")
   (delete-environment [this token environment-name] "Deletes an environment if permitted."))
+
+(def Permissions
+  "A map that provides the requisite functions for creating
+  a PermissionedStorage instance. These functions are mostly permission
+  predicates, which take an RBAC API token and group id (if applicable) and
+  return a boolean indicating whether the subject owning the token has
+  the given permission. The non-predicates are :permitted-group-actions and
+  :viewable-group-ids, which take a token and return either the actions the
+  subject is allowed to perform on the group, or a list of the ids of groups the
+  subject as allowed to view."
+  (let [Function (sc/pred fn?)]
+    {:classifier-access? Function
+     :group-create? Function
+     :group-delete? Function
+     :group-edit-classification? Function
+     :group-edit-environment? Function
+     :group-edit-parent? Function
+     :group-edit-rules? Function
+     :group-view? Function
+     :permitted-group-actions Function
+     :viewable-group-ids Function}))
+
+(def permission->description
+  "Human-readable descriptions for the action that each permission key in
+  a Permissions map represents, mainly to embed in error messages."
+  {:classifier-access? "access the classifier"
+   :group-create? "create a group"
+   :group-delete? "delete a group"
+   :group-edit-classification? "edit the group's classification values"
+   :group-edit-environment? "change the group's environment"
+   :group-edit-parent? "change a group's parent"
+   :group-edit-rules? "change the group's rules"
+   :group-view? "view the group"})
