@@ -1,5 +1,8 @@
 (ns puppetlabs.classifier.storage.permissioned
-  (:require [schema.core :as sc]))
+  (:require [clojure.walk :refer [prewalk]]
+            [schema.core :as sc]
+            [slingshot.slingshot :refer [throw+]]
+            [puppetlabs.classifier.storage :as storage :refer [Storage]]))
 
 (defprotocol PermissionedStorage
   "This \"wraps\" the Storage protocol with permissions. It has all the same
@@ -66,3 +69,122 @@
    :group-edit-parent? "change a group's parent"
    :group-edit-rules? "change the group's rules"
    :group-view? "view the group"})
+
+(defn- throw-permission-exception
+  "Throws a slingshot exception for a permission denial. `permission` must be
+  one of the keys allowed in a Permissions map."
+  ([permission token] (throw-permission-exception permission token nil))
+  ([permission token group-id]
+   {:pre [(contains? Permissions permission)]}
+   (let [guaranteed-info {:kind ::permission-denied
+                          :permission-to (permission->description permission)
+                          :rbac-token token}
+         exc-info (if group-id
+                    (assoc guaranteed-info :group-id group-id)
+                    guaranteed-info)]
+     (throw+ exc-info))))
+
+(sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
+  [storage :- (sc/protocol Storage), permissions :- Permissions]
+  (let [{:keys [classifier-access?
+                group-create?
+                group-delete?
+                group-edit-classification?
+                group-edit-environment?
+                group-edit-parent?
+                group-edit-rules?
+                group-view?
+                permitted-group-actions
+                viewable-group-ids]} permissions
+        wrap-access-permissions (fn [f]
+                                  (fn [this token & args]
+                                    (if (classifier-access? token)
+                                      (apply f storage args)
+                                      (throw-permission-exception :classifier-access? token))))]
+
+    (reify PermissionedStorage
+      ;; the group methods are the only interesting ones; the rest just depend
+      ;; on whether the token's subject has classifier access at all
+      (validate-group [this token {id :id :as group}]
+        (if-let [group (storage/get-group storage id)]
+          (if (group-view? token id)
+            (storage/validate-group storage group)
+            (throw-permission-exception :group-view? token id))
+          (if (group-create? token)
+            (storage/validate-group storage group)
+            (throw-permission-exception :group-create? token))))
+      (create-group [this token group]
+        (if (group-create? token)
+          (storage/create-group storage group)
+          (throw-permission-exception :group-create? token)))
+      (get-group [this token id]
+        (if (group-view? token id)
+          (storage/get-group storage id)
+          (throw-permission-exception :group-view? token id)))
+      (get-groups [this token]
+        (let [viewable-ids (set (viewable-group-ids token))]
+          (filter #(contains? viewable-ids (:id %)) (storage/get-groups storage))))
+      (get-ancestors [this token group]
+        (let [viewable-ids (set (viewable-group-ids token))]
+          (filter #(contains? viewable-ids (:id %)) (storage/get-ancestors storage group))))
+      (get-subtree [this token group]
+        (let [viewable-ids (set (viewable-group-ids token))
+              subtree (storage/get-subtree storage group)]
+          (prewalk (fn [form]
+                     (if (and (map? form)
+                              (contains? form :group)
+                              (contains? form :children)
+                              (not (contains? viewable-ids (get-in form [:group :id]))))
+                       (assoc form :group nil)
+                       form))
+                   subtree)))
+      (update-group [this token delta]
+        (let [id (:id delta)
+              permitted-actions (->> (permitted-group-actions token id)
+                                  (map keyword)
+                                  set)]
+          (when-not (permitted-actions :view)
+            (throw-permission-exception :group-view? token id))
+          (when (and (contains? delta :parent) (not (permitted-actions :edit_parent)))
+            (throw-permission-exception :group-edit-parent? token))
+          (when (and (contains? delta :rule) (not (permitted-actions :edit_rules)))
+            (throw-permission-exception :group-edit-rules? token id))
+          (when (and (contains? delta :environment) (not (permitted-actions :edit_env)))
+            (throw-permission-exception :group-edit-environment? token id))
+          (when (and (some #(contains? delta %) [:name :classes :variables])
+                     (not (contains? permitted-actions :configure)))
+            (throw-permission-exception :group-edit-classification? token id))
+          (storage/update-group storage delta)))
+      (delete-group [this token id]
+        (if (group-delete? token id)
+          (storage/delete-group storage id)
+          (throw-permission-exception :group-delete? token)))
+
+      (store-check-in [this token check-in]
+        ((wrap-access-permissions storage/store-check-in) this token check-in))
+      (get-check-ins [this token node-name]
+        ((wrap-access-permissions storage/get-check-ins) this token node-name))
+      (get-nodes [this token]
+        ((wrap-access-permissions storage/get-nodes) this token))
+
+      (create-class [this token class]
+        ((wrap-access-permissions storage/create-class) this token class))
+      (get-class [this token environment-name class-name]
+        ((wrap-access-permissions storage/get-class) this token environment-name class-name))
+      (get-classes [this token environment-name]
+        ((wrap-access-permissions storage/get-classes) this token environment-name))
+      (synchronize-classes [this token puppet-classes]
+        ((wrap-access-permissions storage/synchronize-classes) this token puppet-classes))
+      (delete-class [this token environment-name class-name]
+        ((wrap-access-permissions storage/delete-class) this token environment-name class-name))
+
+      (get-rules [this token] ((wrap-access-permissions storage/get-rules) this token))
+
+      (create-environment [this token environment]
+        ((wrap-access-permissions storage/create-environment) this token environment))
+      (get-environment [this token environment-name]
+        ((wrap-access-permissions storage/get-environment) this token environment-name))
+      (get-environments [this token]
+        ((wrap-access-permissions storage/get-environments) this token))
+      (delete-environment [this token environment-name]
+        ((wrap-access-permissions storage/delete-environment) this token environment-name)))))
