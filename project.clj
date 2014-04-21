@@ -49,4 +49,7 @@
   :plugins [[lein-release "1.0.5"]]
   :lein-release {:scm :git, :deploy-via :lein-deploy}
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
-                        ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]])
+                        ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
+  ;; Put our puppet plugin code in the jar because that's where packaging
+  ;; expects it
+  :resource-paths ["puppet/lib"])
