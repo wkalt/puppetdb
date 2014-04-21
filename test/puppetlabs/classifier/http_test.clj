@@ -11,7 +11,8 @@
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [get-group root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
             [puppetlabs.classifier.test-util :refer [blank-group]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
@@ -35,7 +36,7 @@
         bad-obj {:name "bad" :property 3}
         schema {:name String
                 :property String}
-        storage (reify Storage)  ; unused in the test, needed to satisfy schema
+        storage (in-memory-storage {})
         !created? (atom false)
         storage-fns {:get (fn [_ obj-name]
                             (if (and (= obj-name test-obj-name) @!created?)
@@ -90,23 +91,14 @@
                                           :baz {:puppetlabs.classifier/deleted false
                                                 :buzz {:puppetlabs.classifier/deleted true
                                                        :value "37"}}})
-        agroup-id (UUID/randomUUID)
         agroup {:name "agroup"
-                :id agroup-id
+                :id (UUID/randomUUID)
                 :environment "bar"
                 :environment-trumps false
                 :parent root-group-uuid
                 :rule ["=" "name" "bert"]
-                :classes {:foo {:param "override"}}
-                :variables {:ntp-servers ["0.us.pool.ntp.org" "ntp.example.com"]}}
-        agroup' {:name "agroupprime"
-                 :id agroup-id
-                 :environment "bar"
-                 :environment-trumps false
-                 :parent root-group-uuid
-                 :rule ["=" "name" "ernie"]
-                 :classes {:foo {}}
-                 :variables {}}
+                :classes {:foo {:override "overriden"}}
+                :variables {:ntpservers ["0.us.pool.ntp.org" "ntp.example.com"]}}
         root {:name "default"
               :id root-group-uuid
               :environment "production"
@@ -123,35 +115,10 @@
                 :rule ["=" "name" "elmo"]
                 :classes {}
                 :variables {}}
-        groups [root agroup annotated bgroup]
-        classes [{:name "foo", :environment "bar", :parameters {:override "default"}}]
-        !group-storage (atom {})
-        !agroup-updated? (atom false)
-        mock-db (reify Storage
-                  (get-group [_ id]
-                    (if (and (= id agroup-id) (get @!group-storage id))
-                      (if @!agroup-updated? agroup' agroup)
-                      (get @!group-storage id)))
-                  (get-ancestors [_ group]
-                    [])
-                  (get-groups [_]
-                    groups)
-                  (annotate-group [_ group]
-                    (if (= (:name group) "annotated")
-                      with-annotations
-                      group))
-                  (create-group [_ group]
-                    (sc/validate Group group)
-                    (swap! !group-storage assoc (:id group) group)
-                    group)
-                  (update-group [_ _]
-                    (reset! !agroup-updated? true)
-                    agroup')
-                  (delete-group [_ id]
-                    (is (contains? @!group-storage id))
-                    '(1))
-                  (get-classes [_ _] classes))
-        app (app {:db mock-db})]
+        classes [{:name "foo", :environment "bar", :parameters {:override "default"}}
+                 {:name "baz", :environment "production", :parameters {}}]
+        mem-db (in-memory-storage {:groups [root] , :classes classes})
+        app (app {:db mem-db})]
 
     (testing "returns 404 to a GET request if the group doesn't exist"
       (let [{status :status} (app (group-request :get (UUID/randomUUID)))]
@@ -191,27 +158,32 @@
         (is-http-status 200 resp)
         (is (= agroup (-> body (decode json-key->clj-key) convert-uuids)))))
 
-    (testing "returns all groups"
-      (let [{body :body, :as resp} (app (group-request))
-            groups-with-annotations (map (partial storage/annotate-group mock-db) groups)]
-        (is-http-status 200 resp)
-        (is (= (set groups-with-annotations) (-> body
-                                               (decode json-key->clj-key)
-                                               (->> (map convert-uuids))
-                                               set)))))
-
     (testing "returns annotated version of a group"
       (app (group-request :put (:id annotated) (encode annotated {:key-fn clj-key->json-key})))
       (let [{body :body, :as resp} (app (group-request :get (:id annotated)))]
         (is-http-status 200 resp)
         (is (= with-annotations (-> body (decode json-key->clj-key) convert-uuids)))))
 
-    (testing "updates a group"
-      (let [req-body (encode {:classes {:foo {:param nil}}
-                              :variables {:ntp_servers nil}})
-            {body :body, :as resp} (app (group-request :post (:id agroup') req-body))]
+    (testing "returns all groups"
+      (let [{body :body, :as resp} (app (group-request))
+            groups-with-annotations (->> [root agroup bgroup annotated]
+                                      (map (partial storage/annotate-group mem-db))
+                                      (map #(dissoc % :id)))]
         (is-http-status 200 resp)
-        (is (= agroup' (-> body (decode json-key->clj-key) convert-uuids)))))
+        (is (= (set groups-with-annotations) (-> body
+                                               (decode json-key->clj-key)
+                                               (->>
+                                                 (map convert-uuids)
+                                                 (map #(dissoc % :id))
+                                                 set))))))
+
+    (testing "updates a group"
+      (let [delta {:classes {:foo {:override nil}}
+                   :variables {:ntpservers nil}}
+            {body :body, :as resp} (app (group-request :post (:id agroup) (encode delta)))]
+        (is-http-status 200 resp)
+        (is (= (merge-and-clean agroup delta)
+               (-> body (decode json-key->clj-key) convert-uuids)))))
 
     (testing "updating a group that doesn't exist produces a 404"
       (let [post-body (encode {:name "different", :variables {:exists false}})
@@ -220,7 +192,8 @@
 
     (testing "tells storage to delete the group and returns 204"
       (let [response (app (group-request :delete (:id agroup)))]
-        (is-http-status 204 response)))))
+        (is-http-status 204 response)
+        (is-http-status 404 (app (group-request :get (:id agroup))))))))
 
 (deftest dont-make-orphans
   (let [parent {:name "Breeders"
@@ -233,13 +206,8 @@
                :id (UUID/randomUUID)
                :environment "production", :environment-trumps false
                :rule ["=" "foo" "bar"], :classes {}, :variables {}}
-        mock-db (reify Storage
-                  (get-group [_ _] parent)
-                  (delete-group [_ _]
-                    (throw+ {:kind :puppetlabs.classifier.storage.postgres/children-present
-                             :group parent
-                             :children #{annie}})))
-        handler (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups [parent annie]})
+        handler (app {:db mem-db})]
 
     (testing "delete requests that would create orphans get a 422 response"
       (let [{:keys [body status]} (handler (group-request :delete (:id parent)))
@@ -253,7 +221,16 @@
                  (update-in [:children] (partial map convert-uuids)))))))))
 
 (deftest inherited-group
-  (let [crotchety-ancestor {:name "Hubert"
+  (let [suspenders {:name "suspenders"
+                    :parameters {:color "0x000000", :length nil}}
+        music {:name "music"
+               :parameters {:genre "Rock'n'Roll", :top-artists ["Elvis Presley" "Chuck Berry"]}}
+        opinions {:name "opinions"
+                  :parameters {:the-guvmnt nil
+                               :politicians nil
+                               :fashion nil
+                               :popular-music nil}}
+        crotchety-ancestor {:name "Hubert"
                             :id (UUID/randomUUID)
                             :environment "FDR's third term"
                             :environment-trumps false
@@ -280,11 +257,12 @@
                          :opinions {:politicians "always been rotten"}}
                :variables {}}
         child-path (str "/v1/groups/" (:id child))
-        mock-db (reify Storage
-                  (get-group [_ _] child)
-                  (get-ancestors [_ _] [crotchety-ancestor])
-                  (annotate-group [_ g] g))
-        handler (app {:db mock-db})]
+        groups [crotchety-ancestor child]
+        mem-db (in-memory-storage {:groups groups
+                                   :classes (for [env (map :environment groups)
+                                                  class [suspenders music opinions]]
+                                              (assoc class :environment env))})
+        handler (app {:db mem-db})]
 
     (testing "can get an inherited version of a group"
       (let [{:keys [status body]} (handler (request :get child-path {:inherited true}))]
@@ -312,54 +290,35 @@
        req))))
 
 (deftest classes
-  (let [classes [{:name "myclass",
-                  :parameters {:sweetness "totes"
-                               :radness "utterly"
-                               :awesomeness_level "off the charts"}
-                  :environment "test"}
-                 {:name "theirclass"
-                  :parameters {:dumbness "totally"
-                               :stinkiness "definitely"
-                               :looks_like_a_butt "from some angles"}
-                  :environment "test"}]
-        class-map (into {} (for [c classes] [(:name c) c]))
-        !created? (atom {})
-        mock-db (reify Storage
-                  (get-class [_ _ class-name]
-                    (if (get @!created? class-name)
-                      (get class-map class-name)))
-                  (get-classes [_ _]
-                    classes)
-                  (create-class [_ class]
-                    (sc/validate PuppetClass class)
-                    (is (= (get class-map (:name class)) class))
-                    (swap! !created? assoc (:name class) true)
-                    (get class-map (:name class)))
-                  (delete-class [_ _ class-name]
-                    (is (contains? class-map class-name))
-                    '(1)))
-        app (app {:db mock-db})]
+  (let [myclass {:name "myclass", :environment "test"
+                 :parameters {:sweetness "totes"
+                              :radness "utterly"
+                              :awesomeness_level "off the charts"}}
+        theirclass {:name "theirclass", :environment "test"
+                    :parameters {:dumbness "totally"
+                                 :stinkiness "definitely"
+                                 :looks_like_a_butt? "from some angles"}}
+        mem-db (in-memory-storage {:classes [theirclass]})
+        app (app {:db mem-db})]
 
     (testing "tells the storage layer to store the class map"
-      (let [{body :body, :as resp} (app (class-request :put "test" "myclass"
-                                                       (encode (get class-map "myclass"))))]
+      (let [{body :body, :as resp} (app (class-request :put "test" (:name myclass)
+                                                       (encode myclass)))]
         (is-http-status 201 resp)
-        (is (get @!created? "myclass"))))
+        (is (= myclass (decode body true)))))
 
     (testing "returns class with its parameters"
-      (let [{body :body, :as resp} (app (class-request :get "test" "myclass"))]
+      (let [{body :body, :as resp} (app (class-request :get "test" (:name myclass)))]
         (is-http-status 200 resp)
-        (is (= (get class-map "myclass") (decode body true)))))
+        (is (= myclass (decode body true)))))
 
     (testing "retrieves all classes"
       (let [{body :body, :as resp} (app (class-request :get "test"))]
         (is-http-status 200 resp)
-        (is (= (set classes)  (-> body
-                                (decode true)
-                                set)))))
+        (is (= #{myclass theirclass} (set (decode body true))))))
 
     (testing "tells storage to delete the class and returns 204"
-      (let [response (app (class-request :delete "test" "myclass"))]
+      (let [response (app (class-request :delete "test" (:name myclass)))]
         (is-http-status 204 response)))))
 
 (defn classification-request
@@ -380,13 +339,8 @@
               :parent root-group-uuid
               :rule ["~" "name" ".*"]
               :classes {}, :variables {}}
-        mock-db (reify Storage
-                  (get-rules [_]
-                    [{:when (:rule root), :group-id root-group-uuid}])
-                  (get-group [_ _] root)
-                  (get-ancestors [_ _] [root])
-                  (store-check-in [_ ci] ci))
-        app (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups [root]})
+        app (app {:db mem-db})]
     (testing "classification returns the right structure with a blank db"
       (let [{body :body, :as response} (app (classification-request
                                               :post
@@ -414,16 +368,8 @@
                :rule (:when rule)
                :classes {}
                :variables {}}
-        mock-db (reify Storage
-                  (get-rules [_]
-                    [rule])
-                  (get-group [_ _]
-                    group)
-                  (get-ancestors [_ _]
-                    [])
-                  (store-check-in [_ ci]
-                    ci))
-        app (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups [group]})
+        app (app {:db mem-db})]
 
     (testing "facts submitted via POST can be used for classification"
       (let [fact {:a "b"}
@@ -464,26 +410,13 @@
                      :variables {:snowflake "identical"}}
         grandchild {:name "grandchild", :id (UUID/randomUUID)
                     :environment "staging"
-              :environment-trumps false
+                    :environment-trumps false
                     :parent (:id right-child)
                     :rule ["=" "name" "multinode"]
                     :classes {:blueclass {:blue "since my baby left me"}}
                     :variables {:snowflake "identical"}}
-        group->rule (fn [g] {:when (:rule g), :group-id (:id g)})
-        db-from-groups (fn [& groups]
-                         (let [groups-by-id (into {} (map (juxt :id identity) groups))]
-                           (reify Storage
-                             (get-rules [_] (map group->rule groups))
-                             (get-group [_ id] (get groups-by-id id))
-                             (store-check-in [_ ci] ci)
-                             (get-ancestors [this g]
-                               (let [get-parent (fn [g] (get-group this (:parent g)))]
-                                 (loop [curr (get-parent g), ancs []]
-                                   (if (= (:id curr) root-group-uuid)
-                                     (conj ancs curr)
-                                     (recur (get-parent curr) (conj ancs curr)))))))))
-        mock-db (db-from-groups root left-child right-child grandchild)
-        handler (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups [root left-child right-child grandchild]})
+        handler (app {:db mem-db})]
 
     (testing "classifications are merged if they are disjoint"
       (let [{:keys [status body]} (handler (classification-request "multinode"))]
@@ -506,8 +439,8 @@
             left-child' (deep-merge left-child {:environment "production"})
             grandchild' (merge-and-clean grandchild {:classes {:blueclass nil}
                                                      :variables {:snowflake "unique"}})
-            mock-db' (db-from-groups root left-child' right-child' grandchild')
-            handler' (app {:db mock-db'})
+            mem-db' (in-memory-storage {:groups [root left-child' right-child' grandchild']})
+            handler' (app {:db mem-db'})
             {:keys [status body]} (handler' (classification-request "multinode"))
             error (decode body json-key->clj-key)
             convert-uuids-if-group #(if (map? %) (convert-uuids %) %)]
@@ -571,19 +504,11 @@
                        :environment-trumps false
                        :variables {:hisses true}})
         groups [kittehs doggehs snakes root]
-        rules (for [{:keys [id rule]} groups]
-                {:when rule, :group-id id})
         group-ids (->> groups
                     (map :id)
-                    (cons root-group-uuid)
                     set)
-        mock-db (let [groups-by-id (into {} (map (juxt :id identity) groups))]
-                  (reify Storage
-                    (get-rules [_] rules)
-                    (get-group [_ id] (get groups-by-id id))
-                    (get-ancestors [_ _] [root])
-                    (store-check-in [_ ci] ci)))
-        handler (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups groups})
+        handler (app {:db mem-db})]
 
     (testing "classifying a node into multiple groups with different environments"
 
@@ -601,22 +526,16 @@
 
       (testing "fails if multiple groups with distinct enviroments have the trumps flag set"
         (let [doggehs-trump (assoc doggehs :environment-trumps true)
-              groups [kittehs doggehs-trump snakes root]
-              mock-db' (let [groups-by-id (into {} (map (juxt :id identity) groups))]
-                         (reify Storage
-                           (get-rules [_] rules)
-                           (get-group [_ id] (get groups-by-id id))
-                           (get-ancestors [_ _ ] [root])
-                           (store-check-in [_ ci] ci)))
-              handler' (app {:db mock-db'})
+              groups' [kittehs doggehs-trump snakes root]
+              mem-db' (in-memory-storage {:groups groups'})
+              handler' (app {:db mem-db'})
               {:keys [status body]} (handler' (classification-request "pets"))
               error (decode body json-key->clj-key)]
           (is (= 500 status))
           (is (= "classification-conflict" (:kind error))))))))
 
 (deftest node-check-ins
-  (let [!check-ins (atom {})
-        dwarf-planets {:name "dwarf planets"
+  (let [dwarf-planets {:name "dwarf planets"
                        :rule ["and" ["=" ["fact" "orbits"] "sol"]
                               [">" ["fact" "orbital neighbors"] "0"]
                               ["=" ["fact" "shape"] "spherical"]]
@@ -626,26 +545,21 @@
               :fact {"orbits" "sol"
                       "orbital neighbors" "1200"
                       "shape" "spherical"}}
-        mock-db (reify Storage
-                  (store-check-in [_ ci] ci
-                    (swap! !check-ins, update-in, [(:node ci)]
-                           #(if % (conj % ci), [ci])))
-                  (get-check-ins [_ nn]
-                    (-> @!check-ins (get nn) reverse))
-                  (get-rules [_] [{:when (:rule dwarf-planets), :group-id (:id dwarf-planets)}])
-                  (get-group [_ _] dwarf-planets)
-                  (get-ancestors [_ _] nil))
-        handler (app {:db mock-db})]
+        mem-db (in-memory-storage {:groups [dwarf-planets]})
+        handler (app {:db mem-db})]
 
     (testing "stores a node check-in when a node is classified"
       (is-http-status 200 (handler (classification-request :post (:name eris) (encode eris))))
-      (is (sc/validate CheckIn (get-in @!check-ins [(:name eris) 0]))))
+      (let [node-check-ins (storage/get-check-ins mem-db (:name eris))]
+        (is (= 1 (count node-check-ins)))
+        (is (sc/validate CheckIn (first node-check-ins)))))
 
     (testing "returns node check-ins"
       (let [{:keys [body status]} (handler (request :get (str "/v1/nodes/" (:name eris))))
             fmt-dt (fn [dt] (fmt-time/unparse (fmt-time/formatters :date-time-no-ms) dt))
+            check-ins (storage/get-check-ins mem-db (:name eris))
             expected-response {:name (:name eris)
-                               :check_ins (->> (get @!check-ins (:name eris))
+                               :check_ins (->> check-ins
                                             (map #(dissoc % :node))
                                             (map #(update-in %, [:explanation]
                                                              (partial mapkeys ->uuid)))
@@ -661,14 +575,8 @@
                                               (partial mapkeys ->uuid)))))))))
 
 (deftest malformed-requests
-  (let [mock-db (reify Storage
-                  (get-group [_ _]
-                    nil)
-                  (create-group [_ group]
-                    (sc/validate Group group))
-                  (get-ancestors [_ _]
-                    []))
-        app (app {:db mock-db})]
+  (let [mem-db (in-memory-storage {})
+        app (app {:db mem-db})]
 
     (testing "requests with a malformed UUID get a structured 400 response"
       (let [{:keys [status body]} (app (request :get "/v1/groups/not-a-uuid"))
@@ -709,8 +617,7 @@
         (is (re-find #"Unexpected close marker" (-> error :details :error)))))))
 
 (deftest schema-validation
-  (let [app (app {:db (reify Storage
-                        (validate-group [_ g] g))})
+  (let [app (app {:db (in-memory-storage {})})
         invalid {:name "invalid"
                  :rule ["=" "name" "Val Knott"]
                  :classes {}}
@@ -737,7 +644,7 @@
         (is (= status 400))))))
 
 (deftest rule-translation
-  (let [app (app {:db (reify Storage)})
+  (let [app (app {:db (in-memory-storage {})})
         endpoint "/v1/rules/translate"]
 
     (testing "the rule translation endpoint"
