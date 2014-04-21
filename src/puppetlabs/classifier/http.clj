@@ -193,8 +193,7 @@
       ;; matches when parse-if-body successfully parsed a body
       (if (and (vector? parse-result) (false? (first parse-result)))
         (let [{{id :id :as data} ::data} (second parse-result)
-              {:keys [parent] :as group} (merge {:environment "production", :variables {}}
-                                                (if uuid {:id uuid})
+              {:keys [parent] :as group} (merge (if uuid {:id uuid})
                                                 (convert-uuids data))]
           (cond
             (and uuid id (not= (str uuid) (str id)))
@@ -242,6 +241,9 @@
     (and (put-group? ctx) retrieved (not= submitted retrieved)) true
     :else false))
 
+(def group-defaults
+  {:environment "production", :variables {}})
+
 (defn group-resource
   [db uuid-str]
   (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
@@ -253,20 +255,21 @@
                     {::retrieved g}))
         delete! (fn [_] (storage/delete-group db uuid))
         post! (fn [{:as ctx, submitted ::submitted, retrieved ::retrieved}]
-                (cond
-                  (post-new-group? ctx)
-                  (let [with-id (assoc submitted :id (UUID/randomUUID))]
-                    {::created (storage/create-group db (validate Group with-id))})
+                (let [group (merge group-defaults submitted)]
+                  (cond
+                    (post-new-group? ctx)
+                    (let [with-id (assoc group :id (UUID/randomUUID))]
+                      {::created (storage/create-group db (validate Group with-id))})
 
-                  (post-delta-update? ctx)
-                  {::updated (storage/update-group db (validate GroupDelta submitted))}
+                    (post-delta-update? ctx)
+                    {::updated (storage/update-group db (validate GroupDelta submitted))}
 
-                  (and (put-group? ctx) (not retrieved))
-                  {::created (storage/create-group db (validate Group submitted))}
+                    (and (put-group? ctx) (not retrieved))
+                    {::created (storage/create-group db (validate Group group))}
 
-                  (and (put-group? ctx) retrieved (not= submitted retrieved))
-                  (let [delta (group-delta retrieved (validate Group submitted))]
-                    {::created (storage/update-group db (validate GroupDelta delta))})))
+                    (and (put-group? ctx) retrieved (not= group retrieved))
+                    (let [delta (group-delta retrieved (validate Group group))]
+                      {::created (storage/update-group db (validate GroupDelta delta))}))))
         redirect? (fn [{:as ctx, created ::created}]
                     (if (post-new-group? ctx)
                       {:location (str "/v1/groups/" (:id created))}))
