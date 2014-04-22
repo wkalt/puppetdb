@@ -183,8 +183,8 @@
                                               {:content-type :json
                                                :body (json/encode conflicting)
                                                :throw-exceptions false})]
-          (testing "a 409 Conflict response is returned"
-            (is (= status 409))
+          (testing "a 422 Unprocessable Entity response is returned"
+            (is (= status 422))
             (testing "that has an understandable error"
               (let [{:keys [kind msg details] :as error} (json/decode body true)]
                 (is (= #{:kind :msg :details} (-> error keys set)))
@@ -260,7 +260,7 @@
                                              :body (json/encode with-missing-class)
                                              :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
-        (is (= 412 status))
+        (is (= 422 status))
         (is (= kind "missing-referents"))
         (is (re-find #"exist in the group's environment" body))
         (is (= (count details) 1))
@@ -303,7 +303,7 @@
                                                 :body (json/encode {:parent (:id top-group)})
                                                 :throw-exceptions false})
               {:keys [details kind msg]} (json/decode body true)]
-          (is (= 409 status))
+          (is (= 422 status))
           (is (= kind "missing-referents"))
           (is (= 1 (count details)))
           (is (= (first details)
@@ -516,7 +516,7 @@
                                               :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
 
-        (is (= 412 status))
+        (is (= 422 status))
         (is (re-find #"not exist in the group's environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
                           (= (:environment %) "dne")
@@ -565,7 +565,7 @@
                                             {:content-type :json
                                              :body (json/encode group)
                                              :throw-exceptions false})]
-        (is (= 409 status)))))
+        (is (= 422 status)))))
   (let [base-url (base-url test-config)
         group-url (str base-url "/v1/groups/")
         enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
@@ -587,7 +587,7 @@
                                               :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)
             new-yancy (assoc yancy :parent (:id philip))]
-        (is (= 409 status))
+        (is (= 422 status))
         (is (= kind "inheritance-cycle"))
         (is (= (map convert-uuids details) [new-yancy philip]))
         (is (= msg
@@ -605,7 +605,7 @@
                                              :body (json/encode orphan)
                                              :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
-        (is (= 409 status))
+        (is (= 422 status))
         (is (= kind "missing-parent"))
         (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
         (is (= (convert-uuids details) orphan))))))
