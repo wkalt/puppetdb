@@ -22,6 +22,7 @@ Each group object contains the following keys:
 
 * `name`: the name of the group (a string).
 * `id`: the group's ID, which is a string containing a type-4 (random) UUID.
+* `description`: an optional key containing an arbitrary string describing the group.
 * `environment`: the name of the group's environment (a string), which indirectly defines what classes will be available for the group to set, and will be the environment that nodes classified into this group will run under.
 * `parent`: the ID of the group's parent (a string).
             A group is not permitted to be its own parent, unless it is the default group (which is the root of the hierarchy).
@@ -46,6 +47,7 @@ Here is an example of group object:
       "name": "Webservers",
       "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "production",
+      "description": "This group captures configuration relevant to all web-facing production webservers, regardless of location."
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": ["and", ["~", ["trusted", "certname"], "www"],
                       [">=", ["facts", "total_ram"], "512"]],
@@ -127,6 +129,8 @@ The keys allowed in this object are:
 * `name`: the name of the group (required).
 * `environment`: the name of the group's environment.
                  This key is optional; if it's not provided, the default environment (`production`) will be used.
+* `description`: a string describing the group.
+                 This key is optional; if it's not provided, the group will have no description and this key will not appear in responses.
 * `parent`: the ID of the group's parent (required).
 * `rule`: the condition that must be satisfied for a node to be classified into this group (required).
           The structure of this condition is described in the ["Rule Condition Grammar"](#rule-condition-grammar) section above.
@@ -216,7 +220,7 @@ Update the name, environment, parent, rule, classes, class parameters, and varia
 The request body must be JSON object describing the delta to be applied to the group.
 The `classes` and `variables` keys of the delta will be merged with the group, and then any keys of the resulting object that have a null value will be deleted.
 This allows you to remove classes, class parameters, or variables from the group by setting them to null in the delta.
-The `environment`, `parent`, and `rule` keys, if present in the delta, will replace the old values wholesale with their values.
+The `environment`, `description`, `parent`, and `rule` keys, if present in the delta, will replace the old values wholesale with their values.
 
 For example, given the following group:
 
