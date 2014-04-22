@@ -150,15 +150,14 @@ In all cases, the response will contain an error object as described in the [err
 In the first two cases, the `kind` key will be "schema-violation", and the  `details` key of the error will be an object with `submitted`, `schema`, and `error` keys which respectively describe the submitted object, the schema that object should conform to, and how the submitted object failed to conform to the schema.
 In the last case, the `kind` key will be "malformed-request" and the `details` key will be an object with `body` and `error` keys, which respectively hold the request body as received and the error message encountered while trying to parse the JSON.
 
-If attempting to create the group violates uniqueness constraints (such as the constraint that each group name's must be unique within its environment), the server will return a 409 Conflict response.
+If attempting to create the group violates uniqueness constraints (such as the constraint that each group name's must be unique within its environment), the server will return a 422 Unprocessable Entity response.
 The `kind` key of the error object will be "uniqueness-violation", and the `msg` will describe which fields of the group caused the constraint to be violated, along with their values.
 The `details` key will contain an object that itself has two keys:
 
 * `conflict`: an object whose keys are the fields of the group that violated the constraint and whose values are the corresponding field values.
 * `constraintName`: the name of the database constraint that was violated.
 
-If any classes or class parameters inherited by the group from its parents do not exist in the submitted group's environment, the server will return a 409 Conflict response.
-If any classes or class parameters defined by the submitted group do not exist in the group's environment, but all inherited classes and parameters are satisfied, then the server will return a 412 Precondition Failed response.
+If any classes or class parameters definedy by the group or inherited by the group from its parents do not exist in the submitted group's environment, the server will return a 422 Unprocessable Entity response.
 In both cases the response object's `kind` key will be "missing-referents" and the `msg` key will describe the number of missing referents.
 The `details` key of the error object will be an array of objects, where each object describes a single missing referent, and has the following keys:
 
@@ -169,9 +168,9 @@ The `details` key of the error object will be an array of objects, where each ob
            Note that this may not be the group where the class or parameter was defined due to inheritance.
 * `defined-by`: The name of the group that defines the class or parameter.
 
-If the parent of the group does not exist the server will return a 409 Conflict response. The `kind` key will be "missing-parent" and the `msg` key will include the parent UUID that did not exist. The `details` key will contain the full submitted group.
+If the parent of the group does not exist the server will return a 422 Unprocessable Entity response. The `kind` key will be "missing-parent" and the `msg` key will include the parent UUID that did not exist. The `details` key will contain the full submitted group.
 
-If the request would cause an inheritance cycle to be created the server will return a 409 Conflict response. The response will contain a [error object](errors.markdown) whose `kind` key will be "inheritance-cycle".  The `details` key will be an array of group objects, and will contain each group involved in the cycle. The `msg` key will contain a shortened description of the cycle, including a list of the group names with each followed by its parent until the first group is repeated.
+If the request would cause an inheritance cycle to be created the server will return a 422 Unprocessable Entity response. The response will contain a [error object](errors.markdown) whose `kind` key will be "inheritance-cycle".  The `details` key will be an array of group objects, and will contain each group involved in the cycle. The `msg` key will contain a shortened description of the cycle, including a list of the group names with each followed by its parent until the first group is repeated.
 
 ### GET /v1/groups/:id
 
@@ -285,7 +284,7 @@ Note how the "ssl" class was deleted because its entire object was mapped to nul
 
 This operation can return any of the errors that could be returned to a PUT request on this same endpoint.
 See [above](#response-format) for details on these responses.
-Note that 409 and 412 responses to POST requests can include errors that were caused by the group's children, but a group being created with a PUT request cannot have any children.
+Note that 422 responses to POST requests can include errors that were caused by the group's children, but a group being created with a PUT request cannot have any children.
 
 ### DELETE /v1/groups/:id
 
