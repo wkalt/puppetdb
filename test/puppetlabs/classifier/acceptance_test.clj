@@ -137,6 +137,7 @@
     (testing "can create a group by POSTing to the group collection endpoint"
       (let [group {:name "bargroup"
                    :environment "production"
+                   :description "this group is for bars only! no foos allowed."
                    :rule ["=" "bar" "bar"]
                    :parent root-group-uuid
                    :classes {}
@@ -488,10 +489,11 @@
     (http/put (str base-url (str "/v1/groups/" (:id group)))
               {:content-type :json, :body (json/encode group)})
 
-    (testing "can update group's name, rule, classes, class parameters, variables, and environment."
+    (testing "can update group's name, description, rule, classes, class parameters, variables, and environment."
       (let [group-delta {:id (:id group)
                          :name "zgroup"
                          :environment new-env
+                         :description "the omega of groups"
                          :rule ["=" "name" "jerry"]
                          :classes {:aclass {:log "fatal"
                                             :verbose nil

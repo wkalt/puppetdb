@@ -378,6 +378,7 @@
           g.id               AS id,
           g.environment_name AS environment,
           g.parent_id        AS parent,
+          g.description      AS description,
           gv.variable        AS variable,
           gv.value           AS variable_value,
           gc.class_name      AS class,
@@ -422,6 +423,12 @@
     (assoc row :rule (json/decode serialized-condition))
     (dissoc row :rule)))
 
+(defn- dissoc-nil-description
+  [row]
+  (if (nil? (:description row))
+    (dissoc row :description)
+    row))
+
 (defn- aggregate-fields-into-groups
   [result]
   (->> result
@@ -430,6 +437,7 @@
     (aggregate-submap-by :variable :variable_value :variables)
     (map deserialize-variable-values)
     (map deserialize-rule)
+    (map dissoc-nil-description)
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
@@ -568,15 +576,15 @@
 
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
-   {:keys [classes environment id parent variables] group-name :name :as group} :- Group]
+   {:keys [classes description environment id parent variables] group-name :name :as group} :- Group]
    (wrap-uniqueness-failure-info "group"
      #(jdbc/with-db-transaction
         [t-db db]
         (validate-group t-db group)
         (create-environment-if-missing {:db t-db} {:name environment})
         (jdbc/insert! t-db :groups
-                      [:name :environment_name :id :parent_id]
-                      (conj ((juxt :name :environment) group) id parent))
+                      [:name :description :environment_name :id :parent_id]
+                      (conj ((juxt :name :description :environment) group) id parent))
         (doseq [[v-key v-val] variables]
           (jdbc/insert! t-db :group_variables
                         [:variable :group_id :value]
@@ -696,6 +704,13 @@
                         {:environment_name new-env}
                         where-group-link))))))
 
+(defn- update-group-description
+  [db extant delta]
+  (let [new-description (:description delta)]
+    (when (and new-description (not= new-description (:description extant)))
+      (jdbc/update! db :groups {:description new-description}
+                    (sql/where {:id (:id delta)})))))
+
 (defn- update-group-parent
   [db extant delta]
   (let [new-parent (:parent delta)]
@@ -726,6 +741,7 @@
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
+                          (update-group-description t-db extant delta)
                           (update-group-parent t-db extant delta)
                           (update-group-rule t-db extant delta)
                           (update-group-name t-db extant delta)

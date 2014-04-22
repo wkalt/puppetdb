@@ -53,7 +53,8 @@
          :name String
          :id java.util.UUID
          :parent java.util.UUID
-         :rule RuleCondition))
+         :rule RuleCondition
+         (sc/optional-key :description) String))
 
 (def AnnotatedGroup
   (assoc Group
@@ -74,6 +75,7 @@
   {:id java.util.UUID
    (sc/optional-key :name) String
    (sc/optional-key :environment) String
+   (sc/optional-key :description) String
    (sc/optional-key :parent) java.util.UUID
    (sc/optional-key :rule) RuleCondition
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
@@ -84,7 +86,7 @@
 
 (defn group->classification
   [group]
-  (dissoc group :name :id :parent :rule))
+  (dissoc group :name :id :description :parent :rule))
 
 (sc/defn group-delta :- GroupDelta
   "Returns a delta that, when applied, turns group `g` into group `h`"
