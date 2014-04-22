@@ -246,7 +246,7 @@
                                   count)
               child-error-count (- error-count group-error-count)
               inherited-errors (filter #(not= (:group %) (:defined-by %)) errors)]
-          {:status (if (pos? (count inherited-errors)) 409 412)
+          {:status 422
            :headers {"Content-Type" "application/json"}
            :body (json/encode {:details errors
                                :kind "missing-referents"
@@ -270,7 +270,7 @@
               msg (str "Could not complete the request because it violates a "
                        (name entity-kind) " uniqueness constraint. A " (name entity-kind)
                        " with " conflict-description " already exists.")]
-        {:status 409
+        {:status 422
          :headers {"Content-Type" "application/json"}
          :body (json/encode {:kind "uniqueness-violation"
                              :msg msg
@@ -283,7 +283,7 @@
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
         {:keys [cycle]}
-        {:status 409
+        {:status 422
          :headers {"Content-Type" "application/json"}
          :body (json/encode {:details cycle
                              :kind "inheritance-cycle"
@@ -297,7 +297,7 @@
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.storage.postgres/missing-parent]
         {:keys [group]}
-        {:status 409
+        {:status 422
          :headers {"Content-Type" "application/json"}
          :body (json/encode {:details group
                              :kind "missing-parent"
