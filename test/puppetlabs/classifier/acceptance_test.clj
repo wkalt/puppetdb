@@ -4,7 +4,7 @@
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
-            [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
+            [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
             [puppetlabs.kitchensink.core :refer [ini-to-map mapvals spit-ini]]
@@ -71,8 +71,8 @@
       ;; If it doesn't start within that time, exit nonzero.
       (try
         (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
-        (future (stream-to-out server-proc :out))
-        (future (stream-to-out server-proc :err))
+        (future (stream-to server-proc :out System/err))
+        (future (stream-to server-proc :err System/err))
         (catch TimeoutException e
           (future-cancel server-blocker)
           (destroy server-proc)
