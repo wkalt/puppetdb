@@ -270,6 +270,9 @@
                     (and (put-group? ctx) retrieved (not= group retrieved))
                     (let [delta (group-delta retrieved (validate Group group))]
                       {::created (storage/update-group db (validate GroupDelta delta))}))))
+        put! (fn [{submitted ::submitted}]
+               (let [group (merge group-defaults submitted)]
+                 {::created (storage/create-group db (validate Group group))}))
         redirect? (fn [{:as ctx, created ::created}]
                     (if (post-new-group? ctx)
                       {:location (str "/v1/groups/" (:id created))}))
@@ -289,8 +292,7 @@
          :post-to-existing? submitting-overwrite?
          :can-post-to-missing? post-new-group?
          :put-to-existing? (constantly false)
-         :put! (fn [{submitted ::submitted}]
-                 {::created (storage/create-group db (validate Group submitted))})
+         :put! put!
          :post! post!
          :post-redirect? redirect?
          :new? ::created
