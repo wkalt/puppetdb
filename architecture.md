@@ -45,13 +45,6 @@ Interaction with Puppet
 Data stored in classifier
 -----------------------
 
-### Rules
-
-Rules classify nodes into groups. Rule inputs are node properties. This
-includes the node name, facts, and groups from other rules. Rules use an
-s-expression-like language to specify matches against these properties.
-
-
 ### Groups
 
 Groups are a way to organize nodes. Nodes are classified into groups using
@@ -60,31 +53,35 @@ properties are:
 
  * Classes - Puppet classes to be included on nodes
  * Class parameters - Parameters to the classes
- * Variables - Top scope bindings that will be available within the nodes
+ * Variables - Top-scope bindings that will be available within the nodes
    manifests
  * Environment - The puppet environment to use when compiling catalogs for the
    nodes
- * ACLs - It will be possible to restrict group visibility and modification to
-   specific roles.
+ * Rules - The rules that classify nodes into this group.
+
+
+### Rules
+
+Rules classify nodes into groups. Rule inputs are node properties. This
+includes the node name, facts, and trusted data. Rules use an
+s-expression-like language to specify matches against these properties.
 
 
 ### Classes
 
-Classes are puppet classes defined in manifests and modules. We store a list
-of the classes we know about. They can be manually input or populated by
-querying the puppet master. We will need to track the difference so we don't
-remove manually added classes when doing automated updates. A class has an
-environment, and a list of parameters with default values.
-
-
-### Nodes
-
-We track a list of nodes that we know about, to aid filling in data and
-provide error checking.
+Classes are puppet classes defined in manifests and modules.  We store a
+list of the classes we know about. This list is populated by querying
+the puppet master. Each class has a list of parameters with default
+values. Classes and their parameters are contained in environments (the
+environment where the puppet code for that class exists).
 
 
 ### Environments
 
-Puppet environments specify the list of available modules and manifests. We
-store a list of environments that we know about.
-
+Puppet environments encapsulate sets of available modules and manifests
+(for our purposes classes and class parameters). We store a list of
+environments that we know about. Environments and groups can both be
+seen as sets containing nodes, but environments are an outcome of
+classification and are used to separate different versions of code
+available for compilation whereas groups are categories used during the
+process of classification in order to group classification outcomes.
