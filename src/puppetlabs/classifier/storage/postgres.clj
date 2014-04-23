@@ -556,22 +556,25 @@
   "Validates a group's inheritance hierarchy and the classes and class
   parameters of that hierarchy."
   [db group]
-  (when (= (:id group) (:parent group))
-    (throw+ {:kind ::inheritance-cycle
-             :cycle [group]}))
   (let [parent (get-parent db group)]
     (when (nil? parent)
       (throw+ {:kind ::missing-parent
                :group group}))
+
     (let [ancestors (concat [parent] (get-ancestors* {:db db} parent))]
-      ;; If the group parent is being changed, that edge is not yet in the
-      ;; database and get-ancestors* won't see it, so we have to check
-      ;; separately for cycles involving group
-      (when (some #(= (:id group) (:id %)) ancestors)
-        (throw+ {:kind ::inheritance-cycle
-                 :cycle (->> ancestors ; Show the updated version of group
-                          (take-while #(not= (:id group) (:id %)))
-                          (concat [group]))}))
+      (when (not= (:id group) root-group-uuid)
+        (when (= (:id group) (:parent group))
+          (throw+ {:kind ::inheritance-cycle
+                   :cycle [group]}))
+        ;; If the group parent is being changed, that edge is not yet in the
+        ;; database and get-ancestors* won't see it, so we have to check
+        ;; separately for cycles involving group
+        (when (some #(= (:id group) (:id %)) ancestors)
+          (throw+ {:kind ::inheritance-cycle
+                   :cycle (->> ancestors ; Show the updated version of group
+                            (take-while #(not= (:id group) (:id %)))
+                            (concat [group]))})))
+
       (validate-group-classes db group ancestors))))
 
 (sc/defn ^:always-validate create-group* :- Group

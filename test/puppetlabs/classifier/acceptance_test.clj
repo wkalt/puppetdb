@@ -517,13 +517,32 @@
                                               :body (json/encode group-env-delta)
                                               :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body true)]
-
         (is (= 422 status))
         (is (re-find #"not exist in the group's environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
                           (= (:environment %) "dne")
                           (= (:defined-by %) "zgroup"))
                     details))))))
+
+(deftest update-root-group
+  (let [base-url (base-url test-config)
+        root-group (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+                     :body, (json/decode true), convert-uuids)]
+
+    (testing "can update the root group"
+      (let [root-delta {:id root-group-uuid
+                        :variables {:classified true}}
+            {:keys [body status]} (http/post (str base-url "/v1/groups/" root-group-uuid)
+                                             {:content-type :json, :body (json/encode root-delta)})]
+        (is (= 200 status))
+        (is (= (merge-and-clean root-group root-delta) (-> body (json/decode true) convert-uuids)))
+        (let [revert-delta {:id root-group-uuid
+                            :variables {:classified nil}}
+              {:keys [body status]} (http/post (str base-url "/v1/groups/" root-group-uuid)
+                                               {:content-type :json
+                                                :body (json/encode revert-delta)})]
+          (is (= 200 status))
+          (is (= root-group) (-> body (json/decode true) convert-uuids)))))))
 
 (deftest ^:acceptance put-to-existing
   (let [base-url (base-url test-config)]
