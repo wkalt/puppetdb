@@ -220,7 +220,8 @@ Update the name, environment, parent, rule, classes, class parameters, and varia
 The request body must be JSON object describing the delta to be applied to the group.
 The `classes` and `variables` keys of the delta will be merged with the group, and then any keys of the resulting object that have a null value will be deleted.
 This allows you to remove classes, class parameters, or variables from the group by setting them to null in the delta.
-The `environment`, `description`, `parent`, and `rule` keys, if present in the delta, will replace the old values wholesale with their values.
+The `name`, `environment`, `description`, `parent`, and `rule` keys, if present in the delta, will replace the old values wholesale with their values.
+Note that the root group's `rule` cannot be edited; any attempts to do so will be met with a 422 Unprocessable Entity response.
 
 For example, given the following group:
 
