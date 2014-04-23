@@ -4,7 +4,7 @@
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
-            [me.raynes.conch.low-level :refer [destroy proc stream-to-out] :rename {proc sh}]
+            [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
             [puppetlabs.kitchensink.core :refer [ini-to-map mapvals spit-ini]]
@@ -71,8 +71,8 @@
       ;; If it doesn't start within that time, exit nonzero.
       (try
         (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
-        (future (stream-to-out server-proc :out))
-        (future (stream-to-out server-proc :err))
+        (future (stream-to server-proc :out System/err))
+        (future (stream-to server-proc :err System/err))
         (catch TimeoutException e
           (future-cancel server-blocker)
           (destroy server-proc)
@@ -137,6 +137,7 @@
     (testing "can create a group by POSTing to the group collection endpoint"
       (let [group {:name "bargroup"
                    :environment "production"
+                   :description "this group is for bars only! no foos allowed."
                    :rule ["=" "bar" "bar"]
                    :parent root-group-uuid
                    :classes {}
@@ -488,10 +489,11 @@
     (http/put (str base-url (str "/v1/groups/" (:id group)))
               {:content-type :json, :body (json/encode group)})
 
-    (testing "can update group's name, rule, classes, class parameters, variables, and environment."
+    (testing "can update group's name, description, rule, classes, class parameters, variables, and environment."
       (let [group-delta {:id (:id group)
                          :name "zgroup"
                          :environment new-env
+                         :description "the omega of groups"
                          :rule ["=" "name" "jerry"]
                          :classes {:aclass {:log "fatal"
                                             :verbose nil

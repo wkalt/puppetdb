@@ -76,6 +76,7 @@
   (let [simplest {:name "simplest"
                   :id (UUID/randomUUID)
                   :environment "test"
+                  :description "this group has no references"
                   :parent root-group-uuid
                   :rule ["=" "name" "foo"]
                   :classes {}
@@ -231,9 +232,11 @@
             all-rules (map rule-from-group [g1 g2 root])]
         (is (= (set all-rules) (set (get-rules db))))))
 
-    (testing "can update group's name, rule, classes, class parameters, and variables"
+    (testing "can update group's name, environment, description, rule, classes, class parameters, and variables"
       (let [g1-delta {:id (:id g1)
                       :name "sally"
+                      :environment "tropical"
+                      :description "this description is tautological."
                       :rule ["and"
                              ["=" "name" "baz"]
                              ["=" "osfamily" "linux"]]
