@@ -19,7 +19,7 @@
 (def test-config
   "Path from the root of the repo to the configuration file to use for the tests
   in this namespace."
-  "ext/classifier.ini")
+  "resources/ext/config/conf.d/classifier.ini")
 
 (defn- base-url
   [config-path]
