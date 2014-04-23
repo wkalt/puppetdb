@@ -542,7 +542,28 @@
                                                {:content-type :json
                                                 :body (json/encode revert-delta)})]
           (is (= 200 status))
-          (is (= root-group) (-> body (json/decode true) convert-uuids)))))))
+          (is (= root-group) (-> body (json/decode true) convert-uuids)))))
+
+    (testing "can't update the root group's rule"
+      (let [root-rule-delta {:id root-group-uuid
+                             :rule ["=" "name" "betty"]
+                             :variables {:classified true}}
+            {:keys [body status]} (http/post (str base-url "/v1/groups/" root-group-uuid)
+                                             {:content-type :json
+                                              :body (json/encode root-rule-delta)
+                                              :throw-exceptions false})
+            {:keys [details kind msg]} (json/decode body true)]
+        (is (= 422 status))
+        (is (= kind "root-rule-edit"))
+        (is (re-find #"Changing the root group's rule " msg))
+        (is (re-find #"None of your other edits were applied" msg))
+        ;; TODO: once bugfix for deltas getting environment set is merged in,
+        ;; remove the dissoc here
+        (is (= root-rule-delta (-> details (dissoc :environment) convert-uuids)))
+        (is (= root-group (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+                            :body
+                            (json/decode true)
+                            convert-uuids)))))))
 
 (deftest ^:acceptance put-to-existing
   (let [base-url (base-url test-config)]

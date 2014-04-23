@@ -259,6 +259,10 @@
         (is (= (merge-and-clean root root-delta)
                (update-group db root-delta)))))
 
+    (testing "throws an error when trying to update the root group's rule"
+      (is (thrown+? [:kind :puppetlabs.classifier.storage/root-rule-edit]
+                   (update-group db {:id root-group-uuid, :rule ["=" "osfamily" "AIX"]}))))
+
     (testing "returns nil when attempting to update unknown group"
       (is (nil? (update-group db {:id (UUID/randomUUID)}))))
 

@@ -735,12 +735,20 @@
       (jdbc/update! db, :groups, {:name new-name}
                     (sql/where {:id (:id delta)})))))
 
+(defn- validate-delta
+  [db delta]
+  (when (and (= (:id delta) root-group-uuid)
+             (contains? delta :rule))
+    (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
+             :delta delta})))
+
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
   (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} (:id delta))]
                           (validate-group t-db (merge-and-clean extant delta))
+                          (validate-delta t-db delta)
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
