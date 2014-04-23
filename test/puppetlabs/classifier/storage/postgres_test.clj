@@ -253,6 +253,16 @@
         (is (= g1' (update-group db g1-delta)))
         (is (= g1' (get-group db (:id g1))))))
 
+    (testing "can update the root group"
+      (let [root (get-group db root-group-uuid)
+            root-delta {:id root-group-uuid, :variables {:nc true}}]
+        (is (= (merge-and-clean root root-delta)
+               (update-group db root-delta)))))
+
+    (testing "throws an error when trying to update the root group's rule"
+      (is (thrown+? [:kind :puppetlabs.classifier.storage/root-rule-edit]
+                   (update-group db {:id root-group-uuid, :rule ["=" "osfamily" "AIX"]}))))
+
     (testing "returns nil when attempting to update unknown group"
       (is (nil? (update-group db {:id (UUID/randomUUID)}))))
 
@@ -328,12 +338,12 @@
                        :cycle [new-top child-1]]
                       (update-group db delta)))))
 
-    (testing "creating a group that inherits from itself will report a one-group cycle"
+    (testing "creating a group that inherits from itself will report a missing parent"
       (let [self-id (UUID/randomUUID)
             self (-> (blank-group-named "self")
                    (assoc :id self-id :parent self-id))]
-        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
-                       :cycle [self]]
+        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent
+                       :group self]
                       (create-group db self)))))))
 
 (deftest ^:database classes

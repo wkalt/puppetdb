@@ -367,6 +367,26 @@
                     :msg msg
                     :details details})})))))
 
+(defn wrap-root-rule-edit-explanation
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage/root-rule-edit]
+        {delta :delta}
+        (let [edits-besides-rule (dissoc delta :id :rule)
+              error (if (empty? edits-besides-rule)
+                      {:kind "root-rule-edit"
+                       :msg (str "Changing the root group's rule is not permitted.")}
+                      {:kind "root-rule-edit"
+                       :msg (str "Changing the root group's rule is not permitted. None of your"
+                                 " other edits were applied, but you may retry by re-submitting"
+                                 " your delta less the `rule` key. The received delta can be"
+                                 " found in this object's `details` key for convenience.")
+                       :details delta})]
+          {:status 422
+           :headers {"Content-Type" "application/json"}
+           :body (json/encode error)})))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -377,4 +397,5 @@
     wrap-inheritance-fail-explanations
     wrap-missing-parent-explanations
     wrap-classification-conflict-explanations
+    wrap-root-rule-edit-explanation
     wrap-error-catchall))
