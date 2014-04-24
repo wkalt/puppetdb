@@ -193,6 +193,11 @@
                (into {} (for [[param default] params]
                           [(keyword param) default]))) ))
 
+(defn- deserialize-default-values
+  [class]
+  (update-in class [:parameters]
+             (partial kitchensink/mapvals json/decode)))
+
 (defn- create-parameter
   "Create or update and undelete a parameter"
   [db parameter default-value class-name environment-name]
@@ -209,11 +214,11 @@
           (jdbc/insert! t-db, :class_parameters
                         {:class_name class-name
                          :parameter parameter
-                         :default_value default-value
+                         :default_value (json/encode default-value)
                          :environment_name environment-name})
           ;; else the parameter exists but might be marked deleted, so update it
           (jdbc/update! t-db, :class_parameters
-                        {:default_value default-value, :deleted false}
+                        {:default_value (json/encode default-value), :deleted false}
                         where-param))))))
 
 (sc/defn ^:always-validate create-class* :- PuppetClass
@@ -241,6 +246,7 @@
       (->> result
         (aggregate-submap-by :parameter :default_value :parameters)
         (map keywordize-parameters)
+        (map deserialize-default-values)
         first))))
 
 (sc/defn ^:always-validate get-classes* :- [PuppetClass]
@@ -248,14 +254,16 @@
   (let [result (jdbc/query db (select-classes environment-name))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
-      (map keywordize-parameters))))
+      (map keywordize-parameters)
+      (map deserialize-default-values))))
 
 (sc/defn ^:always-validate get-all-classes :- [PuppetClass]
   [db]
   (let [result (jdbc/query db (select-all-classes))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
-      (map keywordize-parameters))))
+      (map keywordize-parameters)
+      (map deserialize-default-values))))
 
 (sc/defn delete-class*
   [{db :db}, environment-name :- String, class-name :- String]
@@ -417,6 +425,13 @@
                (into {} (for [[k v] variables]
                           [k (json/parse-string v)])))))
 
+(defn- deserialize-group-class-parameters
+  [row]
+  (update-in row [:classes]
+             (fn [classes]
+               (into {} (for [[c params] classes]
+                          [c (kitchensink/mapvals json/decode params)])))))
+
 (defn- deserialize-rule
   [row]
   (if-let [serialized-condition (:rule row)]
@@ -436,6 +451,7 @@
     (aggregate-submap-by :class :parameters :classes)
     (aggregate-submap-by :variable :variable_value :variables)
     (map deserialize-variable-values)
+    (map deserialize-group-class-parameters)
     (map deserialize-rule)
     (map dissoc-nil-description)
     (keywordize-keys)))
@@ -598,7 +614,8 @@
                           [:group_id :class_name :environment_name]
                           [id (name class-name) environment])
             (doseq [class-param class-params]
-              (let [[param value] class-param]
+              (let [[param value] class-param
+                    value (json/encode value)]
                 (jdbc/insert! t-db :group_class_parameters
                               [:parameter :class_name :environment_name :group_id :value]
                               [(name param) (name class-name) environment id value])))))
@@ -620,7 +637,7 @@
 
 (defn- update-group-class-parameter
   [db group-id class-name parameter value]
-  (jdbc/update! db, :group_class_parameters, {:value value}
+  (jdbc/update! db, :group_class_parameters, {:value (json/encode value)}
                 (sql/where {"group_id" group-id
                             "class_name" class-name
                             "parameter" parameter})))
@@ -641,7 +658,7 @@
                       :class_name class-name
                       :environment_name environment-name
                       :parameter parameter
-                      :value value}))))
+                      :value (json/encode value)}))))
 
 (defn- update-group-classes
   [db extant delta]
