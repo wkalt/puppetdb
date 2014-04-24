@@ -16,7 +16,7 @@
 
 (def PuppetClass ; so named to avoid clashing with java.lang.Class
   {:name String
-   :parameters {sc/Keyword (sc/maybe String)}
+   :parameters {sc/Keyword sc/Any}
    :environment String})
 
 (def RuleCondition
@@ -40,12 +40,12 @@
 
 (def Classification
   {:environment String
-   :classes {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
+   :classes {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    :variables {sc/Keyword sc/Any}})
 
 (def ClassificationConflict
   {(sc/optional-key :environment) #{String}
-   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{String}}}
+   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{sc/Any}}}
    (sc/optional-key :variables) {sc/Keyword #{sc/Any}}})
 
 (def Group
@@ -78,7 +78,7 @@
    (sc/optional-key :description) String
    (sc/optional-key :parent) java.util.UUID
    (sc/optional-key :rule) RuleCondition
-   (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword (sc/maybe String)})}
+   (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
 
 ;; Utilities for creating & converting maps conforming to the Schemas
