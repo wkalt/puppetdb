@@ -187,13 +187,14 @@
 
 (deftest ^:database complex-groups
   (let [envs ["test" "tropical"]
-        first-class {:name "first"
-                     :parameters {:one "one-def"
-                                  :two nil}}
-        second-class {:name "second"
-                      :parameters {:three nil
-                                   :four nil
-                                   :five "default"}}
+        science {:name "science"
+                 :parameters {:fine-structure "~1/137"
+                              :dark-energy nil}}
+        magic {:name "magic"
+               :parameters {:players 2
+                            :deck-size 40
+                            :colors ["w" "u" "b" "r" "g"]
+                            :avatar nil}}
         g1 {:name "complex-group"
             :id (UUID/randomUUID)
             :environment "test"
@@ -201,10 +202,10 @@
             :rule ["or"
                    ["=" "name" "foo"]
                    ["=" "name" "bar"]]
-            :classes {:first {:one "one-val"
-                              :two "two-val"}
-                      :second {:three "three-val"
-                               :four "four-val"}}
+            :classes {:science {:fine-structure "1/137"
+                                :dark-energy "gnome farts"}
+                      :magic {:avatar "Momir Vig"
+                              :players 3}}
             :variables {:fqdn "www.example.com"
                         :ntp_servers ["0.pool.ntp.org" "ntp.example.com"]
                         :cluster_index 8
@@ -214,13 +215,15 @@
             :environment "tropical"
             :parent root-group-uuid
             :rule ["=" "foo" "foo"]
-            :classes {:first {:two "another-two-val"}
-                      :second {:four "four-val"}}
+            :classes {:science {:fine-structure "1/128"}
+                      :magic {:colors ["w" "u" "b" "r" "g" "p"]}}
             :variables {:island false, :rainforest true}}
         root (get-group db root-group-uuid)]
 
-    (doseq [env envs, c [first-class second-class]]
-      (create-class db (assoc c :environment env)))
+    (doseq [env envs, c [science magic]
+            :let [c-with-env (assoc c :environment env)]]
+      (create-class db c-with-env)
+      (is (= c-with-env (get-class db env (:name c)))))
 
     (testing "stores groups with rule, class parameters, and top-level variables"
       (create-group db g1)
@@ -240,10 +243,10 @@
                       :rule ["and"
                              ["=" "name" "baz"]
                              ["=" "osfamily" "linux"]]
-                      :classes {:first nil
-                                :second {:three nil
-                                         :four "red fish"
-                                         :five "blue fish"}}
+                      :classes {:science nil
+                                :magic {:players nil
+                                        :avatar "Urza"
+                                        :deck-size 60}}
                       :variables {:some_bool true
                                   :ntp_servers nil
                                   :cluster_index 4
@@ -284,7 +287,7 @@
                   e))]
         (is e)
         (is (= (get-in e [:tree :group :name]) (:name g2)))
-        (is (= (get-in e [:tree :errors] {:first nil, :second nil})))))))
+        (is (= (get-in e [:tree :errors] {:science nil, :magic nil})))))))
 
 (deftest ^:database group-hierarchy
   (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",

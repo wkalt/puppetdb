@@ -151,7 +151,7 @@
           (is (contains? headers "location")))
         (testing "and retrieve the created group from the received location"
           (let [id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
-                                (get headers "location" ""))
+                            (get headers "location" ""))
                 group-with-id (assoc group :id (UUID/fromString id))
                 {:keys [body status]} (http/get (str base-url "/v1/groups/" id))]
             (is (= 200 status))
@@ -215,6 +215,43 @@
         (let [{:keys [body status]} (http/delete group-uri)]
           (is (= 204 status))
           (is (empty? body)))))))
+
+(deftest ^:acceptance composite-parameter-and-variable-values
+  (let [base-url (base-url test-config)
+        ringed {:name "ringed-planet", :environment "space"
+                :parameters {:rings ["the-rings"]
+                             :moons 0
+                             :density "1.5 g/cm^3"}}
+        saturn {:name "saturn"
+                :id (UUID/randomUUID)
+                :environment "space"
+                :rule ["=" "foo" "foo"]
+                :parent root-group-uuid
+                :classes {:ringed-planet {:rings ["d" "c" "b" "a" "f" "g" "methone-arc"
+                                                  "anth-arc" "pallene" "e" "phoebe"]
+                                          :moons 53
+                                          :density "0.687 g/cm^3"}}
+                :variables {:semi-major-axis "9.582 AU"
+                            :eccentricity "0.055"
+                            :orbital-period "10759.22 days"}}]
+
+    (testing "composite class parameter defaults round-trip through the API"
+      (let [ringed-path (str "/v1/environments/" (:environment ringed) "/classes/" (:name ringed))
+            {created-body :body} (http/put (str base-url ringed-path)
+                                           {:content-type :json, :body (json/encode ringed)})
+            {retrieved-body :body} (http/get (str base-url ringed-path))]
+        (is (= ringed (json/decode created-body true)))
+        (is (= ringed (json/decode retrieved-body true)))))
+
+    (testing "composite group class parameters and variables round-trip through the API"
+      (let [saturn-path (str "/v1/groups/" (:id saturn))
+            {created-body :body} (http/put (str base-url saturn-path)
+                                           {:content-type :json
+                                            :body (json/encode saturn)
+                                            :throw-entire-message? true})
+            {retrieved-body :body} (http/get (str base-url saturn-path))]
+        (is (= saturn (-> created-body (json/decode true) convert-uuids)))
+        (is (= saturn (-> retrieved-body (json/decode true) convert-uuids)))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
