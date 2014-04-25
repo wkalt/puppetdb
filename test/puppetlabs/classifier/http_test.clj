@@ -516,14 +516,14 @@
         valid (assoc invalid :parent root-group-uuid)]
 
     (testing "invalid groups get a 400 with a structured error message"
-      (let [{:keys [body status]} (app (request :put "/v1/validate/group" (encode invalid)))
+      (let [{:keys [body status]} (app (request :post "/v1/validate/group" (encode invalid)))
             {:keys [kind msg details]} (decode body true)]
         (is (= status 400))
         (is (= kind "schema-violation"))
         (is (re-find #"parent missing-required-key" msg))))
 
     (testing "valid groups get a 200 back with the as-validated group in the body"
-      (let [{:keys [body status]} (app (request :put "/v1/validate/group" (encode valid)))
+      (let [{:keys [body status]} (app (request :post "/v1/validate/group" (encode valid)))
             as-validated (-> body (decode true) convert-uuids)]
         (is (= status 200))
         (is (contains? as-validated :id))
@@ -532,5 +532,5 @@
 
     (testing "groups with malformed IDs are marked as invalid"
       (let [bad-id (assoc valid :id "not-a-uuid")
-            {:keys [status]} (app (request :put "/v1/validate/group" (encode bad-id)))]
+            {:keys [status]} (app (request :post "/v1/validate/group" (encode bad-id)))]
         (is (= status 400))))))

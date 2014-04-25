@@ -271,10 +271,10 @@
                 :missing "missing", :environment "production"}))))
 
     (testing "group validation endpoint also validates references"
-      (let [{:keys [body status]} (http/put (str base-url "/v1/validate/group")
-                                            {:content-type :json
-                                             :body (json/encode with-missing-class)
-                                             :throw-exceptions false})
+      (let [{:keys [body status]} (http/post (str base-url "/v1/validate/group")
+                                             {:content-type :json
+                                              :body (json/encode with-missing-class)
+                                              :throw-exceptions false})
             {:keys [kind]} (json/decode body true)]
         (is (= 422 status))
         (is (= kind "missing-referents"))))
@@ -327,10 +327,10 @@
 
       (testing "group validation endpoint also does hierarchy validation"
         (let [side-group' (assoc side-group :parent (:id top-group))
-              {:keys [body status]} (http/put (str base-url "/v1/validate/group")
-                                              {:content-type :json
-                                               :body (json/encode side-group')
-                                               :throw-exceptions false})
+              {:keys [body status]} (http/post (str base-url "/v1/validate/group")
+                                               {:content-type :json
+                                                :body (json/encode side-group')
+                                                :throw-exceptions false})
               {:keys [kind]} (json/decode body true)]
           (is (= 422 status))
           (is (= kind "missing-referents")))))))

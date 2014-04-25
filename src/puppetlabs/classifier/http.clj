@@ -310,13 +310,13 @@
                        {::validated (storage/validate-group db (validate Group group))}))]
       (run-resource
         req
-        {:allowed-methods [:put]
+        {:allowed-methods [:post]
          :respond-with-entity? true
          :available-media-types ["application/json"]
          :malformed? (malformed-group? nil)
          :handle-malformed handle-malformed-group
          :exists? validate
-         :put-to-existing? false
+         :post-to-existing? false
          :handle-ok ::validated}))))
 
 ;; Classification
@@ -432,7 +432,7 @@
                             (select-keys config [:puppet-master :ssl-context]) db))))
 
           (context "/validate" []
-                   (PUT "/group" [] (group-validator db))))
+                   (POST "/group" [] (group-validator db))))
 
         (ANY "*" [:as req]
              {:status 404
