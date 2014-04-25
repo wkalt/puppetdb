@@ -6,6 +6,7 @@
   (get-nodes [this] "Retrieves all nodes")
   (delete-node [this node] "Deletes a node")
 
+  (validate-group [this group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group.")
   (create-group [this group] "Creates a new group")
   (get-group [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
   (annotate-group [this group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet.")

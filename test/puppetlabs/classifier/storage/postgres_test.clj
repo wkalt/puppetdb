@@ -286,7 +286,7 @@
         (is (= (get-in e [:tree :group :name]) (:name g2)))
         (is (= (get-in e [:tree :errors] {:first nil, :second nil})))))))
 
-(deftest ^:database group-hierarchy
+(deftest ^:database hierarchy-and-cycles
   (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
                                    :rule ["=" "foo" "bar"], :classes {}, :variables {}})
         root (get-group db root-group-uuid)
@@ -331,20 +331,66 @@
           (update-group db {:id (:id top), :parent root-group-uuid})
           (is (= [child-1 top root] (get-ancestors db grandchild))))))
 
-    (testing "updating a group to add a cycle will report an error with that cycle"
-      (let [delta {:id (:id top), :parent (:id child-1)}
-            new-top (assoc top :parent (:id child-1)) ]
-        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
-                       :cycle [new-top child-1]]
-                      (update-group db delta)))))
+    (testing "the storage layer checks for cycles"
+      (testing "when creating a group"
+        (let [self-id (UUID/randomUUID)
+              self (-> (blank-group-named "self")
+                     (assoc :id self-id :parent self-id))]
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent
+                         :group self]
+                        (create-group db self))))
 
-    (testing "creating a group that inherits from itself will report a missing parent"
-      (let [self-id (UUID/randomUUID)
-            self (-> (blank-group-named "self")
-                   (assoc :id self-id :parent self-id))]
-        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent
-                       :group self]
-                      (create-group db self)))))))
+        (let [delta {:id (:id top), :parent (:id child-1)}
+              top' (merge top delta)]
+          (testing "when updating a group"
+            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                           :cycle [top' child-1]]
+                          (update-group db delta))))
+
+          (testing "when validating a group"
+            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+                           :cycle [top' child-1]]
+                          (validate-group db top')))))))))
+
+(deftest ^:database hierarchy-inheritance
+  (let [high-class {:name "high"
+                    :environment "production"
+                    :parameters {:refined "surely"}}
+        top-group {:name "top"
+                   :id (UUID/randomUUID)
+                   :parent root-group-uuid
+                   :environment "production",
+                   :classes {:high {:refined "most"}}
+                   :variables {}
+                   :rule ["=" "foo" "foo"]}
+        side-group {:name "side"
+                    :id (UUID/randomUUID)
+                    :parent root-group-uuid
+                    :environment "production"
+                    :classes {}
+                    :variables {}
+                    :rule ["=" "foo" "foo"]}
+        bottom-group {:name "bottom"
+                      :id (UUID/randomUUID)
+                      :parent (:id side-group)
+                      :environment "staging"
+                      :classes {}
+                      :variables {}
+                      :rule ["=" "foo" "foo"]}]
+    (create-class db high-class)
+    (create-group db top-group)
+    (create-group db side-group)
+    (create-group db bottom-group)
+
+    (testing "the storage layer validates inherited values for the subtree"
+      (let [bad-inheritance-delta {:id (:id side-group), :parent (:id top-group)}]
+        (testing "when updating a group"
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
+                        (update-group db bad-inheritance-delta))))
+
+        (testing "when validating a group"
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
+                        (validate-group db (merge side-group bad-inheritance-delta)))))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}

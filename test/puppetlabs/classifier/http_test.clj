@@ -508,7 +508,8 @@
         (is (re-find #"Unexpected close marker" (-> error :details :error)))))))
 
 (deftest schema-validation
-  (let [app (app {:db (reify Storage)})
+  (let [app (app {:db (reify Storage
+                        (validate-group [_ g] g))})
         invalid {:name "invalid"
                  :rule ["=" "name" "Val Knott"]
                  :classes {}}
