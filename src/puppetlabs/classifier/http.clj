@@ -300,23 +300,24 @@
          :delete! delete!
          :handle-malformed handle-malformed-group}))))
 
-(defn handle-validate-group
-  [req]
-  (let [validate (fn [{submitted ::submitted}]
-                   (let [group (merge group-defaults
-                                      {:id (UUID/randomUUID)}
-                                      submitted)]
-                     {::validated (validate Group group)}))]
-    (run-resource
-      req
-      {:allowed-methods [:put]
-       :respond-with-entity? true
-       :available-media-types ["application/json"]
-       :malformed? (malformed-group? nil)
-       :handle-malformed handle-malformed-group
-       :exists? validate
-       :put-to-existing? false
-       :handle-ok ::validated})))
+(defn group-validator
+  [db]
+  (fn [req]
+    (let [validate (fn [{submitted ::submitted}]
+                     (let [group (merge group-defaults
+                                        {:id (UUID/randomUUID)}
+                                        submitted)]
+                       {::validated (storage/validate-group db (validate Group group))}))]
+      (run-resource
+        req
+        {:allowed-methods [:put]
+         :respond-with-entity? true
+         :available-media-types ["application/json"]
+         :malformed? (malformed-group? nil)
+         :handle-malformed handle-malformed-group
+         :exists? validate
+         :put-to-existing? false
+         :handle-ok ::validated}))))
 
 ;; Classification
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -431,7 +432,7 @@
                             (select-keys config [:puppet-master :ssl-context]) db))))
 
           (context "/validate" []
-                   (PUT "/group" [] handle-validate-group)))
+                   (PUT "/group" [] (group-validator db))))
 
         (ANY "*" [:as req]
              {:status 404

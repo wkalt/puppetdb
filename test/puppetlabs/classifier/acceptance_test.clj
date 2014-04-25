@@ -248,15 +248,16 @@
         (is (not (contains? group-names (:name group))))))))
 
 (deftest ^:acceptance hierarchy-validation
-  (let [base-url (base-url test-config)]
-    (testing "validates group when creating"
-      (let [id (UUID/randomUUID)
-            with-missing-class {:name "with-missing"
-                                :id id
-                                :parent root-group-uuid
-                                :rule ["=" "foo" "foo"]
-                                :classes {:missing {}}}
-            {:keys [body status]} (http/put (str base-url "/v1/groups/" id)
+  (let [base-url (base-url test-config)
+        id (UUID/randomUUID)
+        with-missing-class {:name "with-missing"
+                            :id id
+                            :parent root-group-uuid
+                            :rule ["=" "foo" "foo"]
+                            :classes {:missing {}}}]
+
+    (testing "validates group references on creation"
+      (let [{:keys [body status]} (http/put (str base-url "/v1/groups/" id)
                                             {:content-type :json
                                              :body (json/encode with-missing-class)
                                              :throw-exceptions false})
@@ -269,36 +270,49 @@
                {:kind "missing-class", :group "with-missing", :defined-by "with-missing"
                 :missing "missing", :environment "production"}))))
 
-    (testing "validates children when changing an ancestor's parent link"
-      (let [high-class {:name "high", :parameters {:refined "surely"}}
-            top-group {:name "top"
-                       :id (UUID/randomUUID)
-                       :parent root-group-uuid
-                       :environment "production",
-                       :classes {:high {:refined "most"}}
-                       :rule ["=" "foo" "foo"]}
-            side-group {:name "side"
+    (testing "group validation endpoint also validates references"
+      (let [{:keys [body status]} (http/put (str base-url "/v1/validate/group")
+                                            {:content-type :json
+                                             :body (json/encode with-missing-class)
+                                             :throw-exceptions false})
+            {:keys [kind]} (json/decode body true)]
+        (is (= 422 status))
+        (is (= kind "missing-referents"))))
+
+    (let [high-class {:name "high"
+                      :environment "production"
+                      :parameters {:refined "surely"}}
+          top-group {:name "top"
+                     :id (UUID/randomUUID)
+                     :parent root-group-uuid
+                     :environment "production",
+                     :classes {:high {:refined "most"}}
+                     :rule ["=" "foo" "foo"]}
+          side-group {:name "side"
+                      :id (UUID/randomUUID)
+                      :parent root-group-uuid
+                      :environment "production"
+                      :classes {}
+                      :rule ["=" "foo" "foo"]}
+          bottom-group {:name "bottom"
                         :id (UUID/randomUUID)
-                        :parent root-group-uuid
-                        :environment "production"
+                        :parent (:id side-group)
+                        :environment "staging"
                         :classes {}
-                        :rule ["=" "foo" "foo"]}
-            bottom-group {:name "bottom"
-                          :id (UUID/randomUUID)
-                          :parent (:id side-group)
-                          :environment "staging"
-                          :classes {}
-                          :rule ["=" "foo" "foo"]}]
+                        :rule ["=" "foo" "foo"]}]
 
-        (http/put (str base-url "/v1/environments/production/classes/" (:name high-class))
-                  {:content-type :json, :body (json/encode high-class)})
-        (http/put (str base-url "/v1/groups/" (:id top-group))
-                  {:content-type :json, :body (json/encode top-group)})
-        (http/put (str base-url "/v1/groups/" (:id side-group))
-                  {:content-type :json, :body (json/encode side-group)})
-        (http/put (str base-url "/v1/groups/" (:id bottom-group))
-                  {:content-type :json, :body (json/encode bottom-group)})
+      (http/put (str base-url
+                     "/v1/environments/" (:environment high-class)
+                     "/classes/" (:name high-class))
+                {:content-type :json, :body (json/encode high-class)})
+      (http/put (str base-url "/v1/groups/" (:id top-group))
+                {:content-type :json, :body (json/encode top-group)})
+      (http/put (str base-url "/v1/groups/" (:id side-group))
+                {:content-type :json, :body (json/encode side-group)})
+      (http/put (str base-url "/v1/groups/" (:id bottom-group))
+                {:content-type :json, :body (json/encode bottom-group)})
 
+      (testing "validates children when changing an ancestor's parent link"
         (let [{:keys [body status]} (http/post (str base-url "/v1/groups/" (:id side-group))
                                                {:content-type :json,
                                                 :body (json/encode {:parent (:id top-group)})
@@ -309,7 +323,17 @@
           (is (= 1 (count details)))
           (is (= (first details)
                  {:kind "missing-class", :group "bottom", :missing "high"
-                  :environment "staging", :defined-by "top"})))))))
+                  :environment "staging", :defined-by "top"}))))
+
+      (testing "group validation endpoint also does hierarchy validation"
+        (let [side-group' (assoc side-group :parent (:id top-group))
+              {:keys [body status]} (http/put (str base-url "/v1/validate/group")
+                                              {:content-type :json
+                                               :body (json/encode side-group')
+                                               :throw-exceptions false})
+              {:keys [kind]} (json/decode body true)]
+          (is (= 422 status))
+          (is (= kind "missing-referents")))))))
 
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]
@@ -608,6 +632,7 @@
                                              :body (json/encode group)
                                              :throw-exceptions false})]
         (is (= 422 status)))))
+
   (let [base-url (base-url test-config)
         group-url (str base-url "/v1/groups/")
         enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
