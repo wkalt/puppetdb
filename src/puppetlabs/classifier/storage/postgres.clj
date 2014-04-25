@@ -547,8 +547,7 @@
   [{db :db}, group :- Group]
   (get-subtree** db (:id group) group))
 
-
-;; Creating & Updating Groups
+;; Validating Group
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- validate-group-classes
@@ -568,10 +567,12 @@
                :ancestors ancestors
                :classes classes}))))
 
-(defn- validate-group
-  "Validates a group's inheritance hierarchy and the classes and class
-  parameters of that hierarchy."
-  [db group]
+(sc/defn ^:always-validate validate-group*
+  "Performs validation of the group's place in the hierarchy (i.e. that its
+  parent exists and the group doesn't create a cycle in the hierarchy), and
+  validates class and class parameter references for the group and all its
+  descendents."
+  [{db :db} group]
   (let [parent (get-parent db group)]
     (when (nil? parent)
       (throw+ {:kind ::missing-parent
@@ -593,13 +594,16 @@
 
       (validate-group-classes db group ancestors))))
 
+;; Creating & Updating Groups
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db}
    {:keys [classes description environment id parent variables] group-name :name :as group} :- Group]
    (wrap-uniqueness-failure-info "group"
      #(jdbc/with-db-transaction
         [t-db db]
-        (validate-group t-db group)
+        (validate-group* {:db t-db} group)
         (create-environment-if-missing {:db t-db} {:name environment})
         (jdbc/insert! t-db :groups
                       [:name :description :environment_name :id :parent_id]
@@ -764,7 +768,7 @@
    delta :- GroupDelta]
   (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} (:id delta))]
-                          (validate-group t-db (merge-and-clean extant delta))
+                          (validate-group* {:db t-db} (merge-and-clean extant delta))
                           (validate-delta t-db delta)
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
@@ -812,6 +816,7 @@
    :get-nodes get-nodes*
    :delete-node delete-node*
 
+   :validate-group validate-group*
    :create-group create-group*
    :get-group get-group*
    :get-groups get-groups*
