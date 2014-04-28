@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [schema.core :as sc]
             [schema.test]
+            [slingshot.test]
             [puppetlabs.classifier.schema :refer [RuleCondition]]
             [puppetlabs.classifier.rules :refer :all])
   (:import java.util.UUID))
@@ -110,3 +111,32 @@
       (is-not-rule-match ds9-rule ncc-1701-d-node)
       (is-rule-match ncc-1701-d-rule ncc-1701-d-node)
       (is-not-rule-match ncc-1701-d-rule ds9-node))))
+
+(deftest rule->pdb-query
+  (testing "converting rule conditions to puppetdb queries"
+
+    (testing "works for comparisons on an unstructured fact"
+      (let [fact-comparison [">=" ["fact" "holodecks"] "5"]]
+        (is (= ["and" ["=" "name" "holodecks"] [">=" "value" "5"]]
+               (condition->pdb-query fact-comparison)))))
+
+    (testing "works for conditions on the node's name"
+      (let [name-condition ["~" "name" ".*\\.example\\.com"]]
+        (is (= name-condition (condition->pdb-query name-condition)))))
+
+    (testing "works for boolean operator conditions"
+      (doseq [operator ["and" "or" "not"]]
+        (let [sub-conditions [["=" ["fact" "warp_cores"] "1"] [">=" ["fact" "bars"] "1"]]
+              bool-condition (if (= operator "not")
+                               ["not" (first sub-conditions)]
+                               (vec (cons operator sub-conditions)))]
+          (is (= (cons operator (map condition->pdb-query (rest bool-condition)))
+                 (condition->pdb-query bool-condition))))))
+
+    (testing "throws an exception for structured facts"
+      (is (thrown+? [:kind :puppetlabs.classifier.rules/illegal-puppetdb-query]
+                    (condition->pdb-query ["=" ["fact" "ifaces" "eth0" "ip"] "10.0.0.10"]))))
+
+    (testing "throws an exception for trusted facts"
+      (is (thrown+? [:kind :puppetlabs.classifier.rules/illegal-puppetdb-query]
+                    (condition->pdb-query ["=" ["trusted" "certname"] "trent"]))))))
