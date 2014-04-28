@@ -459,7 +459,7 @@
                           :from grandchild'
                           :defined-by grandchild'}}))))))))))
 
-(deftest errors
+(deftest malformed-requests
   (let [mock-db (reify Storage
                   (get-group [_ _]
                     nil)
