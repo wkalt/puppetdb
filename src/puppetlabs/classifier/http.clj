@@ -423,6 +423,18 @@
                  :malformed? parse-if-body
                  :handle-malformed handle-malformed))
 
+          (POST "/rules/translate" []
+                (resource
+                  :allowed-methods [:post]
+                  :available-media-types ["application/json"]
+                  :malformed? parse-if-body
+                  :handle-malformed handle-malformed
+                  :exists? true
+                  :new? false
+                  :respond-with-entity? true
+                  :handle-ok (fn [{data ::data}]
+                               (rules/condition->pdb-query data))))
+
           (ANY "/update-classes" []
                (resource
                  :allowed-methods [:post]

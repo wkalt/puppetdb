@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.rules
   (:require [schema.core :as sc]
+            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [parse-number]]
             [puppetlabs.classifier.schema :refer [Rule RuleCondition]])
   (:import java.util.regex.Pattern
@@ -40,3 +41,29 @@
   [node rule :- Rule]
   (if (match? (:when rule) node)
     (:group-id rule)))
+
+(sc/defn ^:always-validate condition->pdb-query
+  [condition :- RuleCondition]
+  (let [[op & tail] condition]
+    (if (contains? #{"and" "or" "not"} op)
+      (cons op (map condition->pdb-query tail))
+
+      (let [[field value] tail]
+        (if-not (sequential? field)
+          [op field value]
+
+          (let [[kind & path] field]
+            (cond
+              (> (count path) 1)
+              (throw+ {:kind ::illegal-puppetdb-query
+                       :msg "PuppetDB does not support structured facts."
+                       :condition condition})
+
+              (= kind "trusted")
+              (throw+ {:kind ::illegal-puppetdb-query
+                       :msg "PuppetDB does not support trusted facts."
+                       :condition condition})
+
+              :else
+              ["and" ["=" "name" (first path)]
+                     [op "value" value]])))))))

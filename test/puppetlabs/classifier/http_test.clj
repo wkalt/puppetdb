@@ -459,7 +459,7 @@
                           :from grandchild'
                           :defined-by grandchild'}}))))))))))
 
-(deftest errors
+(deftest malformed-requests
   (let [mock-db (reify Storage
                   (get-group [_ _]
                     nil)
@@ -534,3 +534,33 @@
       (let [bad-id (assoc valid :id "not-a-uuid")
             {:keys [status]} (app (request :post "/v1/validate/group" (encode bad-id)))]
         (is (= status 400))))))
+
+(deftest rule-translation
+  (let [app (app {:db (reify Storage)})
+        endpoint "/v1/rules/translate"]
+
+    (testing "the rule translation endpoint"
+      (testing "translates a rule when possible"
+        (let [translatable [">=" ["fact" "docking_pylons"] "3"]
+              translation ["and" ["=" "name" "docking_pylons"]
+                                 [">=" "value" "3"]]
+              {:keys [body status]} (app (request :post endpoint (encode translatable)))]
+          (is (= status 200))
+          (is (= translation (decode body)))))
+
+      (let [structured ["=" ["fact" "ifaces" "eth0" "ip"] "10.9.8.7"]
+            trusted ["=" ["trusted" "certname"] "trent.totally-leg.it"]]
+        (doseq [rule [structured trusted]]
+          (testing "returns an error when translation isn't possible"
+            (let [{:keys [body status]} (app (request :post endpoint (encode rule)))
+                  {:keys [kind msg details]} (decode body true)]
+              (testing "that has a 422 status code"
+                (is (= 422 status)))
+              (testing "that has a structured body that has kind, msg, and details keys"
+                (and kind msg details))
+              (testing "whose kind is \"untranslatable-rule\""
+                (is (= "untranslatable-rule" kind)))
+              (testing "whose msg explains why the translation isn't possible"
+                (if (= rule structured)
+                  (is (re-find #"support structured facts" msg))
+                  (is (re-find #"support trusted facts" msg)))))))))))
