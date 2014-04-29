@@ -598,33 +598,35 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (sc/defn ^:always-validate create-group* :- Group
-  [{db :db}
-   {:keys [classes description environment id parent variables] group-name :name :as group} :- Group]
-   (wrap-uniqueness-failure-info "group"
-     #(jdbc/with-db-transaction
-        [t-db db]
-        (validate-group* {:db t-db} group)
-        (create-environment-if-missing {:db t-db} {:name environment})
-        (jdbc/insert! t-db :groups
-                      [:name :description :environment_name :id :parent_id]
-                      (conj ((juxt :name :description :environment) group) id parent))
-        (doseq [[v-key v-val] variables]
-          (jdbc/insert! t-db :group_variables
-                        [:variable :group_id :value]
-                        [(name v-key) id (json/generate-string v-val)]))
-        (doseq [class classes]
-          (let [[class-name class-params] class]
-            (jdbc/insert! t-db :group_classes
-                          [:group_id :class_name :environment_name]
-                          [id (name class-name) environment])
-            (doseq [class-param class-params]
-              (let [[param value] class-param
-                    value (json/encode value)]
-                (jdbc/insert! t-db :group_class_parameters
-                              [:parameter :class_name :environment_name :group_id :value]
-                              [(name param) (name class-name) environment id value])))))
-        (create-rule t-db {:when (:rule group), :group-id (:id group)})
-        group)))
+  [{db :db} group :- Group]
+   (let [{group-name :name, :as group
+          :keys [classes description environment id parent rule variables]} group]
+     (wrap-uniqueness-failure-info "group"
+       #(jdbc/with-db-transaction
+          [t-db db]
+          (validate-group* {:db t-db} group)
+          (create-environment-if-missing {:db t-db} {:name environment})
+          (jdbc/insert! t-db :groups
+                        [:name :description :environment_name :id :parent_id]
+                        (conj ((juxt :name :description :environment) group) id parent))
+          (doseq [[v-key v-val] variables]
+            (jdbc/insert! t-db :group_variables
+                          [:variable :group_id :value]
+                          [(name v-key) id (json/generate-string v-val)]))
+          (doseq [class classes]
+            (let [[class-name class-params] class]
+              (jdbc/insert! t-db :group_classes
+                            [:group_id :class_name :environment_name]
+                            [id (name class-name) environment])
+              (doseq [class-param class-params]
+                (let [[param value] class-param
+                      value (json/encode value)]
+                  (jdbc/insert! t-db :group_class_parameters
+                                [:parameter :class_name :environment_name :group_id :value]
+                                [(name param) (name class-name) environment id value])))))
+          (when rule
+            (create-rule t-db {:when rule, :group-id id}))
+          group))))
 
 (defn- delete-group-class-link
   [db group-id class-name]
@@ -746,8 +748,10 @@
   [db extant delta]
   (let [new-rule (:rule delta)]
     (when (and new-rule (not= new-rule (:rule extant)))
-      (jdbc/update! db, :rules, {:match (json/generate-string new-rule)}
-                    (sql/where {:group_id (:id delta)})))))
+      (if (:rule extant)
+        (jdbc/update! db, :rules, {:match (json/generate-string new-rule)}
+                      (sql/where {:group_id (:id delta)}))
+        (create-rule db {:when new-rule, :group-id (:id delta)})))))
 
 (defn- update-group-name
   [db extant delta]

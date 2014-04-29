@@ -53,7 +53,7 @@
          :name String
          :id java.util.UUID
          :parent java.util.UUID
-         :rule RuleCondition
+         (sc/optional-key :rule) RuleCondition
          (sc/optional-key :description) String))
 
 (def AnnotatedGroup
