@@ -387,6 +387,18 @@
            :headers {"Content-Type" "application/json"}
            :body (json/encode error)})))))
 
+(defn wrap-rule-translation-error-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.rules/illegal-puppetdb-query]
+        {msg :msg, condition :condition}
+        {:status 422
+         :headers {"Content-Type" "application/json"}
+         :body (json/encode {:kind "untranslatable-rule"
+                             :msg (str "The rule cannot be translated because " msg)
+                             :details condition})}))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -398,4 +410,5 @@
     wrap-missing-parent-explanations
     wrap-classification-conflict-explanations
     wrap-root-rule-edit-explanation
+    wrap-rule-translation-error-explanations
     wrap-error-catchall))
