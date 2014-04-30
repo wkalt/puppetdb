@@ -81,6 +81,13 @@
                   :rule ["=" "name" "foo"]
                   :classes {}
                   :variables {}}
+        no-rules {:name "anarchy"
+                  :id (UUID/randomUUID)
+                  :environment "test"
+                  :description "Mom and Dad are gone! No rules!"
+                  :parent root-group-uuid
+                  :classes {}
+                  :variables {}}
         with-classes {:name "with-classes"
                       :id (UUID/randomUUID)
                       :environment "test"
@@ -109,6 +116,10 @@
       (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups WHERE NOT id = ?"
                                            root-group-uuid])))))
 
+    (testing "stores a group without a rule"
+      (create-group db no-rules)
+      (is (= 1 (count (jdbc/query test-db ["SELECT * FROM groups WHERE id = ?" (:id no-rules)])))))
+
     (testing "stores a group with multiple classes"
       (create-class db {:name "hi", :parameters {:greetings "hello"}, :environment "test"})
       (create-class db {:name "bye", :parameters {}, :environment "test"})
@@ -129,6 +140,9 @@
     (testing "retrieves a group"
       (is (= simplest (get-group db (:id simplest)))))
 
+    (testing "retrieves a group without a rule"
+      (is (= no-rules (get-group db (:id no-rules)))))
+
     (testing "retrieves a group with classes and parameters"
       (is (= with-classes (get-group db (:id with-classes)))))
 
@@ -136,7 +150,7 @@
       (is (= with-variables (get-group db (:id with-variables)))))
 
     (testing "retrieves all groups"
-      (is (= #{simplest with-classes with-variables root} (set (get-groups db)))))
+      (is (= #{simplest no-rules with-classes with-variables root} (set (get-groups db)))))
 
     (testing "deletes a group"
       (delete-group db (:id simplest))
@@ -214,7 +228,6 @@
             :id (UUID/randomUUID)
             :environment "tropical"
             :parent root-group-uuid
-            :rule ["=" "foo" "foo"]
             :classes {:science {:fine-structure "1/128"}
                       :magic {:colors ["w" "u" "b" "r" "g" "p"]}}
             :variables {:island false, :rainforest true}}
@@ -231,8 +244,11 @@
       (is (= g1 (get-group db (:id g1))))
       (is (= g2 (get-group db (:id g2))))
       (is (= #{g1 g2 root} (set (get-groups db))))
-      (let [rule-from-group (fn [g] {:when (:rule g), :group-id (:id g)})
-            all-rules (map rule-from-group [g1 g2 root])]
+      (let [rule-from-group (fn [g] (when-let [rule (:rule g)]
+                                      {:when rule, :group-id (:id g)}))
+            all-rules (->> [g1 g2 root]
+                        (map rule-from-group)
+                        (keep identity))]
         (is (= (set all-rules) (set (get-rules db))))))
 
     (testing "can update group's name, environment, description, rule, classes, class parameters, and variables"
@@ -269,10 +285,18 @@
     (testing "returns nil when attempting to update unknown group"
       (is (nil? (update-group db {:id (UUID/randomUUID)}))))
 
-    (testing "can update group environments"
+    (testing "can update group environment"
       (let [g2-env-change {:id (:id g2), :environment "test"}
             g2' (merge-and-clean g2 g2-env-change)]
         (is (= g2' (update-group db g2-env-change)))
+        (is (= g2' (get-group db (:id g2))))))
+
+    (testing "can update a group's rule when one is not already set"
+      (let [g2-rule-change {:id (:id g2)
+                            :environment "tropical" ; undoes change from test above
+                            :rule ["<=" "bedtime" "21:00"]}
+            g2' (merge-and-clean g2 g2-rule-change)]
+        (is (= g2' (update-group db g2-rule-change)))
         (is (= g2' (get-group db (:id g2))))))
 
     (testing "trying to update environments when the group refers to classes
