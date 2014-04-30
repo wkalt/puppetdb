@@ -155,7 +155,7 @@ allow *
 
 ## Configure Puppet to use the classifier terminus
 
-Somehow you need to get the contents of the `puppet/` subdirectory into the Ruby load path of your master. If running puppet and classifier both from source, setting the `$RUBYLIB` enviroment variable will do this; if you're running from packaged artifacts the files may be installed in a place where Puppet will find them by the packages. 
+Somehow you need to get the contents of the `puppet/` subdirectory into the Ruby load path of your master. If running puppet and classifier both from source, setting the `$RUBYLIB` enviroment variable will do this; if you're running from packaged artifacts the files may be installed in a place where Puppet will find them by the packages.
 
 Then configure puppet to use the classifer when nodes check in by setting the following in your `$confdir/puppet.conf`:
 
