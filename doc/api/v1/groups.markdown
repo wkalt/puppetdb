@@ -136,12 +136,12 @@ The keys allowed in this object are:
           The structure of this condition is described in the ["Rule Condition Grammar"](#rule-condition-grammar) section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
                The keys of the object are the variable names, and the corresponding value is that variable's value, which can be any sort of JSON value.
-               The `variables` keys is optional, and if a group does not define any top-level variables then it may be omitted.
+               The `variables` key is optional, and if a group does not define any top-level variables then it may be omitted.
 * `classes`: An object that defines the classes to be used by nodes in the group, as well as custom values for those classes' parameters (required).
              This is a two-level object; that is, the keys of the object are class names (strings), and each key's value is another object that defines class parameter values.
              This innermost object maps between class parameter names and their values.
              The keys are the parameter names (strings), and each value is the parameter's value, which can be any kind of JSON value.
-             The `classes` keys is _not_ optional; if it is missing, a 400 Bad Request response will be returned by the server.
+             The `classes` key is _not_ optional; if it is missing, a 400 Bad Request response will be returned by the server.
 
 #### Response Format
 
