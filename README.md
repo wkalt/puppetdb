@@ -24,20 +24,21 @@ createdb classifier -U classifier
 
 The first command will prompt for the user's password.
 
-Edit (or copy to another location) the `ext/classifier.ini` configuration file and add a `database` section with the database name, user, and password.
+Edit (or copy to another location) the `resources/ext/config/conf.d/classifier.conf` configuration file and add a `database` section with the database name, user, and password.
 For the example above, assuming `classifier` was entered for the user's password, this section should look like:
 
-```ini
-[database]
-dbname = classifier
-user = classifier
-password = classifier
+```
+database: {
+  dbname: classifier,
+  user: classifier,
+  password: classifier
+}
 ```
 
 Now you can start the service with (use the path to the location of your ini file):
 
 ```
-lein run --config ext/classifier.ini
+lein run --config ext/config/conf.d/classifier.conf
 ```
 
 Once the service is running, you can give it a rough smoke test by creating a simple group hierarchy and using it to classify a node.
