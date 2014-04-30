@@ -194,6 +194,40 @@
                 (is (re-find #"A group with name = foogroup, environment_name = production" msg))
                 (is (= #{:constraintName :conflict} (-> details keys set))))))))
 
+      (testing "groups without rules"
+        (let [no-rules {:name "chaos"
+                        :id (UUID/randomUUID)
+                        :environment "anarchy"
+                        :parent root-group-uuid
+                        :classes {}
+                        :variables {}}
+              no-rules-path (str "/v1/groups/" (:id no-rules))]
+
+          (testing "can be created"
+            (let [{:keys [body status]} (http/put (str base-url no-rules-path)
+                                                  {:content-type :json
+                                                   :throw-entire-message? true
+                                                   :body (json/encode no-rules)})]
+              (is (= 201 status))
+              (is (= no-rules (-> body (json/decode true) convert-uuids)))))
+
+          (testing "can be retrieved"
+            (let [{:keys [body status]} (http/put (str base-url no-rules-path)
+                                                  {:content-type :json
+                                                   :body (json/encode no-rules)})]
+              (is (= 200 status))
+              (is (= no-rules (-> body (json/decode true) convert-uuids)))))
+
+          (testing "can be updated to have a rule"
+            (let [add-rule-delta {:id (:id no-rules)
+                                  :rule ["=" "fun" "0"]}
+                  with-rules (merge-and-clean no-rules add-rule-delta)
+                  {:keys [body status]} (http/post (str base-url no-rules-path)
+                                                   {:content-type :json
+                                                    :body (json/encode add-rule-delta)})]
+              (is (= 200 status))
+              (is with-rules (-> body (json/decode true) convert-uuids))))))
+
       (testing "can update a group through its UUID URI"
         (let [delta {:variables {:spirit_animal "turtle"}}
               {:keys [body status]} (http/post group-uri
