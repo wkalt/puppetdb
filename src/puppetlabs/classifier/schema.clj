@@ -1,11 +1,17 @@
 (ns puppetlabs.classifier.schema
   (:require [schema.core :as sc]
-            [puppetlabs.classifier.util :refer [map-delta]]))
+            [puppetlabs.classifier.util :refer [map-delta]])
+  (:import java.util.UUID))
 
 ;; Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (def Node {:name String})
+
+(def CheckIn
+  {:node String
+   :time org.joda.time.DateTime
+   :matches [UUID]})
 
 (def SubmittedNode
   {:name String
