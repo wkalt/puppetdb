@@ -428,7 +428,7 @@
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
-        (is (= [(str (:id group))] (:groups classification)))
+        (is (contains? (set (:groups classification)) (str (:id group))))
         (is (= {:noisyclass {:verbose "false"}}
                (:classes classification)))
         (is (= {:dothings "yes"} (:parameters classification)))))))
@@ -468,7 +468,8 @@
             (is (= 200 status))
             (is (= {:name "multinode"
                     :environment "production"
-                    :groups (->> groups (map :id) set)
+                    :groups (-> (->> groups (map :id) set)
+                              (conj root-group-uuid))
                     :classes {:blueclass {:blue "since my baby left me"}
                               :redclass {:red "a world about to dawn"
                                          :black "the night that ends at last"}}
@@ -553,7 +554,7 @@
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
         (is (= 201 (:status group-resp)))
-        (is (= [(str (:id group))] (:groups classification)))
+        (is (contains? (set (:groups classification)) (str (:id group))))
         (is (= {:riscybusiness {}}
                (:classes classification)))
         (is (= {:riscisgood "yes"} (:parameters classification)))))))

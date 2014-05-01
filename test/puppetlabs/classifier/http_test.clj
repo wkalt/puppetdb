@@ -324,6 +324,25 @@
        (mock/body req body)
        req))))
 
+(deftest empty-classification
+  (let [mock-db (reify Storage
+                  (get-rules [_] [])
+                  (get-group [_ _] nil)
+                  (get-ancestors [_ _] nil))
+        app (app {:db mock-db})]
+    (testing "classification returns the right structure with a blank db"
+      (let [{body :body, :as response} (app (classification-request
+                                              :post
+                                              "hellote"
+                                              (encode {})))]
+        (is-http-status 200 response)
+        (is (= {:name "hellote"
+                :environment nil
+                :groups []
+                :classes {}
+                :parameters {}}
+               (decode body true)))))))
+
 (deftest classification
   (let [group-id (UUID/randomUUID)
         rule {:when ["and" ["=" ["facts" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]

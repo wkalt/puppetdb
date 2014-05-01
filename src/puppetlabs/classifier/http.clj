@@ -350,8 +350,8 @@
           {:name node-name
            :environment (:environment classification)
            :groups matching-group-ids
-           :classes (:classes classification)
-           :parameters (:variables classification)})))))
+           :classes (:classes classification {})
+           :parameters (:variables classification {})})))))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
