@@ -745,13 +745,15 @@
                     (sql/where {:id (:id delta)})))))
 
 (defn- update-group-rule
-  [db extant delta]
+  [db extant {id :id, :as delta}]
   (let [new-rule (:rule delta)]
     (when (and new-rule (not= new-rule (:rule extant)))
       (if (:rule extant)
         (jdbc/update! db, :rules, {:match (json/generate-string new-rule)}
-                      (sql/where {:group_id (:id delta)}))
-        (create-rule db {:when new-rule, :group-id (:id delta)})))))
+                      (sql/where {:group_id id}))
+        (create-rule db {:when new-rule, :group-id id})))
+    (when (and (nil? new-rule) (contains? delta :rule))
+      (jdbc/delete! db :rules (sql/where {:group_id id})))))
 
 (defn- update-group-name
   [db extant delta]

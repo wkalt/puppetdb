@@ -299,6 +299,11 @@
         (is (= g2' (update-group db g2-rule-change)))
         (is (= g2' (get-group db (:id g2))))))
 
+    (testing "can remove a group's rule when updating"
+      (let [remove-rule-delta {:id (:id g2), :rule nil}]
+        (is (= g2 (update-group db remove-rule-delta)))
+        (is (= g2 (get-group db (:id g2))))))
+
     (testing "trying to update environments when the group refers to classes
              that don't exist in the new environment results in a foreign-key
              violation exception"
