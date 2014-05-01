@@ -77,7 +77,7 @@
    (sc/optional-key :environment) String
    (sc/optional-key :description) String
    (sc/optional-key :parent) java.util.UUID
-   (sc/optional-key :rule) RuleCondition
+   (sc/optional-key :rule) (sc/maybe RuleCondition)
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
 
