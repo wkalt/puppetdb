@@ -20,6 +20,7 @@
                  [cheshire "5.2.0"]
                  [clj-http "0.7.8"]
                  [clj-stacktrace "0.2.7"]
+                 [clj-time "0.6.0"]
                  [compojure "1.1.6" :exclusions [[clj-time] [org.clojure/tools.macro]]]
                  [java-jdbc/dsl "0.1.0"]
                  [liberator "0.10.0"]
