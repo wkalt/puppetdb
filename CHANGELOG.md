@@ -1,3 +1,6 @@
+### 0.3.1
+ * Fixed a bug where groups didn't work properly if a url prefix was set
+
 ## 0.3.0
  * The configuration format has changed to HOCON and the included
    configuration file renamed classifier.conf. Ini files will still work

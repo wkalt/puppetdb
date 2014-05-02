@@ -20,7 +20,7 @@
   "Classifier base configuration used for tests in this namespace"
   {:webserver {:host "0.0.0.0"
                :port 1261}
-   :classifier {:url-prefix ""
+   :classifier {:url-prefix "/classifier"
                 :puppet-master "https://localhost:8140"}})
 
 (defn- base-url
@@ -28,7 +28,7 @@
   (let [host (get-in app-config [:webserver :host])]
     (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
-                   (get-in app-config [:clasifier :url-prefix]))))
+                   (get-in app-config [:classifier :url-prefix]))))
 
 (defn- block-until-ready
   [server-process]

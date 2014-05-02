@@ -208,7 +208,7 @@
         parse-result))))
 
 (def ^:private group-uri-regex
-  #"^/v1/groups/\p{XDigit}{8}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{12}")
+  #"/v1/groups/\p{XDigit}{8}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{4}-\p{XDigit}{12}")
 
 (defn post-delta-update?
   "A predicate that determines whether the context represents a POST request to
@@ -224,7 +224,7 @@
   [{submitted ::submitted, {method :request-method, uri :uri} :request}]
   (boolean (and (= method :post)
                 submitted
-                (= uri "/v1/groups"))))
+                (re-find #"/v1/groups$" uri))))
 
 (defn put-group?
   "A predicate that determines whether the context represents a PUT request to
