@@ -361,7 +361,9 @@
                   (get-group [_ _]
                     group)
                   (get-ancestors [_ _]
-                    nil))
+                    nil)
+                  (store-check-in [_ ci]
+                    ci))
         app (app {:db mock-db})]
 
     (testing "facts submitted via POST can be used for classification"
@@ -410,6 +412,7 @@
                            (reify Storage
                              (get-rules [_] (map group->rule groups))
                              (get-group [_ id] (get groups-by-id id))
+                             (store-check-in [_ ci] ci)
                              (get-ancestors [this g]
                                (let [get-parent (fn [g] (get-group this (:parent g)))]
                                  (loop [curr (get-parent g), ancs []]

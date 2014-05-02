@@ -1,6 +1,7 @@
 (ns puppetlabs.classifier.http
   (:require [clojure.tools.logging :as log]
             [cheshire.core :as json]
+            [clj-time.core :as time]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
@@ -325,7 +326,8 @@
 (defn classify-node
   [db node-name]
   (fn [ctx]
-    (let [data (::data ctx {})
+    (let [check-in-time (time/now)
+          data (::data ctx {})
           node (validate
                  SubmittedNode
                  {:name node-name
@@ -342,6 +344,9 @@
                             (class8n/collapse-to-inherited
                               (map group->classification inheritance-chain)))
           conflicts (class8n/conflicts classifications)]
+      (storage/store-check-in db {:node node-name
+                                  :time check-in-time
+                                  :matches (map :id unrelated-groups)})
       (if-not (nil? conflicts)
         (throw+ {:kind ::classification-conflict
                  :group->ancestors (into {} (map (juxt identity group->ancestors) unrelated-groups))
