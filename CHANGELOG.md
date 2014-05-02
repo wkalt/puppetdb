@@ -1,3 +1,12 @@
+## 0.3.0
+ * The configuration format has changed to HOCON and the included
+   configuration file renamed classifier.conf. Ini files will still work
+   but this is now the preferred format.
+ * Updated README and included classifier.conf to show how to set up SSL
+   and interact with puppet
+ * Allow groups to not have rules
+ * The root group now matches all nodes
+
 ### 0.2.4
  * Added group descriptions
  * Allow structured data for parameter values
