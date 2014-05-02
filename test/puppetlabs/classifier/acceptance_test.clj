@@ -226,7 +226,17 @@
                                                    {:content-type :json
                                                     :body (json/encode add-rule-delta)})]
               (is (= 200 status))
-              (is with-rules (-> body (json/decode true) convert-uuids))))))
+              (is (= with-rules (-> body (json/decode true) convert-uuids)))))
+
+          (testing "can be updated to not have a rule"
+            (let [rm-rule-delta {:id (:id no-rules)
+                                 :rule nil}
+                  {:keys [body status]} (http/post (str base-url no-rules-path)
+                                                   {:content-type :json
+                                                    :throw-entire-message? true
+                                                    :body (json/encode rm-rule-delta)})]
+              (is (= 200 status))
+              (is (= no-rules (-> body (json/decode true) convert-uuids)))))))
 
       (testing "can update a group through its UUID URI"
         (let [delta {:variables {:spirit_animal "turtle"}}
