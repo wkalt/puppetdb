@@ -328,7 +328,8 @@
   (let [mock-db (reify Storage
                   (get-rules [_] [])
                   (get-group [_ _] nil)
-                  (get-ancestors [_ _] nil))
+                  (get-ancestors [_ _] nil)
+                  (store-check-in [_ ci] ci))
         app (app {:db mock-db})]
     (testing "classification returns the right structure with a blank db"
       (let [{body :body, :as response} (app (classification-request
