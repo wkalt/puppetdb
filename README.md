@@ -35,7 +35,7 @@ database: {
 }
 ```
 
-Now you can start the service with (use the path to the location of your ini file):
+Now you can start the service with (use the path to the location of your conf file):
 
 ```
 lein run --config <path_to_your>/classifier.conf
@@ -116,7 +116,7 @@ As you can see, the node was classified into the `webservers` group that you cre
 
 # Using the Classifier with Puppet
 
-For most uses, you'll want to actually connect the classifier service to Puppet. There are a few steps to follow if you're doing this on your own.
+For most uses, you'll want to actually connect the classifier service to Puppet. There are a few steps to follow if you're doing this on your own. Note that this requires Puppet >= 3.6 (Puppet Enterprise >= 3.3).
 
 ## Configure the classifier to use puppet-valid certificates
 
@@ -128,16 +128,19 @@ puppet master --configprint hostcert
 puppet master --configprint hostprivkey
 ```
 
-These values then, respectively, get set as `ssl-ca-cert`, `ssl-cert`, and `ssl-key` in the `[webserver]` stanza of your `classifier.ini` file. On a single-master puppet enterprise installation on the host `glitch.domain.com`, for example, this ends up looking like:
+These values then, respectively, get set as `ssl-ca-cert`, `ssl-cert`, and `ssl-key` in the `webserver` stanza of your `classifier.conf` file. You also need to configure the classifier to listen on a different port with SSL, by setting `ssl-host` and `ssl-port`. On a single-master puppet enterprise installation on the host `glitch.domain.com`, for example, this ends up looking like:
 
 ```
-[webserver]
-# Listen on all interfaces
-host = 0.0.0.0
-port = 1261
-ssl-key = /etc/puppetlabs/puppet/ssl/private_keys/glitch.domain.com.pem
-ssl-cert = /etc/puppetlabs/puppet/ssl/certs/glitch.domain.com.pem
-ssl-ca-cert = /etc/puppetlabs/puppet/ssl/certs/ca.pem
+webserver: {
+  # Listen on all interfaces
+  host: 0.0.0.0
+  port: 1261
+  ssl-host: 0.0.0.0
+  ssl-port: 1262
+  ssl-key: /etc/puppetlabs/puppet/ssl/private_keys/glitch.domain.com.pem
+  ssl-cert: /etc/puppetlabs/puppet/ssl/certs/glitch.domain.com.pem
+  ssl-ca-cert: /etc/puppetlabs/puppet/ssl/certs/ca.pem
+}
 ```
 
 ## Configure the puppetmaster's auth.conf
