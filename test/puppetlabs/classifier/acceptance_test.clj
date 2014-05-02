@@ -17,14 +17,15 @@
            java.util.UUID))
 
 (def test-config
-  "Path from the root of the repo to the configuration file to use for the tests
-  in this namespace."
-  "resources/ext/config/conf.d/classifier.ini")
+  "Classifier base configuration used for tests in this namespace"
+  {:webserver {:host "0.0.0.0"
+               :port 1261}
+   :classifier {:url-prefix ""
+                :puppet-master "https://localhost:8140"}})
 
 (defn- base-url
-  [config-path]
-  (let [app-config (ini-to-map config-path)
-        host (get-in app-config [:webserver :host])]
+  [app-config]
+  (let [host (get-in app-config [:webserver :host])]
     (str "http://" (if (= host "0.0.0.0") "localhost" host)
                ":" (get-in app-config [:webserver :port])
                    (get-in app-config [:clasifier :url-prefix]))))
@@ -40,18 +41,17 @@
   "Initialize the database and then start a classifier server using the given
   config file, returning a conch process map describing the server instance
   process."
-  (let [base-config (ini-to-map config-path)
-        test-db {:subprotocol "postgresql"
+  (let [test-db {:subprotocol "postgresql"
                  :dbname (or (System/getenv "CLASSIFIER_DBNAME")
                               "classifier_test")
                  :user (or (System/getenv "CLASSIFIER_DBUSER")
                            "classifier_test")
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
-        config-with-db (assoc base-config :database test-db)
-        test-config-file (java.io.File/createTempFile "classifier-test-" ".ini")
+        config-with-db (assoc test-config :database test-db)
+        test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
         test-config-path (.getAbsolutePath test-config-file)
-        _ (spit-ini test-config-file config-with-db)
+        _ (spit test-config-file (json/encode config-with-db))
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
