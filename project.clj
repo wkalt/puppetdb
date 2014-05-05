@@ -14,7 +14,7 @@
 (defproject puppetlabs/classifier "0.3.1-SNAPSHOT"
   :description "Node classifier"
   :pedantic? :abort
-  :dependencies [[org.clojure/clojure "1.5.1"]
+  :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/java.jdbc "0.3.2"]
                  [cheshire "5.2.0"]
