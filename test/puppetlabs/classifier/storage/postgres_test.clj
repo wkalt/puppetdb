@@ -601,24 +601,24 @@
                         (annotate-group db))]
         (is (= spaceship annotated))))))
 
-(defn- random-ids
-  [n]
-  (take n (repeatedly #(UUID/randomUUID))))
+(defn- rand-id [] (UUID/randomUUID))
 
 (deftest ^:database node-check-ins
   (let [neuromancer {:name "Neuromancer"}
-        neuro-check-ins [{:node (:name neuromancer)
-                          :time (time/now)
-                          :matches (vec (random-ids 3))}
-                         {:node (:name neuromancer)
-                          :time (time/ago (time/weeks 1))
-                          :matches (vec (random-ids 2))}]]
+        name-nodeval {:path "name", :value (:name neuromancer)}
+        explanation {(rand-id) {:value true, :form ["=" name-nodeval (:name neuromancer)]}}
+        check-ins [{:node (:name neuromancer)
+                    :time (time/now)
+                    :explanation explanation}
+                   {:node (:name neuromancer)
+                    :time (time/ago (time/weeks 1))
+                    :explanation explanation}]]
 
     (testing "can store node check-ins"
-      (is (do
-            (store-check-in db (first neuro-check-ins))
-            true)))
+      (store-check-in db (first check-ins))
+      (store-check-in db (second check-ins))
+      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM node_check_ins WHERE node = ?"
+                                           (:name neuromancer)])))))
 
     (testing "can retrieve a node's check-ins"
-      (store-check-in db (second neuro-check-ins))
-      (is (= neuro-check-ins (get-check-ins db (:name neuromancer)))))))
+      (is (= check-ins (get-check-ins db (:name neuromancer)))))))

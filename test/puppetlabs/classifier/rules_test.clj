@@ -112,6 +112,80 @@
       (is-rule-match ncc-1701-d-rule ncc-1701-d-node)
       (is-not-rule-match ncc-1701-d-rule ds9-node))))
 
+(deftest rule-explanations
+  (testing "rule explanations work as expected for"
+    (let [->rule (fn [cnd] {:when cnd, :group-id (UUID/randomUUID)})
+          simplest-rule (->rule ["~" ["trusted" "certname"] "\\.www\\.example\\.com"])
+          negation-rule (->rule ["not" ["<" ["facts" "cpu-cores"] "2"]])
+          disjunction-rule (->rule ["or"
+                                    [">=" ["facts" "RAM"] "17180000000"]
+                                    ["=" ["facts" "storage-type"] "solid-state"]])
+          conjunction-rule (->rule ["and"
+                                    ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
+                                    [">=" ["facts" "cpu-cores"] "2"]])
+          omni-rule (->rule ["and"
+                             (:when disjunction-rule)
+                             (:when negation-rule)])
+          reference-node {"name" "Riffy"
+                          "trusted" {"certname" "riffy.www.example.com"}
+                          "facts" {"cpu-cores" "4"
+                                   "RAM" "34360000000"
+                                   "storage-type" "spinning-plates"}}]
+
+      (testing "comparisons"
+        (let [node-value {:path ["trusted" "certname"]
+                          :value "riffy.www.example.com"}
+              expected-explanation {:value true
+                                    :form ["~" node-value "\\.www\\.example\\.com"]}]
+          (is (= expected-explanation (explain-rule simplest-rule reference-node)))))
+
+      (testing "negations"
+        (let [node-value {:path ["facts" "cpu-cores"], :value "4"}
+              sub-explanation {:value false
+                               :form ["<" node-value "2"]}
+              expected-explanation {:value true
+                                    :form ["not" sub-explanation]}]
+          (is (= expected-explanation (explain-rule negation-rule reference-node)))))
+
+      (testing "disjunctions"
+        (let [node-ram-value {:path ["facts" "RAM"], :value "34360000000"}
+              node-storage-type-value {:path ["facts" "storage-type"], :value "spinning-plates"}
+              expected-explanation {:value true
+                                    :form ["or"
+                                           {:value true
+                                            :form [">=" node-ram-value "17180000000"]}
+                                           {:value false
+                                            :form ["=" node-storage-type-value "solid-state"]}]}]
+          (is (= expected-explanation (explain-rule disjunction-rule reference-node)))))
+
+      (testing "conjunctions"
+        (let [node-cert-value {:path ["trusted" "certname"], :value "riffy.www.example.com"}
+              node-cpu-value {:path ["facts" "cpu-cores"], :value "4"}
+              expected-explanation {:value true
+                                    :form ["and"
+                                           {:value true
+                                            :form ["~" node-cert-value "\\.www\\.example\\.com"]}
+                                           {:value true
+                                            :form [">=" node-cpu-value "2"]}]}]
+          (is (= expected-explanation (explain-rule conjunction-rule reference-node)))))
+
+      (testing "nested rules that use all condition forms"
+        (let [node-ram-value {:path ["facts" "RAM"], :value "34360000000"}
+              node-storage-type-value {:path ["facts" "storage-type"], :value "spinning-plates"}
+              node-cpu-value {:path ["facts" "cpu-cores"], :value "4"}
+              expected-explanation {:value true
+                                    :form ["and"
+                                           {:value true
+                                            :form ["or"
+                                                   {:value true
+                                                    :form [">=" node-ram-value "17180000000"]}
+                                                   {:value false
+                                                    :form ["=" node-storage-type-value "solid-state"]}]}
+                                           {:value true
+                                            :form ["not" {:value false
+                                                          :form ["<" node-cpu-value "2"]}]}]}]
+          (is (= expected-explanation (explain-rule omni-rule reference-node))))))))
+
 (deftest rule->pdb-query
   (testing "converting rule conditions to puppetdb queries"
 

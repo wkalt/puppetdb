@@ -10,6 +10,7 @@
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [AnnotatedGroup CheckIn Environment Group
                                                   GroupDelta group->classification HierarchyNode
                                                   Node PuppetClass Rule]]
@@ -128,11 +129,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (sc/defn ^:always-validate store-check-in* :- CheckIn
-  [{db :db} check-in :- CheckIn]
-  (jdbc/insert! db :node_check_ins
+  [{db :db}, check-in :- CheckIn]
+  (jdbc/insert! db, :node_check_ins
                 (-> check-in
-                  (update-in [:matches] json/encode)
-                  (update-in [:time] coerce-time/to-sql-time)))
+                  (update-in [:time] coerce-time/to-sql-time)
+                  (update-in [:explanation] json/encode)))
   check-in)
 
 (sc/defn ^:always-validate get-check-ins* :- [CheckIn]
@@ -142,7 +143,8 @@
                    (sql/order-by {:time :desc}))
     (jdbc/query db)
     (map #(update-in % [:time] coerce-time/from-sql-time))
-    (map #(update-in % [:matches] (comp (partial map ->uuid) json/decode)))))
+    (map #(update-in % [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
+                                            (fn [exp] (json/decode exp true)))))))
 
 ;; Environments
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

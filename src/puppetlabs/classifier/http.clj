@@ -333,7 +333,8 @@
                  {:name node-name
                   :facts (get-in data [:facts :values] {})
                   :trusted (:trusted data {})})
-          matching-group-ids (class8n/matching-groups node (storage/get-rules db))
+          all-rules (storage/get-rules db)
+          matching-group-ids (set (class8n/matching-groups node all-rules))
           matching-groups (map (partial storage/get-group db) matching-group-ids)
           group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))
                                          matching-groups))
@@ -343,10 +344,13 @@
                                       inheritance-chain (concat [g] ancs)]]
                             (class8n/collapse-to-inherited
                               (map group->classification inheritance-chain)))
-          conflicts (class8n/conflicts classifications)]
+          conflicts (class8n/conflicts classifications)
+          matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
+          explanation (into {} (for [{g-id :group-id, :as rule} matching-rules]
+                                 [g-id (rules/explain-rule rule node)]))]
       (storage/store-check-in db {:node node-name
                                   :time check-in-time
-                                  :matches (map :id unrelated-groups)})
+                                  :explanation explanation})
       (if-not (nil? conflicts)
         (throw+ {:kind ::classification-conflict
                  :group->ancestors (into {} (map (juxt identity group->ancestors) unrelated-groups))

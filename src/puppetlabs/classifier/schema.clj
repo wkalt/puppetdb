@@ -1,22 +1,18 @@
 (ns puppetlabs.classifier.schema
-  (:require [schema.core :as sc]
+  (:require [clojure.walk :as walk]
+            [schema.core :as sc]
             [puppetlabs.classifier.util :refer [map-delta]])
   (:import java.util.UUID))
 
 ;; Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(def Node {:name String})
+(def NodeField
+  (sc/either String [String]))
 
-(def CheckIn
-  {:node String
-   :time org.joda.time.DateTime
-   :matches [UUID]})
-
-(def SubmittedNode
-  {:name String
-   :facts {sc/Keyword sc/Any}
-   :trusted {sc/Keyword sc/Any}})
+(def NodeValue
+  {:path NodeField
+   :value sc/Any})
 
 (def Environment {:name String})
 
@@ -36,13 +32,40 @@
      (sc/one (sc/recursive #'RuleCondition) "first-term") (sc/recursive #'RuleCondition)]
 
     [(sc/one (sc/enum "=" "~" "<" "<=" ">" ">=") "operator")
-     (sc/one (sc/either String [String]) "field")
+     (sc/one NodeField "field")
      (sc/one String "target-value")]))
+
+(def ExplainedCondition
+  {:value boolean
+   :form (walk/prewalk
+           (fn [form]
+             (cond
+               (and (= (type form) schema.core.Recursive)
+                    (= (:schema-var form) #'RuleCondition))
+               (sc/recursive #'ExplainedCondition)
+
+               (= form (sc/one NodeField "field"))
+               (sc/one NodeValue "field-with-value")
+
+               :else form))
+           RuleCondition)})
 
 (def Rule
   {:when RuleCondition
    :group-id java.util.UUID
    (sc/optional-key :id) Number})
+
+(def Node {:name String})
+
+(def SubmittedNode
+  {:name String
+   :facts {sc/Keyword sc/Any}
+   :trusted {sc/Keyword sc/Any}})
+
+(def CheckIn
+  {:node String
+   :time org.joda.time.DateTime
+   :explanation {UUID ExplainedCondition}})
 
 (def Classification
   {:environment String
