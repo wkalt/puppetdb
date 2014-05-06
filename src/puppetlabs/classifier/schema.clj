@@ -52,7 +52,7 @@
 
 (def Rule
   {:when RuleCondition
-   :group-id java.util.UUID
+   :group-id UUID
    (sc/optional-key :id) Number})
 
 (def Node {:name String})
@@ -80,8 +80,8 @@
 (def Group
   (assoc Classification
          :name String
-         :id java.util.UUID
-         :parent java.util.UUID
+         :id UUID
+         :parent UUID
          (sc/optional-key :rule) RuleCondition
          (sc/optional-key :description) String))
 
@@ -101,11 +101,11 @@
          :children #{(sc/recursive #'ValidationNode)}))
 
 (def GroupDelta
-  {:id java.util.UUID
+  {:id UUID
    (sc/optional-key :name) String
    (sc/optional-key :environment) String
    (sc/optional-key :description) String
-   (sc/optional-key :parent) java.util.UUID
+   (sc/optional-key :parent) UUID
    (sc/optional-key :rule) (sc/maybe RuleCondition)
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
