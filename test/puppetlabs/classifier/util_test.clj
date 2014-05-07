@@ -100,9 +100,11 @@
   (testing "numbers are not UUIDs" (is (false? (uuid? 42))))
   (testing "strings that don't have UUIDS are not UUIDs" (is (false? (uuid? (str "not-uuid")))))
   (testing "UUID strings are UUIDs" (is (uuid? (str (UUID/randomUUID)))))
+  (testing "UUID kewyords are UUIDs" (is (uuid? (-> (UUID/randomUUID) str keyword))))
   (testing "UUIDs are UUIDs" (is (uuid? (UUID/randomUUID))))
 
   (testing "nil does not convert to a UUID" (is (nil? (->uuid nil))))
   (testing "numbers do not convert to a UUID" (is (nil? (->uuid 42))))
   (testing "UUID strings do convert to a UUID" (is (->uuid (str (UUID/randomUUID)))))
+  (testing "UUID keywords do convert to a UUID" (is (->uuid (-> (UUID/randomUUID) str keyword))))
   (testing "UUIDs do convert to a UUID" (is (->uuid (UUID/randomUUID)))))
