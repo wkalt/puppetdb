@@ -2,7 +2,7 @@
   (:require [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [parse-number]]
-            [puppetlabs.classifier.schema :refer [Rule RuleCondition]])
+            [puppetlabs.classifier.schema :refer [ExplainedCondition Rule RuleCondition]])
   (:import java.util.regex.Pattern
            java.util.UUID))
 
@@ -13,7 +13,7 @@
       (reduce get* m ks)
       (get* m ks))))
 
-(sc/defn match?
+(sc/defn match? :- Boolean
   [rule-condition :- RuleCondition, node]
   (let [[operator & args] rule-condition]
     (case operator
@@ -41,6 +41,26 @@
   [node rule :- Rule]
   (if (match? (:when rule) node)
     (:group-id rule)))
+
+(sc/defn explain-rule* :- ExplainedCondition
+  [node, condition :- RuleCondition]
+  (let [recurse (partial explain-rule* node)
+        op (first condition)]
+    (case op
+      "not" {:value (match? condition node)
+             :form ["not" (recurse (last condition))]}
+
+      ("and" "or") {:value (match? condition node)
+                    :form (vec (cons op (map recurse (rest condition))))}
+
+      ("=" "~" "<" "<=" ">" ">=") {:value (match? condition node)
+                                   :form (let [[op field target] condition
+                                               node-value {:path field, :value (get-in node field)}]
+                                           [op node-value target])})))
+
+(sc/defn explain-rule :- ExplainedCondition
+  [rule :- Rule, node]
+  (explain-rule* node (:when rule)))
 
 (sc/defn ^:always-validate condition->pdb-query
   [condition :- RuleCondition]

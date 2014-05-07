@@ -3,6 +3,7 @@
             [clojure.set :refer [project]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk]]
+            [clj-time.core :as time]
             [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
@@ -599,3 +600,25 @@
       (let [annotated (->> (get-group db (:id spaceship))
                         (annotate-group db))]
         (is (= spaceship annotated))))))
+
+(defn- rand-id [] (UUID/randomUUID))
+
+(deftest ^:database node-check-ins
+  (let [neuromancer {:name "Neuromancer"}
+        name-nodeval {:path "name", :value (:name neuromancer)}
+        explanation {(rand-id) {:value true, :form ["=" name-nodeval (:name neuromancer)]}}
+        check-ins [{:node (:name neuromancer)
+                    :time (time/now)
+                    :explanation explanation}
+                   {:node (:name neuromancer)
+                    :time (time/ago (time/weeks 1))
+                    :explanation explanation}]]
+
+    (testing "can store node check-ins"
+      (store-check-in db (first check-ins))
+      (store-check-in db (second check-ins))
+      (is (= 2 (count (jdbc/query test-db ["SELECT * FROM node_check_ins WHERE node = ?"
+                                           (:name neuromancer)])))))
+
+    (testing "can retrieve a node's check-ins"
+      (is (= check-ins (get-check-ins db (:name neuromancer)))))))

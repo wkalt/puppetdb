@@ -3,15 +3,17 @@
             [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :refer [keywordize-keys]]
+            [clj-time.coerce :as coerce-time]
             [java-jdbc.sql :as sql]
             [cheshire.core :as json]
             [migratus.core :as migratus]
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.classifier.classification :as class8n]
-            [puppetlabs.classifier.schema :refer [AnnotatedGroup Environment Group GroupDelta
-                                                  group->classification HierarchyNode Node
-                                                  PuppetClass Rule]]
+            [puppetlabs.classifier.rules :as rules]
+            [puppetlabs.classifier.schema :refer [AnnotatedGroup CheckIn Environment Group
+                                                  GroupDelta group->classification HierarchyNode
+                                                  Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params]]
@@ -122,6 +124,27 @@
 (sc/defn delete-node*
   [{db :db}, node-name :- String]
   (jdbc/delete! db :nodes (sql/where {:name node-name})))
+
+;; Node Check-Ins
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(sc/defn ^:always-validate store-check-in* :- CheckIn
+  [{db :db}, check-in :- CheckIn]
+  (jdbc/insert! db, :node_check_ins
+                (-> check-in
+                  (update-in [:time] coerce-time/to-sql-time)
+                  (update-in [:explanation] json/encode)))
+  check-in)
+
+(sc/defn ^:always-validate get-check-ins* :- [CheckIn]
+  [{db :db} node-name :- String]
+  (->> (sql/select * :node_check_ins
+                   (sql/where {:node node-name})
+                   (sql/order-by {:time :desc}))
+    (jdbc/query db)
+    (map #(update-in % [:time] coerce-time/from-sql-time))
+    (map #(update-in % [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
+                                            (fn [exp] (json/decode exp true)))))))
 
 ;; Environments
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -821,6 +844,8 @@
    :get-node get-node*
    :get-nodes get-nodes*
    :delete-node delete-node*
+   :store-check-in store-check-in*
+   :get-check-ins get-check-ins*
 
    :validate-group validate-group*
    :create-group create-group*

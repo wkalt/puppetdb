@@ -119,6 +119,7 @@
   [x]
   (cond
     (instance? UUID x) x
+    (keyword? x) (recur (name x))
     (string? x) (try (UUID/fromString x) (catch IllegalArgumentException _ nil))
     :otherwise nil))
 
