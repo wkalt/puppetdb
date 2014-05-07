@@ -109,12 +109,12 @@
 
 (deftest ^:acceptance smoke
   (let [base-url (base-url test-config)]
-    (testing "can create a new node"
-      (let [resp (http/put (str base-url "/v1/nodes/test-node"))]
+    (testing "can create a new environment"
+      (let [resp (http/put (str base-url "/v1/environments/test-env"))]
         (is (= 201 (:status resp)))
-        (is (= {"name" "test-node"} (json/parse-string (:body resp))))))
-    (testing "can delete a node"
-      (let [resp (http/delete (str base-url "/v1/nodes/test-node"))]
+        (is (= {"name" "test-env"} (json/parse-string (:body resp))))))
+    (testing "can delete an environment"
+      (let [resp (http/delete (str base-url "/v1/environments/test-env"))]
         (is (= 204 (:status resp)))))))
 
 (defn valid-400-resp-body?
@@ -304,27 +304,37 @@
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
-        node-url #(str base-url "/v1/nodes/" %)
-        node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
-        nodes (for [nn node-names] {:name nn})
+        env-url #(str base-url "/v1/environments/" %)
+        env-names ["dev" "tropical" "desert" "space"]
+        envs (for [en env-names] {:name en})
         group {:name "bazgroup", :id (UUID/randomUUID), :environment "production",
                :parent root-group-uuid, :rule ["=" "foo" "foo"], :classes {}}]
 
-    (doseq [nn node-names] (http/put (node-url nn)))
+    (doseq [en env-names] (http/put (env-url en)))
 
     (testing "lists all resource instances"
-      (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
+      (let [{body :body, :as resp} (http/get (str base-url "/v1/environments"))]
         (is (= 200 (:status resp)))
-        (is (= (set nodes) (set (json/decode body true))))))
+        (is (= (set env-names) (-> body
+                                 (json/decode true)
+                                 (->> (map :name))
+                                 set
+                                 (disj "production")
+                                 (disj "staging"))))))
 
     (http/put (str base-url "/v1/groups/" (:id group))
               {:content-type :json, :body (json/encode group)})
 
     (testing "deletes resource instances"
-      (doseq [nn node-names]
-        (is (= 204 (:status (http/delete (node-url nn))))))
-      (let [{body :body} (http/get (str base-url "/v1/nodes"))]
-        (is (empty? (json/decode body))))
+      (doseq [en env-names]
+        (is (= 204 (:status (http/delete (env-url en))))))
+      (let [{body :body} (http/get (str base-url "/v1/environments"))]
+        (is (empty? (-> body
+                      (json/decode true)
+                      (->> (map :name))
+                      set
+                      (disj "production")
+                      (disj "staging")))))
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
