@@ -371,18 +371,6 @@
         (context
           "/v1" []
 
-          (GET "/nodes" []
-               (listing-resource db storage/get-nodes))
-
-          (ANY "/nodes/:node-name" [node-name]
-               (crd-resource db
-                             Node
-                             [node-name]
-                             {:name node-name}
-                             {:get storage/get-node
-                              :create storage/create-node
-                              :delete storage/delete-node}))
-
           (GET "/environments" []
                (listing-resource db storage/get-environments))
 

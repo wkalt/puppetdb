@@ -100,31 +100,6 @@
 ;;; Functions here are referred to below when calling extend. This indirection
 ;;; lets us use pre- and post-conditions as well as schema.
 
-;; Nodes
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn select-node [node]
-  (sql/select :name :nodes (sql/where {:name node})))
-
-(sc/defn ^:always-validate create-node* :- Node
-  [{db :db}
-   node :- Node]
-  (jdbc/insert! db :nodes node)
-  node)
-
-(sc/defn ^:always-validate get-node* :- (sc/maybe Node)
-  [{db :db}, node-name :- String]
-  (let [[node] (jdbc/query db (select-node node-name))]
-    node))
-
-(sc/defn ^:always-validate get-nodes* :- [Node]
-  [{db :db}]
-  (jdbc/query db (sql/select :name :nodes)))
-
-(sc/defn delete-node*
-  [{db :db}, node-name :- String]
-  (jdbc/delete! db :nodes (sql/where {:name node-name})))
-
 ;; Node Check-Ins
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -840,11 +815,7 @@
 (extend Postgres
   Storage
 
-  {:create-node create-node*
-   :get-node get-node*
-   :get-nodes get-nodes*
-   :delete-node delete-node*
-   :store-check-in store-check-in*
+  {:store-check-in store-check-in*
    :get-check-ins get-check-ins*
 
    :validate-group validate-group*
