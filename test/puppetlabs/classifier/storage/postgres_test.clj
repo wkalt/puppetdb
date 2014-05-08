@@ -57,22 +57,6 @@
     ;; root group's rule is already inserted
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
 
-(deftest ^:database nodes
-  (testing "inserts nodes"
-    (create-node db {:name "test"})
-    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
-  (testing "retrieves a node"
-    (is (= {:name "test"} (get-node db "test"))))
-  (testing "retrieves all nodes"
-    (create-node db {:name "test2"})
-    (create-node db {:name "test3"})
-    (is (= #{"test" "test2" "test3"} (->> (get-nodes db) (map :name) set))))
-  (testing "deletes a node"
-    (delete-node db "test")
-    (delete-node db "test2")
-    (delete-node db "test3")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
-
 (deftest ^:database groups
   (let [simplest {:name "simplest"
                   :id (UUID/randomUUID)

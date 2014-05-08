@@ -7,7 +7,7 @@
             [schema.core :as sc]
             [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
             [puppetlabs.classifier.http :refer :all]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
+            [puppetlabs.classifier.schema :refer [Group GroupDelta PuppetClass]]
             [puppetlabs.classifier.storage :as storage :refer [get-group Storage]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
             [puppetlabs.classifier.util :refer [merge-and-clean]])
@@ -17,11 +17,6 @@
   "Assert an http status code"
   [status response]
   (is (= status (:status response))))
-
-(defn node-request
-  ([] (node-request :get nil))
-  ([method node]
-   (request method (str "/v1/nodes" (if node (str "/" node))))))
 
 (use-fixtures :once schema.test/validate-schemas)
 
@@ -61,52 +56,6 @@
       (let [response (app (request :get "/objs/test-obj"))]
         (is-http-status 200 response)
         (is (= (generate-string test-obj) (:body response)))))))
-
-(deftest nodes
-  (let [empty-storage (reify Storage
-                        (get-node [_ _] nil))
-        app (app {:db empty-storage})]
-
-    (testing "returns 404 when storage returns nil"
-      (is-http-status 404 (app (node-request :get "addone")))))
-
-  (let [nodes [{:name "bert"} {:name "ernie"}]
-        node-map (into {} (for [n nodes] [(:name n) n]))
-        !created? (atom {})
-        mock-db (reify Storage
-                  (get-node [_ node-name]
-                    (if (get @!created? node-name)
-                      (get node-map node-name)))
-                  (get-nodes [_]
-                    nodes)
-                  (create-node [_ node]
-                    (sc/validate Node node)
-                    (is (= (get node-map (:name node)) node))
-                    (swap! !created? assoc (:name node) true)
-                    (get node-map (:name node)))
-                  (delete-node [_ node-name]
-                    (is (contains? node-map node-name))
-                    '(1)))
-        app (app {:db mock-db})]
-
-    (testing "tells storage to create the node and returns 201 with the created object"
-      (let [{body :body :as response} (app (node-request :put "bert"))]
-        (is-http-status 201 response)
-        (is (= (get node-map "bert") (decode body true)))))
-
-    (testing "asks storage for the node and returns it if it exists"
-      (let [{body :body :as response} (app (node-request :get "bert"))]
-        (is-http-status 200 response)
-        (is (= (get node-map "bert") (decode body true)))))
-
-    (testing "returns all nodes"
-      (let [response (app (node-request))]
-        (is-http-status 200 response)
-        (is (= (set nodes) (-> response :body (decode true) set)))))
-
-    (testing "tells storage to delete the node and returns 204"
-      (let [response (app (node-request :delete "bert"))]
-        (is-http-status 204 response)))))
 
 
 (defn group-request
