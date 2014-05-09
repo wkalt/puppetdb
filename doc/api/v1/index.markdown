@@ -4,6 +4,8 @@ title: "Node Classifier 1.0 >> API >> v1 >> Endpoints"
 
 # Node Classifier v1 API Endpoints
 
+This page lists the endpoints for the Node Classifier v1 API. To see how these endpoints correspond with the Puppet Enterprise Console's rake API, see [this page](console-rake-api.markdown).
+
 ## Classes
 
 The `classes` endpoint is used to retrieve a list of known classes within a given environment. The output from this endpoint is especially useful for creating new groups, which require at least one class to be specified.
