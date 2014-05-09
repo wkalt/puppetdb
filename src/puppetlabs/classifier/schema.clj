@@ -55,17 +55,19 @@
    :group-id UUID
    (sc/optional-key :id) Number})
 
-(def Node {:name String})
+(def CheckIn
+  {:node String
+   :time org.joda.time.DateTime
+   :explanation {UUID ExplainedCondition}})
+
+(def Node
+  {:name String
+   :check-ins [(dissoc CheckIn :node)]})
 
 (def SubmittedNode
   {:name String
    :facts {sc/Keyword sc/Any}
    :trusted {sc/Keyword sc/Any}})
-
-(def CheckIn
-  {:node String
-   :time org.joda.time.DateTime
-   :explanation {UUID ExplainedCondition}})
 
 (def Classification
   {:environment String
