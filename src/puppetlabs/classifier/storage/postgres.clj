@@ -16,7 +16,7 @@
                                                   Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
-                                                             expand-seq-params]]
+                                                             expand-seq-params ordered-group-by]]
             [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
                                                 relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
@@ -111,15 +111,32 @@
                   (update-in [:explanation] json/encode)))
   check-in)
 
+(defn- convert-check-in-fields
+  [row]
+  (-> row
+    (update-in [:time] coerce-time/from-sql-time)
+    (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
+                                    (fn [exp] (json/decode exp true))))))
+
 (sc/defn ^:always-validate get-check-ins* :- [CheckIn]
-  [{db :db} node-name :- String]
+  [{db :db}, node-name :- String]
   (->> (sql/select * :node_check_ins
                    (sql/where {:node node-name})
                    (sql/order-by {:time :desc}))
     (jdbc/query db)
-    (map #(update-in % [:time] coerce-time/from-sql-time))
-    (map #(update-in % [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
-                                            (fn [exp] (json/decode exp true)))))))
+    (map convert-check-in-fields)))
+
+(sc/defn ^:always-validate get-nodes* :- [Node]
+  "Retrieve all Nodes from the database, including their CheckIns. The Nodes are
+  in ascending name order, and their CheckIns are in reverse chronological order
+  (most recent CheckIn first)."
+  [{db :db}]
+  (->> (sql/select * :node_check_ins (sql/order-by [:node {:time :desc}]))
+    (jdbc/query db)
+    (map convert-check-in-fields)
+    (ordered-group-by :node)
+    (map (fn [[n [_ & c-is]]]
+           {:name n, :check-ins (map #(dissoc % :node) c-is)}))))
 
 ;; Environments
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -817,6 +834,7 @@
 
   {:store-check-in store-check-in*
    :get-check-ins get-check-ins*
+   :get-nodes get-nodes*
 
    :validate-group validate-group*
    :create-group create-group*

@@ -3,6 +3,7 @@
 (defprotocol Storage
   (store-check-in [this check-in] "Store a node check-in.")
   (get-check-ins [this node-name] "Retrieve all check-ins for a node.")
+  (get-nodes [this] "Retrieve check-ins for all nodes.")
 
   (validate-group [this group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group.")
   (create-group [this group] "Creates a new group")
