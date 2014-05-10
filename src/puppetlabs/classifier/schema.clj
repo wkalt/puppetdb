@@ -70,12 +70,14 @@
 (def CheckIn
   {:node String
    :time org.joda.time.DateTime
-   :explanation {UUID ExplainedCondition}})
+   :explanation {UUID ExplainedCondition}
+   (sc/optional-key :transaction_uuid) UUID})
 
 (def ClientCheckIn
   (assoc CheckIn
          :time ISO8601EncodedDateTime
-         :explanation {UUIDRepresentation ExplainedCondition}))
+         :explanation {UUIDRepresentation ExplainedCondition}
+         (sc/optional-key :transaction_uuid) UUIDRepresentation))
 
 (def Node
   {:name String

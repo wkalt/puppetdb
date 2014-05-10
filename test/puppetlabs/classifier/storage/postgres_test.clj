@@ -592,10 +592,12 @@
         neuro-explanation {(rand-id) {:value true, :form ["=" neuro-name-nodeval "Neuromancer"]}}
         check-ins {"Neuromancer" [{:node "Neuromancer"
                                    :time (time/now)
-                                   :explanation neuro-explanation}
+                                   :explanation neuro-explanation
+                                   :transaction_uuid (UUID/randomUUID)}
                                   {:node "Neuromancer"
                                    :time (time/ago (time/weeks 1))
-                                   :explanation neuro-explanation}]
+                                   :explanation neuro-explanation
+                                   :transaction_uuid (UUID/randomUUID)}]
                    "Wintermute" [{:node "Wintermute"
                                   :time (time/ago (time/days 3))
                                   :explanation {(rand-id)

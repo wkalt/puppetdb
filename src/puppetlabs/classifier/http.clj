@@ -336,6 +336,9 @@
   (fn [ctx]
     (let [check-in-time (time/now)
           data (::data ctx {})
+          uuid-str (:transaction_uuid data)
+          transaction-uuid (if (uuid? uuid-str)
+                             (UUID/fromString uuid-str))
           node (validate
                  SubmittedNode
                  {:name node-name
@@ -355,10 +358,13 @@
           conflicts (class8n/conflicts classifications)
           matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
           explanation (into {} (for [{g-id :group-id, :as rule} matching-rules]
-                                 [g-id (rules/explain-rule rule node)]))]
-      (storage/store-check-in db {:node node-name
-                                  :time check-in-time
-                                  :explanation explanation})
+                                 [g-id (rules/explain-rule rule node)]))
+          check-in {:node node-name
+                    :time check-in-time
+                    :explanation explanation}]
+      (storage/store-check-in db (if transaction-uuid
+                                   (assoc check-in :transaction_uuid transaction-uuid)
+                                   check-in))
       (if-not (nil? conflicts)
         (throw+ {:kind ::classification-conflict
                  :group->ancestors (into {} (map (juxt identity group->ancestors) unrelated-groups))

@@ -111,12 +111,19 @@
                   (update-in [:explanation] json/encode)))
   check-in)
 
+(defn- dissoc-nil
+  [map key]
+  (if (nil? (key map))
+    (dissoc map key)
+    map))
+
 (defn- convert-check-in-fields
   [row]
   (-> row
     (update-in [:time] coerce-time/from-sql-time)
     (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
-                                    (fn [exp] (json/decode exp true))))))
+                                    (fn [exp] (json/decode exp true))))
+    (dissoc-nil :transaction_uuid)))
 
 (sc/defn ^:always-validate get-check-ins* :- [CheckIn]
   [{db :db}, node-name :- String]

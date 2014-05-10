@@ -21,6 +21,7 @@ The check-in objects have the following keys:
 
 * `time`: the time of the check-in as a string in ISO 8601 format (with timezone).
 * `explanation`: an object mapping between IDs of groups that the node was classified into and explained condition objects that describe why the node matched this group's rule.
+* `transaction_uuid`: a uuid representing a particular puppet transaction that is submitted by puppet at classification time. This makes it possible to identify the check-in involved in generating a specific catalog and report. Older versions of puppet (< 3.6.1) did not support submitting this and for those check-ins the value will be null.
 
 The explained condition objects are essentially just the group's rule condition marked up with the node's value and the result of evalution.
 Each form in the rule (that is, each array in the JSON representation of the rule condition) is replaced with an object that has two keys:
@@ -108,7 +109,8 @@ Here's an example node object:
             }
           }
         }
-      ]
+      ],
+      "transaction_uuid": "d3653a4a-4ebe-426e-a04d-dbebec00e97f"
     }
 
 #### Error Responses

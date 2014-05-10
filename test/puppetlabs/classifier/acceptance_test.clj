@@ -862,4 +862,25 @@
           (is (= expected-nodes
                  (->> nodes
                    (map #(update-in % [:check_ins 0] dissoc :time))
-                   (map #(update-in % [:check_ins 0 :explanation] (partial mapkeys ->uuid)))))))))))
+                   (map #(update-in % [:check_ins 0 :explanation] (partial mapkeys ->uuid)))))))))
+
+    (testing "stores a transaction_uuid in the classification history if supplied"
+      (let [check-in-uuid (UUID/randomUUID)]
+        (http/post (str base-url "/v1/classified/nodes/" (:name ds9-node))
+                   {:content-type :json
+                    :body (json/generate-string (-> ds9-node
+                                                  (dissoc :facts)
+                                                  (assoc :facts {:values (:facts ds9-node)})
+                                                  (assoc :transaction_uuid check-in-uuid)))})
+        (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
+              node (sc/validate ClientNode (json/decode body true))
+              expected-check-ins [{:explanation ds9-explanation
+                                   :transaction_uuid check-in-uuid}
+                                  {:explanation ds9-explanation
+                                   :transaction_uuid nil}]]
+          (is (= expected-check-ins
+                 (for [check-in (:check_ins node)]
+                   (-> check-in
+                     (dissoc :time)
+                     (update-in [:explanation] (partial mapkeys ->uuid))
+                     (update-in [:transaction_uuid] ->uuid))))))))))
