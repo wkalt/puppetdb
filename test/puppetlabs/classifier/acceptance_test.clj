@@ -23,12 +23,16 @@
    :classifier {:url-prefix "/classifier"
                 :puppet-master "https://localhost:8140"}})
 
+(defn- origin-url
+  [app-config]
+  (let [{{:keys [host port]} :webserver} app-config]
+    (str "http://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
+
 (defn- base-url
   [app-config]
-  (let [host (get-in app-config [:webserver :host])]
-    (str "http://" (if (= host "0.0.0.0") "localhost" host)
-               ":" (get-in app-config [:webserver :port])
-                   (get-in app-config [:classifier :url-prefix]))))
+  (let [{{:keys [url-prefix]} :webserver} app-config]
+    (str (origin-url app-config)
+         (get-in app-config [:classifier :url-prefix]))))
 
 (defn- block-until-ready
   [server-process]
@@ -150,10 +154,11 @@
           (is (= 303 status))
           (is (contains? headers "location")))
         (testing "and retrieve the created group from the received location"
-          (let [id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
-                            (get headers "location" ""))
+          (let [location (get headers "location" "")
+                id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}" location)
                 group-with-id (assoc group :id (UUID/fromString id))
-                {:keys [body status]} (http/get (str base-url "/v1/groups/" id))]
+                origin (origin-url test-config)
+                {:keys [body status]} (http/get (str origin location))]
             (is (= 200 status))
             (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
 

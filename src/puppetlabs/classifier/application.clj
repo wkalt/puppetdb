@@ -48,6 +48,7 @@
                db-spec (config->db-spec config)
                api-prefix (get-in config [:classifier :url-prefix] "")
                app-config {:db (postgres/new-db db-spec)
+                           :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
                            :ssl-files (select-keys (:webserver config) [:ssl-cert :ssl-key :ssl-ca-cert])
                            :ssl-context (init-ssl-context (:webserver config))}

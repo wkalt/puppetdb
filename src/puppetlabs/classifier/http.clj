@@ -246,7 +246,7 @@
   {:environment "production", :variables {}})
 
 (defn group-resource
-  [db uuid-str]
+  [db prefix uuid-str]
   (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
         malformed? (if (and uuid (not (uuid? uuid)))
                      (err-with-rep {::malformed-uuid uuid})
@@ -276,7 +276,7 @@
                  {::created (storage/create-group db (validate Group group))}))
         redirect? (fn [{:as ctx, created ::created}]
                     (if (post-new-group? ctx)
-                      {:location (str "/v1/groups/" (:id created))}))
+                      {:location (str prefix "/v1/groups/" (:id created))}))
         ok (fn [{updated ::updated, retrieved ::retrieved}]
              (if-let [g (or updated retrieved)]
                (storage/annotate-group db g)))]
@@ -366,7 +366,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn app
-  [{:keys [db] :as config}]
+  [{:keys [api-prefix db], :as config}]
   (-> (routes
         (context
           "/v1" []
@@ -416,10 +416,10 @@
                                      (map (partial storage/annotate-group db))))))
 
           (POST "/groups" []
-                (group-resource db nil))
+                (group-resource db api-prefix nil))
 
           (ANY "/groups/:uuid" [uuid]
-               (group-resource db uuid))
+               (group-resource db api-prefix uuid))
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
