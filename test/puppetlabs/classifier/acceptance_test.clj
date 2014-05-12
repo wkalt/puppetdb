@@ -23,12 +23,16 @@
    :classifier {:url-prefix "/classifier"
                 :puppet-master "https://localhost:8140"}})
 
+(defn- origin-url
+  [app-config]
+  (let [{{:keys [host port]} :webserver} app-config]
+    (str "http://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
+
 (defn- base-url
   [app-config]
-  (let [host (get-in app-config [:webserver :host])]
-    (str "http://" (if (= host "0.0.0.0") "localhost" host)
-               ":" (get-in app-config [:webserver :port])
-                   (get-in app-config [:classifier :url-prefix]))))
+  (let [{{:keys [url-prefix]} :webserver} app-config]
+    (str (origin-url app-config)
+         (get-in app-config [:classifier :url-prefix]))))
 
 (defn- block-until-ready
   [server-process]
