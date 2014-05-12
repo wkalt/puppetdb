@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.http
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [clj-time.core :as time]
             [clj-time.format :as fmt-time]
@@ -377,6 +378,18 @@
   (-> (routes
         (context
           "/v1" []
+
+          (GET "/nodes" []
+               (listing-resource db (fn [db] (->> (storage/get-nodes db)
+                                               (map #(rename-keys % {:check-ins :check_ins}))))))
+
+          (GET "/nodes/:node-name" [node-name]
+               (listing-resource
+                 db
+                 (fn [db]
+                   (let [check-ins (storage/get-check-ins db node-name)]
+                     {:name node-name
+                      :check_ins (map #(dissoc % :node) check-ins)}))))
 
           (GET "/environments" []
                (listing-resource db storage/get-environments))
