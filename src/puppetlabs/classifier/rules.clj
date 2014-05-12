@@ -23,8 +23,12 @@
       (let [[field target] args
             numeric-operator? (contains? #{"<" "<=" ">" ">="} operator)
             node-value (let [v (lookup-field node field)]
-                         (if numeric-operator? (parse-number v) v))
-            target-value (if numeric-operator? (parse-number target) target)]
+                         (if numeric-operator?
+                           (and v (parse-number v))
+                           v))
+            target-value (if numeric-operator?
+                           (and target (parse-number target))
+                           target)]
         (if (and node-value target-value)
           (case operator
             "=" (= node-value target-value)
@@ -55,7 +59,8 @@
 
       ("=" "~" "<" "<=" ">" ">=") {:value (match? condition node)
                                    :form (let [[op field target] condition
-                                               node-value {:path field, :value (get-in node field)}]
+                                               node-value {:path field
+                                                           :value (lookup-field node field)}]
                                            [op node-value target])})))
 
 (sc/defn explain-rule :- ExplainedCondition
