@@ -1,3 +1,6 @@
+### 0.3.2
+ * Fixed a bug where the Location header of redirects did not include the service's url prefix.
+
 ### 0.3.1
  * Fixed a bug where groups didn't work properly if a url prefix was set
 
