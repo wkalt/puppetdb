@@ -154,10 +154,11 @@
           (is (= 303 status))
           (is (contains? headers "location")))
         (testing "and retrieve the created group from the received location"
-          (let [id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
-                            (get headers "location" ""))
+          (let [location (get headers "location" "")
+                id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}" location)
                 group-with-id (assoc group :id (UUID/fromString id))
-                {:keys [body status]} (http/get (str base-url "/v1/groups/" id))]
+                origin (origin-url test-config)
+                {:keys [body status]} (http/get (str origin location))]
             (is (= 200 status))
             (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
 
