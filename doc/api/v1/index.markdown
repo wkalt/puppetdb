@@ -4,6 +4,8 @@ title: "Node Classifier 1.0 >> API >> v1 >> Endpoints"
 
 # Node Classifier v1 API Endpoints
 
+This page lists the endpoints for the Node Classifier v1 API. To see how these endpoints correspond with the Puppet Enterprise Console's rake API, see [this page](console-rake-api.markdown).
+
 ## Classes
 
 The `classes` endpoint is used to retrieve a list of known classes within a given environment. The output from this endpoint is especially useful for creating new groups, which require at least one class to be specified.
@@ -30,4 +32,4 @@ The Classifier gets its information about environments from Puppet, so this endp
 
 The `groups` endpoint is used to create, read, update, and delete groups. A group belongs to an environment, applies classes (possibly with parameters), and matches nodes based on rules. Because groups are so central to the classification process, this endpoint is where most of the action is.
 
->See the [groups endpoint](groups.markdown) page for detailed information.
+>See the [groups endpoint](groups.markdown) page for detailed information. To validate a group object without modifying the database in any way, use the [validate](validate.markdown) endpoint.
