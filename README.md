@@ -24,6 +24,14 @@ createdb classifier -U classifier
 
 The first command will prompt for the user's password.
 
+If using classifier in Puppet Enterprise, the following steps should be used:
+`su - pe-postgres -s /bin/bash -c /opt/puppet/bin/psql`
+
+```
+CREATE USER "pe-classifier" PASSWORD '<PASSWORD>';
+CREATE DATABASE "pe-classifier" OWNER "pe-classifier" ENCODING 'utf8' LC_CTYPE 'en_US.utf8' LC_COLLATE 'en_US.utf8' template template0;
+```
+
 Edit (or copy to another location) the `resources/ext/config/conf.d/classifier.conf` configuration file and add a `database` section with the database name, user, and password.
 For the example above, assuming `classifier` was entered for the user's password, this section should look like:
 
