@@ -612,6 +612,12 @@
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn- add-group-class-link
+  [db id environment class-name]
+  (jdbc/insert! db :group_classes
+                [:group_id :environment_name :class_name]
+                [id environment (name class-name)]))
+
 (sc/defn ^:always-validate create-group* :- Group
   [{db :db} group :- Group]
    (let [{group-name :name, :as group
@@ -630,9 +636,7 @@
                           [(name v-key) id (json/generate-string v-val)]))
           (doseq [class classes]
             (let [[class-name class-params] class]
-              (jdbc/insert! t-db :group_classes
-                            [:group_id :class_name :environment_name]
-                            [id (name class-name) environment])
+              (add-group-class-link t-db id environment class-name)
               (doseq [class-param class-params]
                 (let [[param value] class-param
                       value (json/encode value)]
@@ -689,9 +693,14 @@
       #(jdbc/with-db-transaction [t-db db]
          (doseq [[class parameters] (:classes delta)
                  :let [class-name (name class)]]
-           (if (nil? parameters)
+           (cond
+             (nil? parameters)
              (delete-group-class-link t-db group-id class-name)
-             ;; otherwise handle each parameter individually
+
+             (empty? parameters) ; only if parameters defined, since if nil previous cond fires
+             (add-group-class-link t-db group-id environment class-name)
+
+             :else ; handle each parameter individually
              (doseq [[parameter value] parameters
                      :let [parameter-name (name parameter)]]
                (cond

@@ -142,7 +142,7 @@
 
     (testing "can create a group by POSTing to the group collection endpoint"
       (let [group {:name "bargroup"
-                   :environment "production"
+                   :environment "test"
                    :description "this group is for bars only! no foos allowed."
                    :rule ["=" "bar" "bar"]
                    :parent root-group-uuid
@@ -164,9 +164,10 @@
             (is (= 200 status))
             (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
 
-    (let [group {:name "foogroup"
+    (let [class {:name "fooclass", :environment "test", :parameters {}}
+          group {:name "foogroup"
                  :id (UUID/randomUUID)
-                 :environment "production"
+                 :environment "test"
                  :rule ["=" "foo" "foo"]
                  :parent root-group-uuid
                  :classes {}
@@ -174,6 +175,8 @@
           group-uri (str base-url "/v1/groups/" (:id group))]
 
       (testing "can create a group by PUTting to its URI"
+        (http/put (str base-url "/v1/environments/" (:environment class) "/classes/" (:name class))
+                  {:content-type :json, :body (json/encode class)})
         (http/put group-uri {:content-type :json, :body (json/encode group)})
         (testing "and retrieve it from the same place"
           (let [{:keys [body status]} (http/get group-uri)]
@@ -183,7 +186,7 @@
       (testing "when trying to create a group that would violate a uniqueness constraint"
         (let [conflicting {:name "foogroup"
                            :id (UUID/randomUUID)
-                           :environment "production"
+                           :environment "test"
                            :rule ["=" "foo" "foo"]
                            :parent root-group-uuid
                            :classes {}}
@@ -198,7 +201,7 @@
                 (is (= #{:kind :msg :details} (-> error keys set)))
                 (is (= "uniqueness-violation" kind))
                 (is (re-find #"violates a group uniqueness constraint" msg))
-                (is (re-find #"A group with name = foogroup, environment_name = production" msg))
+                (is (re-find #"A group with name = foogroup, environment_name = test" msg))
                 (is (= #{:constraintName :conflict} (-> details keys set))))))))
 
       (testing "groups without rules"
@@ -246,11 +249,11 @@
               (is (= no-rules (-> body (json/decode true) convert-uuids)))))))
 
       (testing "can update a group through its UUID URI"
-        (let [delta {:variables {:spirit_animal "turtle"}}
+        (let [delta {:variables {:spirit_animal "turtle"}, :classes {:fooclass {}}}
               {:keys [body status]} (http/post group-uri
                                                {:content-type :json, :body (json/encode delta)})]
           (is (= 200 status))
-          (is (= (merge group delta) (convert-uuids (json/decode body true))))))
+          (is (= (merge-and-clean group delta) (convert-uuids (json/decode body true))))))
 
       (testing "attempting to update a group that doesn't exist produces a 404"
         (let [delta {:variables {:exists true}}
