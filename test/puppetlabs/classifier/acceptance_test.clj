@@ -1,17 +1,19 @@
 (ns puppetlabs.classifier.acceptance-test
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
+            [clojure.pprint :refer [pprint]]
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
             [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
-            [puppetlabs.kitchensink.core :refer [ini-to-map mapvals spit-ini]]
+            [puppetlabs.kitchensink.core :refer [ini-to-map mapkeys mapvals spit-ini]]
             [puppetlabs.classifier.http :refer [convert-uuids]]
-            [puppetlabs.classifier.schema :refer [Group]]
+            [puppetlabs.classifier.rules :as rules]
+            [puppetlabs.classifier.schema :refer [ClientNode Group]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
-            [puppetlabs.classifier.util :refer [merge-and-clean]])
+            [puppetlabs.classifier.util :refer [->uuid merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
            java.util.regex.Pattern
            java.util.UUID))
@@ -109,12 +111,12 @@
 
 (deftest ^:acceptance smoke
   (let [base-url (base-url test-config)]
-    (testing "can create a new node"
-      (let [resp (http/put (str base-url "/v1/nodes/test-node"))]
+    (testing "can create a new environment"
+      (let [resp (http/put (str base-url "/v1/environments/test-env"))]
         (is (= 201 (:status resp)))
-        (is (= {"name" "test-node"} (json/parse-string (:body resp))))))
-    (testing "can delete a node"
-      (let [resp (http/delete (str base-url "/v1/nodes/test-node"))]
+        (is (= {"name" "test-env"} (json/parse-string (:body resp))))))
+    (testing "can delete an environment"
+      (let [resp (http/delete (str base-url "/v1/environments/test-env"))]
         (is (= 204 (:status resp)))))))
 
 (defn valid-400-resp-body?
@@ -304,27 +306,37 @@
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
-        node-url #(str base-url "/v1/nodes/" %)
-        node-names ["seven-of-nine" "two-of-three" "locutus-of-borg"]
-        nodes (for [nn node-names] {:name nn})
+        env-url #(str base-url "/v1/environments/" %)
+        env-names ["dev" "tropical" "desert" "space"]
+        envs (for [en env-names] {:name en})
         group {:name "bazgroup", :id (UUID/randomUUID), :environment "production",
                :parent root-group-uuid, :rule ["=" "foo" "foo"], :classes {}}]
 
-    (doseq [nn node-names] (http/put (node-url nn)))
+    (doseq [en env-names] (http/put (env-url en)))
 
     (testing "lists all resource instances"
-      (let [{body :body, :as resp} (http/get (str base-url "/v1/nodes"))]
+      (let [{body :body, :as resp} (http/get (str base-url "/v1/environments"))]
         (is (= 200 (:status resp)))
-        (is (= (set nodes) (set (json/decode body true))))))
+        (is (= (set env-names) (-> body
+                                 (json/decode true)
+                                 (->> (map :name))
+                                 set
+                                 (disj "production")
+                                 (disj "staging"))))))
 
     (http/put (str base-url "/v1/groups/" (:id group))
               {:content-type :json, :body (json/encode group)})
 
     (testing "deletes resource instances"
-      (doseq [nn node-names]
-        (is (= 204 (:status (http/delete (node-url nn))))))
-      (let [{body :body} (http/get (str base-url "/v1/nodes"))]
-        (is (empty? (json/decode body))))
+      (doseq [en env-names]
+        (is (= 204 (:status (http/delete (env-url en))))))
+      (let [{body :body} (http/get (str base-url "/v1/environments"))]
+        (is (empty? (-> body
+                      (json/decode true)
+                      (->> (map :name))
+                      set
+                      (disj "production")
+                      (disj "staging")))))
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
@@ -763,3 +775,91 @@
         (is (= kind "missing-parent"))
         (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
         (is (= (convert-uuids details) orphan))))))
+
+(deftest ^:acceptance classification-history
+  (let [base-url (base-url test-config)
+        root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+               :body
+               (json/decode true)
+               (update-in [:id] ->uuid))
+        spaceships {:name "spaceships"
+                    :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
+                                 [">=" ["facts" "warp cores"] "1"]]
+                    :environment "deep space", :id (UUID/randomUUID), :parent root-group-uuid
+                    :classes {}, :variables {}}
+        spacestations {:name "spacestations"
+                       :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
+                                    ["=" ["facts" "warp cores"] "0"]
+                                    [">" ["facts" "docking pylons"] "0"]]
+                       :environment "space", :id (->uuid "6dba6085-b4c4-40ef-a63b-6acd30a63acd")
+                       :parent root-group-uuid
+                       :classes {}, :variables {}}
+        fun-spacestations {:name "spacestations to have a good time at"
+                           :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
+                                        ["=" ["facts" "warp cores"] "0"]
+                                        [">" ["facts" "docking pylons"] "0"]
+                                        [">=" ["facts" "bars"] "1"]]
+                           :environment "space", :id (UUID/randomUUID), :parent root-group-uuid
+                           :classes {}, :variables {}}
+        ds9-node {:name "Deep Space 9"
+                  :facts {"pressure hulls" "3"
+                          "docking ports" "18"
+                          "docking pylons" "3"
+                          "warp cores" "0"
+                          "bars" "1"}}
+        ncc1701d-node {:name "USS Enterprise"
+                       :facts {"registry" "NCC-1701-D"
+                               "warp cores" "1"
+                               "pressure hulls" "2"
+                               "docking ports" "3"}}
+        ds9-explanation (apply merge
+                               (for [group [spacestations fun-spacestations root]
+                                     :let [{:keys [id rule]} group]]
+                                 {id (rules/explain-rule {:when rule, :group-id id} ds9-node)}))
+        ncc1701d-explanation (apply merge
+                                    (for [group [spaceships root]]
+                                      (let [{:keys [id rule]} group
+                                            full-rule {:when rule, :group-id id}]
+                                        {id (rules/explain-rule full-rule ncc1701d-node)})))]
+
+    ;; create groups
+    (doseq [g [spaceships spacestations fun-spacestations]]
+      (http/put (str base-url "/v1/groups/" (:id g))
+                {:content-type :json, :body (json/generate-string g)}))
+
+    ;; populate classification history
+    (doseq [{facts :facts, :as node} [ds9-node ncc1701d-node]]
+      (http/post (str base-url "/v1/classified/nodes/" (:name node))
+                 {:content-type :json
+                  :body (json/generate-string (-> node
+                                                (dissoc :facts)
+                                                (assoc :facts {:values facts})))}))
+
+    (testing "can retrieve classification history"
+      (testing "for a single node"
+        (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
+              node (sc/validate ClientNode (json/decode body true))
+              expected-node {:name (:name ds9-node)
+                             :check_ins [{:explanation ds9-explanation}]}]
+          (is (= 200 status))
+          (is (= expected-node (-> node
+                                 (update-in [:check_ins 0] dissoc :time)
+                                 (update-in [:check_ins 0 :explanation] #(mapkeys ->uuid %)))))))
+
+      (testing "for all nodes"
+        (let [{:keys [status body]} (http/get (str base-url "/v1/nodes"))
+              node-names (set (map :name [ds9-node ncc1701d-node]))
+              nodes (-> body
+                      (json/decode true)
+                      (->>
+                        (sc/validate [ClientNode])
+                        (filter #(contains? node-names (:name %)))))
+              expected-nodes [{:name (:name ds9-node)
+                               :check_ins [{:explanation ds9-explanation}]}
+                              {:name (:name ncc1701d-node)
+                               :check_ins [{:explanation ncc1701d-explanation}]}]]
+          (is (= 200 status))
+          (is (= expected-nodes
+                 (->> nodes
+                   (map #(update-in % [:check_ins 0] dissoc :time))
+                   (map #(update-in % [:check_ins 0 :explanation] (partial mapkeys ->uuid)))))))))))

@@ -1,16 +1,18 @@
 (ns puppetlabs.classifier.http-test
   (:require [clojure.test :refer :all]
             [cheshire.core :refer [decode encode generate-string parse-string]]
+            [clj-time.format :as fmt-time]
             [compojure.core :as compojure]
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
             [schema.core :as sc]
-            [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
+            [puppetlabs.kitchensink.core :refer [deep-merge mapkeys mapvals]]
+            [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.classifier.http :refer :all]
-            [puppetlabs.classifier.schema :refer [Group GroupDelta Node PuppetClass]]
+            [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
             [puppetlabs.classifier.storage :as storage :refer [get-group Storage]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
-            [puppetlabs.classifier.util :refer [merge-and-clean]])
+            [puppetlabs.classifier.util :refer [->uuid merge-and-clean]])
   (:import java.util.UUID))
 
 (defn is-http-status
@@ -18,12 +20,12 @@
   [status response]
   (is (= status (:status response))))
 
-(defn node-request
-  ([] (node-request :get nil))
-  ([method node]
-   (request method (str "/v1/nodes" (if node (str "/" node))))))
+(defn json-encoders-fixture
+  [f]
+  (add-common-json-encoders!)
+  (f))
 
-(use-fixtures :once schema.test/validate-schemas)
+(use-fixtures :once json-encoders-fixture schema.test/validate-schemas)
 
 (deftest crud
   (let [test-obj-name "test-obj"
@@ -61,53 +63,6 @@
       (let [response (app (request :get "/objs/test-obj"))]
         (is-http-status 200 response)
         (is (= (generate-string test-obj) (:body response)))))))
-
-(deftest nodes
-  (let [empty-storage (reify Storage
-                        (get-node [_ _] nil))
-        app (app {:db empty-storage})]
-
-    (testing "returns 404 when storage returns nil"
-      (is-http-status 404 (app (node-request :get "addone")))))
-
-  (let [nodes [{:name "bert"} {:name "ernie"}]
-        node-map (into {} (for [n nodes] [(:name n) n]))
-        !created? (atom {})
-        mock-db (reify Storage
-                  (get-node [_ node-name]
-                    (if (get @!created? node-name)
-                      (get node-map node-name)))
-                  (get-nodes [_]
-                    nodes)
-                  (create-node [_ node]
-                    (sc/validate Node node)
-                    (is (= (get node-map (:name node)) node))
-                    (swap! !created? assoc (:name node) true)
-                    (get node-map (:name node)))
-                  (delete-node [_ node-name]
-                    (is (contains? node-map node-name))
-                    '(1)))
-        app (app {:db mock-db})]
-
-    (testing "tells storage to create the node and returns 201 with the created object"
-      (let [{body :body :as response} (app (node-request :put "bert"))]
-        (is-http-status 201 response)
-        (is (= (get node-map "bert") (decode body true)))))
-
-    (testing "asks storage for the node and returns it if it exists"
-      (let [{body :body :as response} (app (node-request :get "bert"))]
-        (is-http-status 200 response)
-        (is (= (get node-map "bert") (decode body true)))))
-
-    (testing "returns all nodes"
-      (let [response (app (node-request))]
-        (is-http-status 200 response)
-        (is (= (set nodes) (-> response :body (decode true) set)))))
-
-    (testing "tells storage to delete the node and returns 204"
-      (let [response (app (node-request :delete "bert"))]
-        (is-http-status 204 response)))))
-
 
 (defn group-request
   ([] (group-request :get nil nil))
@@ -481,6 +436,51 @@
                          {:value "since my baby left me"
                           :from grandchild'
                           :defined-by grandchild'}}))))))))))
+
+(deftest node-check-ins
+  (let [!check-ins (atom {})
+        dwarf-planets {:name "dwarf planets"
+                       :rule ["and" ["=" ["facts" "orbits"] "sol"]
+                              [">" ["facts" "orbital neighbors"] "0"]
+                              ["=" ["facts" "shape"] "spherical"]]
+                       :id (UUID/randomUUID), :environment "space", :parent root-group-uuid
+                       :classes {}, :variables {}}
+        eris {:name "eris"
+              :facts {"orbits" "sol"
+                      "orbital neighbors" "1200"
+                      "shape" "spherical"}}
+        mock-db (reify Storage
+                  (store-check-in [_ ci] ci
+                    (swap! !check-ins, update-in, [(:node ci)]
+                           #(if % (conj % ci), [ci])))
+                  (get-check-ins [_ nn]
+                    (-> @!check-ins (get nn) reverse))
+                  (get-rules [_] [{:when (:rule dwarf-planets), :group-id (:id dwarf-planets)}])
+                  (get-group [_ _] dwarf-planets)
+                  (get-ancestors [_ _] nil))
+        handler (app {:db mock-db})]
+
+    (testing "stores a node check-in when a node is classified"
+      (is-http-status 200 (handler (classification-request
+                                     :post, (:name eris)
+                                     (encode {:facts {:values (:facts eris)}}))))
+      (is (sc/validate CheckIn (get-in @!check-ins [(:name eris) 0]))))
+
+    (testing "returns node check-ins"
+      (let [{:keys [body status]} (handler (request :get (str "/v1/nodes/" (:name eris))))
+            fmt-dt (fn [dt] (fmt-time/unparse (fmt-time/formatters :date-time-no-ms) dt))
+            expected-response {:name (:name eris)
+                               :check_ins (->> (get @!check-ins (:name eris))
+                                            (map #(dissoc % :node))
+                                            (map #(update-in %, [:explanation]
+                                                             (partial mapkeys ->uuid)))
+                                            (map #(update-in % [:time] fmt-dt)))}]
+        (is (= 200 status))
+        (is (= expected-response (-> body
+                                   (decode true)
+                                   (->> (sc/validate ClientNode))
+                                   (update-in [:check_ins 0 :explanation]
+                                              (partial mapkeys ->uuid)))))))))
 
 (deftest malformed-requests
   (let [mock-db (reify Storage

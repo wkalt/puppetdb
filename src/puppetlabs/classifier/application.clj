@@ -2,6 +2,7 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
+            [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.kitchensink.ssl :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.classifier.http :as http]
@@ -54,6 +55,7 @@
                            :ssl-context (init-ssl-context (:webserver config))}
                app (add-url-prefix api-prefix (http/app app-config))]
            (postgres/migrate db-spec)
+           (add-common-json-encoders!)
            (add-ring-handler app api-prefix)
            context))
 

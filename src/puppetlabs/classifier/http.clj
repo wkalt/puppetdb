@@ -1,7 +1,9 @@
 (ns puppetlabs.classifier.http
-  (:require [clojure.tools.logging :as log]
+  (:require [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [clj-time.core :as time]
+            [clj-time.format :as fmt-time]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
             [liberator.core :refer [resource run-resource]]
@@ -9,6 +11,7 @@
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge]]
+            [puppetlabs.kitchensink.json :refer [with-datetime-encoder]]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http.middleware :as middleware]
@@ -24,14 +27,19 @@
 ;; Liberator Resources
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(defn- encode-json-with-iso-formatter
+  [data]
+  (let [iso8601-formatter (fmt-time/formatters :date-time-no-ms)]
+    (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
+      (json/encode data))))
 
 (defmethod liberator-representation/render-map-generic "application/json"
   [data _]
-  (json/encode data))
+  (encode-json-with-iso-formatter data))
 
 (defmethod liberator-representation/render-seq-generic "application/json"
   [data _]
-  (json/encode data))
+  (encode-json-with-iso-formatter data))
 
 (defn handle-404
   [ctx]
@@ -372,16 +380,16 @@
           "/v1" []
 
           (GET "/nodes" []
-               (listing-resource db storage/get-nodes))
+               (listing-resource db (fn [db] (->> (storage/get-nodes db)
+                                               (map #(rename-keys % {:check-ins :check_ins}))))))
 
-          (ANY "/nodes/:node-name" [node-name]
-               (crd-resource db
-                             Node
-                             [node-name]
-                             {:name node-name}
-                             {:get storage/get-node
-                              :create storage/create-node
-                              :delete storage/delete-node}))
+          (GET "/nodes/:node-name" [node-name]
+               (listing-resource
+                 db
+                 (fn [db]
+                   (let [check-ins (storage/get-check-ins db node-name)]
+                     {:name node-name
+                      :check_ins (map #(dissoc % :node) check-ins)}))))
 
           (GET "/environments" []
                (listing-resource db storage/get-environments))

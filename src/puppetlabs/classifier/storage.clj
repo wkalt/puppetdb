@@ -1,12 +1,9 @@
 (ns puppetlabs.classifier.storage)
 
 (defprotocol Storage
-  (create-node [this node] "Creates a new node object")
-  (get-node [this node] "Retrieves a node")
-  (get-nodes [this] "Retrieves all nodes")
-  (delete-node [this node] "Deletes a node")
   (store-check-in [this check-in] "Store a node check-in.")
   (get-check-ins [this node-name] "Retrieve all check-ins for a node.")
+  (get-nodes [this] "Retrieve check-ins for all nodes.")
 
   (validate-group [this group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group.")
   (create-group [this group] "Creates a new group")

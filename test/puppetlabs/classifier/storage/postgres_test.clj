@@ -57,22 +57,6 @@
     ;; root group's rule is already inserted
     (is (= 1 (count (jdbc/query test-db ["SELECT * FROM rules"]))))))
 
-(deftest ^:database nodes
-  (testing "inserts nodes"
-    (create-node db {:name "test"})
-    (is (= 1 (count (jdbc/query test-db ["SELECT * FROM nodes"])))))
-  (testing "retrieves a node"
-    (is (= {:name "test"} (get-node db "test"))))
-  (testing "retrieves all nodes"
-    (create-node db {:name "test2"})
-    (create-node db {:name "test3"})
-    (is (= #{"test" "test2" "test3"} (->> (get-nodes db) (map :name) set))))
-  (testing "deletes a node"
-    (delete-node db "test")
-    (delete-node db "test2")
-    (delete-node db "test3")
-    (is (= 0 (count (jdbc/query test-db ["SELECT * FROM nodes"]))))))
-
 (deftest ^:database groups
   (let [simplest {:name "simplest"
                   :id (UUID/randomUUID)
@@ -604,21 +588,35 @@
 (defn- rand-id [] (UUID/randomUUID))
 
 (deftest ^:database node-check-ins
-  (let [neuromancer {:name "Neuromancer"}
-        name-nodeval {:path "name", :value (:name neuromancer)}
-        explanation {(rand-id) {:value true, :form ["=" name-nodeval (:name neuromancer)]}}
-        check-ins [{:node (:name neuromancer)
-                    :time (time/now)
-                    :explanation explanation}
-                   {:node (:name neuromancer)
-                    :time (time/ago (time/weeks 1))
-                    :explanation explanation}]]
+  (let [neuro-name-nodeval {:path "name", :value "Neuromancer"}
+        neuro-explanation {(rand-id) {:value true, :form ["=" neuro-name-nodeval "Neuromancer"]}}
+        check-ins {"Neuromancer" [{:node "Neuromancer"
+                                   :time (time/now)
+                                   :explanation neuro-explanation}
+                                  {:node "Neuromancer"
+                                   :time (time/ago (time/weeks 1))
+                                   :explanation neuro-explanation}]
+                   "Wintermute" [{:node "Wintermute"
+                                  :time (time/ago (time/days 3))
+                                  :explanation {(rand-id)
+                                                {:value true
+                                                 :form ["="
+                                                        {:path "name", :value "Wintermute"}
+                                                        "Wintermute"]}}}]}
+        all-check-ins (into [] (for [[nn c-is] check-ins]
+                                 {:name nn, :check-ins (->> c-is
+                                                         (map #(dissoc % :node))
+                                                         vec)}))]
 
     (testing "can store node check-ins"
-      (store-check-in db (first check-ins))
-      (store-check-in db (second check-ins))
+      (store-check-in db (get-in check-ins ["Neuromancer" 0]))
+      (store-check-in db (get-in check-ins ["Neuromancer" 1]))
       (is (= 2 (count (jdbc/query test-db ["SELECT * FROM node_check_ins WHERE node = ?"
-                                           (:name neuromancer)])))))
+                                           "Neuromancer"])))))
 
     (testing "can retrieve a node's check-ins"
-      (is (= check-ins (get-check-ins db (:name neuromancer)))))))
+      (is (= (get check-ins "Neuromancer") (get-check-ins db "Neuromancer"))))
+
+    (testing "can retrieve all check-ins"
+      (store-check-in db (get-in check-ins ["Wintermute" 0]))
+      (is (= all-check-ins (get-nodes db))))))

@@ -1,11 +1,23 @@
 (ns puppetlabs.classifier.schema
   (:require [clojure.walk :as walk]
+            [clj-time.format :as fmt-time]
             [schema.core :as sc]
-            [puppetlabs.classifier.util :refer [map-delta]])
+            [puppetlabs.classifier.util :refer [map-delta uuid?]])
   (:import java.util.UUID))
 
 ;; Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(def ISO8601EncodedDateTime
+  (sc/pred (fn [x]
+             (let [iso-formatter (fmt-time/formatters :date-time-no-ms)]
+               (and (string? x)
+                    (not= :errored (try (fmt-time/unparse iso-formatter x)
+                                     (catch Throwable _ ::errored))))))))
+
+(def UUIDRepresentation
+  (sc/pred #(and (or (string? %) (keyword? %))
+                 (uuid? %))))
 
 (def NodeField
   (sc/either String [String]))
@@ -55,17 +67,28 @@
    :group-id UUID
    (sc/optional-key :id) Number})
 
-(def Node {:name String})
+(def CheckIn
+  {:node String
+   :time org.joda.time.DateTime
+   :explanation {UUID ExplainedCondition}})
+
+(def ClientCheckIn
+  (assoc CheckIn
+         :time ISO8601EncodedDateTime
+         :explanation {UUIDRepresentation ExplainedCondition}))
+
+(def Node
+  {:name String
+   :check-ins [(dissoc CheckIn :node)]})
+
+(def ClientNode
+  {:name String
+   :check_ins [(dissoc ClientCheckIn :node)]})
 
 (def SubmittedNode
   {:name String
    :facts {sc/Keyword sc/Any}
    :trusted {sc/Keyword sc/Any}})
-
-(def CheckIn
-  {:node String
-   :time org.joda.time.DateTime
-   :explanation {UUID ExplainedCondition}})
 
 (def Classification
   {:environment String
