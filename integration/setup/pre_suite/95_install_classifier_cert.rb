@@ -1,3 +1,5 @@
+require 'json'
+
 step "Configure SSL on classifier" do
   cert = on(database, 'puppet agent --configprint hostcert').stdout.strip
   key = on(database, 'puppet agent --configprint hostprivkey').stdout.strip
@@ -12,7 +14,7 @@ step "Configure SSL on classifier" do
   on(database, "chown -R classifier:classifier #{ssldir}")
   on(database, "chmod 600 #{ssldir}/*")
 
-  conf = IniFile.new
+  conf = {}
   conf['webserver'] = {
     'host' => '0.0.0.0',
     'port' => CLASSIFIER_PORT,
@@ -28,7 +30,8 @@ step "Configure SSL on classifier" do
     'puppet-master' => "https://#{master}:8140"
   }
 
-  create_remote_file(database, '/etc/classifier/classifier.ini', conf.to_s)
+  create_remote_file(database, '/etc/classifier/conf.d/classifier.conf', conf.to_json)
+  on(database, "chmod 644 /etc/classifier/conf.d/classifier.conf")
 end
 
 step "Start classifier" do
