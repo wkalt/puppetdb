@@ -515,7 +515,7 @@
                             ["SELECT * FROM class_parameters WHERE class_name = ? AND parameter = ?"
                              "changed-class" "changed-param"])]
         (is (false? (:deleted changed-row)))
-        (is (= "2" (:default_value changed-row)))))
+        (is (= "\"2\"" (:default_value changed-row)))))
 
     (synchronize-classes db before)
 
