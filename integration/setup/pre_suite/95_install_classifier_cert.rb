@@ -5,7 +5,7 @@ step "Configure SSL on classifier" do
 
   ssldir = "/etc/classifier/ssl"
 
-  on(database, "mkdir -p #{ssldir}"
+  on(database, "mkdir -p #{ssldir}")
   on(database, "cp #{cert} #{ssldir}/cert.pem")
   on(database, "cp #{key} #{ssldir}/key.pem")
   on(database, "cp #{cacert} #{ssldir}/ca.pem")
