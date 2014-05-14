@@ -152,3 +152,10 @@
           (> diff 0) (recur as-only (conj bs-only b) both as rest-bs)
           ;; a == b, add the pair
           (= diff 0) (recur as-only bs-only (conj both [a b]) rest-as rest-bs))))))
+
+(defn dissoc-nil
+  "Dissoc a key from a map only if the value is nil"
+  [map key]
+  (if (nil? (key map))
+    (dissoc map key)
+    map))

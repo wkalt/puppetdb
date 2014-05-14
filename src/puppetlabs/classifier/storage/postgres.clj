@@ -17,7 +17,7 @@
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
-            [puppetlabs.classifier.util :refer [flatten-tree-with merge-and-clean
+            [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with merge-and-clean
                                                 relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
   (:import java.sql.BatchUpdateException
@@ -110,12 +110,6 @@
                   (update-in [:time] coerce-time/to-sql-time)
                   (update-in [:explanation] json/encode)))
   check-in)
-
-(defn- dissoc-nil
-  [map key]
-  (if (nil? (key map))
-    (dissoc map key)
-    map))
 
 (defn- convert-check-in-fields
   [row]
@@ -460,12 +454,6 @@
     (assoc row :rule (json/decode serialized-condition))
     (dissoc row :rule)))
 
-(defn- dissoc-nil-description
-  [row]
-  (if (nil? (:description row))
-    (dissoc row :description)
-    row))
-
 (defn- aggregate-fields-into-groups
   [result]
   (->> result
@@ -475,7 +463,7 @@
     (map deserialize-variable-values)
     (map deserialize-group-class-parameters)
     (map deserialize-rule)
-    (map dissoc-nil-description)
+    (map #(dissoc-nil % :description))
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
