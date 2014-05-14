@@ -23,7 +23,13 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
       Puppet::Context::TrustedInformation.local(temp_node)
     end.to_h
 
-    request_body = {"facts" => facts.to_data_hash, "trusted" => trusted_data}
+    request_body = {"facts" => facts.to_data_hash,
+                    "trusted" => trusted_data}
+
+    if request.options.include?(:transaction_uuid)
+      request_body["transaction_uuid"] = request.options[:transaction_uuid]
+    end
+
     response = connection.post("/v1/classified/nodes/#{node_name}", request_body.to_json)
 
     node = nil
