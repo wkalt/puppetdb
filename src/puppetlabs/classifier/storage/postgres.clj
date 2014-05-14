@@ -313,7 +313,7 @@
       (create-parameter db param value name environment))
     (doseq [[[param new-value] [_ old-value]] in-both]
       (when-not (= new-value old-value)
-        (jdbc/update! db :class_parameters {:default_value new-value}
+        (jdbc/update! db :class_parameters {:default_value (json/encode new-value)}
                       (sql/where {:parameter (clojure.core/name param)
                                   :class_name name
                                   :environment_name environment}))))))
