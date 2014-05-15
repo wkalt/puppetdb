@@ -1,3 +1,10 @@
+### 0.3.3
+ * Fixed a bug where classes without parameters could not be added to a group.
+ * Fixed a bug where changing a class parameter's default value in Puppet would cause later operations that used the class's default value to error out.
+ * Added a new node check-in history endpoint at /v1/nodes (see doc/api/v1/nodes.markdown).
+ * Added support for Puppet transaction UUIDs in node check-ins.
+ * Added PE database configuration instructions to the README.
+
 ### 0.3.2
  * Fixed a bug where the Location header of redirects did not include the service's url prefix.
 
