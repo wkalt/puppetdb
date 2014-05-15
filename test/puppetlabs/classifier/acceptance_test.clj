@@ -779,6 +779,8 @@
         (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
         (is (= (convert-uuids details) orphan))))))
 
+(def keys->uuids (partial mapkeys ->uuid))
+
 (deftest ^:acceptance classification-history
   (let [base-url (base-url test-config)
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
@@ -847,7 +849,7 @@
           (is (= 200 status))
           (is (= expected-node (-> node
                                  (update-in [:check_ins 0] dissoc :time)
-                                 (update-in [:check_ins 0 :explanation] #(mapkeys ->uuid %)))))))
+                                 (update-in [:check_ins 0 :explanation] keys->uuids))))))
 
       (testing "for all nodes"
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes"))
@@ -885,5 +887,5 @@
                  (for [check-in (:check_ins node)]
                    (-> check-in
                      (dissoc :time)
-                     (update-in [:explanation] (partial mapkeys ->uuid))
+                     (update-in [:explanation] keys->uuids)
                      (update-in [:transaction_uuid] ->uuid))))))))))
