@@ -384,6 +384,33 @@
            :classes (:classes classification {})
            :parameters (:variables classification {})})))))
 
+(defn explain-classification
+  [db node-name]
+  (fn [{data ::data}]
+    (let [node (validate SubmittedNode (-> data
+                                         (assoc :name node-name)
+                                         (update-in [:trusted] #(or %1 %2) {})))
+          all-rules (storage/get-rules db)
+          matching-group-ids (set (class8n/matching-groups node all-rules))
+          matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
+          match-explanations (into {} (for [{g-id :group-id, :as rule} matching-rules]
+                                        [g-id (rules/explain-rule rule node)]))
+          matching-groups (map (partial storage/get-group db) matching-group-ids)
+          group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))
+                                         matching-groups))
+          leaves (class8n/inheritance-maxima group->ancestors)
+          leaf->classification (leaves->inherited-classifications group->ancestors leaves)
+          leaf-classifications (vals leaf->classification)
+          conflicts (class8n/conflicts leaf-classifications)
+          classification (apply deep-merge leaf-classifications)
+          partial-resp {:node_as_received node
+                        :match_explanations match-explanations
+                        :leaf_groups (into {} (map (juxt :id identity) leaves))
+                        :inherited_classifications leaf->classification}]
+      (if (nil? conflicts)
+        (assoc partial-resp :final_classification classification)
+        (assoc partial-resp :conflicts (class8n/explain-conflicts conflicts group->ancestors))))))
+
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -453,6 +480,17 @@
                  :respond-with-entity? true
                  :malformed? parse-if-body
                  :handle-malformed handle-malformed))
+
+          (POST "/classified/nodes/:node-name/explanation" [node-name]
+                (resource
+                  :allowed-methods [:post]
+                  :available-media-types ["application/json"]
+                  :malformed? parse-if-body
+                  :handle-malformed handle-malformed
+                  :exists? true
+                  :new? false
+                  :respond-with-entity? true
+                  :handle-ok (explain-classification db node-name)))
 
           (POST "/rules/translate" []
                 (resource
