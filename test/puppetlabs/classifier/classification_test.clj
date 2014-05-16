@@ -117,13 +117,20 @@
                                     :generic "conflict"}}
                        {:environment "staging"
                         :classes {:no-conflict {:baz "quux"}
-                                  :conflict {:does "conflicts" :doesnt "conflict"}}
+                                  :conflict {:does "conflicts", :doesnt "conflict"}}
                         :variables {:generic "conflicts"
-                                    :also-unique "snowflake"}}]
+                                    :also-unique "snowflake"}}
+                       {:environment "dev"
+                        :classes {:no-conflict {:baz "quux"}
+                                  :conflict {:does "conflicting", :doesnt "conflict"}}
+                        :variables {:generic "conflagration", :one-of-a-kind "means unique"}}]
           disjoint [{:environment "production"
                      :classes {:no-conflict {:foo "bar"}
                                :conflict? {:not "conflict"}}
                      :variables {:unique "snowflake"}}
+                    {:environment "production"
+                     :classes {:lone-wolf {:pardners []}}
+                     :variables {:very-unique "makes no sense"}}
                     {:environment "production"
                      :classes {:no-conflict {:baz "quux"}
                                :conflict? {:not "conflict"}}
@@ -131,9 +138,9 @@
                                  :also-unique "'nother snowflake"}}]]
 
       (testing "turns conflicting values into sets and omits all non-conflicting paths"
-        (is (= {:environment #{"production" "staging"}
-                :classes {:conflict {:does #{"conflict" "conflicts"}}}
-                :variables {:generic #{"conflict" "conflicts"}}}
+        (is (= {:environment #{"production" "staging" "dev"}
+                :classes {:conflict {:does #{"conflict" "conflicts" "conflicting"}}}
+                :variables {:generic #{"conflict" "conflicts" "conflagration"}}}
                (conflicts conflicting))))
 
       (testing "returns nil if there are no conflicts at all"

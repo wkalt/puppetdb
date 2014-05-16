@@ -1,5 +1,5 @@
 (ns puppetlabs.classifier.classification
-  (:require [clojure.set :refer [difference intersection subset?]]
+  (:require [clojure.set :refer [difference intersection subset? union]]
             [clojure.walk :as walk]
             [puppetlabs.kitchensink.core :refer [deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
@@ -36,25 +36,26 @@
   [classifications :- [Classification]]
   ;; it is easiest to understand this function by starting with the threading
   ;; macro form in the let body, then working up from there.
-  (let [conflicts->sets (fn [& vs]
-                          (let [unique (set vs)]
-                            (if (= (count unique) 1)
-                              nil
-                              unique)))
+  (let [conflicts->sets (fn [a b]
+                          ;; deep-merge-with uses this fn to reduce the vals
+                          (into #{} (remove nil? (if (set? a)
+                                                   (conj a b)
+                                                   (set [a b])))))
         map-entry? #(and (vector? %)
                          (= (count %) 2)
                          (keyword? (first %)))
         conflicting-entry? (fn [[k v]]
                              ;; A key-value entry in a map is a conflicting entry if its value is
-                             ;; a set, which represents a conflict. However, we don't want to
-                             ;; inadvertantly remove all the parents along a path to a conflicting
-                             ;; entry, so we preserve these paths by also considering an entry whose
-                             ;; value is a map a conflicting one. Since the omit-nonconflicting-keys
-                             ;; postwalk transformation removes empty maps (i.e. those containing
-                             ;; only non-conflicting entries) _after_ we have had a chance to remove
-                             ;; all the entries (due to the `post` part of the `postwalk`), we
-                             ;; should just preserve nested maps.
-                             (or (set? v) (map? v)))
+                             ;; a set with more than one element, which represents a conflict.
+                             ;; However, we don't want to inadvertantly remove all the parents along
+                             ;; a path to a conflicting entry, so we preserve these paths by also
+                             ;; considering an entry whose value is a map a conflicting one. Since
+                             ;; the omit-nonconflicting-keys postwalk transformation removes empty
+                             ;; maps (i.e. those containing only non-conflicting entries) _after_ we
+                             ;; have had a chance to remove all the entries (due to the `post` part
+                             ;; of the `postwalk`), we should just preserve nested maps.
+                             (or (map? v)
+                                 (and (set? v) (> (count v) 1))))
         omit-nonconflicting-keys (fn [form]
                                    ;; replace with nil any form that is not either a map entry that
                                    ;; leads directly or indirectly,
