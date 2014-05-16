@@ -146,6 +146,81 @@
       (testing "returns nil if there are no conflicts at all"
         (is (nil? (conflicts disjoint)))))))
 
+(deftest conflict-explanations
+  (let [root {:name "root", :id root-group-uuid, :environment "production"
+              :classes {}, :variables {}, :parent root-group-uuid}
+        pre-wormhole {:name "Farscape Project"
+                      :environment "sol system"
+                      :classes {:ship {:name "Farscape-1"
+                                       :livery "IASA"
+                                       :living false
+                                       :propulsion "gravitational drive"}}
+                      :variables {:wormhole-knowledge "none"}
+                      :id (UUID/randomUUID), :parent root-group-uuid}
+        post-wormhole {:name "Through the Wormhole"
+                       :environment "some distant part of the universe"
+                       :classes {:ship {:name "Moya"
+                                        :livery "Peacekeeper"
+                                        :living true
+                                        :propulsion ["hetch" "starburst"]}}
+                       :variables {:wormhole-knowledge "a little"}
+                       :id (UUID/randomUUID), :parent root-group-uuid}
+        post-ancients {:name "Encounter with the Goddess"
+                       :environment "some distant part of the universe"
+                       :variables {:wormhole-knowledge "extensive subconscious"}
+                       :classes {} , :id (UUID/randomUUID), :parent root-group-uuid}
+        groups [pre-wormhole post-wormhole post-ancients]
+        conflicts (conflicts (map group->classification groups))
+        group->ancestors {pre-wormhole [root]
+                          post-wormhole [root]
+                          post-ancients [root]}
+        expected {:environment #{{:value "sol system"
+                                  :from pre-wormhole
+                                  :defined-by pre-wormhole}
+                                 {:value "some distant part of the universe"
+                                  :from post-wormhole
+                                  :defined-by post-wormhole}
+                                 {:value "some distant part of the universe"
+                                  :from post-ancients
+                                  :defined-by post-ancients}}
+                  :classes {:ship {:name #{{:value "Farscape-1"
+                                            :from pre-wormhole
+                                            :defined-by pre-wormhole}
+                                           {:value "Moya"
+                                            :from post-wormhole
+                                            :defined-by post-wormhole}}
+                                   :livery #{{:value "IASA"
+                                              :from pre-wormhole
+                                              :defined-by pre-wormhole}
+                                             {:value "Peacekeeper"
+                                              :from post-wormhole
+                                              :defined-by post-wormhole}}
+                                   :living #{{:value false
+                                              :from pre-wormhole
+                                              :defined-by pre-wormhole}
+                                             {:value true
+                                              :from post-wormhole
+                                              :defined-by post-wormhole}}
+                                   :propulsion #{{:value "gravitational drive"
+                                                  :from pre-wormhole
+                                                  :defined-by pre-wormhole}
+                                                 {:value ["hetch" "starburst"]
+                                                  :from post-wormhole
+                                                  :defined-by post-wormhole}}}}
+                  :variables {:wormhole-knowledge
+                              #{{:value "none"
+                                 :from pre-wormhole
+                                 :defined-by pre-wormhole}
+                                {:value "a little"
+                                 :from post-wormhole
+                                 :defined-by post-wormhole}
+                                {:value "extensive subconscious"
+                                 :from post-ancients
+                                 :defined-by post-ancients}}}}]
+
+    (testing "classification conflicts can be explained"
+      (is (= expected (explain-conflicts conflicts group->ancestors))))))
+
 (deftest find-unrelated
   (let [mk-group (fn [n]
                    {:name n, :id (UUID/randomUUID), :rule ["=" "foo" "foo"]

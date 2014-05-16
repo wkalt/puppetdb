@@ -3,9 +3,10 @@
             [clojure.walk :as walk]
             [puppetlabs.kitchensink.core :refer [deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Classification ClassificationConflict Group
-                                                  group->classification, HierarchyNode Node
-                                                  PuppetClass Rule SubmittedNode ValidationNode]]
+            [puppetlabs.classifier.schema :refer [Classification ClassificationConflict
+                                                  ExplainedConflict Group group->classification
+                                                  HierarchyNode Node PuppetClass Rule SubmittedNode
+                                                  ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
@@ -74,6 +75,44 @@
       ;; coming up out of the leaves, otherwise classes without any conflicting
       ;; parameters would still have an empty map in the returned value.
       (walk/postwalk omit-nonconflicting-keys))))
+
+(defn- conflict-details
+  [path values group->ancestors]
+  (let [class8n->group (into {} (for [[g ancs] group->ancestors]
+                                  (let [class8n (collapse-to-inherited
+                                                  (map group->classification (concat [g] ancs)))]
+                                    [class8n g])))]
+    (set (for [v values
+               class8n (filter #(= v (get-in % path)) (keys class8n->group))
+               :let [matching-group (class8n->group class8n)
+                     defining-group (->> matching-group
+                                      group->ancestors
+                                      (concat [matching-group])
+                                      (filter #(= v (get-in % path)))
+                                      first)]]
+           {:value v
+            :from matching-group
+            :defined-by defining-group}))))
+
+(sc/defn explain-conflicts :- ExplainedConflict
+  "Takes a ClassificationConflict as produced by conflicts and a map that maps
+  between every group that could have contributed to the classification and all
+  its ancestors, and creates an ExplainedConflict instance by transforming each
+  conflicting value set into a set of ConflictDetail instances, which include
+  the value, the matched group whose inherited classification set the value, and
+  the group that actually defined the value."
+  [conflicts :- ClassificationConflict, group->ancestors :- {Group [Group]}]
+  (let [g->as group->ancestors
+        env-details (conflict-details [:environment] (:environment conflicts) g->as)
+        classes-details (into {} (for [[c params] (:classes conflicts)]
+                                   [c (into {} (for [[p vs] params]
+                                                 [p (conflict-details [:classes c p]
+                                                                      vs, g->as)]))]))
+        var-details (into {} (for [[v values] (:variables conflicts)]
+                               [v (conflict-details [:variables v] values g->as)]))]
+    (merge (if-not (empty? env-details) {:environment env-details})
+           (if-not (empty? classes-details) {:classes classes-details})
+           (if-not (empty? var-details) {:variables var-details}))))
 
 (sc/defn group-referencing-class :- (sc/maybe Group)
   "Given a class and a list of ancestors, returns the closest ancestral group
