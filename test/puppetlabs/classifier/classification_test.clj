@@ -36,6 +36,7 @@
                   :parameters {:this-parameter "foo"}}
                  {:name "doesnt-exist", :environment "staging"
                   :parameters {:shouldnt-be-here "bar"}}]]
+
     (testing "unknown parameters and classes are correctly identified as such"
       (is (= {:doesnt-exist nil, :partial-hit #{:what-parameter?}}
              (unknown-parameters classification classes))))))
@@ -158,6 +159,7 @@
                           right-child [root]
                           left-grandchild [right-child root]
                           right-grandchild [right-child root]}]
+
     (testing "inheritance-maxima finds unrelated groups given every group in the hierarchy"
       (is (= #{left-child left-grandchild right-grandchild}
              (set (inheritance-maxima group->ancestors)))))))
