@@ -132,7 +132,7 @@ The keys allowed in this object are:
 * `description`: a string describing the group.
                  This key is optional; if it's not provided, the group will have no description and this key will not appear in responses.
 * `parent`: the ID of the group's parent (required).
-* `rule`: the condition that must be satisfied for a node to be classified into this group (required).
+* `rule`: the condition that must be satisfied for a node to be classified into this group.
           The structure of this condition is described in the ["Rule Condition Grammar"](#rule-condition-grammar) section above.
 * `variables`: an object that defines the names and values of any top-level variables set by the group.
                The keys of the object are the variable names, and the corresponding value is that variable's value, which can be any sort of JSON value.
