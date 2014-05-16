@@ -3,7 +3,7 @@ require 'json'
 step "Configure SSL on classifier" do
   cert = on(database, 'puppet agent --configprint hostcert').stdout.strip
   key = on(database, 'puppet agent --configprint hostprivkey').stdout.strip
-  cacert = on(master, 'puppet agent --configprint localcacert').stdout.strip
+  cacert = on(database, 'puppet agent --configprint localcacert').stdout.strip
 
   ssldir = "/etc/classifier/ssl"
 
@@ -33,6 +33,23 @@ step "Configure SSL on classifier" do
   create_remote_file(database, '/etc/classifier/conf.d/classifier.conf', conf.to_json)
   on(database, "chmod 644 /etc/classifier/conf.d/classifier.conf")
 end
+
+
+step "Add fqdn of the classifier to the master's host file" do
+  fqdn = on(database, 'facter fqdn').stdout.strip
+  
+  manifest = ''
+  manifest << <<-EOS
+  host {'#{fqdn}':
+    ensure => present,
+    ip => '#{database.ip}',
+    target => '/etc/hosts',
+  } 
+  EOS
+
+  apply_manifest_on(master, manifest)
+end
+
 
 step "Start classifier" do
   start_classifier(database)
