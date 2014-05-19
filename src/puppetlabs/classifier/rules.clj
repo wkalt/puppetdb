@@ -23,11 +23,11 @@
       (let [[field target] args
             numeric-operator? (contains? #{"<" "<=" ">" ">="} operator)
             node-value (let [v (lookup-field node field)]
-                         (if numeric-operator?
-                           (and v (parse-number v))
+                         (if (and numeric-operator? (string? v))
+                           (parse-number v)
                            v))
-            target-value (if numeric-operator?
-                           (and target (parse-number target))
+            target-value (if (and numeric-operator? (string? target))
+                           (parse-number target)
                            target)]
         (if (and node-value target-value)
           (case operator
