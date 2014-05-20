@@ -270,7 +270,7 @@ module ClassifierExtensions
   def install_terminus_config(host, database)
     create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
                       "---\n" +
-                      "server: #{database}\n" +
+                      "server: #{fact_on(database, 'fqdn')}\n" +
                       "port: #{CLASSIFIER_SSL_PORT}")
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
