@@ -357,30 +357,29 @@
           leaves (class8n/inheritance-maxima group->ancestors)
           leaf-classifications (vals (leaves->inherited-classifications group->ancestors leaves))
           conflicts (class8n/conflicts leaf-classifications)
+          classification (apply deep-merge leaf-classifications)
           matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
           explanation (into {} (for [{g-id :group-id, :as rule} matching-rules]
                                  [g-id (rules/explain-rule rule node)]))
           check-in {:node node-name
                     :time check-in-time
-                    :explanation explanation}]
-      (storage/store-check-in db (if transaction-uuid
-                                   (assoc check-in :transaction_uuid transaction-uuid)
+                    :explanation explanation}
+          check-in (if transaction-uuid
+                     (assoc check-in :transaction_uuid transaction-uuid)
+                     check-in)]
+      (storage/store-check-in db (if (nil? conflicts)
+                                   (assoc check-in :classification classification)
                                    check-in))
       (if-not (nil? conflicts)
-        (let [leaf-ids (->> leaves (map :id) set)
-              leaf->ancestors (into {} (for [[g ancs] group->ancestors]
-                                         (if (contains? leaf-ids (:id g))
-                                           [g ancs])))]
-          (throw+
-            {:kind ::classification-conflict
-             :group->ancestors leaf->ancestors
-             :conflicts conflicts}))
-        (let [classification (apply deep-merge leaf-classifications)]
-          {:name node-name
-           :environment (:environment classification)
-           :groups matching-group-ids
-           :classes (:classes classification {})
-           :parameters (:variables classification {})})))))
+        (throw+
+          {:kind ::classification-conflict
+           :group->ancestors (into {} (map (juxt identity group->ancestors) leaves))
+           :conflicts conflicts})
+        {:name node-name
+         :environment (:environment classification)
+         :groups matching-group-ids
+         :classes (:classes classification {})
+         :parameters (:variables classification {})}))))
 
 (defn explain-classification
   [db node-name]

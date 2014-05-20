@@ -105,19 +105,25 @@
 
 (sc/defn ^:always-validate store-check-in* :- CheckIn
   [{db :db}, check-in :- CheckIn]
-  (jdbc/insert! db, :node_check_ins
-                (-> check-in
-                  (update-in [:time] coerce-time/to-sql-time)
-                  (update-in [:explanation] json/encode)))
+  (let [check-in' (if (contains? check-in :classification)
+                   (update-in check-in [:classification] json/encode)
+                   check-in)]
+    (jdbc/insert! db, :node_check_ins
+                  (-> check-in'
+                    (update-in [:time] coerce-time/to-sql-time)
+                    (update-in [:explanation] json/encode))))
   check-in)
 
 (defn- convert-check-in-fields
   [row]
-  (-> row
-    (update-in [:time] coerce-time/from-sql-time)
-    (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
-                                    (fn [exp] (json/decode exp true))))
-    (dissoc-nil :transaction_uuid)))
+  (let [with-reqd (-> row
+                    (update-in [:time] coerce-time/from-sql-time)
+                    (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
+                                                    (fn [exp] (json/decode exp true))))
+                    (dissoc-nil :transaction_uuid))]
+    (if (:classification with-reqd)
+      (update-in with-reqd [:classification] json/decode true)
+      (dissoc with-reqd :classification))))
 
 (sc/defn ^:always-validate get-check-ins* :- [CheckIn]
   [{db :db}, node-name :- String]

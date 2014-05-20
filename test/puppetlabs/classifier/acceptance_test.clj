@@ -784,6 +784,7 @@
 
 (deftest ^:acceptance classification-history
   (let [base-url (base-url test-config)
+        group->class8n group->classification
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
                :body
                (json/decode true)
@@ -844,7 +845,8 @@
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
               node (sc/validate ClientNode (json/decode body true))
               expected-node {:name (:name ds9-node)
-                             :check_ins [{:explanation ds9-explanation}]}]
+                             :check_ins [{:explanation ds9-explanation
+                                          :classification (group->class8n fun-spacestations)}]}]
           (is (= 200 status))
           (is (= expected-node (-> node
                                  (update-in [:check_ins 0] dissoc :time)
@@ -859,9 +861,11 @@
                         (sc/validate [ClientNode])
                         (filter #(contains? node-names (:name %)))))
               expected-nodes [{:name (:name ds9-node)
-                               :check_ins [{:explanation ds9-explanation}]}
+                               :check_ins [{:explanation ds9-explanation
+                                            :classification (group->class8n fun-spacestations)}]}
                               {:name (:name ncc1701d-node)
-                               :check_ins [{:explanation ncc1701d-explanation}]}]]
+                               :check_ins [{:explanation ncc1701d-explanation
+                                            :classification (group->class8n spaceships)}]}]]
           (is (= 200 status))
           (is (= expected-nodes
                  (->> nodes
@@ -876,8 +880,10 @@
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
               node (sc/validate ClientNode (json/decode body true))
               expected-check-ins [{:explanation ds9-explanation
+                                   :classification (group->classification fun-spacestations)
                                    :transaction_uuid check-in-uuid}
                                   {:explanation ds9-explanation
+                                   :classification (group->classification fun-spacestations)
                                    :transaction_uuid nil}]]
           (is (= expected-check-ins
                  (for [check-in (:check_ins node)]
