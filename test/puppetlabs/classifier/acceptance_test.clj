@@ -890,7 +890,39 @@
                    (-> check-in
                      (dissoc :time)
                      (update-in [:explanation] keys->uuids)
-                     (update-in [:transaction_uuid] ->uuid))))))))))
+                     (update-in [:transaction_uuid] ->uuid))))))))
+
+    (testing "stores a check-in with no classification if there are classification conflicts"
+      (let [ignore-warp-cores-delta {:id (:id spacestations)
+                                     :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
+                                                  [">" ["facts" "docking pylons"] "0"]]}
+            spacestations' (merge-and-clean spacestations ignore-warp-cores-delta)
+            warp-capable-station {:name "USS Scaredycat"
+                                  :facts {"pressure hulls" "1"
+                                          "warp cores" "1"
+                                          "docking pylons" "2"}}]
+        (http/post (str base-url "/v1/groups/" (:id spacestations))
+                   {:content-type :json, :body (json/encode ignore-warp-cores-delta)})
+
+        (http/post (str base-url "/v1/classified/nodes/" (:name warp-capable-station))
+                   {:throw-exceptions false
+                    :content-type :json
+                    :body (json/encode warp-capable-station)})
+
+        (let [warp-capable-station-node-path (str "/v1/nodes/" (:name warp-capable-station))
+              {:keys [status body]} (http/get (str base-url warp-capable-station-node-path))
+              node (sc/validate ClientNode (json/decode body true))
+              explanation (apply merge
+                                 (for [group [spacestations' spaceships root]
+                                       :let [{:keys [id rule]} group]]
+                                   {id (rules/explain-rule {:when rule, :group-id id}
+                                                           warp-capable-station)}))
+              expected-node {:name (:name warp-capable-station)
+                             :check_ins [{:explanation explanation}]}]
+          (is (= 200 status))
+          (is (= expected-node (-> node
+                                 (update-in [:check_ins 0] dissoc :time)
+                                 (update-in [:check_ins 0 :explanation] #(mapkeys ->uuid %))))))))))
 
 (deftest ^:acceptance classification-explanation
   (let [base-url (base-url test-config)
