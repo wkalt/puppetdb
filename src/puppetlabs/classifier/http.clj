@@ -346,11 +346,9 @@
           uuid-str (:transaction_uuid data)
           transaction-uuid (if (uuid? uuid-str)
                              (UUID/fromString uuid-str))
-          node (validate
-                 SubmittedNode
-                 {:name node-name
-                  :facts (get-in data [:facts :values] {})
-                  :trusted (:trusted data {})})
+          node (validate SubmittedNode {:name node-name
+                                        :facts (:facts data {})
+                                        :trusted (:trusted data {})})
           all-rules (storage/get-rules db)
           matching-group-ids (set (class8n/matching-groups node all-rules))
           matching-groups (map (partial storage/get-group db) matching-group-ids)
