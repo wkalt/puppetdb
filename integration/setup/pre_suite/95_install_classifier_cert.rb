@@ -34,23 +34,6 @@ step "Configure SSL on classifier" do
   on(database, "chmod 644 /etc/classifier/conf.d/classifier.conf")
 end
 
-
-step "Add fqdn of the classifier to the master's host file" do
-  fqdn = on(database, 'facter fqdn').stdout.strip
-  
-  manifest = ''
-  manifest << <<-EOS
-  host {'#{fqdn}':
-    ensure => present,
-    ip => '#{database.ip}',
-    target => '/etc/hosts',
-  } 
-  EOS
-
-  apply_manifest_on(master, manifest)
-end
-
-
 step "Start classifier" do
   start_classifier(database)
 end
