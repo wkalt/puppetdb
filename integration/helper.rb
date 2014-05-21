@@ -156,6 +156,21 @@ module ClassifierExtensions
     end
   end
 
+  def classifier_service_name(host)
+    if host.is_pe?
+      "pe-classifier"
+    else
+      "classifier"
+    end
+  end
+
+  def classifier_terminus_name(host)
+    if host.is_pe?
+      "pe-classifier-termini"
+    else
+      "classifier-terminus"
+    end
+  end
 
   def classifier_confdir(host)
     if host.is_pe?
@@ -221,9 +236,9 @@ module ClassifierExtensions
 
     case os
     when :debian
-      on host, "apt-get install -y --force-yes classifier"
+      on host, "apt-get install -y --force-yes #{classifer_service_name(database)}"
     when :redhat
-      on host, "yum install -y classifier"
+      on host, "yum install -y #{classifier_service_name(database)}"
     else
       raise ArgumentError, "Unsupported OS '#{os}'"
     end
@@ -257,9 +272,9 @@ module ClassifierExtensions
 
     case os
     when :debian
-      on host, "apt-get install -y --force-yes classifier-terminus"
+      on host, "apt-get install -y --force-yes #{classifier_terminus_name(master)}"
     when :redhat
-      on host, "yum install -y classifier-terminus"
+      on host, "yum install -y #{classifier_terminus_name(master)}"
     else
       raise ArgumentError, "Unsupported OS '#{os}'"
     end
@@ -270,7 +285,7 @@ module ClassifierExtensions
   def install_terminus_config(host, database)
     create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
                       "---\n" +
-                      "server: #{fact_on(database, 'fqdn')}\n" +
+                      "server: #{database}\n" +
                       "port: #{CLASSIFIER_SSL_PORT}")
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
@@ -336,8 +351,8 @@ module ClassifierExtensions
     manifest << <<-EOS
     class { 'postgresql::server': }
 
-    postgresql::server::db { 'classifier':
-      user => 'classifier',
+    postgresql::server::db { '#{classifier_service_name(database)}':
+      user => '#{classifier_service_name(database)}',
       password => 'classifier',
     }
     EOS
@@ -418,7 +433,7 @@ module ClassifierExtensions
 
   def clear_database(host)
     if host.is_pe?
-      on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
+      on host, 'su - postgres -s "/bin/bash" -c "/usr/bin/dropdb pe-classifier"'
     else
       on host, 'su postgres -c "dropdb classifier"'
     end
@@ -827,7 +842,12 @@ module ClassifierExtensions
         version = $2
         arch = $3
 
-        pattern = "pl-%s-%s-%s-%s%s-%s.repo"
+        #hack for https://tickets.puppetlabs.com/browse/RE-1990
+        if host.is_pe?
+          pattern = "pl-%s-%s-repos-pe-%s-%s%s-%s.repo"
+        else
+          pattern = "pl-%s-%s-%s-%s%s-%s.repo"
+        end
         repo_filename = pattern % [
           package,
           sha,
