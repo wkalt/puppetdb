@@ -8,6 +8,8 @@ class Classifier
   debug_output $stdout
 end
 
+clear_and_restart_classifier(database)
+
 Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
 
 

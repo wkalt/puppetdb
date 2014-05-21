@@ -13,3 +13,4 @@ Gemfile.lock
 Vagrantfile
 /log
 /.vagrant
+/repo_configs
