@@ -48,6 +48,7 @@
   :main ^:skip-aot puppetlabs.trapperkeeper.main
   ;; For release
   :plugins [[lein-release "1.0.5"]]
+  :jar-exclusions [#"\.sw[a-z]$" #"~$"]
   :lein-release {:scm :git, :deploy-via :lein-deploy}
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
