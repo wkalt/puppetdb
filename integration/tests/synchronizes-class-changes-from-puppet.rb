@@ -47,6 +47,7 @@ master_opts = {
     'rest_authconfig' => "#{testdir}/auth.conf",
     'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
+    'environment_timeout' => 0,
     'verbose' => true,
     'debug' => true,
     'trace' => true
