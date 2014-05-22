@@ -1,11 +1,12 @@
 (ns puppetlabs.classifier.classification
-  (:require [clojure.set :refer [difference intersection subset?]]
+  (:require [clojure.set :refer [difference intersection subset? union]]
             [clojure.walk :as walk]
             [puppetlabs.kitchensink.core :refer [deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [Classification ClassificationConflict Group
-                                                  group->classification, HierarchyNode Node
-                                                  PuppetClass Rule SubmittedNode ValidationNode]]
+            [puppetlabs.classifier.schema :refer [Classification ClassificationConflict
+                                                  ExplainedConflict Group group->classification
+                                                  HierarchyNode Node PuppetClass Rule SubmittedNode
+                                                  ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
@@ -36,25 +37,26 @@
   [classifications :- [Classification]]
   ;; it is easiest to understand this function by starting with the threading
   ;; macro form in the let body, then working up from there.
-  (let [conflicts->sets (fn [& vs]
-                          (let [unique (set vs)]
-                            (if (= (count unique) 1)
-                              nil
-                              unique)))
+  (let [conflicts->sets (fn [a b]
+                          ;; deep-merge-with uses this fn to reduce the vals
+                          (into #{} (remove nil? (if (set? a)
+                                                   (conj a b)
+                                                   (set [a b])))))
         map-entry? #(and (vector? %)
                          (= (count %) 2)
                          (keyword? (first %)))
         conflicting-entry? (fn [[k v]]
                              ;; A key-value entry in a map is a conflicting entry if its value is
-                             ;; a set, which represents a conflict. However, we don't want to
-                             ;; inadvertantly remove all the parents along a path to a conflicting
-                             ;; entry, so we preserve these paths by also considering an entry whose
-                             ;; value is a map a conflicting one. Since the omit-nonconflicting-keys
-                             ;; postwalk transformation removes empty maps (i.e. those containing
-                             ;; only non-conflicting entries) _after_ we have had a chance to remove
-                             ;; all the entries (due to the `post` part of the `postwalk`), we
-                             ;; should just preserve nested maps.
-                             (or (set? v) (map? v)))
+                             ;; a set with more than one element, which represents a conflict.
+                             ;; However, we don't want to inadvertantly remove all the parents along
+                             ;; a path to a conflicting entry, so we preserve these paths by also
+                             ;; considering an entry whose value is a map a conflicting one. Since
+                             ;; the omit-nonconflicting-keys postwalk transformation removes empty
+                             ;; maps (i.e. those containing only non-conflicting entries) _after_ we
+                             ;; have had a chance to remove all the entries (due to the `post` part
+                             ;; of the `postwalk`), we should just preserve nested maps.
+                             (or (map? v)
+                                 (and (set? v) (> (count v) 1))))
         omit-nonconflicting-keys (fn [form]
                                    ;; replace with nil any form that is not either a map entry that
                                    ;; leads directly or indirectly,
@@ -73,6 +75,44 @@
       ;; coming up out of the leaves, otherwise classes without any conflicting
       ;; parameters would still have an empty map in the returned value.
       (walk/postwalk omit-nonconflicting-keys))))
+
+(defn- conflict-details
+  [path values group->ancestors]
+  (let [class8n->group (into {} (for [[g ancs] group->ancestors]
+                                  (let [class8n (collapse-to-inherited
+                                                  (map group->classification (concat [g] ancs)))]
+                                    [class8n g])))]
+    (set (for [v values
+               class8n (filter #(= v (get-in % path)) (keys class8n->group))
+               :let [matching-group (class8n->group class8n)
+                     defining-group (->> matching-group
+                                      group->ancestors
+                                      (concat [matching-group])
+                                      (filter #(= v (get-in % path)))
+                                      first)]]
+           {:value v
+            :from matching-group
+            :defined-by defining-group}))))
+
+(sc/defn explain-conflicts :- ExplainedConflict
+  "Takes a ClassificationConflict as produced by conflicts and a map that maps
+  between every group that could have contributed to the classification and all
+  its ancestors, and creates an ExplainedConflict instance by transforming each
+  conflicting value set into a set of ConflictDetail instances, which include
+  the value, the matched group whose inherited classification set the value, and
+  the group that actually defined the value."
+  [conflicts :- ClassificationConflict, group->ancestors :- {Group [Group]}]
+  (let [g->as group->ancestors
+        env-details (conflict-details [:environment] (:environment conflicts) g->as)
+        classes-details (into {} (for [[c params] (:classes conflicts)]
+                                   [c (into {} (for [[p vs] params]
+                                                 [p (conflict-details [:classes c p]
+                                                                      vs, g->as)]))]))
+        var-details (into {} (for [[v values] (:variables conflicts)]
+                               [v (conflict-details [:variables v] values g->as)]))]
+    (merge (if-not (empty? env-details) {:environment env-details})
+           (if-not (empty? classes-details) {:classes classes-details})
+           (if-not (empty? var-details) {:variables var-details}))))
 
 (sc/defn group-referencing-class :- (sc/maybe Group)
   "Given a class and a list of ancestors, returns the closest ancestral group

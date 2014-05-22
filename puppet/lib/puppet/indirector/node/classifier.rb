@@ -23,7 +23,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
       Puppet::Context::TrustedInformation.local(temp_node)
     end.to_h
 
-    request_body = {"facts" => facts.to_data_hash,
+    request_body = {"facts" => facts.to_data_hash['values'],
                     "trusted" => trusted_data}
 
     if request.options.include?(:transaction_uuid)

@@ -116,15 +116,6 @@
                                                  sc/Keyword {:puppetlabs.classifier/deleted boolean
                                                              :value String}}}))
 
-(def HierarchyNode
-  {:group Group
-   :children #{(sc/recursive #'HierarchyNode)}})
-
-(def ValidationNode
-  (assoc HierarchyNode
-         :errors (sc/maybe {sc/Keyword sc/Any})
-         :children #{(sc/recursive #'ValidationNode)}))
-
 (def GroupDelta
   {:id UUID
    (sc/optional-key :name) String
@@ -134,6 +125,32 @@
    (sc/optional-key :rule) (sc/maybe RuleCondition)
    (sc/optional-key :classes) {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    (sc/optional-key :variables) {sc/Keyword sc/Any}})
+
+(def ConflictDetails
+  {:value sc/Any
+   :from Group
+   :defined-by Group})
+
+(def ExplainedConflict
+  {(sc/optional-key :environment) #{ConflictDetails}
+   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{ConflictDetails}}}
+   (sc/optional-key :variables) {sc/Keyword #{ConflictDetails}}})
+
+(def ClientExplainedConflict
+  (walk/prewalk (fn [form]
+                  (if (= form UUID)
+                    UUIDRepresentation
+                    form))
+                ExplainedConflict))
+
+(def HierarchyNode
+  {:group Group
+   :children #{(sc/recursive #'HierarchyNode)}})
+
+(def ValidationNode
+  (assoc HierarchyNode
+         :errors (sc/maybe {sc/Keyword sc/Any})
+         :children #{(sc/recursive #'ValidationNode)}))
 
 ;; Utilities for creating & converting maps conforming to the Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

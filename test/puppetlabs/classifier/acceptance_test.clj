@@ -9,9 +9,10 @@
             [schema.core :as sc]
             [schema.test]
             [puppetlabs.kitchensink.core :refer [ini-to-map mapkeys mapvals spit-ini]]
+            [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.schema :refer [ClientNode Group]]
+            [puppetlabs.classifier.schema :refer [ClientNode Group group->classification]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
             [puppetlabs.classifier.util :refer [->uuid merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
@@ -779,6 +780,8 @@
         (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
         (is (= (convert-uuids details) orphan))))))
 
+(def keys->uuids (partial mapkeys ->uuid))
+
 (deftest ^:acceptance classification-history
   (let [base-url (base-url test-config)
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
@@ -847,7 +850,7 @@
           (is (= 200 status))
           (is (= expected-node (-> node
                                  (update-in [:check_ins 0] dissoc :time)
-                                 (update-in [:check_ins 0 :explanation] #(mapkeys ->uuid %)))))))
+                                 (update-in [:check_ins 0 :explanation] keys->uuids))))))
 
       (testing "for all nodes"
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes"))
@@ -865,7 +868,7 @@
           (is (= expected-nodes
                  (->> nodes
                    (map #(update-in % [:check_ins 0] dissoc :time))
-                   (map #(update-in % [:check_ins 0 :explanation] (partial mapkeys ->uuid)))))))))
+                   (map #(update-in % [:check_ins 0 :explanation] keys->uuids))))))))
 
     (testing "stores a transaction_uuid in the classification history if supplied"
       (let [check-in-uuid (UUID/randomUUID)]
@@ -885,5 +888,131 @@
                  (for [check-in (:check_ins node)]
                    (-> check-in
                      (dissoc :time)
-                     (update-in [:explanation] (partial mapkeys ->uuid))
+                     (update-in [:explanation] keys->uuids)
                      (update-in [:transaction_uuid] ->uuid))))))))))
+
+(deftest ^:acceptance classification-explanation
+  (let [base-url (base-url test-config)
+        root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+               :body
+               (json/decode true)
+               (update-in [:id] ->uuid)
+               (update-in [:parent] ->uuid))
+        logic {:name "logic"
+               :environment "alpha quadrant"
+               :parameters {:importance "ignored"}}
+        emotion {:name "emotion"
+                 :environment "alpha quadrant"
+                 :parameters {:importance "ignored"}}
+        vulcans {:name "Vulcans"
+                 :rule ["and" [">=" ["facts" "eyebrow pitch"] "25"]
+                              ["=" ["facts" "ear-tips"] "pointed"]
+                              ["=" ["facts" "hair"] "dark"]
+                              [">=" ["facts" "resting bpm"] "100"]
+                              ["=" ["facts" "blood oxygen transporter"] "hemocyanin"]]
+                 :classes {:logic {:importance "primary"}
+                           :emotion {:importance "ignored"}}
+                 :environment "alpha quadrant", :id (UUID/randomUUID), :parent root-group-uuid
+                 :variables {}}
+        humans {:name "Humans"
+                :rule [">=" ["facts" "spunk"] "5"]
+                :classes {:logic {:importance "secondary"}
+                          :emotion {:importance "primary"}}
+                :environment "alpha quadrant", :id (UUID/randomUUID), :parent root-group-uuid
+                :variables {}}
+        tuvok {:name "Tuvok"
+               :facts {"eyebrow pitch" "30"
+                       "ear-tips" "pointed"
+                       "hair" "dark"
+                       "appendices" "0"
+                       "anterior tricuspids" "2"
+                       "resting bpm" "200"
+                       "blood oxygen transporter" "hemocyanin"}}
+        spock {:name "Spock"
+               :facts {"eyebrow pitch" "40"
+                       "ear-tips" "pointed"
+                       "hair" "dark"
+                       "appendices" "1"
+                       "anterior tricuspids" "2"
+                       "resting bpm" "120"
+                       "blood oxygen transporter" "hemocyanin"
+                       "spunk" "10"}}
+        uuidify-response #(-> %
+                            (update-in [:match_explanations] keys->uuids)
+                            (update-in [:leaf_groups]
+                                       (comp (partial mapvals convert-uuids) keys->uuids))
+                            (update-in [:inherited_classifications] keys->uuids))]
+
+    ;; create classes & groups
+    (doseq [{:keys [name environment], :as class} [logic emotion]]
+      (http/put (str base-url "/v1/environments/" environment "/classes/" name)
+                {:content-type :json, :body (json/encode class)}))
+    (doseq [{id :id, :as group} [humans vulcans]]
+      (http/put (str base-url "/v1/groups/" id)
+                {:content-type :json, :body (json/encode group)}))
+
+    (testing "get a node classification explanation with result"
+      (let [match-explanations (into {} (for [{:keys [id rule] :as group} [vulcans root]]
+                                          [id (rules/explain-rule {:when rule, :group-id id} tuvok)]))
+            group-class8ns (into {} (for [{id :id, :as group} [vulcans root]]
+                                      [id (group->classification group)]))
+            class8n-leaves {(:id vulcans) (class8n/collapse-to-inherited
+                                            (map group->classification [vulcans root]))}
+            class8n (get class8n-leaves (:id vulcans))
+            expected-response {:node_as_received (assoc tuvok :trusted {})
+                               :match_explanations match-explanations
+                               :leaf_groups {(:id vulcans) vulcans}
+                               :inherited_classifications class8n-leaves
+                               :final_classification class8n}
+            explanation-path (str "/v1/classified/nodes/" (:name tuvok) "/explanation")
+            {:keys [status body]} (http/post (str base-url explanation-path)
+                                             {:content-type :json, :body (json/encode tuvok)})]
+        (is (= 200 status))
+        (is (= expected-response (-> body
+                                   (json/decode true)
+                                   uuidify-response
+                                   (update-in [:node_as_received :facts]
+                                              (partial mapkeys name)))))))
+
+    (testing "get a node classification explanation with conflict details"
+      (let [match-explanations (into {} (for [group [vulcans humans root]
+                                              :let [{:keys [id rule]} group]]
+                                          [id (rules/explain-rule {:when rule, :group-id id} spock)]))
+            group-class8ns (into {} (for [{id :id, :as group} [vulcans humans root]]
+                                      [id (group->classification group)]))
+            class8n-leaves (into {} (for [{id :id, :as group} [vulcans humans]]
+                                      [id (class8n/collapse-to-inherited
+                                            (map group->classification [group root]))]))
+            conflicts (class8n/conflicts (vals class8n-leaves))
+            conflict-explanations (class8n/explain-conflicts conflicts
+                                                             {vulcans [root], humans [root]})
+            expected-response {:node_as_received (assoc spock :trusted {})
+                               :match_explanations match-explanations
+                               :leaf_groups {(:id humans) humans, (:id vulcans) vulcans}
+                               :inherited_classifications class8n-leaves
+                               :conflicts conflict-explanations}
+            uuidify-conflict-details #(-> %
+                                        (update-in [:from :id] ->uuid)
+                                        (update-in [:from :parent] ->uuid)
+                                        (update-in [:defined-by :id] ->uuid)
+                                        (update-in [:defined-by :parent] ->uuid))
+            explanation-path (str "/v1/classified/nodes/" (:name spock) "/explanation")
+            {:keys [status body]} (http/post (str base-url explanation-path)
+                                             {:content-type :json, :body (json/encode spock)})]
+        (is (= 200 status))
+        (is (= expected-response (-> body
+                                   (json/decode true)
+                                   uuidify-response
+                                   (update-in [:conflicts :classes :emotion :importance]
+                                              (comp set (partial map uuidify-conflict-details)))
+                                   (update-in [:conflicts :classes :logic :importance]
+                                              (comp set (partial map uuidify-conflict-details)))
+                                   (update-in [:node_as_received :facts]
+                                              (partial mapkeys name)))))))
+
+    (testing "get a 400 response if the request payload doesn't match SubmittedNode"
+      (let [{:keys [status body]} (http/post (str base-url "/v1/classified/nodes/carol/explanation")
+                                             {:throw-exceptions false
+                                              :content-type :json
+                                              :body (json/encode {:foo "bar"})})]
+        (is (= 400 status))))))
