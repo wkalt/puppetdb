@@ -67,10 +67,21 @@
    :group-id UUID
    (sc/optional-key :id) Number})
 
+(def Classification
+  {:environment String
+   :classes {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
+   :variables {sc/Keyword sc/Any}})
+
+(def ClassificationConflict
+  {(sc/optional-key :environment) #{String}
+   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{sc/Any}}}
+   (sc/optional-key :variables) {sc/Keyword #{sc/Any}}})
+
 (def CheckIn
   {:node String
    :time org.joda.time.DateTime
    :explanation {UUID ExplainedCondition}
+   (sc/optional-key :classification) Classification
    (sc/optional-key :transaction_uuid) UUID})
 
 (def ClientCheckIn
@@ -91,16 +102,6 @@
   {:name String
    :facts {sc/Keyword sc/Any}
    :trusted {sc/Keyword sc/Any}})
-
-(def Classification
-  {:environment String
-   :classes {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
-   :variables {sc/Keyword sc/Any}})
-
-(def ClassificationConflict
-  {(sc/optional-key :environment) #{String}
-   (sc/optional-key :classes) {sc/Keyword {sc/Keyword #{sc/Any}}}
-   (sc/optional-key :variables) {sc/Keyword #{sc/Any}}})
 
 (def Group
   (assoc Classification

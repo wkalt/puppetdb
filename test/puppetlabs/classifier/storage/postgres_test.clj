@@ -593,7 +593,10 @@
         check-ins {"Neuromancer" [{:node "Neuromancer"
                                    :time (time/now)
                                    :explanation neuro-explanation
-                                   :transaction_uuid (UUID/randomUUID)}
+                                   :transaction_uuid (UUID/randomUUID)
+                                   :classification {:environment "production"
+                                                    :classes {:construct-runner {:construct-type "RAM"}}
+                                                    :variables {:datacenter "Tessier-Ashpool Orbital"}}}
                                   {:node "Neuromancer"
                                    :time (time/ago (time/weeks 1))
                                    :explanation neuro-explanation
@@ -604,7 +607,12 @@
                                                 {:value true
                                                  :form ["="
                                                         {:path "name", :value "Wintermute"}
-                                                        "Wintermute"]}}}]}
+                                                        "Wintermute"]}}
+                                  :classification {:environment "production"
+                                                   :classes {:masked {:personalities ["The Finn"
+                                                                                      "Julie Deane"
+                                                                                      "Armitage"]}}
+                                                   :variables {:desire "merge with Neuromancer"}}}]}
         all-check-ins (into [] (for [[nn c-is] check-ins]
                                  {:name nn, :check-ins (->> c-is
                                                          (map #(dissoc % :node))
