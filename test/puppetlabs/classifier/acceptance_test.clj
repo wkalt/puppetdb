@@ -580,7 +580,7 @@
                                   :throw-entire-message? true})
             classification (-> (http/post (str base-url "/v1/classified/nodes/factnode")
                                           {:accept :json
-                                           :body (json/generate-string {:facts {:values {:architecture "alpha"}}})})
+                                           :body (json/generate-string {:facts {:architecture "alpha"}})})
                              :body
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
@@ -837,9 +837,7 @@
     (doseq [{facts :facts, :as node} [ds9-node ncc1701d-node]]
       (http/post (str base-url "/v1/classified/nodes/" (:name node))
                  {:content-type :json
-                  :body (json/generate-string (-> node
-                                                (dissoc :facts)
-                                                (assoc :facts {:values facts})))}))
+                  :body (json/generate-string node)}))
 
     (testing "can retrieve classification history"
       (testing "for a single node"
@@ -874,10 +872,7 @@
       (let [check-in-uuid (UUID/randomUUID)]
         (http/post (str base-url "/v1/classified/nodes/" (:name ds9-node))
                    {:content-type :json
-                    :body (json/generate-string (-> ds9-node
-                                                  (dissoc :facts)
-                                                  (assoc :facts {:values (:facts ds9-node)})
-                                                  (assoc :transaction_uuid check-in-uuid)))})
+                    :body (json/generate-string (assoc ds9-node :transaction_uuid check-in-uuid))})
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
               node (sc/validate ClientNode (json/decode body true))
               expected-check-ins [{:explanation ds9-explanation

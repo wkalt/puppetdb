@@ -322,7 +322,7 @@
         app (app {:db mock-db})]
 
     (testing "facts submitted via POST can be used for classification"
-      (let [facts {:name "qwkeju" :values {:a "b"}}
+      (let [facts {:a "b"}
             trusted {:certname "abcdefg"}
             {body :body, :as response} (app (classification-request
                                              :post
@@ -461,9 +461,7 @@
         handler (app {:db mock-db})]
 
     (testing "stores a node check-in when a node is classified"
-      (is-http-status 200 (handler (classification-request
-                                     :post, (:name eris)
-                                     (encode {:facts {:values (:facts eris)}}))))
+      (is-http-status 200 (handler (classification-request :post (:name eris) (encode eris))))
       (is (sc/validate CheckIn (get-in @!check-ins [(:name eris) 0]))))
 
     (testing "returns node check-ins"
