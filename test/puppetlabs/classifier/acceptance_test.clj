@@ -8,7 +8,7 @@
             [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
-            [puppetlabs.kitchensink.core :refer [ini-to-map mapkeys mapvals spit-ini]]
+            [puppetlabs.kitchensink.core :refer [deep-merge ini-to-map mapkeys mapvals spit-ini]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
@@ -436,6 +436,65 @@
               {:keys [kind]} (json/decode body true)]
           (is (= 422 status))
           (is (= kind "missing-referents")))))))
+
+(deftest ^:acceptance inherited-group-view
+  (let [base-url (base-url test-config)
+        crotchety-ancestor {:name "Hubert"
+                            :id (UUID/randomUUID)
+                            :environment "production"
+                            :parent root-group-uuid
+                            :rule [">=" ["facts" "age"] "93"]
+                            :classes {:suspenders {:color "0xff0000"
+                                                   :length "38"}
+                                      :music {:genre "Crooners"
+                                              :top-artists ["Bing Crosby" "Frank Sinatra"]}
+                                      :opinions {:the-guvmnt "not what it used to be"
+                                                 :politicians "bunch of lying crooks these days"
+                                                 :fashion "utterly depraved"
+                                                 :popular-music "don't get me started"}}
+                            :variables {:ancestry "Scottish"}}
+        child {:name "Huck"
+               :id (UUID/randomUUID)
+               :environment "dev"
+               :parent (:id crotchety-ancestor)
+               :rule ["and" ["<" ["facts" "age"] "93"]
+                            [">=" ["facts" "age"] "60"]]
+               :classes {:music {:genre "Rock 'n' Roll"
+                                 :top-artists ["The Beatles" "Led Zeppelin"]}
+                         :opinions {:politicians "always been rotten"}}
+               :variables {}}
+        classes [{:name "music", :parameters {:genre "blendercore"
+                                              :top-artists []}}
+                 {:name "suspenders", :parameters {:color "0xff6699"
+                                                  :length "42"}}
+                 {:name "opinions", :parameters {:the-guvmnt ""
+                                                 :politicians ""
+                                                 :fashion ""
+                                                 :popular-music ""}}]]
+    (doseq [env (map :environment [crotchety-ancestor child])
+            without-env classes
+            :let [class (assoc without-env :environment env)
+                  path (str "/v1/environments/" env "/classes/" (:name class))]]
+      (http/put (str base-url path) {:content-type :json, :body (json/encode class)}))
+    (doseq [group [crotchety-ancestor child]]
+      (http/put (str base-url "/v1/groups/" (:id group))
+                {:content-type :json, :body (json/encode group)}))
+
+    (testing "retrieving an inherited view of a group"
+      (let [child-path (str "/v1/groups/" (:id child))
+            {:keys [body status]} (http/get (str base-url child-path "/inherited"))]
+        (is (= 200 status))
+        (is (= (deep-merge crotchety-ancestor child) (-> body
+                                                       (json/decode true)
+                                                       convert-uuids)))))
+
+    ;; clean up (since acceptance tests all share the same instance)
+    (doseq [group [child crotchety-ancestor]]
+      (http/delete (str base-url "/v1/groups/" (:id group))))
+    (doseq [env (map :environment [crotchety-ancestor child])
+            class classes
+            :let [path (str "/v1/environments/" env "/classes/" (:name class))]]
+      (http/delete (str base-url path)))))
 
 (deftest ^:acceptance simple-classification
   (let [base-url (base-url test-config)]

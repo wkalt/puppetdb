@@ -211,6 +211,45 @@
       (let [response (app (group-request :delete (:id agroup)))]
         (is-http-status 204 response)))))
 
+(deftest inherited-group
+  (let [crotchety-ancestor {:name "Hubert"
+                            :id (UUID/randomUUID)
+                            :environment "FDR's third term"
+                            :parent root-group-uuid
+                            :rule [">=" ["facts" "age"] "93"]
+                            :classes {:suspenders {:color "0xff0000"
+                                                   :length "38"}
+                                      :music {:genre "Crooners"
+                                              :top-artists ["Bing Crosby" "Frank Sinatra"]}
+                                      :opinions {:the-guvmnt "not what it used to be"
+                                                 :politicians "bunch of lying crooks these days"
+                                                 :fashion "utterly depraved"
+                                                 :popular-music "don't get me started"}}
+                            :variables {:ancestry "Scottish"}}
+        child {:name "Huck"
+               :id (UUID/randomUUID)
+               :environment "not inherited"
+               :parent (:id crotchety-ancestor)
+               :rule ["and" ["<" ["facts" "age"] "93"]
+                            [">=" ["facts" "age"] "60"]]
+               :classes {:music {:genre "Rock 'n' Roll"
+                                 :top-artists ["The Beatles" "Led Zeppelin"]}
+                         :opinions {:politicians "always been rotten"}}
+               :variables {}}
+        mock-db (reify Storage
+                  (get-group [_ _] child)
+                  (get-ancestors [_ _] [crotchety-ancestor]))
+        handler (app {:db mock-db})]
+
+    (testing "can get an inherited version of a group"
+      (let [child-path (str "/v1/groups/" (:id child))
+            {:keys [status body]} (handler (request :get (str child-path "/inherited")))]
+        (is (= 200 status))
+        (is (= (deep-merge crotchety-ancestor child)
+               (-> body
+                 (decode true)
+                 convert-uuids)))))))
+
 (defn class-request
   ([method env] (class-request method env nil nil))
   ([method env name] (class-request method env name nil))
