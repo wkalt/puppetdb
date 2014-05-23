@@ -236,7 +236,7 @@ module ClassifierExtensions
 
     case os
     when :debian
-      on host, "apt-get install -y --force-yes #{classifer_service_name(database)}"
+      on host, "apt-get install -y --force-yes #{classifier_service_name(database)}"
     when :redhat
       on host, "yum install -y #{classifier_service_name(database)}"
     else
