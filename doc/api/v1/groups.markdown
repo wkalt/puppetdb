@@ -189,6 +189,19 @@ If the group exists, the response will be a group object as described above, in 
 In addition to the general `malformed-uuid` error response, if the group with the given ID cannot be found, a 404 Not Found response will be returned.
 The body will be a generic 404 error response as described in the [errors documentation](errors.markdown).
 
+### GET /v1/groups/:id/inherited
+
+Retrieve the group with the given ID, with all inherited classes, class parameters, and variables included.
+
+#### Response Format
+
+If the group exists, the response will be a group object as described above, in JSON format.
+
+#### Error Responses
+
+In addition to the general `malformed-uuid` error response, if the group with the given ID cannot be found, a 404 Not Found response will be returned.
+The body will be a generic 404 error response as described in the [errors documentation](errors.markdown).
+
 ### PUT /v1/groups/:id
 
 Create a group with the given ID.
