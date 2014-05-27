@@ -1,3 +1,10 @@
+## 0.4.0
+ * Add an endpoint to explain classification (given facts submitted with the request).
+ * Add an endpoint to view a group with its inherited values.
+ * Store classifications in node check-ins.
+ * Add integration tests against the PE ecosystem.
+ * Allow integration tests to run classifier on a different box from Puppet.
+
 ### 0.3.3
  * Fixed a bug where classes without parameters could not be added to a group.
  * Fixed a bug where changing a class parameter's default value in Puppet would cause later operations that used the class's default value to error out.
