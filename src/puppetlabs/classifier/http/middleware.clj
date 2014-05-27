@@ -127,16 +127,20 @@
   (fn [request]
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.http/user-data-invalid] exc-data
-        (let [{:keys [schema value error]} (process-schema-exception-data exc-data)]
+        (let [{:keys [schema value error]} (process-schema-exception-data exc-data)
+              msg (-> (str "The object you submitted does not conform to the schema. The"
+                           " problem is: " error)
+                    (str/replace #":rule \(not \(some \(check \% [^\)]+\) schemas\)\)"
+                                 (str ":rule \"The rule is malformed. Please consult the group"
+                                      " documentation for details on the rule grammar.\"")))]
           {:status 400
            :headers {"Content-Type" "application/json"}
            :body (json/encode
-                   {:kind "schema-violation"
-                    :msg (str "The object you submitted does not conform to the schema. The problem"
-                              " is: " error)
-                    :details {:submitted value
-                              :schema schema
-                              :error error}})}))
+                     {:kind "schema-violation"
+                      :msg msg
+                      :details {:submitted value
+                                :schema schema
+                                :error error}})}))
 
       (catch clojure.lang.ExceptionInfo e
         ;; re-throw things that aren't schema validation errors
