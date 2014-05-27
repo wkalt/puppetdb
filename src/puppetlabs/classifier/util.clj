@@ -45,8 +45,16 @@
         keyword->string (fn [x]
                           (if (= x 'Keyword)
                             'String
-                            x))]
-    (postwalk (comp keyword->string strip-sym-prefix)
+                            x))
+        var->string (fn [x]
+                      (if (var? x)
+                        (str x)
+                        x))
+        fn->string (fn [x]
+                     (if (fn? x)
+                       (-> (str x) (str/replace #"@.*$" ""))
+                       x))]
+    (postwalk (comp var->string fn->string keyword->string strip-sym-prefix)
               explained)))
 
 (defn- remove-paths-to-nils
