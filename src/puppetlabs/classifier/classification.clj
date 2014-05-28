@@ -20,7 +20,7 @@
 
 (sc/defn collapse-to-inherited :- Classification
   "Given a group classification and the chain of its ancestors' classifications,
-  return a single group representing all inherited values."
+  return a single classification representing all inherited values."
   ([inheritance :- [Classification]]
    (apply merge-and-clean (reverse inheritance)))
   ([group-classification :- Classification
