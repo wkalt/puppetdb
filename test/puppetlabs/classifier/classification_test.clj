@@ -114,47 +114,75 @@
 
 (deftest classification-conflicts
   (testing "conflicts"
-    (let [conflicting [{:environment "production"
-                        :environment-trumps false
-                        :classes {:no-conflict {:foo "bar"}
-                                  :conflict {:does "conflict", :doesnt "conflict"}}
-                        :variables {:unique "snowflake"
-                                    :generic "conflict"}}
-                       {:environment "staging"
-                        :environment-trumps false
-                        :classes {:no-conflict {:baz "quux"}
-                                  :conflict {:does "conflicts", :doesnt "conflict"}}
-                        :variables {:generic "conflicts"
-                                    :also-unique "snowflake"}}
-                       {:environment "dev"
-                        :environment-trumps false
-                        :classes {:no-conflict {:baz "quux"}
-                                  :conflict {:does "conflicting", :doesnt "conflict"}}
-                        :variables {:generic "conflagration", :one-of-a-kind "means unique"}}]
-          disjoint [{:environment "production"
-                     :environment-trumps false
-                     :classes {:no-conflict {:foo "bar"}
-                               :conflict? {:not "conflict"}}
-                     :variables {:unique "snowflake"}}
-                    {:environment "production"
-                     :environment-trumps false
-                     :classes {:lone-wolf {:pardners []}}
-                     :variables {:very-unique "makes no sense"}}
-                    {:environment "production"
-                     :environment-trumps false
-                     :classes {:no-conflict {:baz "quux"}
-                               :conflict? {:not "conflict"}}
-                     :variables {:unique "snowflake"
-                                 :also-unique "'nother snowflake"}}]]
-
-      (testing "turns conflicting values into sets and omits all non-conflicting paths"
-        (is (= {:environment #{"production" "staging" "dev"}
-                :classes {:conflict {:does #{"conflict" "conflicts" "conflicting"}}}
+    (testing "turns conflicting values into sets and omits all non-conflicting paths"
+      (let [non-env-conflicts [{:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:foo "bar"}
+                                          :conflict {:does "conflict", :doesnt "conflict"}}
+                                :variables {:unique "snowflake"
+                                            :generic "conflict"}}
+                               {:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:baz "quux"}
+                                          :conflict {:does "conflicts", :doesnt "conflict"}}
+                                :variables {:generic "conflicts"
+                                            :also-unique "snowflake"}}
+                               {:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:baz "quux"}
+                                          :conflict {:does "conflicting", :doesnt "conflict"}}
+                                :variables {:generic "conflagration"
+                                            :one-of-a-kind "means unique"}}]
+            no-trump-env-conflicts [{:environment "production"
+                                     :environment-trumps false
+                                     :classes {}, :variables {}}
+                                    {:environment "staging"
+                                     :environment-trumps false
+                                     :classes {}, :variables {}}]
+            trump-env-conflicts [{:environment "production"
+                                  :environment-trumps true
+                                  :classes {}, :variables {}}
+                                 {:environment "staging"
+                                  :environment-trumps true
+                                  :classes {}, :variables {}}]]
+        (is (= {:classes {:conflict {:does #{"conflict" "conflicts" "conflicting"}}}
                 :variables {:generic #{"conflict" "conflicts" "conflagration"}}}
-               (conflicts conflicting))))
+               (conflicts non-env-conflicts)))
+        (is (= {:environment #{"production" "staging"}} (conflicts no-trump-env-conflicts)))
+        (is (= {:environment #{"production" "staging"}} (conflicts trump-env-conflicts)))))
 
-      (testing "returns nil if there are no conflicts at all"
-        (is (nil? (conflicts disjoint)))))))
+    (testing "returns nil if there are no conflicts at all"
+      (let [disjoint [{:environment "production"
+                       :environment-trumps false
+                       :classes {:no-conflict {:foo "bar"}
+                                 :conflict? {:not "conflict"}}
+                       :variables {:unique "snowflake"}}
+                      {:environment "production"
+                       :environment-trumps false
+                       :classes {:lone-wolf {:pardners []}}
+                       :variables {:very-unique "makes no sense"}}
+                      {:environment "production"
+                       :environment-trumps false
+                       :classes {:no-conflict {:baz "quux"}
+                                 :conflict? {:not "conflict"}}
+                       :variables {:unique "snowflake"
+                                   :also-unique "'nother snowflake"}}]]
+        (is (nil? (conflicts disjoint)))))
+
+    (testing "uses the environment-trumps flag to resolve environment conflicts"
+      (let [with-env-trump [{:environment "production"
+                             :environment-trumps false
+                             :classes {}, :variables {}}
+                            {:environment "staging"
+                             :environment-trumps false
+                             :classes {}, :variables {}}
+                            {:environment "bugfix-4385"
+                             :environment-trumps true
+                             :classes {}, :variables {}}
+                            {:environment "bugfix-4385"
+                             :environment-trumps true
+                             :classes {}, :variables {}}]]
+        (is (nil? (conflicts with-env-trump)))))))
 
 (deftest conflict-explanations
   (let [root {:name "root", :id root-group-uuid, :parent root-group-uuid

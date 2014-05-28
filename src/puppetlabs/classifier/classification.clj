@@ -36,7 +36,7 @@
   parameter, or a variable."
   [classifications :- [Classification]]
   ;; it is easiest to understand this function by starting with the threading
-  ;; macro form in the let body, then working up from there.
+  ;; macro form at the end of the let bindings, then working up from there.
   (let [conflicts->sets (fn [a b]
                           ;; deep-merge-with uses this fn to reduce the vals
                           (into #{} (remove nil? (if (set? a)
@@ -63,19 +63,37 @@
                                    (if (or (and (map-entry? form) (not (conflicting-entry? form)))
                                            (and (map? form) (empty? form)))
                                      nil
-                                     form))]
-    (->> classifications
-      (map #(dissoc % :environment-trumps))
-      ;; conflicts->sets examines the provided values and produces a set
-      ;; whenever there are multiple distinct values to choose from during the
-      ;; merge (meaning there is a conflict).
-      (apply deep-merge-with conflicts->sets)
-      ;; After the deep merge above, all conflicts have been turned in to sets,
-      ;; so use a postwalk transformation to remove all paths that don't lead to
-      ;; sets. A postwalk is necessary in order to also eliminate empty maps
-      ;; coming up out of the leaves, otherwise classes without any conflicting
-      ;; parameters would still have an empty map in the returned value.
-      (walk/postwalk omit-nonconflicting-keys))))
+                                     form))
+        trump-envs (->> classifications
+                     (filter :environment-trumps)
+                     (map :environment)
+                     set)
+        conflicts (->> classifications
+                    (map #(dissoc % :environment-trumps))
+                    ;; conflicts->sets examines the provided values and produces a set whenever
+                    ;; there are multiple distinct values to choose from during the merge (meaning
+                    ;; there is a conflict).
+                    (apply deep-merge-with conflicts->sets)
+                    ;; After the deep merge above, all conflicts have been turned in to sets, so use
+                    ;; a postwalk transformation to remove all paths that don't lead to sets.
+                    ;; A postwalk is necessary in order to also eliminate empty maps coming up out
+                    ;; of the leaves, otherwise classes without any conflicting parameters would
+                    ;; still have an empty map in the returned value.
+                    (walk/postwalk omit-nonconflicting-keys))]
+    (cond
+      (not (contains? conflicts :environment))
+      conflicts
+
+      (empty? trump-envs) ; nobody has a trump environment, so there are still conflicts
+      conflicts
+
+      (> (count trump-envs) 1)
+      (assoc conflicts :environment trump-envs)
+
+      :else ; only one trump environment
+      (let [without-env (dissoc conflicts :environment)]
+        (if (seq without-env)
+          without-env)))))
 
 (defn- conflict-details
   [path values group->ancestors]
