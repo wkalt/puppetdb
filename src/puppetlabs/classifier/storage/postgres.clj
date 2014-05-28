@@ -405,16 +405,17 @@
 
 (def group-selection
   "SELECT g.name,
-          g.id               AS id,
-          g.environment_name AS environment,
-          g.parent_id        AS parent,
-          g.description      AS description,
-          gv.variable        AS variable,
-          gv.value           AS variable_value,
-          gc.class_name      AS class,
-          gcp.parameter      AS parameter,
-          gcp.value          AS parameter_value,
-          r.match            AS rule
+          g.id                 AS id,
+          g.environment_name   AS environment,
+          g.environment_trumps AS environment_trumps,
+          g.parent_id          AS parent,
+          g.description        AS description,
+          gv.variable          AS variable,
+          gv.value             AS variable_value,
+          gc.class_name        AS class,
+          gcp.parameter        AS parameter,
+          gcp.value            AS parameter_value,
+          r.match              AS rule
   FROM groups g
        LEFT OUTER JOIN group_classes gc ON g.id = gc.group_id
        LEFT OUTER JOIN group_class_parameters gcp ON gc.group_id = gcp.group_id AND gc.class_name = gcp.class_name
@@ -470,6 +471,7 @@
     (map deserialize-group-class-parameters)
     (map deserialize-rule)
     (map #(dissoc-nil % :description))
+    (map #(set/rename-keys % {:environment_trumps :environment-trumps}))
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
@@ -629,8 +631,9 @@
           (validate-group* {:db t-db} group)
           (create-environment-if-missing {:db t-db} {:name environment})
           (jdbc/insert! t-db :groups
-                        [:name :description :environment_name :id :parent_id]
-                        (conj ((juxt :name :description :environment) group) id parent))
+                        [:name :description :environment_name :environment_trumps :id :parent_id]
+                        (conj ((juxt :name :description :environment :environment-trumps) group)
+                              id parent))
           (doseq [[v-key v-val] variables]
             (jdbc/insert! t-db :group_variables
                           [:variable :group_id :value]

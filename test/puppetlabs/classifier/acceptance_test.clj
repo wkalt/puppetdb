@@ -165,6 +165,7 @@
     (testing "can create a group by POSTing to the group collection endpoint"
       (let [group {:name "bargroup"
                    :environment "test"
+                   :environment-trumps false
                    :description "this group is for bars only! no foos allowed."
                    :rule ["=" "bar" "bar"]
                    :parent root-group-uuid
@@ -190,6 +191,7 @@
           group {:name "foogroup"
                  :id (UUID/randomUUID)
                  :environment "test"
+                 :environment-trumps false
                  :rule ["=" "foo" "foo"]
                  :parent root-group-uuid
                  :classes {}
@@ -209,6 +211,7 @@
         (let [conflicting {:name "foogroup"
                            :id (UUID/randomUUID)
                            :environment "test"
+                           :environment-trumps false
                            :rule ["=" "foo" "foo"]
                            :parent root-group-uuid
                            :classes {}}
@@ -230,6 +233,7 @@
         (let [no-rules {:name "chaos"
                         :id (UUID/randomUUID)
                         :environment "anarchy"
+                        :environment-trumps false
                         :parent root-group-uuid
                         :classes {}
                         :variables {}}
@@ -301,6 +305,7 @@
         saturn {:name "saturn"
                 :id (UUID/randomUUID)
                 :environment "space"
+                :environment-trumps false
                 :rule ["=" "foo" "foo"]
                 :parent root-group-uuid
                 :classes {:ringed-planet {:rings ["d" "c" "b" "a" "f" "g" "methone-arc"
@@ -334,8 +339,8 @@
         env-url #(str base-url "/v1/environments/" %)
         env-names ["dev" "tropical" "desert" "space"]
         envs (for [en env-names] {:name en})
-        group {:name "bazgroup", :id (UUID/randomUUID), :environment "production",
-               :parent root-group-uuid, :rule ["=" "foo" "foo"], :classes {}}]
+        group {:name "bazgroup", :id (UUID/randomUUID), :parent root-group-uuid,
+               :environment "production", :environment-trumps false, :rule ["=" "foo" "foo"], :classes {}}]
 
     (doseq [en env-names] (http/put (env-url en)))
 
@@ -409,18 +414,21 @@
                      :id (UUID/randomUUID)
                      :parent root-group-uuid
                      :environment "production",
+                     :environment-trumps false
                      :classes {:high {:refined "most"}}
                      :rule ["=" "foo" "foo"]}
           side-group {:name "side"
                       :id (UUID/randomUUID)
                       :parent root-group-uuid
                       :environment "production"
+                      :environment-trumps false
                       :classes {}
                       :rule ["=" "foo" "foo"]}
           bottom-group {:name "bottom"
                         :id (UUID/randomUUID)
                         :parent (:id side-group)
                         :environment "staging"
+                        :environment-trumps false
                         :classes {}
                         :rule ["=" "foo" "foo"]}]
 
@@ -463,6 +471,7 @@
         crotchety-ancestor {:name "Hubert"
                             :id (UUID/randomUUID)
                             :environment "production"
+                            :environment-trumps false
                             :parent root-group-uuid
                             :rule [">=" ["facts" "age"] "93"]
                             :classes {:suspenders {:color "0xff0000"
@@ -477,6 +486,7 @@
         child {:name "Huck"
                :id (UUID/randomUUID)
                :environment "dev"
+               :environment-trumps false
                :parent (:id crotchety-ancestor)
                :rule ["and" ["<" ["facts" "age"] "93"]
                             [">=" ["facts" "age"] "60"]]
@@ -527,6 +537,7 @@
             group {:name "test-group"
                    :id (UUID/randomUUID)
                    :environment "staging"
+                   :environment-trumps false
                    :parent root-group-uuid
                    :rule ["=" "name" "thenode"]
                    :classes {:noisyclass {:verbose "false"}}
@@ -651,6 +662,7 @@
                    :id (UUID/randomUUID)
                    :classes {:riscybusiness {}}
                    :environment "staging"
+                   :environment-trumps false
                    :parent root-group-uuid
                    :rule ["=" ["facts" "architecture"] "alpha"]
                    :variables {:riscisgood "yes"}}
@@ -680,6 +692,7 @@
                :id (UUID/randomUUID)
                :parent root-group-uuid
                :environment "production"
+               :environment-trumps false
                :rule ["=" "name" "gary"]
                :classes {:aclass {:verbose "true" :log "info"}
                          :bclass {}}
@@ -782,7 +795,7 @@
         (is (= {:name "space"} (json/decode body true)))))
 
     (let [group {:name "groucho", :id (UUID/randomUUID)
-                 :environment "space", :parent root-group-uuid
+                 :environment "space", :environment-trumps false, :parent root-group-uuid
                  :rule ["=" "x" "y"], :classes {}, :variables {}}
           group-url (str base-url "/v1/groups/" (:id group))
           put-opts {:content-type :json, :body (json/encode group)}]
@@ -804,7 +817,7 @@
 (deftest ^:acceptance group-cycles
   (let [base-url (base-url test-config)
         group-id (UUID/randomUUID)
-        group {:name "badgroupnono", :environment "production"
+        group {:name "badgroupnono", :environment "production", :environment-trumps false
                :id group-id, :parent group-id
                :rule ["=" "a" "b"], :classes {}, :variables {}}
         group-url (str base-url "/v1/groups/" (:id group))]
@@ -818,12 +831,18 @@
 
   (let [base-url (base-url test-config)
         group-url (str base-url "/v1/groups/")
-        enos {:name "enos", :id (UUID/randomUUID), :parent root-group-uuid
-              :rule ["=" "1" "2"], :classes {}, :variables {}, :environment "production"}
-        yancy {:name "yancy", :id (UUID/randomUUID), :parent (:id enos)
-              :rule ["=" "3" "4"], :classes {}, :variables {}, :environment "production"}
-        philip {:name "philip", :id (UUID/randomUUID), :parent (:id yancy)
-              :rule ["=" "5" "6"], :classes {}, :variables {}, :environment "production"}
+        enos {:name "enos"
+              :parent root-group-uuid
+              :id (UUID/randomUUID), :rule ["=" "1" "2"], :classes {}, :variables {}
+              :environment "production", :environment-trumps false}
+        yancy {:name "yancy"
+               :parent (:id enos)
+               :id (UUID/randomUUID), :rule ["=" "3" "4"], :classes {}, :variables {}
+               :environment "production", :environment-trumps false}
+        philip {:name "philip"
+                :parent (:id yancy)
+                :id (UUID/randomUUID), :rule ["=" "5" "6"], :classes {}, :variables {}
+                :environment "production", :environment-trumps false}
         delta {:parent (:id philip)}]
 
     (http/put (str group-url (:id enos)) {:content-type :json, :body (json/encode enos)})
@@ -846,9 +865,9 @@
 
 (deftest ^:acceptance no-parent
   (let [base-url (base-url test-config)
-        orphan {:name "orphan", :id (UUID/randomUUID)
-                :parent (UUID/randomUUID), :rule ["=" "a" "a"]
-                :classes {}, :variables {}, :environment "production"}]
+        orphan {:name "orphan", :id (UUID/randomUUID), :parent (UUID/randomUUID),
+                :rule ["=" "a" "a"], :classes {}, :variables {}
+                :environment "production", :environment-trumps false}]
     (testing "referring to a nonexistent parent generates an understandable error"
       (let [{:keys [body status]} (http/put (str base-url "/v1/groups/" (:id orphan))
                                             {:content-type :json
@@ -864,7 +883,9 @@
 
 (deftest ^:acceptance classification-history
   (let [base-url (base-url test-config)
-        group->class8n group->classification
+        group->class8n-out #(-> %
+                              group->classification
+                              (dissoc :environment-trumps))
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
                :body
                (json/decode true)
@@ -872,22 +893,21 @@
         spaceships {:name "spaceships"
                     :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
                                  [">=" ["facts" "warp cores"] "1"]]
-                    :environment "deep space", :id (UUID/randomUUID), :parent root-group-uuid
-                    :classes {}, :variables {}}
+                    :environment "deep space", :environment-trumps false, :id (UUID/randomUUID)
+                    :parent root-group-uuid, :classes {}, :variables {}}
         spacestations {:name "spacestations"
                        :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
                                     ["=" ["facts" "warp cores"] "0"]
                                     [">" ["facts" "docking pylons"] "0"]]
-                       :environment "space", :id (->uuid "6dba6085-b4c4-40ef-a63b-6acd30a63acd")
-                       :parent root-group-uuid
-                       :classes {}, :variables {}}
+                       :environment "space", :environment-trumps false, :id (UUID/randomUUID)
+                       :parent root-group-uuid, :classes {}, :variables {}}
         fun-spacestations {:name "spacestations to have a good time at"
                            :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
                                         ["=" ["facts" "warp cores"] "0"]
                                         [">" ["facts" "docking pylons"] "0"]
                                         [">=" ["facts" "bars"] "1"]]
-                           :environment "space", :id (UUID/randomUUID), :parent root-group-uuid
-                           :classes {}, :variables {}}
+                           :environment "space", :environment-trumps false, :id (UUID/randomUUID)
+                           :parent root-group-uuid, :classes {}, :variables {}}
         ds9-node {:name "Deep Space 9"
                   :facts {"pressure hulls" "3"
                           "docking ports" "18"
@@ -926,7 +946,7 @@
               node (sc/validate ClientNode (json/decode body true))
               expected-node {:name (:name ds9-node)
                              :check_ins [{:explanation ds9-explanation
-                                          :classification (group->class8n fun-spacestations)}]}]
+                                          :classification (group->class8n-out fun-spacestations)}]}]
           (is (= 200 status))
           (is (= expected-node (-> node
                                  (update-in [:check_ins 0] dissoc :time)
@@ -942,10 +962,11 @@
                         (filter #(contains? node-names (:name %)))))
               expected-nodes [{:name (:name ds9-node)
                                :check_ins [{:explanation ds9-explanation
-                                            :classification (group->class8n fun-spacestations)}]}
+                                            :classification (group->class8n-out
+                                                              fun-spacestations)}]}
                               {:name (:name ncc1701d-node)
                                :check_ins [{:explanation ncc1701d-explanation
-                                            :classification (group->class8n spaceships)}]}]]
+                                            :classification (group->class8n-out spaceships)}]}]]
           (is (= 200 status))
           (is (= expected-nodes
                  (->> nodes
@@ -960,10 +981,10 @@
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
               node (sc/validate ClientNode (json/decode body true))
               expected-check-ins [{:explanation ds9-explanation
-                                   :classification (group->classification fun-spacestations)
+                                   :classification (group->class8n-out fun-spacestations)
                                    :transaction_uuid check-in-uuid}
                                   {:explanation ds9-explanation
-                                   :classification (group->classification fun-spacestations)
+                                   :classification (group->class8n-out fun-spacestations)
                                    :transaction_uuid nil}]]
           (is (= expected-check-ins
                  (for [check-in (:check_ins node)]
@@ -1025,14 +1046,14 @@
                               ["=" ["facts" "blood oxygen transporter"] "hemocyanin"]]
                  :classes {:logic {:importance "primary"}
                            :emotion {:importance "ignored"}}
-                 :environment "alpha quadrant", :id (UUID/randomUUID), :parent root-group-uuid
-                 :variables {}}
+                 :environment "alpha quadrant", :environment-trumps false, :id (UUID/randomUUID)
+                 :parent root-group-uuid, :variables {}}
         humans {:name "Humans"
                 :rule [">=" ["facts" "spunk"] "5"]
                 :classes {:logic {:importance "secondary"}
                           :emotion {:importance "primary"}}
-                :environment "alpha quadrant", :id (UUID/randomUUID), :parent root-group-uuid
-                :variables {}}
+                :environment "alpha quadrant", :environment-trumps false, :id (UUID/randomUUID)
+                :parent root-group-uuid, :variables {}}
         tuvok {:name "Tuvok"
                :facts {"eyebrow pitch" "30"
                        "ear-tips" "pointed"
@@ -1071,7 +1092,9 @@
                                       [id (group->classification group)]))
             class8n-leaves {(:id vulcans) (class8n/collapse-to-inherited
                                             (map group->classification [vulcans root]))}
-            class8n (get class8n-leaves (:id vulcans))
+            class8n (-> class8n-leaves
+                      (get (:id vulcans))
+                      (dissoc :environment-trumps))
             expected-response {:node_as_received (assoc tuvok :trusted {})
                                :match_explanations match-explanations
                                :leaf_groups {(:id vulcans) vulcans}

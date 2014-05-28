@@ -65,6 +65,7 @@
                                      nil
                                      form))]
     (->> classifications
+      (map #(dissoc % :environment-trumps))
       ;; conflicts->sets examines the provided values and produces a set
       ;; whenever there are multiple distinct values to choose from during the
       ;; merge (meaning there is a conflict).

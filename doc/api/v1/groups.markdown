@@ -24,6 +24,9 @@ Each group object contains the following keys:
 * `id`: the group's ID, which is a string containing a type-4 (random) UUID.
 * `description`: an optional key containing an arbitrary string describing the group.
 * `environment`: the name of the group's environment (a string), which indirectly defines what classes will be available for the group to set, and will be the environment that nodes classified into this group will run under.
+* `environment_trumps`: this is a boolean that changes the behavior of classifications that this group is involved in.
+                        The default behavior is to return a classification-conflict error if the groups that a node is classified into do not all have the same environment.
+                        If this flag is set, then this group's environment will override the environments of the other groups (provided that none of them also have this flag set), with no attempt made to validate that the other groups' classes and class parameters exist in this group's environment.
 * `parent`: the ID of the group's parent (a string).
             A group is not permitted to be its own parent, unless it is the default group (which is the root of the hierarchy).
             Note that the root group always has the lowest-possible random UUID, `00000000-0000-4000-8000-000000000000`.
@@ -129,6 +132,8 @@ The keys allowed in this object are:
 * `name`: the name of the group (required).
 * `environment`: the name of the group's environment.
                  This key is optional; if it's not provided, the default environment (`production`) will be used.
+* `environment_trumps`: whether this group's environment should override those of other groups at classification-time.
+                        This key is optional; if it's not provided, the default value of `false` will be used.
 * `description`: a string describing the group.
                  This key is optional; if it's not provided, the group will have no description and this key will not appear in responses.
 * `parent`: the ID of the group's parent (required).

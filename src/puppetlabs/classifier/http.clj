@@ -251,7 +251,7 @@
     :else false))
 
 (def group-defaults
-  {:environment "production", :variables {}})
+  {:environment "production", :environment-trumps false, :variables {}})
 
 (defn group-resource
   [db prefix uuid-str]
@@ -357,7 +357,8 @@
           leaves (class8n/inheritance-maxima group->ancestors)
           leaf-classifications (vals (leaves->inherited-classifications group->ancestors leaves))
           conflicts (class8n/conflicts leaf-classifications)
-          classification (apply deep-merge leaf-classifications)
+          classification (-> (apply deep-merge leaf-classifications)
+                           (dissoc :environment-trumps))
           matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
           explanation (into {} (for [{g-id :group-id, :as rule} matching-rules]
                                  [g-id (rules/explain-rule rule node)]))
@@ -399,7 +400,8 @@
           leaf->classification (leaves->inherited-classifications group->ancestors leaves)
           leaf-classifications (vals leaf->classification)
           conflicts (class8n/conflicts leaf-classifications)
-          classification (apply deep-merge leaf-classifications)
+          classification (-> (apply deep-merge leaf-classifications)
+                           (dissoc :environment-trumps))
           partial-resp {:node_as_received node
                         :match_explanations match-explanations
                         :leaf_groups (into {} (map (juxt :id identity) leaves))

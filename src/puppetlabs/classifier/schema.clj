@@ -71,8 +71,12 @@
 
 (def Classification
   {:environment String
+   :environment-trumps boolean
    :classes {sc/Keyword (sc/maybe {sc/Keyword sc/Any})}
    :variables {sc/Keyword sc/Any}})
+
+(def ClassificationOutput
+  (dissoc Classification :environment-trumps))
 
 (def ClassificationConflict
   {(sc/optional-key :environment) #{String}
@@ -83,7 +87,7 @@
   {:node String
    :time org.joda.time.DateTime
    :explanation {UUID ExplainedCondition}
-   (sc/optional-key :classification) Classification
+   (sc/optional-key :classification) ClassificationOutput
    (sc/optional-key :transaction_uuid) UUID})
 
 (def ClientCheckIn
@@ -123,6 +127,7 @@
   {:id UUID
    (sc/optional-key :name) String
    (sc/optional-key :environment) String
+   (sc/optional-key :environment-trumps) boolean
    (sc/optional-key :description) String
    (sc/optional-key :parent) UUID
    (sc/optional-key :rule) (sc/maybe RuleCondition)

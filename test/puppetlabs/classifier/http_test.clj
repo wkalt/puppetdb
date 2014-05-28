@@ -77,6 +77,7 @@
   (let [annotated {:name "annotated"
                    :id (UUID/randomUUID)
                    :environment "production"
+                   :environment-trumps false
                    :parent root-group-uuid
                    :rule ["=" "name" "kermit"]
                    :variables {}
@@ -91,6 +92,7 @@
         agroup {:name "agroup"
                 :id agroup-id
                 :environment "bar"
+                :environment-trumps false
                 :parent root-group-uuid
                 :rule ["=" "name" "bert"]
                 :classes {:foo {:param "override"}}
@@ -98,6 +100,7 @@
         agroup' {:name "agroupprime"
                  :id agroup-id
                  :environment "bar"
+                 :environment-trumps false
                  :parent root-group-uuid
                  :rule ["=" "name" "ernie"]
                  :classes {:foo {}}
@@ -105,6 +108,7 @@
         root {:name "default"
               :id root-group-uuid
               :environment "production"
+              :environment-trumps false
               :parent root-group-uuid
               :rule ["=" "nofact" "noval"]
               :classes {}
@@ -112,6 +116,7 @@
         bgroup {:name "bgroup"
                 :id (UUID/randomUUID)
                 :environment "quux"
+                :environment-trumps false
                 :parent root-group-uuid
                 :rule ["=" "name" "elmo"]
                 :classes {}
@@ -215,6 +220,7 @@
   (let [crotchety-ancestor {:name "Hubert"
                             :id (UUID/randomUUID)
                             :environment "FDR's third term"
+                            :environment-trumps false
                             :parent root-group-uuid
                             :rule [">=" ["facts" "age"] "93"]
                             :classes {:suspenders {:color "0xff0000"
@@ -229,6 +235,7 @@
         child {:name "Huck"
                :id (UUID/randomUUID)
                :environment "not inherited"
+               :environment-trumps false
                :parent (:id crotchety-ancestor)
                :rule ["and" ["<" ["facts" "age"] "93"]
                             [">=" ["facts" "age"] "60"]]
@@ -345,6 +352,7 @@
         group {:name "factgroup"
                :id (UUID/randomUUID)
                :environment "production"
+               :environment-trumps false
                :parent root-group-uuid
                :rule (:when rule)
                :classes {}
@@ -379,10 +387,12 @@
         root {:name "default", :id root-group-uuid
               :parent root-group-uuid
               :environment "production"
+              :environment-trumps false
               :rule ["=" "foo" "foo"]
               :classes {}, :variables {}}
         left-child {:name "left-child", :id (UUID/randomUUID)
                     :environment "staging"
+                    :environment-trumps false
                     :parent root-group-uuid
                     :rule ["=" "name" "multinode"]
                     :classes {:redclass {:red "a world about to dawn"}
@@ -390,12 +400,14 @@
                     :variables {:snowflake "identical"}}
         right-child {:name "right-child", :id (UUID/randomUUID)
                      :environment "staging"
+                     :environment-trumps false
                      :parent root-group-uuid
                      :rule ["=" "name" "multinode"]
                      :classes {:redclass {:black "the night that ends at last"}}
                      :variables {:snowflake "identical"}}
         grandchild {:name "grandchild", :id (UUID/randomUUID)
                     :environment "staging"
+              :environment-trumps false
                     :parent (:id right-child)
                     :rule ["=" "name" "multinode"]
                     :classes {:blueclass {:blue "since my baby left me"}}
@@ -482,8 +494,8 @@
                        :rule ["and" ["=" ["facts" "orbits"] "sol"]
                               [">" ["facts" "orbital neighbors"] "0"]
                               ["=" ["facts" "shape"] "spherical"]]
-                       :id (UUID/randomUUID), :environment "space", :parent root-group-uuid
-                       :classes {}, :variables {}}
+                       :id (UUID/randomUUID), :environment "space", :environment-trumps false
+                       :parent root-group-uuid, :classes {}, :variables {}}
         eris {:name "eris"
               :facts {"orbits" "sol"
                       "orbital neighbors" "1200"
@@ -587,7 +599,7 @@
             as-validated (-> body (decode true) convert-uuids)]
         (is (= status 200))
         (is (contains? as-validated :id))
-        (is (= (assoc valid :environment "production" :variables {})
+        (is (= (assoc valid :environment "production" :environment-trumps false :variables {})
                (dissoc as-validated :id)))))
 
     (testing "groups with malformed IDs are marked as invalid"
