@@ -797,6 +797,8 @@
                           (update-group-field t-db :description :description extant delta)
                           (update-group-field t-db :parent :parent_id extant delta)
                           (update-group-field t-db :name :name extant delta)
+                          (update-group-field t-db, :environment-trumps, :environment_trumps
+                                              extant, delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} (:id delta))))]
     (loop [retries 3]

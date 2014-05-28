@@ -248,6 +248,7 @@
       (let [g1-delta {:id (:id g1)
                       :name "sally"
                       :environment "tropical"
+                      :environment-trumps true
                       :description "this description is tautological."
                       :rule ["and"
                              ["=" "name" "baz"]

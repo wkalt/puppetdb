@@ -713,6 +713,7 @@
       (let [group-delta {:id (:id group)
                          :name "zgroup"
                          :environment new-env
+                         :environment-trumps true
                          :description "the omega of groups"
                          :rule ["=" "name" "jerry"]
                          :classes {:aclass {:log "fatal"
