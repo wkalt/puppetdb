@@ -758,20 +758,6 @@
                         {:environment_name new-env}
                         where-group-link))))))
 
-(defn- update-group-description
-  [db extant delta]
-  (let [new-description (:description delta)]
-    (when (and new-description (not= new-description (:description extant)))
-      (jdbc/update! db :groups {:description new-description}
-                    (sql/where {:id (:id delta)})))))
-
-(defn- update-group-parent
-  [db extant delta]
-  (let [new-parent (:parent delta)]
-    (when (and new-parent (not= new-parent (:parent extant)))
-      (jdbc/update! db :groups {:parent_id new-parent}
-                    (sql/where {:id (:id delta)})))))
-
 (defn- update-group-rule
   [db extant {id :id, :as delta}]
   (let [new-rule (:rule delta)]
@@ -783,11 +769,11 @@
     (when (and (nil? new-rule) (contains? delta :rule))
       (jdbc/delete! db :rules (sql/where {:group_id id})))))
 
-(defn- update-group-name
-  [db extant delta]
-  (let [new-name (:name delta)]
-    (when (and new-name (not= new-name (:name extant)))
-      (jdbc/update! db, :groups, {:name new-name}
+(defn- update-group-field
+  [db map-field row-field extant delta]
+  (let [new-value (get delta map-field)]
+    (when (and new-value (not= new-value (get extant map-field)))
+      (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
 (defn- validate-delta
@@ -807,10 +793,10 @@
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
-                          (update-group-description t-db extant delta)
-                          (update-group-parent t-db extant delta)
                           (update-group-rule t-db extant delta)
-                          (update-group-name t-db extant delta)
+                          (update-group-field t-db :description :description extant delta)
+                          (update-group-field t-db :parent :parent_id extant delta)
+                          (update-group-field t-db :name :name extant delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} (:id delta))))]
     (loop [retries 3]
