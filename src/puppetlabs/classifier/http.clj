@@ -360,7 +360,7 @@
           classification (-> (apply deep-merge leaf-classifications)
                            (dissoc :environment-trumps))
           matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
-          explanation (into {} (for [{g-id :group-id, :as rule} matching-rules]
+          explanation (into {} (for [{g-id :group-id, rule :when} matching-rules]
                                  [g-id (rules/explain-rule rule node)]))
           check-in {:node node-name
                     :time check-in-time
@@ -391,7 +391,7 @@
           all-rules (storage/get-rules db)
           matching-group-ids (set (class8n/matching-groups node all-rules))
           matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
-          match-explanations (into {} (for [{g-id :group-id, :as rule} matching-rules]
+          match-explanations (into {} (for [{g-id :group-id, rule :when} matching-rules]
                                         [g-id (rules/explain-rule rule node)]))
           matching-groups (map (partial storage/get-group db) matching-group-ids)
           group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))

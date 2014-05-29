@@ -923,12 +923,11 @@
         ds9-explanation (apply merge
                                (for [group [spacestations fun-spacestations root]
                                      :let [{:keys [id rule]} group]]
-                                 {id (rules/explain-rule {:when rule, :group-id id} ds9-node)}))
+                                 {id (rules/explain-rule rule ds9-node)}))
         ncc1701d-explanation (apply merge
                                     (for [group [spaceships root]]
-                                      (let [{:keys [id rule]} group
-                                            full-rule {:when rule, :group-id id}]
-                                        {id (rules/explain-rule full-rule ncc1701d-node)})))]
+                                      (let [{:keys [id rule]} group]
+                                        {id (rules/explain-rule rule ncc1701d-node)})))]
 
     ;; create groups
     (doseq [g [spaceships spacestations fun-spacestations]]
@@ -1017,8 +1016,7 @@
               explanation (apply merge
                                  (for [group [spacestations' spaceships root]
                                        :let [{:keys [id rule]} group]]
-                                   {id (rules/explain-rule {:when rule, :group-id id}
-                                                           warp-capable-station)}))
+                                   {id (rules/explain-rule rule warp-capable-station)}))
               expected-node {:name (:name warp-capable-station)
                              :check_ins [{:explanation explanation}]}]
           (is (= 200 status))
@@ -1088,7 +1086,7 @@
 
     (testing "get a node classification explanation with result"
       (let [match-explanations (into {} (for [{:keys [id rule] :as group} [vulcans root]]
-                                          [id (rules/explain-rule {:when rule, :group-id id} tuvok)]))
+                                          [id (rules/explain-rule rule tuvok)]))
             group-class8ns (into {} (for [{id :id, :as group} [vulcans root]]
                                       [id (group->classification group)]))
             class8n-leaves {(:id vulcans) (class8n/collapse-to-inherited
@@ -1114,7 +1112,7 @@
     (testing "get a node classification explanation with conflict details"
       (let [match-explanations (into {} (for [group [vulcans humans root]
                                               :let [{:keys [id rule]} group]]
-                                          [id (rules/explain-rule {:when rule, :group-id id} spock)]))
+                                          [id (rules/explain-rule rule spock)]))
             group-class8ns (into {} (for [{id :id, :as group} [vulcans humans root]]
                                       [id (group->classification group)]))
             class8n-leaves (into {} (for [{id :id, :as group} [vulcans humans]]
