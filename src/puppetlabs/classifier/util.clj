@@ -12,7 +12,7 @@
         trip-on-schema-error (fn [x]
                                (let [c (class x)]
                                  (when (or (= c schema.utils.ValidationError)
-                                         (= c schema.utils.NamedError))
+                                           (= c schema.utils.NamedError))
                                    (reset! !has? true))
                                  x))]
     (prewalk trip-on-schema-error x)
@@ -41,13 +41,20 @@
                              (cond
                                (not (symbol? x)) x
                                (not (re-find #"^java\.lang\." xstr)) x
-                               :else
-                                 (symbol (str/replace xstr "java.lang." "")))))
+                               :else (symbol (str/replace xstr "java.lang." "")))))
         keyword->string (fn [x]
                           (if (= x 'Keyword)
                             'String
-                            x))]
-    (postwalk (comp keyword->string strip-sym-prefix)
+                            x))
+        var->string (fn [x]
+                      (if (var? x)
+                        (str x)
+                        x))
+        fn->string (fn [x]
+                     (if (fn? x)
+                       (-> (str x) (str/replace #"@.*$" ""))
+                       x))]
+    (postwalk (comp var->string fn->string keyword->string strip-sym-prefix)
               explained)))
 
 (defn- remove-paths-to-nils

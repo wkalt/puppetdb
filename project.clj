@@ -26,7 +26,7 @@
                  [liberator "0.10.0"]
                  [migratus "0.7.0"]
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
-                 [prismatic/schema "0.2.0"]
+                 [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
                  [puppetlabs/http-client "0.1.4"]
                  [puppetlabs/kitchensink "0.5.3"]

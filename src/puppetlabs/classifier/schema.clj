@@ -20,7 +20,9 @@
                  (uuid? %))))
 
 (def NodeField
-  (sc/either String [String]))
+  (sc/if #'sequential?
+    [String]
+    String))
 
 (def NodeValue
   {:path NodeField

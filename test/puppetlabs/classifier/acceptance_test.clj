@@ -130,13 +130,34 @@
 (deftest ^:acceptance object-validation
   (let [base-url (base-url test-config)
         quiet-put #(http/put % {:throw-exceptions false})]
+
     (testing "schema-noncompliant objects in requests elicit a 400 response."
       (let [resp (quiet-put (str base-url "/v1/environments/production/classes/foo"))]
         (is (= 400 (:status resp)))
         (is (valid-400-resp-body? (:body resp))))
       (let [resp (quiet-put (str base-url "/v1/groups/" (UUID/randomUUID)))]
         (is (= 400 (:status resp)))
-        (is (valid-400-resp-body? (:body resp)))))))
+        (is (valid-400-resp-body? (:body resp)))))
+
+    (testing "groups with malformed rules get a particular error message"
+      (let [bad-rule {:name "Bad Rule"
+                      :id (UUID/randomUUID)
+                      :environment 42
+                      :rule ["~=" "name" "foo"]
+                      :parent root-group-uuid
+                      :classes {}, :variables {}}
+            {:keys [body status]} (http/put (str base-url "/v1/groups/" (:id bad-rule))
+                                            {:throw-exceptions false
+                                             :content-type :json
+                                             :body (json/encode bad-rule)})
+            {:keys [kind msg details]} (json/decode body true)]
+        (is (= 400 status))
+        (is (= kind "schema-violation"))
+        (is (= #{:submitted :schema :error} (-> details keys set)))
+        (is (re-find #":rule \"The rule is malformed\. Please consult the group documentation" msg))
+
+        (testing "that also includes other schema failures"
+          (is (re-find #":environment \(not \(instance\? java\.lang\.String" msg)))))))
 
 (deftest ^:acceptance group-api
   (let [base-url (base-url test-config)]
