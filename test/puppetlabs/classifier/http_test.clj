@@ -498,6 +498,79 @@
                           :from grandchild'
                           :defined-by grandchild'}}))))))))))
 
+(deftest environment-trump-classification
+  (let [root {:name "default"
+              :id root-group-uuid
+              :parent root-group-uuid
+              :environment "production"
+              :environment-trumps false
+              :rule ["~" "name" ".*"]
+              :classes {}, :variables {}}
+        blank-group (fn []
+                      {:id (UUID/randomUUID)
+                       :parent root-group-uuid
+                       :rule ["=" "name" "pets"]
+                       :classes {}, :variables {}})
+        classified-pets-path "/v1/classified/nodes/pets"
+        kittehs (assoc (blank-group)
+                       :name "Kittehs"
+                       :environment "house"
+                       :environment-trumps true
+                       :variables {:meows true})
+        doggehs (assoc (blank-group)
+                       :name "Doggehs"
+                       :environment "outside"
+                       :environment-trumps false
+                       :variables {:woofs true})
+        snakes (assoc (blank-group)
+                      :name "Snakes"
+                      :environment "plane"
+                      :environment-trumps false
+                      :variables {:hisses true})
+        groups [kittehs doggehs snakes root]
+        rules (for [{:keys [id rule]} groups]
+                {:when rule, :group-id id})
+        group-ids (->> groups
+                    (map :id)
+                    (cons root-group-uuid)
+                    set)
+        mock-db (let [groups-by-id (into {} (map (juxt :id identity) groups))]
+                  (reify Storage
+                    (get-rules [_] rules)
+                    (get-group [_ id] (get groups-by-id id))
+                    (get-ancestors [_ _] [root])
+                    (store-check-in [_ ci] ci)))
+        handler (app {:db mock-db})]
+
+    (testing "classifying a node into multiple groups with different environments"
+
+      (testing "succeeds if one group has the environment-trumps flag set"
+        (let [{:keys [status body]} (handler (classification-request "pets"))]
+          (is (= 200 status))
+          (is (= {:name "pets"
+                  :environment "house"
+                  :groups group-ids
+                  :classes {}
+                  :parameters (apply merge (map :variables groups))}
+                 (-> body
+                   (decode true)
+                   (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
+
+      (testing "fails if multiple groups with distinct enviroments have the trumps flag set"
+        (let [doggehs-trump (assoc doggehs :environment-trumps true)
+              groups [kittehs doggehs-trump snakes root]
+              mock-db' (let [groups-by-id (into {} (map (juxt :id identity) groups))]
+                         (reify Storage
+                           (get-rules [_] rules)
+                           (get-group [_ id] (get groups-by-id id))
+                           (get-ancestors [_ _ ] [root])
+                           (store-check-in [_ ci] ci)))
+              handler' (app {:db mock-db'})
+              {:keys [status body]} (handler' (classification-request "pets"))
+              error (decode body true)]
+          (is (= 500 status))
+          (is (= "classification-conflict" (:kind error))))))))
+
 (deftest node-check-ins
   (let [!check-ins (atom {})
         dwarf-planets {:name "dwarf planets"

@@ -653,6 +653,61 @@
                               :from grandchild'
                               :defined-by grandchild'}}))))))))))))
 
+(deftest ^:acceptance environment-trumps
+  (let [base-url (base-url test-config)
+        blank-group (fn []
+                      {:id (UUID/randomUUID)
+                       :parent root-group-uuid
+                       :rule ["=" "name" "pets"]
+                       :classes {}, :variables {}})
+        classified-pets-path "/v1/classified/nodes/pets"
+        kittehs (assoc (blank-group)
+                       :name "Kittehs"
+                       :environment "house"
+                       :environment-trumps true
+                       :variables {:meows true})
+        doggehs (assoc (blank-group)
+                       :name "Doggehs"
+                       :environment "outside"
+                       :environment-trumps false
+                       :variables {:woofs true})
+        snakes (assoc (blank-group)
+                      :name "Snakes"
+                      :environment "plane"
+                      :environment-trumps false
+                      :variables {:hisses true})
+        groups [kittehs doggehs snakes]
+        group-ids (->> groups
+                    (map :id)
+                    (cons root-group-uuid)
+                    set)]
+
+    (testing "classifying a node into multiple groups with different environments"
+      (doseq [g [kittehs doggehs snakes]]
+        (http/put (str base-url "/v1/groups/" (:id g))
+                  {:content-type :json, :body (json/encode g)}))
+
+      (testing "succeeds if one group has the environment-trumps flag set"
+        (let [{:keys [status body]} (http/get (str base-url classified-pets-path))]
+          (is (= 200 status))
+          (is (= {:name "pets"
+                  :environment "house"
+                  :groups group-ids
+                  :classes {}
+                  :parameters (apply merge (map :variables groups))}
+                 (-> body
+                   (json/decode true)
+                   (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
+
+      (testing "fails if multiple groups with distinct enviroments have the trumps flag set"
+        (http/post (str base-url "/v1/groups/" (:id doggehs))
+                   {:content-type :json, :body (json/encode {:environment-trumps true})})
+        (let [{:keys [status body]} (http/get (str base-url classified-pets-path)
+                                              {:throw-exceptions false})
+              error (json/decode body true)]
+          (is (= 500 status))
+          (is (= "classification-conflict" (:kind error))))))))
+
 (deftest ^:acceptance fact-classification
   (let [base-url (base-url test-config)]
     (testing "classify a static group with one class"

@@ -4,9 +4,9 @@
             [puppetlabs.kitchensink.core :refer [deep-merge deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Classification ClassificationConflict
-                                                  ExplainedConflict Group group->classification
-                                                  HierarchyNode Node PuppetClass Rule SubmittedNode
-                                                  ValidationNode]]
+                                                  ClassificationOutput ExplainedConflict Group
+                                                  group->classification HierarchyNode Node
+                                                  PuppetClass Rule SubmittedNode ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
@@ -113,6 +113,32 @@
         (if (seq without-env)
           without-env)))))
 
+(sc/defn merge-classifications :- (sc/maybe ClassificationOutput)
+  "Takes a list of Classifications. If there are no conflicts between the
+  classifications, returns a ClassificationOutput map representing the final
+  merged classification. If there are conflicts, returns nil."
+  [classifications :- [Classification]]
+  (if (conflicts classifications)
+    nil
+    (let [trump-envs (->> classifications
+                       (filter :environment-trumps)
+                       (map :environment)
+                       set)
+          envs (->> classifications
+                 (remove :environment-trumps)
+                 (map :environment)
+                 set)
+          merged-besides-env (->> classifications
+                               (map #(dissoc % :environment :environment-trumps))
+                               (apply deep-merge))]
+      (if (empty? trump-envs)
+        ;; since there are no conflicts, if there are no trump environments
+        ;; then all environments must be the same
+        (assoc merged-besides-env :environment (first envs))
+        ;; again since there aren't any conflicts, there must be only one
+        ;; distinct trump environment
+        (assoc merged-besides-env :environment (first trump-envs))))))
+
 (defn- inherited-classifications
   [leaves group->ancestors]
   (into {} (for [{id :id, :as group} leaves
@@ -148,8 +174,7 @@
      :id->leaf (into {} (map (juxt :id identity) leaves))
      :leaf-id->classification leaf-id->classification
      :conflicts (conflicts (vals leaf-id->classification))
-     :classification (-> (apply deep-merge (vals leaf-id->classification))
-                       (dissoc :environment-trumps))}))
+     :classification (merge-classifications (vals leaf-id->classification))}))
 
 (defn- conflict-details
   [path values group->ancestors]
