@@ -326,10 +326,18 @@
        req))))
 
 (deftest empty-classification
-  (let [mock-db (reify Storage
-                  (get-rules [_] [])
-                  (get-group [_ _] nil)
-                  (get-ancestors [_ _] nil)
+  (let [root {:name "default"
+              :id root-group-uuid
+              :environment "production"
+              :environment-trumps false
+              :parent root-group-uuid
+              :rule ["~" "name" ".*"]
+              :classes {}, :variables {}}
+        mock-db (reify Storage
+                  (get-rules [_]
+                    [{:when (:rule root), :group-id root-group-uuid}])
+                  (get-group [_ _] root)
+                  (get-ancestors [_ _] [root])
                   (store-check-in [_ ci] ci))
         app (app {:db mock-db})]
     (testing "classification returns the right structure with a blank db"
@@ -339,18 +347,20 @@
                                               (encode {})))]
         (is-http-status 200 response)
         (is (= {:name "hellote"
-                :environment nil
-                :groups []
+                :environment "production"
+                :groups [root-group-uuid]
                 :classes {}
                 :parameters {}}
-               (decode body true)))))))
+               (-> body
+                 (decode true)
+                 (update-in [:groups] (partial map #(UUID/fromString %))))))))))
 
 (deftest classification
   (let [group-id (UUID/randomUUID)
         rule {:when ["and" ["=" ["facts" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]
               :group-id group-id}
         group {:name "factgroup"
-               :id (UUID/randomUUID)
+               :id group-id
                :environment "production"
                :environment-trumps false
                :parent root-group-uuid
@@ -363,7 +373,7 @@
                   (get-group [_ _]
                     group)
                   (get-ancestors [_ _]
-                    nil)
+                    [])
                   (store-check-in [_ ci]
                     ci))
         app (app {:db mock-db})]

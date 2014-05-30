@@ -590,8 +590,10 @@
             (is (= 200 status))
             (is (= {:name "multinode"
                     :environment "production"
-                    :groups (-> (->> groups (map :id) set)
-                              (conj root-group-uuid))
+                    :groups (->> groups
+                              (map :id)
+                              (cons root-group-uuid)
+                              set)
                     :classes {:blueclass {:blue "since my baby left me"}
                               :redclass {:red "a world about to dawn"
                                          :black "the night that ends at last"}}

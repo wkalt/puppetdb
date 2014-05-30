@@ -1,7 +1,7 @@
 (ns puppetlabs.classifier.classification
   (:require [clojure.set :refer [difference intersection subset? union]]
             [clojure.walk :as walk]
-            [puppetlabs.kitchensink.core :refer [deep-merge-with]]
+            [puppetlabs.kitchensink.core :refer [deep-merge deep-merge-with]]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [Classification ClassificationConflict
                                                   ExplainedConflict Group group->classification
@@ -26,6 +26,24 @@
   ([group-classification :- Classification
     ancestors :- [Classification]]
    (collapse-to-inherited (concat [group-classification] ancestors))))
+
+(sc/defn inheritance-maxima :- [Group]
+  "Given a map of groups to their ancestors, determine the maxima according to
+  the partial ordering defined by inheritance (i.e. a < b if a is an ancestor of
+  b). Since it is a partial ordering, it is possible to have multiple maxima."
+  [group->ancestors :- {Group [Group]}]
+  (let [descendent-of? (fn [g descendent?]
+                         (let [ancs (->> (get group->ancestors descendent?)
+                                      (map :id)
+                                      set)]
+                           (contains? ancs (:id g))))]
+    (reduce (fn [maxima group]
+              (let [maxima' (remove #(descendent-of? % group) maxima)]
+                (if (some (partial descendent-of? group) maxima')
+                  maxima'
+                  (conj maxima' group))))
+            []
+            (keys group->ancestors))))
 
 (sc/defn conflicts :- (sc/maybe ClassificationConflict)
   "Return a map conforming to the ClassificationConflict schema that describes
@@ -94,6 +112,44 @@
       (let [without-env (dissoc conflicts :environment)]
         (if (seq without-env)
           without-env)))))
+
+(defn- inherited-classifications
+  [leaves group->ancestors]
+  (into {} (for [{id :id, :as group} leaves
+                 :let [ancestors (group->ancestors group)
+                       class8ns (map group->classification (concat [group] ancestors))]]
+             [id (collapse-to-inherited class8ns)])))
+
+(defn classification-steps
+  "Takes a node and a map from groups that the node matches to the group's
+  ancestors, and returns a map with information on all steps of the
+  classification process:
+    * :match-explanations - a map from a group id to an explanation of why its
+                            rule matched the node.
+    * :leaves-by-id - a map between the id and group of the classification
+                      leaves (that is, those matched groups that are not the
+                      ancestors of any of the other matched groups).
+    * :inherited-leaf-classifications - a map from each leaf's id to the
+                                        classification it provides, including
+                                        inherited values.
+    * :conflicts - the conflicts between the leaf classifications. If there are
+                   no conflicts, this value is nil.
+    * :classification - if there are no conflicts, this is the result of
+                        merging all the leaf classifications while properly
+                        handling the environment-trumps flags of any of the
+                        classifications. If there are conflicts, this value is
+                        nil."
+  [node matching-group->ancestors]
+  (let [leaves (inheritance-maxima matching-group->ancestors)
+        leaf-id->classification (inherited-classifications leaves matching-group->ancestors)
+        match-explanations (into {} (for [{:keys [id rule]} (keys matching-group->ancestors)]
+                                      [id (rules/explain-rule rule node)]))]
+    {:match-explanations match-explanations
+     :id->leaf (into {} (map (juxt :id identity) leaves))
+     :leaf-id->classification leaf-id->classification
+     :conflicts (conflicts (vals leaf-id->classification))
+     :classification (-> (apply deep-merge (vals leaf-id->classification))
+                       (dissoc :environment-trumps))}))
 
 (defn- conflict-details
   [path values group->ancestors]
@@ -199,21 +255,3 @@
     (if-not (empty? errors)
       false
       (every? identity (map valid-tree? children)))))
-
-(sc/defn inheritance-maxima :- [Group]
-  "Given a map of groups to their ancestors, determine the maxima according to
-  the partial ordering defined by inheritance (i.e. a < b if a is an ancestor of
-  b). Since it is a partial ordering, it is possible to have multiple maxima."
-  [group->ancestors :- {Group [Group]}]
-  (let [descendent-of? (fn [g descendent?]
-                         (let [ancs (->> (get group->ancestors descendent?)
-                                      (map :id)
-                                      set)]
-                           (contains? ancs (:id g))))]
-    (reduce (fn [maxima group]
-              (let [maxima' (remove #(descendent-of? % group) maxima)]
-                (if (some (partial descendent-of? group) maxima')
-                  maxima'
-                  (conj maxima' group))))
-            []
-            (keys group->ancestors))))

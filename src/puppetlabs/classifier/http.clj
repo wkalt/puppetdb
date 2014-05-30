@@ -331,12 +331,13 @@
 ;; Classification
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- leaves->inherited-classifications
-  [leaf->ancestors leaves]
-  (into {} (for [{id :id, :as group} leaves
-                 :let [ancestors (leaf->ancestors group)
-                       class8ns (map group->classification (concat [group] ancestors))]]
-             [id (class8n/collapse-to-inherited class8ns)])))
+(defn matching-groups-and-ancestors
+  "Given a storage instance and a node, returns a map from each group that the
+  node matched to that group's ancestors."
+  [db node]
+  (let [matching-group-ids (set (class8n/matching-groups node (storage/get-rules db)))
+        matching-groups (map (partial storage/get-group db) matching-group-ids)]
+    (into {} (map (juxt identity (partial storage/get-ancestors db)) matching-groups))))
 
 (defn classify-node
   [db node-name]
@@ -349,22 +350,13 @@
           node (validate SubmittedNode {:name node-name
                                         :facts (:facts data {})
                                         :trusted (:trusted data {})})
-          all-rules (storage/get-rules db)
-          matching-group-ids (set (class8n/matching-groups node all-rules))
-          matching-groups (map (partial storage/get-group db) matching-group-ids)
-          group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))
-                                         matching-groups))
-          leaves (class8n/inheritance-maxima group->ancestors)
-          leaf-classifications (vals (leaves->inherited-classifications group->ancestors leaves))
-          conflicts (class8n/conflicts leaf-classifications)
-          classification (-> (apply deep-merge leaf-classifications)
-                           (dissoc :environment-trumps))
-          matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
-          explanation (into {} (for [{g-id :group-id, rule :when} matching-rules]
-                                 [g-id (rules/explain-rule rule node)]))
+          matching-group->ancestors (matching-groups-and-ancestors db node)
+          class8n-info (class8n/classification-steps node matching-group->ancestors)
+          {:keys [conflicts classification match-explanations id->leaf]} class8n-info
+          leaves (vals id->leaf)
           check-in {:node node-name
                     :time check-in-time
-                    :explanation explanation}
+                    :explanation match-explanations}
           check-in (if transaction-uuid
                      (assoc check-in :transaction_uuid transaction-uuid)
                      check-in)]
@@ -374,11 +366,11 @@
       (if-not (nil? conflicts)
         (throw+
           {:kind ::classification-conflict
-           :group->ancestors (into {} (map (juxt identity group->ancestors) leaves))
+           :group->ancestors (into {} (map (juxt identity matching-group->ancestors) leaves))
            :conflicts conflicts})
         {:name node-name
          :environment (:environment classification)
-         :groups matching-group-ids
+         :groups (keys match-explanations)
          :classes (:classes classification {})
          :parameters (:variables classification {})}))))
 
@@ -388,27 +380,17 @@
     (let [node (validate SubmittedNode (-> data
                                          (assoc :name node-name)
                                          (update-in [:trusted] #(or %1 %2) {})))
-          all-rules (storage/get-rules db)
-          matching-group-ids (set (class8n/matching-groups node all-rules))
-          matching-rules (filter #(contains? matching-group-ids (:group-id %)) all-rules)
-          match-explanations (into {} (for [{g-id :group-id, rule :when} matching-rules]
-                                        [g-id (rules/explain-rule rule node)]))
-          matching-groups (map (partial storage/get-group db) matching-group-ids)
-          group->ancestors (into {} (map (juxt identity (partial storage/get-ancestors db))
-                                         matching-groups))
-          leaves (class8n/inheritance-maxima group->ancestors)
-          leaf->classification (leaves->inherited-classifications group->ancestors leaves)
-          leaf-classifications (vals leaf->classification)
-          conflicts (class8n/conflicts leaf-classifications)
-          classification (-> (apply deep-merge leaf-classifications)
-                           (dissoc :environment-trumps))
+          matching-group->ancestors (matching-groups-and-ancestors db node)
+          class8n-info (class8n/classification-steps node matching-group->ancestors)
+          {:keys [conflicts classification]} class8n-info
           partial-resp {:node_as_received node
-                        :match_explanations match-explanations
-                        :leaf_groups (into {} (map (juxt :id identity) leaves))
-                        :inherited_classifications leaf->classification}]
+                        :match_explanations (:match-explanations class8n-info)
+                        :leaf_groups (:id->leaf class8n-info)
+                        :inherited_classifications (:leaf-id->classification class8n-info)}]
       (if (nil? conflicts)
         (assoc partial-resp :final_classification classification)
-        (assoc partial-resp :conflicts (class8n/explain-conflicts conflicts group->ancestors))))))
+        (assoc partial-resp
+               :conflicts (class8n/explain-conflicts conflicts matching-group->ancestors))))))
 
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
