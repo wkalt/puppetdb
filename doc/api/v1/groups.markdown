@@ -175,7 +175,7 @@ The `details` key of the error object will be an array of objects, where each ob
 * `environment`: The environment that the class or parameter is missing from; i.e. the environment of the group where the error was encountered.
 * `group`: The name of the group where the error was encountered.
            Note that this may not be the group where the class or parameter was defined due to inheritance.
-* `defined-by`: The name of the group that defines the class or parameter.
+* `defined_by`: The name of the group that defines the class or parameter.
 
 If the parent of the group does not exist the server will return a 422 Unprocessable Entity response. The `kind` key will be "missing-parent" and the `msg` key will include the parent UUID that did not exist. The `details` key will contain the full submitted group.
 

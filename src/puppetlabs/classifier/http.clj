@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.http
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [clj-time.core :as time]
@@ -20,7 +21,7 @@
             [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
                                                   group->classification Node PuppetClass
                                                   SubmittedNode]]
-            [puppetlabs.classifier.util :refer [uuid?]])
+            [puppetlabs.classifier.util :refer [clj-key->json-key json-key->clj-key uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID))
 
@@ -31,7 +32,7 @@
   [data]
   (let [iso8601-formatter (fmt-time/formatters :date-time-no-ms)]
     (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
-      (json/encode data))))
+      (json/encode data {:key-fn clj-key->json-key}))))
 
 (defmethod liberator-representation/render-map-generic "application/json"
   [data _]
@@ -69,7 +70,7 @@
   ::request-body."
   [body]
   (try
-    (if-let [data (json/decode body true)]
+    (if-let [data (json/decode body json-key->clj-key)]
       [false {::data data}]
       true)
     (catch JsonParseException e
@@ -344,7 +345,7 @@
   (fn [ctx]
     (let [check-in-time (time/now)
           data (::data ctx {})
-          uuid-str (:transaction_uuid data)
+          uuid-str (:transaction-uuid data)
           transaction-uuid (if (uuid? uuid-str)
                              (UUID/fromString uuid-str))
           node (validate SubmittedNode {:name node-name
@@ -358,7 +359,7 @@
                     :time check-in-time
                     :explanation match-explanations}
           check-in (if transaction-uuid
-                     (assoc check-in :transaction_uuid transaction-uuid)
+                     (assoc check-in :transaction-uuid transaction-uuid)
                      check-in)]
       (storage/store-check-in db (if (nil? conflicts)
                                    (assoc check-in :classification classification)
@@ -383,12 +384,12 @@
           matching-group->ancestors (matching-groups-and-ancestors db node)
           class8n-info (class8n/classification-steps node matching-group->ancestors)
           {:keys [conflicts classification]} class8n-info
-          partial-resp {:node_as_received node
-                        :match_explanations (:match-explanations class8n-info)
-                        :leaf_groups (:id->leaf class8n-info)
-                        :inherited_classifications (:leaf-id->classification class8n-info)}]
+          partial-resp {:node-as-received node
+                        :match-explanations (:match-explanations class8n-info)
+                        :leaf-groups (:id->leaf class8n-info)
+                        :inherited-classifications (:leaf-id->classification class8n-info)}]
       (if (nil? conflicts)
-        (assoc partial-resp :final_classification classification)
+        (assoc partial-resp :final-classification classification)
         (assoc partial-resp
                :conflicts (class8n/explain-conflicts conflicts matching-group->ancestors))))))
 

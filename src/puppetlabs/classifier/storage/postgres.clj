@@ -111,7 +111,8 @@
     (jdbc/insert! db, :node_check_ins
                   (-> check-in'
                     (update-in [:time] coerce-time/to-sql-time)
-                    (update-in [:explanation] json/encode))))
+                    (update-in [:explanation] json/encode)
+                    (set/rename-keys {:transaction-uuid :transaction_uuid}))))
   check-in)
 
 (defn- convert-check-in-fields
@@ -120,7 +121,8 @@
                     (update-in [:time] coerce-time/from-sql-time)
                     (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
                                                     (fn [exp] (json/decode exp true))))
-                    (dissoc-nil :transaction_uuid))]
+                    (set/rename-keys {:transaction_uuid :transaction-uuid})
+                    (dissoc-nil :transaction-uuid))]
     (if (:classification with-reqd)
       (update-in with-reqd [:classification] json/decode true)
       (dissoc with-reqd :classification))))

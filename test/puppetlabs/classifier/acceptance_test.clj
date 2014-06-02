@@ -14,7 +14,8 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [ClientNode Group group->classification]]
             [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
-            [puppetlabs.classifier.util :refer [->uuid merge-and-clean]])
+            [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
+                                                merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
            java.util.regex.Pattern
            java.util.UUID))
@@ -120,9 +121,24 @@
       (let [resp (http/delete (str base-url "/v1/environments/test-env"))]
         (is (= 204 (:status resp)))))))
 
+(deftest ^:acceptance underscores
+  (let [base-url (base-url test-config)]
+    (testing "hyphens are converted to underscores for clients"
+      (let [{body :body} (http/get (str base-url "/v1/groups/" root-group-uuid))]
+        (is (re-find #"environment_trumps" body)))
+      (let [bad-group {:name "missing classes"
+                       :classes {:dne {}}
+                       :environment "underscore-test",
+                       :parent root-group-uuid, :rule ["=" "true" "false"]}
+            {body :body} (http/post (str base-url "/v1/groups")
+                                    {:throw-exceptions false
+                                     :content-type :json
+                                     :body (json/encode bad-group)})]
+        (is (re-find #"defined_by" body))))))
+
 (defn valid-400-resp-body?
   [body]
-  (let [{:keys [kind msg details]} (json/decode body true)]
+  (let [{:keys [kind msg details]} (json/decode body json-key->clj-key)]
     (and kind msg details
          (= #{:submitted :schema :error}
             (-> details keys set)))))
@@ -150,7 +166,7 @@
                                             {:throw-exceptions false
                                              :content-type :json
                                              :body (json/encode bad-rule)})
-            {:keys [kind msg details]} (json/decode body true)]
+            {:keys [kind msg details]} (json/decode body json-key->clj-key)]
         (is (= 400 status))
         (is (= kind "schema-violation"))
         (is (= #{:submitted :schema :error} (-> details keys set)))
@@ -171,10 +187,11 @@
                    :parent root-group-uuid
                    :classes {}
                    :variables {}}
+            json-group-rep (json/encode group {:key-fn clj-key->json-key})
             {:keys [headers status body]} (http/post (str base-url "/v1/groups")
                                                      {:follow-redirects false
                                                       :content-type :json
-                                                      :body (json/encode group)})]
+                                                      :body json-group-rep})]
         (testing "and get a 303 back with the group's location"
           (is (= 303 status))
           (is (contains? headers "location")))
@@ -185,7 +202,7 @@
                 origin (origin-url test-config)
                 {:keys [body status]} (http/get (str origin location))]
             (is (= 200 status))
-            (is (= group-with-id (-> body (json/decode true) convert-uuids)))))))
+            (is (= group-with-id (-> body (json/decode json-key->clj-key) convert-uuids)))))))
 
     (let [class {:name "fooclass", :environment "test", :parameters {}}
           group {:name "foogroup"
@@ -201,11 +218,12 @@
       (testing "can create a group by PUTting to its URI"
         (http/put (str base-url "/v1/environments/" (:environment class) "/classes/" (:name class))
                   {:content-type :json, :body (json/encode class)})
-        (http/put group-uri {:content-type :json, :body (json/encode group)})
+        (http/put group-uri {:content-type :json
+                             :body (json/encode group {:key-fn clj-key->json-key})})
         (testing "and retrieve it from the same place"
           (let [{:keys [body status]} (http/get group-uri)]
             (is (= 200 status))
-            (is (= group (convert-uuids (json/decode body true)))))))
+            (is (= group (convert-uuids (json/decode body json-key->clj-key)))))))
 
       (testing "when trying to create a group that would violate a uniqueness constraint"
         (let [conflicting {:name "foogroup"
@@ -217,7 +235,8 @@
                            :classes {}}
               {:keys [body status]} (http/put (str base-url "/v1/groups/" (:id conflicting))
                                               {:content-type :json
-                                               :body (json/encode conflicting)
+                                               :body (json/encode conflicting
+                                                                  {:key-fn clj-key->json-key})
                                                :throw-exceptions false})]
           (testing "a 422 Unprocessable Entity response is returned"
             (is (= status 422))
@@ -240,19 +259,21 @@
               no-rules-path (str "/v1/groups/" (:id no-rules))]
 
           (testing "can be created"
-            (let [{:keys [body status]} (http/put (str base-url no-rules-path)
+            (let [json-group-rep (json/encode no-rules {:key-fn clj-key->json-key})
+                  {:keys [body status]} (http/put (str base-url no-rules-path)
                                                   {:content-type :json
                                                    :throw-entire-message? true
-                                                   :body (json/encode no-rules)})]
+                                                   :body json-group-rep})]
               (is (= 201 status))
-              (is (= no-rules (-> body (json/decode true) convert-uuids)))))
+              (is (= no-rules (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
           (testing "can be retrieved"
-            (let [{:keys [body status]} (http/put (str base-url no-rules-path)
+            (let [json-group-rep (json/encode no-rules {:key-fn clj-key->json-key})
+                  {:keys [body status]} (http/put (str base-url no-rules-path)
                                                   {:content-type :json
-                                                   :body (json/encode no-rules)})]
+                                                   :body json-group-rep})]
               (is (= 200 status))
-              (is (= no-rules (-> body (json/decode true) convert-uuids)))))
+              (is (= no-rules (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
           (testing "can be updated to have a rule"
             (let [add-rule-delta {:id (:id no-rules)
@@ -262,7 +283,7 @@
                                                    {:content-type :json
                                                     :body (json/encode add-rule-delta)})]
               (is (= 200 status))
-              (is (= with-rules (-> body (json/decode true) convert-uuids)))))
+              (is (= with-rules (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
           (testing "can be updated to not have a rule"
             (let [rm-rule-delta {:id (:id no-rules)
@@ -272,21 +293,23 @@
                                                     :throw-entire-message? true
                                                     :body (json/encode rm-rule-delta)})]
               (is (= 200 status))
-              (is (= no-rules (-> body (json/decode true) convert-uuids)))))))
+              (is (= no-rules (-> body (json/decode json-key->clj-key) convert-uuids)))))))
 
       (testing "can update a group through its UUID URI"
-        (let [delta {:variables {:spirit_animal "turtle"}, :classes {:fooclass {}}}
+        (let [delta {:variables {:spirit-animal "turtle"}, :classes {:fooclass {}}}
               {:keys [body status]} (http/post group-uri
                                                {:content-type :json, :body (json/encode delta)})]
           (is (= 200 status))
-          (is (= (merge-and-clean group delta) (convert-uuids (json/decode body true))))))
+          (is (= (merge-and-clean group delta) (-> body
+                                                 (json/decode json-key->clj-key)
+                                                 convert-uuids)))))
 
       (testing "attempting to update a group that doesn't exist produces a 404"
         (let [delta {:variables {:exists true}}
               {:keys [body status]} (http/post (str base-url "/v1/groups/" (UUID/randomUUID))
                                                {:throw-exceptions false
                                                 :content-type :json, :body (json/encode delta)})
-              error (json/decode body true)]
+              error (json/decode body json-key->clj-key)]
           (is (= 404 status))
           (is (= #{:kind :msg :details} (-> error keys set)))
           (is (= "not-found" (:kind error)))))
@@ -321,8 +344,8 @@
             {created-body :body} (http/put (str base-url ringed-path)
                                            {:content-type :json, :body (json/encode ringed)})
             {retrieved-body :body} (http/get (str base-url ringed-path))]
-        (is (= ringed (json/decode created-body true)))
-        (is (= ringed (json/decode retrieved-body true)))))
+        (is (= ringed (json/decode created-body json-key->clj-key)))
+        (is (= ringed (json/decode retrieved-body json-key->clj-key)))))
 
     (testing "composite group class parameters and variables round-trip through the API"
       (let [saturn-path (str "/v1/groups/" (:id saturn))
@@ -331,8 +354,8 @@
                                             :body (json/encode saturn)
                                             :throw-entire-message? true})
             {retrieved-body :body} (http/get (str base-url saturn-path))]
-        (is (= saturn (-> created-body (json/decode true) convert-uuids)))
-        (is (= saturn (-> retrieved-body (json/decode true) convert-uuids)))))))
+        (is (= saturn (-> created-body (json/decode json-key->clj-key) convert-uuids)))
+        (is (= saturn (-> retrieved-body (json/decode json-key->clj-key) convert-uuids)))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
@@ -340,7 +363,7 @@
         env-names ["dev" "tropical" "desert" "space"]
         envs (for [en env-names] {:name en})
         group {:name "bazgroup", :id (UUID/randomUUID), :parent root-group-uuid,
-               :environment "production", :environment-trumps false, :rule ["=" "foo" "foo"], :classes {}}]
+               :environment "production", :rule ["=" "foo" "foo"], :classes {}}]
 
     (doseq [en env-names] (http/put (env-url en)))
 
@@ -348,7 +371,7 @@
       (let [{body :body, :as resp} (http/get (str base-url "/v1/environments"))]
         (is (= 200 (:status resp)))
         (is (= (set env-names) (-> body
-                                 (json/decode true)
+                                 (json/decode json-key->clj-key)
                                  (->> (map :name))
                                  set
                                  (disj "production")
@@ -362,7 +385,7 @@
         (is (= 204 (:status (http/delete (env-url en))))))
       (let [{body :body} (http/get (str base-url "/v1/environments"))]
         (is (empty? (-> body
-                      (json/decode true)
+                      (json/decode json-key->clj-key)
                       (->> (map :name))
                       set
                       (disj "production")
@@ -370,7 +393,7 @@
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
-                          (json/decode true)
+                          (json/decode json-key->clj-key)
                           (->> (map :name))
                           set)]
         (is (not (contains? group-names (:name group))))))))
@@ -389,7 +412,7 @@
                                             {:content-type :json
                                              :body (json/encode with-missing-class)
                                              :throw-exceptions false})
-            {:keys [details kind msg]} (json/decode body true)]
+            {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (= kind "missing-referents"))
         (is (re-find #"exist in the group's environment" body))
@@ -403,7 +426,7 @@
                                              {:content-type :json
                                               :body (json/encode with-missing-class)
                                               :throw-exceptions false})
-            {:keys [kind]} (json/decode body true)]
+            {:keys [kind]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (= kind "missing-referents"))))
 
@@ -413,7 +436,7 @@
           top-group {:name "top"
                      :id (UUID/randomUUID)
                      :parent root-group-uuid
-                     :environment "production",
+                     :environment "production"
                      :environment-trumps false
                      :classes {:high {:refined "most"}}
                      :rule ["=" "foo" "foo"]}
@@ -448,7 +471,7 @@
                                                {:content-type :json,
                                                 :body (json/encode {:parent (:id top-group)})
                                                 :throw-exceptions false})
-              {:keys [details kind msg]} (json/decode body true)]
+              {:keys [details kind msg]} (json/decode body json-key->clj-key)]
           (is (= 422 status))
           (is (= kind "missing-referents"))
           (is (= 1 (count details)))
@@ -462,7 +485,7 @@
                                                {:content-type :json
                                                 :body (json/encode side-group')
                                                 :throw-exceptions false})
-              {:keys [kind]} (json/decode body true)]
+              {:keys [kind]} (json/decode body json-key->clj-key)]
           (is (= 422 status))
           (is (= kind "missing-referents")))))))
 
@@ -516,7 +539,7 @@
             {:keys [body status]} (http/get (str base-url child-path "/inherited"))]
         (is (= 200 status))
         (is (= (deep-merge crotchety-ancestor child) (-> body
-                                                       (json/decode true)
+                                                       (json/decode json-key->clj-key)
                                                        convert-uuids)))))
 
     ;; clean up (since acceptance tests all share the same instance)
@@ -599,7 +622,7 @@
                                          :black "the night that ends at last"}}
                     :parameters {:snowflake "identical"}}
                    (-> body
-                     (json/decode true)
+                     (json/decode json-key->clj-key)
                      (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
 
         (testing "when the classifications are not disjoint"
@@ -612,12 +635,12 @@
           (let [groups' (doall (for [id (map :id [left-child right-child grandchild])]
                                  (-> (http/get (str base-url "/v1/groups/" id))
                                    :body
-                                   (json/decode true)
+                                   (json/decode json-key->clj-key)
                                    convert-uuids)))
                 [left-child' right-child' grandchild'] groups'
                 {:keys [status body]} (http/get (str base-url "/v1/classified/nodes/multinode")
                                                 {:throw-exceptions false})
-                error (json/decode body true)
+                error (json/decode body json-key->clj-key)
                 convert-uuids-if-group #(if (map? %) (convert-uuids %) %)]
 
             (testing "throws a 500 error"
@@ -683,9 +706,10 @@
                     set)]
 
     (testing "classifying a node into multiple groups with different environments"
-      (doseq [g [kittehs doggehs snakes]]
+      (doseq [g [kittehs doggehs snakes]
+              :let [json-g (json/encode g {:key-fn clj-key->json-key})]]
         (http/put (str base-url "/v1/groups/" (:id g))
-                  {:content-type :json, :body (json/encode g)}))
+                  {:content-type :json, :body json-g}))
 
       (testing "succeeds if one group has the environment-trumps flag set"
         (let [{:keys [status body]} (http/get (str base-url classified-pets-path))]
@@ -696,15 +720,15 @@
                   :classes {}
                   :parameters (apply merge (map :variables groups))}
                  (-> body
-                   (json/decode true)
+                   (json/decode json-key->clj-key)
                    (update-in [:groups] (comp set (partial map #(UUID/fromString %)))))))))
 
       (testing "fails if multiple groups with distinct enviroments have the trumps flag set"
         (http/post (str base-url "/v1/groups/" (:id doggehs))
-                   {:content-type :json, :body (json/encode {:environment-trumps true})})
+                   {:content-type :json, :body (json/encode {:environment_trumps true})})
         (let [{:keys [status body]} (http/get (str base-url classified-pets-path)
                                               {:throw-exceptions false})
-              error (json/decode body true)]
+              error (json/decode body json-key->clj-key)]
           (is (= 500 status))
           (is (= "classification-conflict" (:kind error))))))))
 
@@ -754,7 +778,7 @@
                :classes {:aclass {:verbose "true" :log "info"}
                          :bclass {}}
                :variables {:dns "8.8.8.8"
-                           :dev_mode false}}
+                           :dev-mode false}}
         new-env "spaaaace"]
 
     ;; insert pre-reqs
@@ -777,15 +801,15 @@
                                             :verbose nil
                                             :loglocation "/dev/null"}}
                          :variables {:dns nil
-                                     :dev_mode true
-                                     :ntp_servers ["0.us.pool.ntp.org"]}}
+                                     :dev-mode true
+                                     :ntp-servers ["0.us.pool.ntp.org"]}}
             group' (merge-and-clean group group-delta)
             update-resp (http/post
                           (str base-url (str "/v1/groups/" (:id group)))
                           {:content-type :json, :body (json/encode group-delta)})
             {:keys [body status]} update-resp]
         (is (= 200 status))
-        (is (= group' (-> body (json/decode true) convert-uuids)))))
+        (is (= group' (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
     (testing "when trying to update a group's environment fails, a useful error message is produced"
       (let [new-env "dne"
@@ -794,7 +818,7 @@
                                              {:content-type :json
                                               :body (json/encode group-env-delta)
                                               :throw-exceptions false})
-            {:keys [details kind msg]} (json/decode body true)]
+            {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (re-find #"not exist in the group's environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
@@ -805,7 +829,7 @@
 (deftest update-root-group
   (let [base-url (base-url test-config)
         root-group (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
-                     :body, (json/decode true), convert-uuids)]
+                     :body, (json/decode json-key->clj-key), convert-uuids)]
 
     (testing "can update the root group"
       (let [root-delta {:id root-group-uuid
@@ -813,14 +837,16 @@
             {:keys [body status]} (http/post (str base-url "/v1/groups/" root-group-uuid)
                                              {:content-type :json, :body (json/encode root-delta)})]
         (is (= 200 status))
-        (is (= (merge-and-clean root-group root-delta) (-> body (json/decode true) convert-uuids)))
+        (is (= (merge-and-clean root-group root-delta) (-> body
+                                                         (json/decode json-key->clj-key)
+                                                         convert-uuids)))
         (let [revert-delta {:id root-group-uuid
                             :variables {:classified nil}}
               {:keys [body status]} (http/post (str base-url "/v1/groups/" root-group-uuid)
                                                {:content-type :json
                                                 :body (json/encode revert-delta)})]
           (is (= 200 status))
-          (is (= root-group) (-> body (json/decode true) convert-uuids)))))
+          (is (= root-group) (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
     (testing "can't update the root group's rule"
       (let [root-rule-delta {:id root-group-uuid
@@ -830,7 +856,7 @@
                                              {:content-type :json
                                               :body (json/encode root-rule-delta)
                                               :throw-exceptions false})
-            {:keys [details kind msg]} (json/decode body true)]
+            {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (= kind "root-rule-edit"))
         (is (re-find #"Changing the root group's rule " msg))
@@ -840,7 +866,7 @@
         (is (= root-rule-delta (-> details (dissoc :environment) convert-uuids)))
         (is (= root-group (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
                             :body
-                            (json/decode true)
+                            (json/decode json-key->clj-key)
                             convert-uuids)))))))
 
 (deftest ^:acceptance put-to-existing
@@ -850,7 +876,7 @@
                 {:throw-exceptions false})
       (let [{:keys [status body]} (http/put (str base-url "/v1/environments/space"))]
         (is (= 200 status))
-        (is (= {:name "space"} (json/decode body true)))))
+        (is (= {:name "space"} (json/decode body json-key->clj-key)))))
 
     (let [group {:name "groucho", :id (UUID/randomUUID)
                  :environment "space", :environment-trumps false, :parent root-group-uuid
@@ -862,7 +888,7 @@
       (testing "can PUT to an existing group and get a 200 back with the group"
         (let [{:keys [body status]} (http/put group-url (assoc put-opts :throw-exceptions false))]
           (is (= 200 status))
-          (is (= group (-> body (json/decode true) convert-uuids)))))
+          (is (= group (-> body (json/decode json-key->clj-key) convert-uuids)))))
 
       (testing "a PUT that overwrites an existing group then \"creates\" the new one"
         (let [diff-group (assoc group :environment "spaaaaace")
@@ -870,7 +896,7 @@
                                                                :body (json/encode diff-group)
                                                                :throw-exceptions false))]
           (is (= 201 status))
-          (is (= diff-group (-> body (json/decode true) convert-uuids))))))))
+          (is (= diff-group (-> body (json/decode json-key->clj-key) convert-uuids))))))))
 
 (deftest ^:acceptance group-cycles
   (let [base-url (base-url test-config)
@@ -912,11 +938,11 @@
                                              {:content-type :json
                                               :body (json/encode delta)
                                               :throw-exceptions false})
-            {:keys [details kind msg]} (json/decode body true)
+            {:keys [details kind msg]} (json/decode body json-key->clj-key)
             new-yancy (assoc yancy :parent (:id philip))]
         (is (= 422 status))
         (is (= kind "inheritance-cycle"))
-        (is (= (map convert-uuids details) [new-yancy philip]))
+        (is (= [new-yancy philip] (map convert-uuids details)))
         (is (= msg
                (str "Detected group inheritance cycle: yancy -> philip -> yancy."
                     " See the `details` key for the full groups of the cycle.")))))))
@@ -931,7 +957,7 @@
                                             {:content-type :json
                                              :body (json/encode orphan)
                                              :throw-exceptions false})
-            {:keys [details kind msg]} (json/decode body true)]
+            {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (= kind "missing-parent"))
         (is (= msg (str "The parent group " (:parent orphan) " does not exist.")))
@@ -946,7 +972,7 @@
                               (dissoc :environment-trumps))
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
                :body
-               (json/decode true)
+               (json/decode json-key->clj-key)
                (update-in [:id] ->uuid))
         spaceships {:name "spaceships"
                     :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
@@ -984,7 +1010,10 @@
         ncc1701d-explanation (apply merge
                                     (for [group [spaceships root]]
                                       (let [{:keys [id rule]} group]
-                                        {id (rules/explain-rule rule ncc1701d-node)})))]
+                                        {id (rules/explain-rule rule ncc1701d-node)})))
+        coerce-nonvalidated-keys #(if (not (contains? #{"check_ins" "transaction_uuid"} %))
+                                    (json-key->clj-key %)
+                                    (keyword %))]
 
     ;; create groups
     (doseq [g [spaceships spacestations fun-spacestations]]
@@ -1000,7 +1029,7 @@
     (testing "can retrieve classification history"
       (testing "for a single node"
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
-              node (sc/validate ClientNode (json/decode body true))
+              node (sc/validate ClientNode (json/decode body coerce-nonvalidated-keys))
               expected-node {:name (:name ds9-node)
                              :check_ins [{:explanation ds9-explanation
                                           :classification (group->class8n-out fun-spacestations)}]}]
@@ -1013,7 +1042,7 @@
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes"))
               node-names (set (map :name [ds9-node ncc1701d-node]))
               nodes (-> body
-                      (json/decode true)
+                      (json/decode coerce-nonvalidated-keys)
                       (->>
                         (sc/validate [ClientNode])
                         (filter #(contains? node-names (:name %)))))
@@ -1036,7 +1065,7 @@
                    {:content-type :json
                     :body (json/generate-string (assoc ds9-node :transaction_uuid check-in-uuid))})
         (let [{:keys [status body]} (http/get (str base-url "/v1/nodes/" (:name ds9-node)))
-              node (sc/validate ClientNode (json/decode body true))
+              node (sc/validate ClientNode (json/decode body coerce-nonvalidated-keys))
               expected-check-ins [{:explanation ds9-explanation
                                    :classification (group->class8n-out fun-spacestations)
                                    :transaction_uuid check-in-uuid}
@@ -1069,7 +1098,7 @@
 
         (let [warp-capable-station-node-path (str "/v1/nodes/" (:name warp-capable-station))
               {:keys [status body]} (http/get (str base-url warp-capable-station-node-path))
-              node (sc/validate ClientNode (json/decode body true))
+              node (sc/validate ClientNode (json/decode body coerce-nonvalidated-keys))
               explanation (apply merge
                                  (for [group [spacestations' spaceships root]
                                        :let [{:keys [id rule]} group]]
@@ -1085,7 +1114,7 @@
   (let [base-url (base-url test-config)
         root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
                :body
-               (json/decode true)
+               (json/decode json-key->clj-key)
                (update-in [:id] ->uuid)
                (update-in [:parent] ->uuid))
         logic {:name "logic"
@@ -1128,10 +1157,10 @@
                        "blood oxygen transporter" "hemocyanin"
                        "spunk" "10"}}
         uuidify-response #(-> %
-                            (update-in [:match_explanations] keys->uuids)
-                            (update-in [:leaf_groups]
+                            (update-in [:match-explanations] keys->uuids)
+                            (update-in [:leaf-groups]
                                        (comp (partial mapvals convert-uuids) keys->uuids))
-                            (update-in [:inherited_classifications] keys->uuids))]
+                            (update-in [:inherited-classifications] keys->uuids))]
 
     ;; create classes & groups
     (doseq [{:keys [name environment], :as class} [logic emotion]]
@@ -1151,19 +1180,19 @@
             class8n (-> class8n-leaves
                       (get (:id vulcans))
                       (dissoc :environment-trumps))
-            expected-response {:node_as_received (assoc tuvok :trusted {})
-                               :match_explanations match-explanations
-                               :leaf_groups {(:id vulcans) vulcans}
-                               :inherited_classifications class8n-leaves
-                               :final_classification class8n}
+            expected-response {:node-as-received (assoc tuvok :trusted {})
+                               :match-explanations match-explanations
+                               :leaf-groups {(:id vulcans) vulcans}
+                               :inherited-classifications class8n-leaves
+                               :final-classification class8n}
             explanation-path (str "/v1/classified/nodes/" (:name tuvok) "/explanation")
             {:keys [status body]} (http/post (str base-url explanation-path)
                                              {:content-type :json, :body (json/encode tuvok)})]
         (is (= 200 status))
         (is (= expected-response (-> body
-                                   (json/decode true)
+                                   (json/decode json-key->clj-key)
                                    uuidify-response
-                                   (update-in [:node_as_received :facts]
+                                   (update-in [:node-as-received :facts]
                                               (partial mapkeys name)))))))
 
     (testing "get a node classification explanation with conflict details"
@@ -1178,10 +1207,10 @@
             conflicts (class8n/conflicts (vals class8n-leaves))
             conflict-explanations (class8n/explain-conflicts conflicts
                                                              {vulcans [root], humans [root]})
-            expected-response {:node_as_received (assoc spock :trusted {})
-                               :match_explanations match-explanations
-                               :leaf_groups {(:id humans) humans, (:id vulcans) vulcans}
-                               :inherited_classifications class8n-leaves
+            expected-response {:node-as-received (assoc spock :trusted {})
+                               :match-explanations match-explanations
+                               :leaf-groups {(:id humans) humans, (:id vulcans) vulcans}
+                               :inherited-classifications class8n-leaves
                                :conflicts conflict-explanations}
             uuidify-conflict-details #(-> %
                                         (update-in [:from :id] ->uuid)
@@ -1193,13 +1222,13 @@
                                              {:content-type :json, :body (json/encode spock)})]
         (is (= 200 status))
         (is (= expected-response (-> body
-                                   (json/decode true)
+                                   (json/decode json-key->clj-key)
                                    uuidify-response
                                    (update-in [:conflicts :classes :emotion :importance]
                                               (comp set (partial map uuidify-conflict-details)))
                                    (update-in [:conflicts :classes :logic :importance]
                                               (comp set (partial map uuidify-conflict-details)))
-                                   (update-in [:node_as_received :facts]
+                                   (update-in [:node-as-received :facts]
                                               (partial mapkeys name)))))))
 
     (testing "get a 400 response if the request payload doesn't match SubmittedNode"

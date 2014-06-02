@@ -610,14 +610,14 @@
         check-ins {"Neuromancer" [{:node "Neuromancer"
                                    :time (time/now)
                                    :explanation neuro-explanation
-                                   :transaction_uuid (UUID/randomUUID)
+                                   :transaction-uuid (UUID/randomUUID)
                                    :classification {:environment "production"
                                                     :classes {:construct-runner {:construct-type "RAM"}}
                                                     :variables {:datacenter "Tessier-Ashpool Orbital"}}}
                                   {:node "Neuromancer"
                                    :time (time/ago (time/weeks 1))
                                    :explanation neuro-explanation
-                                   :transaction_uuid (UUID/randomUUID)}]
+                                   :transaction-uuid (UUID/randomUUID)}]
                    "Wintermute" [{:node "Wintermute"
                                   :time (time/ago (time/days 3))
                                   :explanation {(rand-id)

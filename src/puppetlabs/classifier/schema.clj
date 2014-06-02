@@ -88,13 +88,14 @@
    :time org.joda.time.DateTime
    :explanation {UUID ExplainedCondition}
    (sc/optional-key :classification) ClassificationOutput
-   (sc/optional-key :transaction_uuid) UUID})
+   (sc/optional-key :transaction-uuid) UUID})
 
 (def ClientCheckIn
-  (assoc CheckIn
-         :time ISO8601EncodedDateTime
-         :explanation {UUIDRepresentation ExplainedCondition}
-         (sc/optional-key :transaction_uuid) UUIDRepresentation))
+  (-> CheckIn
+    (dissoc (sc/optional-key :transaction-uuid))
+    (assoc :time ISO8601EncodedDateTime
+           :explanation {UUIDRepresentation ExplainedCondition}
+           (sc/optional-key :transaction_uuid) UUIDRepresentation)))
 
 (def Node
   {:name String

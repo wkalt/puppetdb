@@ -3,13 +3,13 @@
             [clojure.tools.logging :as log]
             [clojure.walk :refer [postwalk]]
             [cheshire.generate :as gen]
-            [cheshire.core :as json]
             [clj-stacktrace.repl]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as sc]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.util :refer [->client-explanation uuid?]]))
+            [puppetlabs.classifier.util :refer [->client-explanation encode uuid?]
+                                        :rename {encode encode-and-translate-keys}]))
 
 (defn- log-exception
   "Log an exception including request method and URI"
@@ -135,7 +135,7 @@
                                       " documentation for details on the rule grammar.\"")))]
           {:status 400
            :headers {"Content-Type" "application/json"}
-           :body (json/encode
+           :body (encode-and-translate-keys
                      {:kind "schema-violation"
                       :msg msg
                       :details {:submitted value
@@ -150,7 +150,7 @@
         (let [{:keys [schema value error]} (process-schema-exception-data (.getData e))]
           {:status 500
            :headers {"Content-Type" "application/json"}
-           :body (json/encode
+           :body (encode-and-translate-keys
                    (if (re-find #"Output of get-[a-z\-]*\*" (.getMessage e))
                      {:kind "database-corruption"
                       :msg (str "An object retrieved from the database did not conform to the"
@@ -178,7 +178,7 @@
           (log-exception request e)
           {:status 500
            :headers {"Content-Type" "application/json"}
-           :body (json/encode
+           :body (encode-and-translate-keys
                    {:kind "application-error"
                     :msg (str (.getMessage root-e) ". See `details` for the full stack trace")
                     :details {:trace (->> (.getStackTrace root-e) (map #(.toString %)))}})})))))
@@ -252,11 +252,12 @@
               inherited-errors (filter #(not= (:group %) (:defined-by %)) errors)]
           {:status 422
            :headers {"Content-Type" "application/json"}
-           :body (json/encode {:details errors
-                               :kind "missing-referents"
-                               :msg (referent-error-message error-count
-                                                            group-error-count
-                                                            child-error-count)})})))))
+           :body (encode-and-translate-keys
+                   {:details errors
+                    :kind "missing-referents"
+                    :msg (referent-error-message error-count
+                                                 group-error-count
+                                                 child-error-count)})})))))
 (defn- pretty-cycle [groups]
   (->> (concat groups [(first groups)])
     (map :name)
@@ -276,10 +277,11 @@
                        " with " conflict-description " already exists.")]
         {:status 422
          :headers {"Content-Type" "application/json"}
-         :body (json/encode {:kind "uniqueness-violation"
-                             :msg msg
-                             :details {:constraintName constraint
-                                       :conflict (zipmap fields values)}})})))))
+         :body (encode-and-translate-keys
+                 {:kind "uniqueness-violation"
+                  :msg msg
+                  :details {:constraintName constraint
+                            :conflict (zipmap fields values)}})})))))
 
 (defn wrap-inheritance-fail-explanations
   [handler]
@@ -289,7 +291,7 @@
         {:keys [cycle]}
         {:status 422
          :headers {"Content-Type" "application/json"}
-         :body (json/encode
+         :body (encode-and-translate-keys
                  {:details cycle
                   :kind "inheritance-cycle"
                   :msg (str "Detected group inheritance cycle: "
@@ -304,11 +306,12 @@
         {:keys [group]}
         {:status 422
          :headers {"Content-Type" "application/json"}
-         :body (json/encode {:details group
-                             :kind "missing-parent"
-                             :msg (str "The parent group "
-                                       (:parent group)
-                                       " does not exist.")})}))))
+         :body (encode-and-translate-keys
+                 {:details group
+                  :kind "missing-parent"
+                  :msg (str "The parent group "
+                            (:parent group)
+                            " does not exist.")})}))))
 
 (defn wrap-classification-conflict-explanations
   [handler]
@@ -337,7 +340,7 @@
                        " See `details` for full information on all conflicts.")]
           {:status 500
            :headers {"Content-Type" "application/json"}
-           :body (json/encode
+           :body (encode-and-translate-keys
                    {:kind "classification-conflict"
                     :msg msg
                     :details details})})))))
@@ -360,7 +363,7 @@
                        :details delta})]
           {:status 422
            :headers {"Content-Type" "application/json"}
-           :body (json/encode error)})))))
+           :body (encode-and-translate-keys error)})))))
 
 (defn wrap-rule-translation-error-explanations
   [handler]
@@ -370,9 +373,10 @@
         {msg :msg, condition :condition}
         {:status 422
          :headers {"Content-Type" "application/json"}
-         :body (json/encode {:kind "untranslatable-rule"
-                             :msg (str "The rule cannot be translated because " msg)
-                             :details condition})}))))
+         :body (encode-and-translate-keys
+                 {:kind "untranslatable-rule"
+                  :msg (str "The rule cannot be translated because " msg)
+                  :details condition})}))))
 
 (defn wrap-errors-with-explanations
   [handler]
