@@ -111,7 +111,8 @@
     (jdbc/insert! db, :node_check_ins
                   (-> check-in'
                     (update-in [:time] coerce-time/to-sql-time)
-                    (update-in [:explanation] json/encode))))
+                    (update-in [:explanation] json/encode)
+                    (set/rename-keys {:transaction-uuid :transaction_uuid}))))
   check-in)
 
 (defn- convert-check-in-fields
@@ -120,7 +121,8 @@
                     (update-in [:time] coerce-time/from-sql-time)
                     (update-in [:explanation] (comp (partial kitchensink/mapkeys ->uuid)
                                                     (fn [exp] (json/decode exp true))))
-                    (dissoc-nil :transaction_uuid))]
+                    (set/rename-keys {:transaction_uuid :transaction-uuid})
+                    (dissoc-nil :transaction-uuid))]
     (if (:classification with-reqd)
       (update-in with-reqd [:classification] json/decode true)
       (dissoc with-reqd :classification))))
@@ -405,16 +407,17 @@
 
 (def group-selection
   "SELECT g.name,
-          g.id               AS id,
-          g.environment_name AS environment,
-          g.parent_id        AS parent,
-          g.description      AS description,
-          gv.variable        AS variable,
-          gv.value           AS variable_value,
-          gc.class_name      AS class,
-          gcp.parameter      AS parameter,
-          gcp.value          AS parameter_value,
-          r.match            AS rule
+          g.id                 AS id,
+          g.environment_name   AS environment,
+          g.environment_trumps AS environment_trumps,
+          g.parent_id          AS parent,
+          g.description        AS description,
+          gv.variable          AS variable,
+          gv.value             AS variable_value,
+          gc.class_name        AS class,
+          gcp.parameter        AS parameter,
+          gcp.value            AS parameter_value,
+          r.match              AS rule
   FROM groups g
        LEFT OUTER JOIN group_classes gc ON g.id = gc.group_id
        LEFT OUTER JOIN group_class_parameters gcp ON gc.group_id = gcp.group_id AND gc.class_name = gcp.class_name
@@ -470,6 +473,7 @@
     (map deserialize-group-class-parameters)
     (map deserialize-rule)
     (map #(dissoc-nil % :description))
+    (map #(set/rename-keys % {:environment_trumps :environment-trumps}))
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
@@ -629,8 +633,9 @@
           (validate-group* {:db t-db} group)
           (create-environment-if-missing {:db t-db} {:name environment})
           (jdbc/insert! t-db :groups
-                        [:name :description :environment_name :id :parent_id]
-                        (conj ((juxt :name :description :environment) group) id parent))
+                        [:name :description :environment_name :environment_trumps :id :parent_id]
+                        (conj ((juxt :name :description :environment :environment-trumps) group)
+                              id parent))
           (doseq [[v-key v-val] variables]
             (jdbc/insert! t-db :group_variables
                           [:variable :group_id :value]
@@ -755,20 +760,6 @@
                         {:environment_name new-env}
                         where-group-link))))))
 
-(defn- update-group-description
-  [db extant delta]
-  (let [new-description (:description delta)]
-    (when (and new-description (not= new-description (:description extant)))
-      (jdbc/update! db :groups {:description new-description}
-                    (sql/where {:id (:id delta)})))))
-
-(defn- update-group-parent
-  [db extant delta]
-  (let [new-parent (:parent delta)]
-    (when (and new-parent (not= new-parent (:parent extant)))
-      (jdbc/update! db :groups {:parent_id new-parent}
-                    (sql/where {:id (:id delta)})))))
-
 (defn- update-group-rule
   [db extant {id :id, :as delta}]
   (let [new-rule (:rule delta)]
@@ -780,11 +771,11 @@
     (when (and (nil? new-rule) (contains? delta :rule))
       (jdbc/delete! db :rules (sql/where {:group_id id})))))
 
-(defn- update-group-name
-  [db extant delta]
-  (let [new-name (:name delta)]
-    (when (and new-name (not= new-name (:name extant)))
-      (jdbc/update! db, :groups, {:name new-name}
+(defn- update-group-field
+  [db map-field row-field extant delta]
+  (let [new-value (get delta map-field)]
+    (when (and new-value (not= new-value (get extant map-field)))
+      (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
 (defn- validate-delta
@@ -804,10 +795,12 @@
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
-                          (update-group-description t-db extant delta)
-                          (update-group-parent t-db extant delta)
                           (update-group-rule t-db extant delta)
-                          (update-group-name t-db extant delta)
+                          (update-group-field t-db :description :description extant delta)
+                          (update-group-field t-db :parent :parent_id extant delta)
+                          (update-group-field t-db :name :name extant delta)
+                          (update-group-field t-db, :environment-trumps, :environment_trumps
+                                              extant, delta)
                           ;; still in the transaction, so will see the updated rows
                           (get-group* {:db t-db} (:id delta))))]
     (loop [retries 3]

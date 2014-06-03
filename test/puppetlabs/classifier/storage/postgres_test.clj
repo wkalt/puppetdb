@@ -61,6 +61,7 @@
   (let [simplest {:name "simplest"
                   :id (UUID/randomUUID)
                   :environment "test"
+                  :environment-trumps false
                   :description "this group has no references"
                   :parent root-group-uuid
                   :rule ["=" "name" "foo"]
@@ -69,6 +70,7 @@
         no-rules {:name "anarchy"
                   :id (UUID/randomUUID)
                   :environment "test"
+                  :environment-trumps false
                   :description "Mom and Dad are gone! No rules!"
                   :parent root-group-uuid
                   :classes {}
@@ -76,6 +78,7 @@
         with-classes {:name "with-classes"
                       :id (UUID/randomUUID)
                       :environment "test"
+                      :environment-trumps false
                       :parent root-group-uuid
                       :rule ["=" "name" "bar"]
                       :classes {:hi {:greetings "salutations"} :bye {}}
@@ -83,6 +86,7 @@
         with-variables {:name "with-variables"
                         :id (UUID/randomUUID)
                         :environment "test"
+                        :environment-trumps false
                         :parent root-group-uuid
                         :rule ["=" "name" "baz"]
                         :classes {}
@@ -90,6 +94,7 @@
         orphan {:name "orphan"
                 :id (UUID/randomUUID)
                 :environment "test"
+                :environment-trumps false
                 :parent (UUID/randomUUID)
                 :rule ["=" "name" "foo"]
                 :classes {}
@@ -173,8 +178,9 @@
         g {:name "time-machines"
            :id (UUID/randomUUID)
            :parent root-group-uuid
-            :rule ["=" "foo" "foo"]
+           :rule ["=" "foo" "foo"]
            :environment "rnd"
+           :environment-trumps false
            :classes {}
            :variables {}}]
     (testing "creates missing environments on class insertion"
@@ -197,6 +203,7 @@
         g1 {:name "complex-group"
             :id (UUID/randomUUID)
             :environment "test"
+            :environment-trumps false
             :parent root-group-uuid
             :rule ["or"
                    ["=" "name" "foo"]
@@ -212,6 +219,7 @@
         g2 {:name "another-complex-group"
             :id (UUID/randomUUID)
             :environment "tropical"
+            :environment-trumps false
             :parent root-group-uuid
             :classes {:science {:fine-structure "1/128"}
                       :magic {:colors ["w" "u" "b" "r" "g" "p"]}}
@@ -240,6 +248,7 @@
       (let [g1-delta {:id (:id g1)
                       :name "sally"
                       :environment "tropical"
+                      :environment-trumps true
                       :description "this description is tautological."
                       :rule ["and"
                              ["=" "name" "baz"]
@@ -305,7 +314,8 @@
 
 (deftest ^:database hierarchy-and-cycles
   (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
-                                   :rule ["=" "foo" "bar"], :classes {}, :variables {}})
+                                   :environment-trumps false, :rule ["=" "foo" "bar"], :classes {},
+                                   :variables {}})
         root (get-group db root-group-uuid)
         top (-> (blank-group-named "top")
               (assoc :parent root-group-uuid))
@@ -376,7 +386,8 @@
         top-group {:name "top"
                    :id (UUID/randomUUID)
                    :parent root-group-uuid
-                   :environment "production",
+                   :environment "production"
+                   :environment-trumps false
                    :classes {:high {:refined "most"}}
                    :variables {}
                    :rule ["=" "foo" "foo"]}
@@ -384,6 +395,7 @@
                     :id (UUID/randomUUID)
                     :parent root-group-uuid
                     :environment "production"
+                    :environment-trumps false
                     :classes {}
                     :variables {}
                     :rule ["=" "foo" "foo"]}
@@ -391,6 +403,7 @@
                       :id (UUID/randomUUID)
                       :parent (:id side-group)
                       :environment "staging"
+                      :environment-trumps false
                       :classes {}
                       :variables {}
                       :rule ["=" "foo" "foo"]}]
@@ -473,9 +486,11 @@
                {:name "changed-class", :environment "production"
                 :parameters {:added "1", :changed-param "2"}}]
         after-by-name (into {} (map (juxt :name identity) after))
-        referrer {:name "referrer", :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
+        referrer {:name "referrer",
                   :classes {:used-class {}, :changed-class {:used-param "hi"}}
-                  :rule ["=" "foo" "foo"] , :variables {}}]
+                  :id (UUID/randomUUID), :environment "production"
+                  :environment-trumps false, :parent root-group-uuid, :rule ["=" "foo" "foo"]
+                  :variables {}}]
 
     (synchronize-classes db before)
     (create-group db referrer)
@@ -542,6 +557,7 @@
         simple-group {:name "simple"
                       :id (UUID/randomUUID)
                       :environment "production"
+                      :environment-trumps false
                       :parent root-group-uuid
                       :classes {:simple {}}
                       :variables {}
@@ -556,11 +572,12 @@
         rocket-class-no-stages (assoc rocket-class :parameters {})
         payload-class {:name "payload", :environment "space", :parameters {}}
         avionics-class {:name "avionics", :environment "space", :parameters {:log "/dev/null"}}
-        spaceship {:name "spaceship", :id (UUID/randomUUID,) :environment "space",
-                   :parent root-group-uuid, :rule ["=" "foo" "foo"], :variables {}
+        spaceship {:name "spaceship"
                    :classes {:rocket {:stages "3"}
                              :avionics {:log "/var/log/avionics-data"}
-                             :payload {}}}]
+                             :payload {}}
+                   :id (UUID/randomUUID,) :environment "space", :environment-trumps false
+                   :parent root-group-uuid, :rule ["=" "foo" "foo"], :variables {}}]
 
     (synchronize-classes db [payload-class avionics-class rocket-class])
     (create-group db spaceship)
@@ -593,14 +610,14 @@
         check-ins {"Neuromancer" [{:node "Neuromancer"
                                    :time (time/now)
                                    :explanation neuro-explanation
-                                   :transaction_uuid (UUID/randomUUID)
+                                   :transaction-uuid (UUID/randomUUID)
                                    :classification {:environment "production"
                                                     :classes {:construct-runner {:construct-type "RAM"}}
                                                     :variables {:datacenter "Tessier-Ashpool Orbital"}}}
                                   {:node "Neuromancer"
                                    :time (time/ago (time/weeks 1))
                                    :explanation neuro-explanation
-                                   :transaction_uuid (UUID/randomUUID)}]
+                                   :transaction-uuid (UUID/randomUUID)}]
                    "Wintermute" [{:node "Wintermute"
                                   :time (time/ago (time/days 3))
                                   :explanation {(rand-id)

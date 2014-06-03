@@ -53,7 +53,7 @@ Each such object contains the following three keys:
   * `value`: the defined value, which will be a string for environment and class parameters, but for a variable may be any JSON value.
   * `from`: the group that the node was classified into that caused this value to be added to the node's classification.
             This group may not define the value, because it may be inherited from an ancestor of this group.
-  * `defined-by`: the group that actually defined this value.
+  * `defined_by`: the group that actually defined this value.
                   This is often the `from` group, but could instead be an ancestor of that group.
 
 Here's an example of a classification conflict error object (groups truncated for clarity):
@@ -73,7 +73,7 @@ Here's an example of a classification conflict error object (groups truncated fo
                   "rule": ["=", "nodename", "the-node"],
                   ...
                 },
-                "defined-by": {
+                "defined_by": {
                   "name": "Carl Perkins",
                   "classes": {"songColors": {"blue": "Blue Suede Shoes"}},
                   "rule": ["not", ["=", "nodename", "the-node"]],
@@ -87,7 +87,7 @@ Here's an example of a classification conflict error object (groups truncated fo
                   "classes": {"songColors": {"blue": "Since You've Been Gone"}},
                   ...
                 },
-                "defined-by": {
+                "defined_by": {
                   "name": "Aretha Franklin",
                   "classes": {"songColors": {"blue": "Since You've Been Gone"}},
                   ...
@@ -161,8 +161,8 @@ The JSON object returned by this endpoint has keys that correspond to each of th
                                  This key's value is an object mapping from a leaf group's ID to the classification values provided by that group (after inheritance).
   * `conflicts`: this key, which corresponds to step 4 of classification, will only be present if there are conflicts between the inherited classifications.
                  Its value will be similar to a classification object, but wherever there was a conflict there will be an array of conflict details instead of a single classification value,
-                 Each of these details is an object with three keys: `value`, `from`, and `defined-by`.
-                 The `value` key is a conflicting value, the `from` key is the group whose inherited classification provided this value, and the `defined-by` key is the group that actually defined the value (which may be an ancestor of the `from` group).
+                 Each of these details is an object with three keys: `value`, `from`, and `defined_by`.
+                 The `value` key is a conflicting value, the `from` key is the group whose inherited classification provided this value, and the `defined_by` key is the group that actually defined the value (which may be an ancestor of the `from` group).
   * `final_classification`: this key, which also corresponds to step 4 of classification, will only be present if there are no conflicts between the inherited classifications.
                             Its value will be the result of merging all the inherited classifications.
 
@@ -381,7 +381,7 @@ and here's an example of a response in the case of conflicts:
                                 "id": "a130f715-c929-448b-82cd-fe21d3f83b58",
                                 ...
                               },
-                              "defined-by": {
+                              "defined_by": {
                                 "name": "Humans",
                                 "id": "a130f715-c929-448b-82cd-fe21d3f83b58",
                                 ...
@@ -394,7 +394,7 @@ and here's an example of a response in the case of conflicts:
                                 "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                                 ...
                               },
-                              "defined-by": {
+                              "defined_by": {
                                 "name": "Vulcans",
                                 "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                                 ...
@@ -411,7 +411,7 @@ and here's an example of a response in the case of conflicts:
                                 "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                                 ...
                               },
-                              "defined-by": {
+                              "defined_by": {
                                 "name": "Vulcans",
                                 "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                                 ...
@@ -424,7 +424,7 @@ and here's an example of a response in the case of conflicts:
                                 "id": "a130f715-c929-448b-82cd-fe21d3f83b58",
                                 ...
                               },
-                              "defined-by": {
+                              "defined_by": {
                                 "name": "Humans",
                                 "id": "a130f715-c929-448b-82cd-fe21d3f83b58",
                                 ...

@@ -114,18 +114,15 @@
 
 (deftest rule-explanations
   (testing "rule explanations work as expected for"
-    (let [->rule (fn [cnd] {:when cnd, :group-id (UUID/randomUUID)})
-          simplest-rule (->rule ["~" ["trusted" "certname"] "\\.www\\.example\\.com"])
-          negation-rule (->rule ["not" ["<" ["facts" "cpu-cores"] "2"]])
-          disjunction-rule (->rule ["or"
-                                    [">=" ["facts" "RAM"] "17180000000"]
-                                    ["=" ["facts" "storage-type"] "solid-state"]])
-          conjunction-rule (->rule ["and"
-                                    ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
-                                    [">=" ["facts" "cpu-cores"] "2"]])
-          omni-rule (->rule ["and"
-                             (:when disjunction-rule)
-                             (:when negation-rule)])
+    (let [simplest-rule ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
+          negation-rule ["not" ["<" ["facts" "cpu-cores"] "2"]]
+          disjunction-rule ["or"
+                            [">=" ["facts" "RAM"] "17180000000"]
+                            ["=" ["facts" "storage-type"] "solid-state"]]
+          conjunction-rule ["and"
+                            ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
+                            [">=" ["facts" "cpu-cores"] "2"]]
+          omni-rule ["and" disjunction-rule negation-rule]
           reference-node {"name" "Riffy"
                           "trusted" {"certname" "riffy.www.example.com"}
                           "facts" {"cpu-cores" "4"

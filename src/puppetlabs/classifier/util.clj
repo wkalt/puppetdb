@@ -2,6 +2,7 @@
   (:require [clojure.set :as set]
             [clojure.string :as str]
             [clojure.walk :refer [postwalk prewalk]]
+            [cheshire.core :as json]
             [schema.utils :refer [named-error-explain validation-error-explain]]
             [puppetlabs.kitchensink.core :refer [deep-merge]])
   (:import java.util.UUID))
@@ -166,3 +167,21 @@
   (if (nil? (key map))
     (dissoc map key)
     map))
+
+(defn json-key->clj-key
+  [k]
+  (-> k
+    (str/replace \_ \-)
+    keyword))
+
+(defn clj-key->json-key
+  [k]
+  (-> k
+    str
+    (.substring 1)
+    (str/replace \- \_)))
+
+(defn encode
+  "Encode clojure data to json with clj-key->json-key as the key-fn."
+  [data]
+  (json/encode data {:key-fn clj-key->json-key}))

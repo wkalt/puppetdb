@@ -10,8 +10,8 @@
 
 (defn base-group
   [name]
-  {:name name, :id (UUID/randomUUID), :environment "production", :parent root-group-uuid
-   :rule ["=" "foo" "bar"], :variables {}})
+  {:name name, :id (UUID/randomUUID), :environment "production", :environment-trumps false,
+   :parent root-group-uuid, :rule ["=" "foo" "bar"], :variables {}})
 
 (defn vec->tree
   [[group & children]]
@@ -26,7 +26,7 @@
       first)))
 
 (deftest test-unknown-parameters
-  (let [classification {:environment "production", :variables {}
+  (let [classification {:environment "production", :environment-trumps false, :variables {}
                         :classes {:hunky-dory {:peachy? "totes"}
                                   :partial-hit {:this-parameter "right-here"
                                                 :what-parameter? "this-one"}
@@ -89,12 +89,15 @@
 
 (deftest inheritance
   (let [child {:environment "staging"
+               :environment-trumps false
                :classes {:thing {:param "overriding", :remove nil, :other "new"}}
                :variables {:remove nil, :new "whatsit"}}
         parent {:environment "production"
+               :environment-trumps false
                 :classes {:thing {:param "haha", :why "whynot"}}
                 :variables {:remove "no"}}
         grandparent {:environment "a post-apocalyptic barren wasteland"
+                     :environment-trumps false
                      :classes {:more-different {:a "b" :c "d"}
                                :thing {:remove "still here"}}
                      :variables {:more "?"}}
@@ -102,6 +105,7 @@
 
     (testing "merging the inheritance tree works"
       (is (= {:environment "staging"
+              :environment-trumps false
               :classes {:more-different {:a "b" :c "d"}
                         :thing {:param "overriding", :other "new", :why "whynot"}}
               :variables {:new "whatsit"
@@ -110,47 +114,82 @@
 
 (deftest classification-conflicts
   (testing "conflicts"
-    (let [conflicting [{:environment "production"
-                        :classes {:no-conflict {:foo "bar"}
-                                  :conflict {:does "conflict", :doesnt "conflict"}}
-                        :variables {:unique "snowflake"
-                                    :generic "conflict"}}
-                       {:environment "staging"
-                        :classes {:no-conflict {:baz "quux"}
-                                  :conflict {:does "conflicts", :doesnt "conflict"}}
-                        :variables {:generic "conflicts"
-                                    :also-unique "snowflake"}}
-                       {:environment "dev"
-                        :classes {:no-conflict {:baz "quux"}
-                                  :conflict {:does "conflicting", :doesnt "conflict"}}
-                        :variables {:generic "conflagration", :one-of-a-kind "means unique"}}]
-          disjoint [{:environment "production"
-                     :classes {:no-conflict {:foo "bar"}
-                               :conflict? {:not "conflict"}}
-                     :variables {:unique "snowflake"}}
-                    {:environment "production"
-                     :classes {:lone-wolf {:pardners []}}
-                     :variables {:very-unique "makes no sense"}}
-                    {:environment "production"
-                     :classes {:no-conflict {:baz "quux"}
-                               :conflict? {:not "conflict"}}
-                     :variables {:unique "snowflake"
-                                 :also-unique "'nother snowflake"}}]]
-
-      (testing "turns conflicting values into sets and omits all non-conflicting paths"
-        (is (= {:environment #{"production" "staging" "dev"}
-                :classes {:conflict {:does #{"conflict" "conflicts" "conflicting"}}}
+    (testing "turns conflicting values into sets and omits all non-conflicting paths"
+      (let [non-env-conflicts [{:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:foo "bar"}
+                                          :conflict {:does "conflict", :doesnt "conflict"}}
+                                :variables {:unique "snowflake"
+                                            :generic "conflict"}}
+                               {:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:baz "quux"}
+                                          :conflict {:does "conflicts", :doesnt "conflict"}}
+                                :variables {:generic "conflicts"
+                                            :also-unique "snowflake"}}
+                               {:environment "production"
+                                :environment-trumps false
+                                :classes {:no-conflict {:baz "quux"}
+                                          :conflict {:does "conflicting", :doesnt "conflict"}}
+                                :variables {:generic "conflagration"
+                                            :one-of-a-kind "means unique"}}]
+            no-trump-env-conflicts [{:environment "production"
+                                     :environment-trumps false
+                                     :classes {}, :variables {}}
+                                    {:environment "staging"
+                                     :environment-trumps false
+                                     :classes {}, :variables {}}]
+            trump-env-conflicts [{:environment "production"
+                                  :environment-trumps true
+                                  :classes {}, :variables {}}
+                                 {:environment "staging"
+                                  :environment-trumps true
+                                  :classes {}, :variables {}}]]
+        (is (= {:classes {:conflict {:does #{"conflict" "conflicts" "conflicting"}}}
                 :variables {:generic #{"conflict" "conflicts" "conflagration"}}}
-               (conflicts conflicting))))
+               (conflicts non-env-conflicts)))
+        (is (= {:environment #{"production" "staging"}} (conflicts no-trump-env-conflicts)))
+        (is (= {:environment #{"production" "staging"}} (conflicts trump-env-conflicts)))))
 
-      (testing "returns nil if there are no conflicts at all"
-        (is (nil? (conflicts disjoint)))))))
+    (testing "returns nil if there are no conflicts at all"
+      (let [disjoint [{:environment "production"
+                       :environment-trumps false
+                       :classes {:no-conflict {:foo "bar"}
+                                 :conflict? {:not "conflict"}}
+                       :variables {:unique "snowflake"}}
+                      {:environment "production"
+                       :environment-trumps false
+                       :classes {:lone-wolf {:pardners []}}
+                       :variables {:very-unique "makes no sense"}}
+                      {:environment "production"
+                       :environment-trumps false
+                       :classes {:no-conflict {:baz "quux"}
+                                 :conflict? {:not "conflict"}}
+                       :variables {:unique "snowflake"
+                                   :also-unique "'nother snowflake"}}]]
+        (is (nil? (conflicts disjoint)))))
+
+    (testing "uses the environment-trumps flag to resolve environment conflicts"
+      (let [with-env-trump [{:environment "production"
+                             :environment-trumps false
+                             :classes {}, :variables {}}
+                            {:environment "staging"
+                             :environment-trumps false
+                             :classes {}, :variables {}}
+                            {:environment "bugfix-4385"
+                             :environment-trumps true
+                             :classes {}, :variables {}}
+                            {:environment "bugfix-4385"
+                             :environment-trumps true
+                             :classes {}, :variables {}}]]
+        (is (nil? (conflicts with-env-trump)))))))
 
 (deftest conflict-explanations
-  (let [root {:name "root", :id root-group-uuid, :environment "production"
-              :classes {}, :variables {}, :parent root-group-uuid}
+  (let [root {:name "root", :id root-group-uuid, :parent root-group-uuid
+              :environment "production", :environment-trumps false, :classes {}, :variables {}}
         pre-wormhole {:name "Farscape Project"
                       :environment "sol system"
+                      :environment-trumps false
                       :classes {:ship {:name "Farscape-1"
                                        :livery "IASA"
                                        :living false
@@ -159,6 +198,7 @@
                       :id (UUID/randomUUID), :parent root-group-uuid}
         post-wormhole {:name "Through the Wormhole"
                        :environment "some distant part of the universe"
+                       :environment-trumps false
                        :classes {:ship {:name "Moya"
                                         :livery "Peacekeeper"
                                         :living true
@@ -167,8 +207,9 @@
                        :id (UUID/randomUUID), :parent root-group-uuid}
         post-ancients {:name "Encounter with the Goddess"
                        :environment "some distant part of the universe"
+                       :environment-trumps false
                        :variables {:wormhole-knowledge "extensive subconscious"}
-                       :classes {} , :id (UUID/randomUUID), :parent root-group-uuid}
+                       :classes {}, :id (UUID/randomUUID), :parent root-group-uuid}
         groups [pre-wormhole post-wormhole post-ancients]
         conflicts (conflicts (map group->classification groups))
         group->ancestors {pre-wormhole [root]
@@ -224,7 +265,7 @@
 (deftest find-unrelated
   (let [mk-group (fn [n]
                    {:name n, :id (UUID/randomUUID), :rule ["=" "foo" "foo"]
-                    :environment "", :classes {}, :variables {}})
+                    :environment "", :environment-trumps false, :classes {}, :variables {}})
         set-parent (fn [g p] (assoc g :parent (:id p)))
         root (mk-group "root")
         root (set-parent root root)

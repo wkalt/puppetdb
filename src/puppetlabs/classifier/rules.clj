@@ -64,8 +64,8 @@
                                            [op node-value target])})))
 
 (sc/defn explain-rule :- ExplainedCondition
-  [rule :- Rule, node]
-  (explain-rule* node (:when rule)))
+  [rule :- RuleCondition, node]
+  (explain-rule* node rule))
 
 (sc/defn ^:always-validate condition->pdb-query
   [condition :- RuleCondition]
