@@ -275,12 +275,12 @@
   (let [classes [{:name "myclass",
                   :parameters {:sweetness "totes"
                                :radness "utterly"
-                               :awesomeness-level "off the charts"}
+                               :awesomeness_level "off the charts"}
                   :environment "test"}
                  {:name "theirclass"
                   :parameters {:dumbness "totally"
                                :stinkiness "definitely"
-                               :looks-like-a-butt? "from some angles"}
+                               :looks_like_a_butt "from some angles"}
                   :environment "test"}]
         class-map (into {} (for [c classes] [(:name c) c]))
         !created? (atom {})
@@ -304,17 +304,19 @@
       (let [{body :body, :as resp} (app (class-request :put "test" "myclass"
                                                        (encode (get class-map "myclass"))))]
         (is-http-status 201 resp)
-        (is (= (get class-map "myclass") (decode body json-key->clj-key)))))
+        (is (get @!created? "myclass"))))
 
     (testing "returns class with its parameters"
       (let [{body :body, :as resp} (app (class-request :get "test" "myclass"))]
         (is-http-status 200 resp)
-        (is (= (get class-map "myclass") (decode body json-key->clj-key)))))
+        (is (= (get class-map "myclass") (decode body true)))))
 
     (testing "retrieves all classes"
       (let [{body :body, :as resp} (app (class-request :get "test"))]
         (is-http-status 200 resp)
-        (is (= (set classes) (set (decode body json-key->clj-key))))))
+        (is (= (set classes)  (-> body
+                                (decode true)
+                                set)))))
 
     (testing "tells storage to delete the class and returns 204"
       (let [response (app (class-request :delete "test" "myclass"))]

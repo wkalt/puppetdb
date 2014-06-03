@@ -70,7 +70,7 @@
   ::request-body."
   [body]
   (try
-    (if-let [data (json/decode body json-key->clj-key)]
+    (if-let [data (json/decode body true)]
       [false {::data data}]
       true)
     (catch JsonParseException e
@@ -203,8 +203,11 @@
       ;; matches when parse-if-body successfully parsed a body
       (if (and (vector? parse-result) (false? (first parse-result)))
         (let [{{id :id :as data} ::data} (second parse-result)
-              {:keys [parent] :as group} (merge (if uuid {:id uuid})
-                                                (convert-uuids data))]
+              {:keys [parent] :as group} (cond-> data
+                                           true convert-uuids
+                                           uuid (assoc :id uuid)
+                                           true (rename-keys
+                                                  {:environment_trumps :environment-trumps}))]
           (cond
             (and uuid id (not= (str uuid) (str id)))
             [true (err-with-rep {::submitted-id id, ::uri-id uuid})]
@@ -344,7 +347,8 @@
   [db node-name]
   (fn [ctx]
     (let [check-in-time (time/now)
-          data (::data ctx {})
+          data (-> (::data ctx {})
+                 (rename-keys {:transaction_uuid :transaction-uuid}))
           uuid-str (:transaction-uuid data)
           transaction-uuid (if (uuid? uuid-str)
                              (UUID/fromString uuid-str))

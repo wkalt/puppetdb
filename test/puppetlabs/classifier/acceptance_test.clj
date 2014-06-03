@@ -2,6 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
@@ -321,7 +322,7 @@
 
 (deftest ^:acceptance composite-parameter-and-variable-values
   (let [base-url (base-url test-config)
-        ringed {:name "ringed-planet", :environment "space"
+        ringed {:name "ringed_planet", :environment "space"
                 :parameters {:rings ["the-rings"]
                              :moons 0
                              :density "1.5 g/cm^3"}}
@@ -331,13 +332,13 @@
                 :environment-trumps false
                 :rule ["=" "foo" "foo"]
                 :parent root-group-uuid
-                :classes {:ringed-planet {:rings ["d" "c" "b" "a" "f" "g" "methone-arc"
+                :classes {:ringed_planet {:rings ["d" "c" "b" "a" "f" "g" "methone-arc"
                                                   "anth-arc" "pallene" "e" "phoebe"]
                                           :moons 53
                                           :density "0.687 g/cm^3"}}
-                :variables {:semi-major-axis "9.582 AU"
+                :variables {:semi_major_axis "9.582 AU"
                             :eccentricity "0.055"
-                            :orbital-period "10759.22 days"}}]
+                            :orbital_period "10759.22 days"}}]
 
     (testing "composite class parameter defaults round-trip through the API"
       (let [ringed-path (str "/v1/environments/" (:environment ringed) "/classes/" (:name ringed))
@@ -354,13 +355,19 @@
                                             :body (json/encode saturn)
                                             :throw-entire-message? true})
             {retrieved-body :body} (http/get (str base-url saturn-path))]
-        (is (= saturn (-> created-body (json/decode json-key->clj-key) convert-uuids)))
-        (is (= saturn (-> retrieved-body (json/decode json-key->clj-key) convert-uuids)))))))
+        (is (= saturn (-> created-body
+                        (json/decode true)
+                        (rename-keys {:environment_trumps :environment-trumps})
+                        convert-uuids)))
+        (is (= saturn (-> retrieved-body
+                        (json/decode true)
+                        (rename-keys {:environment_trumps :environment-trumps})
+                        convert-uuids)))))))
 
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
         env-url #(str base-url "/v1/environments/" %)
-        env-names ["dev" "tropical" "desert" "space"]
+        env-names ["tropical" "desert" "temperate" "space"]
         envs (for [en env-names] {:name en})
         group {:name "bazgroup", :id (UUID/randomUUID), :parent root-group-uuid,
                :environment "production", :rule ["=" "foo" "foo"], :classes {}}]
@@ -375,7 +382,8 @@
                                  (->> (map :name))
                                  set
                                  (disj "production")
-                                 (disj "staging"))))))
+                                 (disj "staging")
+                                 (disj "dev"))))))
 
     (http/put (str base-url "/v1/groups/" (:id group))
               {:content-type :json, :body (json/encode group)})
@@ -389,11 +397,12 @@
                       (->> (map :name))
                       set
                       (disj "production")
-                      (disj "staging")))))
+                      (disj "staging")
+                      (disj "dev")))))
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
-                          (json/decode json-key->clj-key)
+                          (json/decode true)
                           (->> (map :name))
                           set)]
         (is (not (contains? group-names (:name group))))))))

@@ -31,6 +31,7 @@ master_opts = {
   'master' => {
     'node_terminus' => 'classifier',
     'environmentpath' => "#{testdir}/environments",
+    'environment_timeout' => 0,
     'rest_authconfig' => "#{testdir}/auth.conf",
     'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
