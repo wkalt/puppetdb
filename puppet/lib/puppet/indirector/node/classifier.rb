@@ -59,7 +59,13 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
   end
 
   def load_config
-    config = YAML.load_file(File.join(Puppet[:confdir], 'classifier.yaml'))
+    config_path = File.join(Puppet[:confdir], 'classifier.yaml')
+    if File.exists?(config_path)
+      config = YAML.load_file(config_path)
+    else
+      Puppet.warning("Classifier config file '#{config_path}' does not exist, using defaults")
+      config = {}
+    end
 
     {
       :server => config["server"] || 'classifier',

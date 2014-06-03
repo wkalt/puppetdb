@@ -290,6 +290,9 @@ module ClassifierExtensions
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
 
+  def remove_terminus_config(host)
+    on host, "rm #{host['puppetpath']}/classifier.yaml"
+  end
 
   def print_ini_files(host)
     step "Print out jetty.ini for posterity" do
