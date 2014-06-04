@@ -7,6 +7,7 @@
             [clj-time.format :as fmt-time]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
+            [compojure.handler :as handler]
             [liberator.core :refer [resource run-resource]]
             [liberator.representation :as liberator-representation]
             [schema.core :as sc]
@@ -453,21 +454,20 @@
           (POST "/groups" []
                 (group-resource db api-prefix nil))
 
-          (ANY "/groups/:uuid" [uuid]
-               (group-resource db api-prefix uuid))
-
-          (GET "/groups/:uuid/inherited" [uuid]
-               (let [exists? (fn [_]
-                               (if-let [g (and uuid (storage/get-group db uuid))]
-                                 (let [ancs (storage/get-ancestors db g)
-                                       class8ns (map group->classification (concat [g] ancs))
-                                       inherited (class8n/collapse-to-inherited class8ns)]
-                                   {::retrieved (merge g inherited)})))]
-                 (resource
-                   :allowed-methods [:get]
-                   :available-media-types ["application/json"]
-                   :exists? exists?
-                   :handle-ok ::retrieved)))
+          (ANY "/groups/:uuid" [uuid inherited]
+               (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
+                 (group-resource db api-prefix uuid)
+                 (let [exists? (fn [_]
+                                 (if-let [g (and uuid (storage/get-group db uuid))]
+                                   (let [ancs (storage/get-ancestors db g)
+                                         class8ns (map group->classification (concat [g] ancs))
+                                         inherited (class8n/collapse-to-inherited class8ns)]
+                                     {::retrieved (merge g inherited)})))]
+                   (resource
+                     :allowed-methods [:get]
+                     :available-media-types ["application/json"]
+                     :exists? exists?
+                     :handle-ok ::retrieved))))
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
@@ -519,4 +519,5 @@
               :headers {"Content-Type" "application/json"}
               :body (json/encode (handle-404 {:request req}))}))
 
-    middleware/wrap-errors-with-explanations))
+    middleware/wrap-errors-with-explanations
+    handler/api))
