@@ -248,16 +248,25 @@
                                  :top-artists ["The Beatles" "Led Zeppelin"]}
                          :opinions {:politicians "always been rotten"}}
                :variables {}}
+        child-path (str "/v1/groups/" (:id child))
         mock-db (reify Storage
                   (get-group [_ _] child)
-                  (get-ancestors [_ _] [crotchety-ancestor]))
+                  (get-ancestors [_ _] [crotchety-ancestor])
+                  (annotate-group [_ g] g))
         handler (app {:db mock-db})]
 
     (testing "can get an inherited version of a group"
-      (let [child-path (str "/v1/groups/" (:id child))
-            {:keys [status body]} (handler (request :get (str child-path "/inherited")))]
+      (let [{:keys [status body]} (handler (request :get child-path {:inherited true}))]
         (is (= 200 status))
         (is (= (deep-merge crotchety-ancestor child)
+               (-> body
+                 (decode json-key->clj-key)
+                 convert-uuids)))))
+
+    (testing "can explicitly decline to see the group as inherited"
+      (let [{:keys [status body]} (handler (request :get child-path {:inherited 0}))]
+        (is (= 200 status))
+        (is (= child
                (-> body
                  (decode json-key->clj-key)
                  convert-uuids)))))))

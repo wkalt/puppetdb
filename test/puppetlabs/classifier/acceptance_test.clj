@@ -545,7 +545,8 @@
 
     (testing "retrieving an inherited view of a group"
       (let [child-path (str "/v1/groups/" (:id child))
-            {:keys [body status]} (http/get (str base-url child-path "/inherited"))]
+            {:keys [body status]} (http/get (str base-url child-path)
+                                            {:query-params {"inherited" "true"}})]
         (is (= 200 status))
         (is (= (deep-merge crotchety-ancestor child) (-> body
                                                        (json/decode json-key->clj-key)
