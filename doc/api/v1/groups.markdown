@@ -15,6 +15,10 @@ The object's `kind` key will be "malformed-uuid", and the value of the `details`
 
 Retrieve a list of all groups in the classifier.
 
+#### Query Parameters
+
+* `inherited`: if set to any value besides `0` or `false`, the group will include the classes, class parameters, and variables that it inherits from its ancestors.
+
 #### Response Format
 
 The response is a JSON array of group objects.
@@ -184,19 +188,6 @@ If the request would cause an inheritance cycle to be created the server will re
 ### GET /v1/groups/:id
 
 Retrieve the group with the given ID.
-
-#### Response Format
-
-If the group exists, the response will be a group object as described above, in JSON format.
-
-#### Error Responses
-
-In addition to the general `malformed-uuid` error response, if the group with the given ID cannot be found, a 404 Not Found response will be returned.
-The body will be a generic 404 error response as described in the [errors documentation](errors.markdown).
-
-### GET /v1/groups/:id/inherited
-
-Retrieve the group with the given ID, with all inherited classes, class parameters, and variables included.
 
 #### Response Format
 
