@@ -64,7 +64,7 @@
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
-                                       "-b" "resources/initdb.cfg"
+                                       "-b" "resources/puppetlabs/classifier/initdb.cfg"
                                        "-c" test-config-path)]
     (when-not (= initdb-stat 0)
       (binding [*out* *err*]
@@ -72,7 +72,7 @@
                  (if-not (empty? initdb-err) initdb-err initdb-out))
         (System/exit 1)))
     (let [server-proc (sh "lein" "trampoline" "run"
-                          "-b" "resources/bootstrap.cfg"
+                          "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
                           "-c" test-config-path)
           timeout-ms 30000
           server-blocker (future (block-until-ready server-proc))]
