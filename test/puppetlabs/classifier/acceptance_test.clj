@@ -74,7 +74,7 @@
     (let [server-proc (sh "lein" "trampoline" "run"
                           "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
                           "-c" test-config-path)
-          timeout-ms 30000
+          timeout-ms 60000
           server-blocker (future (block-until-ready server-proc))]
       ;; Block on the server starting for up to thirty seconds.
       ;; If it doesn't start within that time, exit nonzero.
@@ -87,7 +87,7 @@
           (destroy server-proc)
           (binding [*out* *err*]
             (println "Server did not start within the allotted time"
-                     (str "(" timeout-ms " ms)")))
+                     (str "(" (/ timeout-ms 1000) " s)")))
           (System/exit 2)))
       ;; The config file has already been read by the test instance, so we can
       ;; delete it.
