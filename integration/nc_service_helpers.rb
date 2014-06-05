@@ -20,6 +20,7 @@ end
 class Classifier
   include HTTParty
   debug_output($stdout)
+  headers({'Content-Type' => 'application/json'})
 end
 
 def compare(hash1, hash2)
