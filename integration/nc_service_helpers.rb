@@ -117,3 +117,54 @@ def update_group(group, hash)
   assert(group == JSON.parse(response.body),
          "Something went wrong, #{compare(group, JSON.parse(response.body))}")
 end
+
+def verify_inheritance(group)
+  response = JSON.parse(Classifier.get("/v1/groups/#{group['id']}?inherited=true").body)
+  traits = get_traits_with_inheritance(group)
+
+  traits.each_key do |trait|
+    assert(traits[trait] == response[trait],
+           "something went wrong, expected #{traits[trait]}, got #{response[trait]}")
+  end
+end
+
+def get_traits_with_inheritance(group, traits={'classes' => {}, 'variables' => {}})
+  group['classes'].each_key do |classname|
+    traits['classes'][classname] ||= group['classes'][classname]
+    group['classes'][classname].each_key do |parameter|
+      traits['classes'][classname][parameter] ||= group['classes'][classname][parameter]
+    end
+  end
+
+  group['variables'].each_key do |variable|
+    traits['variables'][variable] ||= group['variables'][variable]
+  end
+
+  return traits if group['id'] == Rootuuid && group['parent'] == Rootuuid
+
+  group_parent = JSON.parse(Classifier.get("/v1/groups/#{group['parent']}").body)
+  get_traits_with_inheritance(group_parent, traits)
+end
+private :get_traits_with_inheritance
+
+def get_root_group
+  JSON.parse(Classifier.get("/v1/groups/#{Rootuuid}").body)
+end
+
+def make_class(classname, parameters={}, body="")
+  <<-PP
+  class #{classname}(#{parameters_to_string(parameters)}) { 
+  #{body}
+  }
+  PP
+end
+
+def parameters_to_string(hash)
+  string = ""
+  hash.each do |key,value|
+    string << "$#{key} = #{value},"
+  end
+  string.chomp!(",")
+  string
+end
+private :parameters_to_string
