@@ -6,6 +6,7 @@ test_name "classifier handles changes to puppet classes properly"
 class Classifier
   include HTTParty
   debug_output $stdout
+  headers({'Content-Type' => 'application/json'})
 end
 
 clear_and_restart_classifier(database)

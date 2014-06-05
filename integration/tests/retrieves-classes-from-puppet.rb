@@ -3,6 +3,7 @@ test_name "classifier gets class definition from puppet"
 class Classifier
   include HTTParty
   debug_output $stdout
+  headers({'Content-Type' => 'application/json'})
 end
 
 Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
