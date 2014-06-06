@@ -128,7 +128,12 @@ def verify_inheritance(group)
   end
 end
 
-def get_traits_with_inheritance(group, traits={'classes' => {}, 'variables' => {}})
+def get_traits_with_inheritance(group)
+  group = Marshal.load(Marshal.dump(group))
+  get_traits_with_inheritance_recursion(group)
+end
+
+def get_traits_with_inheritance_recursion(group, traits={'classes' => {}, 'variables' => {}})
   group['classes'].each_key do |classname|
     traits['classes'][classname] ||= group['classes'][classname]
     group['classes'][classname].each_key do |parameter|
@@ -143,9 +148,9 @@ def get_traits_with_inheritance(group, traits={'classes' => {}, 'variables' => {
   return traits if group['id'] == Rootuuid && group['parent'] == Rootuuid
 
   group_parent = JSON.parse(Classifier.get("/v1/groups/#{group['parent']}").body)
-  get_traits_with_inheritance(group_parent, traits)
+  get_traits_with_inheritance_recursion(group_parent, traits)
 end
-private :get_traits_with_inheritance
+private :get_traits_with_inheritance_recursion
 
 def get_root_group
   JSON.parse(Classifier.get("/v1/groups/#{Rootuuid}").body)
