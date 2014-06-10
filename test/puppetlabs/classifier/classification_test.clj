@@ -88,6 +88,56 @@
                                     [the-missing-class])]
         (is (valid-tree? (validation-tree tree passing-classes)))))))
 
+(deftest tree-difference
+  (testing "validation-tree-difference"
+    (let [groups (repeatedly 3 #(assoc (base-group "foo") :classes {}))
+          [foo-group bar-group baz-group] (sort-by (comp str :id) groups)
+          vt_0 {:group foo-group
+                :errors {:missing-class nil
+                         :different-class #{:missing-param}}
+                :children #{{:group bar-group
+                             :errors {:missing-class nil
+                                      :different-class #{:missing-param
+                                                         :never-seen-this-param-before}}
+                             :children #{}}
+                            {:group baz-group
+                             :errors {:missing-class nil
+                                      :different-class #{:missing-param}
+                                      :where-did-i-put-that-class #{:over-here?}}}}}
+          vt_1 {:group foo-group
+                :errors {:different-class #{:missing-param}}
+                :children #{{:group bar-group
+                             :errors {:different-class #{:never-seen-this-param-before}}
+                             :children #{}}
+                            {:group baz-group
+                             :errors {:where-did-i-put-that-class #{:over-here?}
+                                      :gym-class #{:smelliness}}}}}]
+
+      (testing "returns a vtree that has all the errors in the first that were not in the second"
+        (let [expected-diff {:group foo-group
+                             :errors {:missing-class nil}
+                             :children #{{:group bar-group
+                                          :errors {:missing-class nil
+                                                   :different-class #{:missing-param}}
+                                          :children #{}}
+                                         {:group baz-group
+                                          :errors {:missing-class nil
+                                                   :different-class #{:missing-param}}
+                                          :children #{}}}}]
+          (is (= expected-diff (validation-tree-difference vt_0 vt_1)))))
+
+      (testing "returns a valid tree when a tree is diffed with itself"
+        (is (valid-tree? (validation-tree-difference vt_0 vt_0)))
+        (is (valid-tree? (validation-tree-difference vt_1 vt_1))))
+
+      (testing "throws an error if given two trees with different structures"
+        (is (thrown? IllegalArgumentException
+                     (validation-tree-difference vt_0 (assoc vt_1 :group bar-group))))
+        (is (thrown? IllegalArgumentException
+                     (validation-tree-difference vt_0 {:group foo-group
+                                                       :errors nil
+                                                       :children #{}})))))))
+
 (deftest inheritance
   (let [child {:environment "staging"
                :environment-trumps false
