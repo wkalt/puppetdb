@@ -20,7 +20,8 @@
 
 (defn find-group-node
   [group-name {:keys [group children] :as tree}]
-  (if (= (:name group) group-name) tree
+  (if (= (:name group) group-name)
+    tree
     (->> (map (partial find-group-node group-name) children)
       (keep identity)
       first)))

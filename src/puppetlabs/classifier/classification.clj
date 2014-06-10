@@ -259,8 +259,7 @@
   "Turn a group hierarchy tree into a validation tree, which is composed of
   ValidationNodes rather than HierarchyNodes. The only difference is that
   a ValidationNode contains an :errors key with the group's validation failures
-  (if any) as returned by `unknown-parameters`.
-  "
+  (if any) as returned by `unknown-parameters`."
   ([tree :- HierarchyNode, classes :- [PuppetClass]]
    (validation-tree tree classes ()))
   ([tree :- HierarchyNode, classes :- [PuppetClass], ancestors :- [Classification]]
