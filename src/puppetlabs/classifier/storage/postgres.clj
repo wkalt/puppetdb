@@ -528,21 +528,19 @@
 
 (sc/defn ^:always-validate get-ancestors* :- [Group]
   [{db :db} group :- Group]
-  (if (= (:name group) (:parent group))
-    []
-    (loop [current (get-parent db group), ancestors []]
-      (cond
-        ;; if current is = to last parent, it is its own parent, so it's the root
-        (= current (last ancestors))
-        ancestors
+  (loop [current (get-parent db group), ancestors []]
+    (cond
+      ;; if current is = to last parent, it is its own parent, so it's the root
+      (= current (last ancestors))
+      ancestors
 
-        ;; if current is somewhere else in ancestors, we have as cycle
-        (some #(= (:id current) (:id %)) ancestors)
-        (throw+ {:kind ::inheritance-cycle
-                 :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
+      ;; if current is somewhere else in ancestors, we have as cycle
+      (some #(= (:id current) (:id %)) ancestors)
+      (throw+ {:kind ::inheritance-cycle
+               :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
 
-        :else
-        (recur (get-parent db current) (conj ancestors current))))))
+      :else
+      (recur (get-parent db current) (conj ancestors current)))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]
