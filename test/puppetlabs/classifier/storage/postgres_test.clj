@@ -379,7 +379,7 @@
                            :cycle [top' child-1]]
                           (validate-group db top')))))))))
 
-(deftest ^:database hierarchy-inheritance
+(deftest ^:database hierarchy-inheritance-validation
   (let [high-class {:name "high"
                     :environment "production"
                     :parameters {:refined "surely"}}
@@ -420,7 +420,29 @@
 
         (testing "when validating a group"
           (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
-                        (validate-group db (merge side-group bad-inheritance-delta)))))))))
+                        (validate-group db (merge side-group bad-inheritance-delta)))))))
+
+    ;; mark class as deleted
+    (let [class-env (:environment high-class)
+            class-name (:name high-class)]
+        (jdbc/update! test-db :classes {:deleted true}
+                      ["environment_name = ? AND name = ?" class-env class-name])
+        (is (nil? (get-class db class-env class-name))))
+
+    (testing "validation allows groups to be updated when they contain missing referents"
+      (let [rule-update {:id (:id top-group), :rule [">" ["facts" "hat_height"] "10"]}
+            top-group' (merge-and-clean top-group rule-update)]
+        (is (= top-group' (update-group db rule-update)))
+        (is (= top-group' (get-group db (:id top-group)))))
+
+      (testing "but not if the update adds new missing references"
+        (let [bad-delta {:id (:id top-group), :classes {:first-class {}}}]
+          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
+                        (update-group db bad-delta)))))
+
+      (let [fix-delta {:id (:id top-group), :classes {:high-class nil}}
+            top-group' (merge-and-clean (get-group db (:id top-group)) fix-delta)]
+        (is (= top-group' (update-group db fix-delta)))))))
 
 (deftest ^:database classes
   (let [no-params {:name "myclass" :parameters {} :environment "test"}

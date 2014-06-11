@@ -13,7 +13,7 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [AnnotatedGroup CheckIn Environment Group
                                                   GroupDelta group->classification HierarchyNode
-                                                  Node PuppetClass Rule]]
+                                                  Node PuppetClass Rule ValidationNode]]
             [puppetlabs.classifier.storage :refer [Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
@@ -568,49 +568,61 @@
 ;; Validating Group
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn- validate-group-classes
-  "Validates the classes and class parameters (including those inherited from
-  ancestors) of a group and all its children."
-  [db group ancestors]
-  (let [subtree (-> (get-subtree* {:db db} group)
-                  (assoc :group group))
-        classes (->> subtree
-                  (flatten-tree-with :environment)
-                  set
-                  (mapcat (partial get-classes* {:db db})))
-        vtree (class8n/validation-tree subtree classes (map group->classification ancestors))]
-    (when-not (class8n/valid-tree? vtree)
-      (throw+ {:kind ::missing-referents
-               :tree vtree
-               :ancestors ancestors
-               :classes classes}))))
+(sc/defn ^:always-validate validate-classes-and-parameters :- (sc/maybe ValidationNode)
+  "Validates class and class parameter references (including inherited ones) for
+  the group and all its descendents using classification/validation-tree to
+  ensure that all the referents exist. If any do not, returns a ValidationNode
+  subtree rooted at the group; if all references are valid, returns nil."
+  [group subtree ancestors classes]
+  (let [vtree (class8n/validation-tree subtree, (seq classes)
+                                       (map group->classification ancestors))]
+    (if (class8n/valid-tree? vtree)
+      nil
+      vtree)))
 
-(sc/defn ^:always-validate validate-group*
+(sc/defn ^:always-validate validate-hierarchy-structure*
   "Performs validation of the group's place in the hierarchy (i.e. that its
-  parent exists and the group doesn't create a cycle in the hierarchy), and
-  validates class and class parameter references for the group and all its
-  descendents."
+  parent exists and the group doesn't create a cycle in the hierarchy). If the
+  group causes any such errors in the hierarchy (i.e. a missing parent or
+  a cycle), throws an exception."
+  [group ancestors]
+  (when (and (= (:id group) (:parent group))
+             (not= (:id group) root-group-uuid))
+    (throw+ {:kind ::inheritance-cycle
+             :cycle [group]}))
+
+  (when (not= (:id group) root-group-uuid)
+    ;; If the group's parent is being changed, that edge is not yet in the
+    ;; database so get-ancestors* will not see it, meaning we have to check
+    ;; ourselves for cycles involving the group.
+    (when (some #(= (:id group) (:id %)) ancestors)
+      (throw+ {:kind ::inheritance-cycle
+               :cycle (->> ancestors
+                        (take-while #(not= (:id group) (:id %)))
+                        (concat [group]))}))))
+
+(sc/defn ^:always-validate validation-failures :- (sc/maybe ValidationNode)
+  "Validates a group using `validate-hierarchy-structure*` and
+  `validate-classes-and-parameters`. If the group has a hierarchy structure
+  problem, an exception will be thrown. If it or its descendents have references
+  to missing classes or class parameters, returns a ValidationNode subtree
+  rooted at the group. If all validation succeeds, returns nil."
   [{db :db} group]
-  (let [parent (get-parent db group)]
-    (when (nil? parent)
-      (throw+ {:kind ::missing-parent
-               :group group}))
+  (let [parent (get-parent db group)
+        _ (when (nil? parent)
+            (throw+ {:kind ::missing-parent, :group group}))
+        ancestors (get-ancestors* {:db db} group)]
+    (validate-hierarchy-structure* group ancestors)
+    (let [subtree (get-subtree* {:db db} group)
+          classes (get-all-classes db)]
+      (validate-classes-and-parameters group subtree ancestors classes))))
 
-    (let [ancestors (concat [parent] (get-ancestors* {:db db} parent))]
-      (when (not= (:id group) root-group-uuid)
-        (when (= (:id group) (:parent group))
-          (throw+ {:kind ::inheritance-cycle
-                   :cycle [group]}))
-        ;; If the group parent is being changed, that edge is not yet in the
-        ;; database and get-ancestors* won't see it, so we have to check
-        ;; separately for cycles involving group
-        (when (some #(= (:id group) (:id %)) ancestors)
-          (throw+ {:kind ::inheritance-cycle
-                   :cycle (->> ancestors ; Show the updated version of group
-                            (take-while #(not= (:id group) (:id %)))
-                            (concat [group]))})))
-
-      (validate-group-classes db group ancestors))))
+(defn validate-group*
+  [{db :db} group]
+  (when-let [vtree (validation-failures {:db db} group)]
+    (throw+ {:kind ::missing-referents
+             :tree vtree
+             :ancestors (get-ancestors* {:db db} group)})))
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -777,19 +789,41 @@
                     (sql/where {:id (:id delta)})))))
 
 (defn- validate-delta
-  [db delta]
+  "This validates that the delta 1) does not perform an illegal edit such as
+  changing the root group's rule and 2) does not introduce any bad class or
+  class parameter references to the hierarchy. If the delta fails validation, an
+  exception will be thrown; if the delta passes, then nil will be returned."
+  [db delta extant]
   (when (and (= (:id delta) root-group-uuid)
              (contains? delta :rule))
     (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
-             :delta delta})))
+             :delta delta}))
+
+  (let [group' (merge-and-clean extant delta)
+        ancestors' (get-ancestors* {:db db} group')
+        _ (validate-hierarchy-structure* group' ancestors')
+        subtree' (get-subtree* {:db db} group')
+        classes (get-all-classes db)]
+    (when-let [vtree' (validate-classes-and-parameters group' subtree' ancestors' classes)]
+      (let [ancestors (if (= (:parent group') (:parent extant))
+                        ancestors'
+                        (get-ancestors* {:db db} extant))
+            subtree (assoc subtree' :group extant)
+            vtree (validate-classes-and-parameters extant subtree ancestors classes)
+            vtree-diff (if (nil? vtree)
+                         vtree'
+                         (class8n/validation-tree-difference vtree' vtree))]
+        (if-not (class8n/valid-tree? vtree-diff)
+          (throw+ {:kind ::missing-referents
+                   :tree vtree-diff
+                   :ancestors ancestors'}))))))
 
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
   (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} (:id delta))]
-                          (validate-group* {:db t-db} (merge-and-clean extant delta))
-                          (validate-delta t-db delta)
+                          (validate-delta t-db delta extant)
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
