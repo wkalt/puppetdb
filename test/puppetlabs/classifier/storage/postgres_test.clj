@@ -377,7 +377,13 @@
           (testing "when validating a group"
             (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
                            :cycle [top' child-1]]
-                          (validate-group db top')))))))))
+                          (validate-group db top')))))))
+
+    (testing "attempting to delete a group that has children results in an error"
+      (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/children-present
+                     :group top
+                     :children #{child-1 child-2}]
+                    (delete-group db (:id top)))))))
 
 (deftest ^:database hierarchy-inheritance
   (let [high-class {:name "high"
