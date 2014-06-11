@@ -74,7 +74,7 @@
     (let [server-proc (sh "lein" "trampoline" "run"
                           "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
                           "-c" test-config-path)
-          timeout-ms 60000
+          timeout-ms 90000
           server-blocker (future (block-until-ready server-proc))]
       ;; Block on the server starting for up to thirty seconds.
       ;; If it doesn't start within that time, exit nonzero.
