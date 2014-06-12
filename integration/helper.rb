@@ -835,7 +835,7 @@ module ClassifierExtensions
   # Taken from puppet acceptance lib
   # Install development repos
   def install_dev_repos_on(package, host, sha, repo_configs_dir)
-    platform = host['platform']
+    platform = host['platform'] =~ /^(debian|ubuntu)/ ? host['platform'].with_version_codename : host['platform'] 
     platform_configs_dir = File.join(repo_configs_dir, platform)
 
     case platform
