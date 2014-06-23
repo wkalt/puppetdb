@@ -259,8 +259,7 @@
   "Turn a group hierarchy tree into a validation tree, which is composed of
   ValidationNodes rather than HierarchyNodes. The only difference is that
   a ValidationNode contains an :errors key with the group's validation failures
-  (if any) as returned by `unknown-parameters`.
-  "
+  (if any) as returned by `unknown-parameters`."
   ([tree :- HierarchyNode, classes :- [PuppetClass]]
    (validation-tree tree classes ()))
   ([tree :- HierarchyNode, classes :- [PuppetClass], ancestors :- [Classification]]
@@ -280,3 +279,42 @@
     (if-not (empty? errors)
       false
       (every? identity (map valid-tree? children)))))
+
+(sc/defn validation-tree-difference :- ValidationNode
+  "Takes two validation trees with the same structure, and returns a version of
+  the first tree with all the errors present in the second tree omitted. If the
+  two trees have different structures, then an IllegalArgumentException is
+  thrown."
+  [vt0 vt1]
+  (let [{vt0-errors :errors, vt0-children :children} vt0
+        {vt1-errors :errors, vt1-children :children} vt1
+        sort-children (partial sort-by (comp str :id :group))
+        sorted-vt0-children (sort-children vt0-children)
+        sorted-vt1-children (sort-children vt1-children)
+        different-groups? (not= (get-in vt0 [:group :id]) (get-in vt1 [:group :id]))
+        different-children? (not= (map (comp :id :group) sorted-vt0-children)
+                                  (map (comp :id :group) sorted-vt1-children))
+        remaining-errs (reduce (fn [remaining [class params]]
+                                 (cond
+                                   (not (contains? remaining class))
+                                   remaining
+
+                                   (and (nil? params) (nil? (get remaining class)))
+                                   (dissoc remaining class)
+
+                                   (and (set? params) (set? (get remaining class)))
+                                   (let [param-difference (difference (get remaining class) params)]
+                                     (if (empty? param-difference)
+                                       (dissoc remaining class)
+                                       (assoc remaining class param-difference)))
+
+                                   :else remaining))
+                               vt0-errors
+                               (seq vt1-errors))]
+    (when (or different-groups? different-children?)
+      (throw (IllegalArgumentException. (str "the validation trees must have the same structure in"
+                                             " order to create a difference."))))
+    {:group (:group vt0)
+     :errors remaining-errs
+     :children (set (map validation-tree-difference
+                         sorted-vt0-children, sorted-vt1-children))}))

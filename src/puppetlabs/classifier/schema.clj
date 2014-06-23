@@ -159,7 +159,7 @@
 (def ValidationNode
   (assoc HierarchyNode
          :errors (sc/maybe {sc/Keyword sc/Any})
-         :children #{(sc/recursive #'ValidationNode)}))
+         :children (sc/maybe #{(sc/recursive #'ValidationNode)})))
 
 ;; Utilities for creating & converting maps conforming to the Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

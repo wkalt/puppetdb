@@ -242,7 +242,7 @@
   (fn [request]
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
-        {:keys [tree ancestors classes]}
+        {:keys [tree ancestors]}
         (let [errors (flatten-errors tree (seq ancestors))
               error-count (count errors)
               group-error-count (->> errors
