@@ -281,8 +281,8 @@
       (map keywordize-parameters)
       (map deserialize-default-values))))
 
-(sc/defn ^:always-validate get-all-classes :- [PuppetClass]
-  [db]
+(sc/defn ^:always-validate get-all-classes* :- [PuppetClass]
+  [{db :db}]
   (let [result (jdbc/query db (select-all-classes))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
@@ -356,7 +356,7 @@
        ;; Nothing else should lock this table, so we can use NOWAIT
        (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
        (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
-       (let [db-classes (get-all-classes t-db)
+       (let [db-classes (get-all-classes* {:db t-db})
              [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
                                                                      (sort-classes puppet-classes)
                                                                      (sort-classes db-classes))]
@@ -614,7 +614,7 @@
         ancestors (get-ancestors* {:db db} group)]
     (validate-hierarchy-structure* group ancestors)
     (let [subtree (get-subtree* {:db db} group)
-          classes (get-all-classes db)]
+          classes (get-all-classes* {:db db})]
       (validate-classes-and-parameters group subtree ancestors classes))))
 
 (defn validate-group*
@@ -803,7 +803,7 @@
         ancestors' (get-ancestors* {:db db} group')
         _ (validate-hierarchy-structure* group' ancestors')
         subtree' (get-subtree* {:db db} group')
-        classes (get-all-classes db)]
+        classes (get-all-classes* {:db db})]
     (when-let [vtree' (validate-classes-and-parameters group' subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
@@ -889,6 +889,7 @@
    :create-class create-class*
    :get-class get-class*
    :get-classes get-classes*
+   :get-all-classes get-all-classes*
    :synchronize-classes synchronize-classes*
    :delete-class delete-class*
 

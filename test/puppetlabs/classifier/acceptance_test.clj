@@ -364,6 +364,30 @@
                         (rename-keys {:environment_trumps :environment-trumps})
                         convert-uuids)))))))
 
+(deftest ^:acceptance listing-classes
+  (let [base-url (base-url test-config)
+        d1-class {:name "idspispopd"
+                 :environment "production"
+                 :parameters {:what "smashing pumpkins into small piles of putrid debris"}}
+        d2-class {:name "idclip"
+                 :environment "staging"
+                 :parameters {:boring "yes"}}]
+    (http/put (str base-url
+                   "/v1/environments/" (:environment d1-class)
+                   "/classes/" (:name d1-class))
+              {:content-type :json, :body (json/encode d1-class)})
+    (http/put (str base-url
+                   "/v1/environments/" (:environment d2-class)
+                   "/classes/" (:name d2-class))
+              {:content-type :json, :body (json/encode d2-class)})
+
+    (testing "can list classes across environments"
+      (let [{:keys [body status]} (http/get (str base-url "/v1/classes")
+                                            {:accept :json})
+            classes (json/decode body json-key->clj-key)]
+        (is (some #{d1-class} classes))
+        (is (some #{d2-class} classes))))))
+
 (deftest ^:acceptance listing-and-deleting
   (let [base-url (base-url test-config)
         env-url #(str base-url "/v1/environments/" %)
