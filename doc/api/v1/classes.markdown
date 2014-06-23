@@ -4,6 +4,12 @@ title: "Node Classifier 1.0 >> API >> v1 >> Classes"
 
 ## Classes Endpoint
 
+### GET /v1/classes
+
+Retrieve a list of all classes known to the classifier. (Note that all
+other operations on classes require using the environment-specific
+endpoints below.)
+
 ### GET /v1/environments/\<environment\>/classes
 
 Retrieve a list of all classes known to the classifier within the given

@@ -419,6 +419,9 @@
                      {:name node-name
                       :check_ins (map #(dissoc % :node) check-ins)}))))
 
+          (GET "/classes" []
+               (listing-resource db storage/get-all-classes))
+
           (GET "/environments" []
                (listing-resource db storage/get-environments))
 
