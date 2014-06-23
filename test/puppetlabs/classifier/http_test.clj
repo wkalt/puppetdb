@@ -6,6 +6,7 @@
             [ring.mock.request :as mock :refer [request]]
             [schema.test]
             [schema.core :as sc]
+            [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge mapkeys mapvals]]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.classifier.http :refer :all]
@@ -220,6 +221,36 @@
     (testing "tells storage to delete the group and returns 204"
       (let [response (app (group-request :delete (:id agroup)))]
         (is-http-status 204 response)))))
+
+(deftest dont-make-orphans
+  (let [parent {:name "Breeders"
+                :parent root-group-uuid
+                :id (UUID/randomUUID)
+                :environment "production", :environment-trumps false
+                :rule ["=" "foo" "bar"], :classes {}, :variables {}}
+        annie {:name "Annie"
+               :parent (:id parent)
+               :id (UUID/randomUUID)
+               :environment "production", :environment-trumps false
+               :rule ["=" "foo" "bar"], :classes {}, :variables {}}
+        mock-db (reify Storage
+                  (get-group [_ _] parent)
+                  (delete-group [_ _]
+                    (throw+ {:kind :puppetlabs.classifier.storage.postgres/children-present
+                             :group parent
+                             :children #{annie}})))
+        handler (app {:db mock-db})]
+
+    (testing "delete requests that would create orphans get a 422 response"
+      (let [{:keys [body status]} (handler (group-request :delete (:id parent)))
+            {:keys [kind msg details]} (decode body json-key->clj-key)]
+        (is (= 422 status))
+        (is (= "children-present" kind))
+        (is (re-find #"not be deleted because it has children: \[\"Annie\"\]" msg))
+        (is (= {:group parent, :children [annie]}
+               (-> details
+                 (update-in [:group] convert-uuids)
+                 (update-in [:children] (partial map convert-uuids)))))))))
 
 (deftest inherited-group
   (let [crotchety-ancestor {:name "Hubert"

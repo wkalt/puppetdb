@@ -378,6 +378,20 @@
                   :msg (str "The rule cannot be translated because " msg)
                   :details condition})}))))
 
+(defn wrap-children-present-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.postgres/children-present]
+        {:keys [group children]}
+        {:status 422
+         :headers {"Content-Type" "application/json"}
+         :body (encode-and-translate-keys
+                 {:kind "children-present"
+                  :msg (str "The group cannot be deleted because it has children: "
+                            (pr-str (mapv :name children)))
+                  :details {:group group, :children children}})}))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -390,4 +404,5 @@
     wrap-classification-conflict-explanations
     wrap-root-rule-edit-explanation
     wrap-rule-translation-error-explanations
+    wrap-children-present-explanations
     wrap-error-catchall))

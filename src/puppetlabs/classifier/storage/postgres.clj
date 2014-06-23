@@ -854,6 +854,11 @@
   (let [uuid (->uuid id)]
     (when (= uuid root-group-uuid)
       (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
+    (let [children (get-immediate-children db id)]
+      (when-not (empty? children)
+        (throw+ {:kind ::children-present
+                 :group (get-group* {:db db} id)
+                 :children (set children)})))
     (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
 
 ;; Record & Storage Protocol Extension

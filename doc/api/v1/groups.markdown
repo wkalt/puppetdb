@@ -312,3 +312,6 @@ If the delete operation is successful, then a 204 No Content with an empty body 
 #### Error Responses
 
 In addition to the general `malformed-uuid` response, if the group with the given ID does not exist, then a 404 Not Found response as described in the [errors documentation](errors.markdown) will be returned to the client.
+
+If the group that is being deleted has children, then the delete will be rejected, and a 422 Unprocessable Entity response will be returned to the client.
+The response body will be the usual JSON error object, with a `kind` key of `children-present`, a `msg` that explains why the delete was rejected and names the children, and `details` that contains the group in question along with all of its children, in full.
