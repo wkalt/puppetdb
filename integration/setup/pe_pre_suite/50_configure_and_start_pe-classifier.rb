@@ -2,6 +2,7 @@ step "Configure the classifier's conf file" do
   cert = on(database, 'puppet agent --configprint hostcert').stdout.strip
   key = on(database, 'puppet agent --configprint hostprivkey').stdout.strip
   cacert = on(database, 'puppet agent --configprint localcacert').stdout.strip
+  ipaddress = on(database, 'facter ipaddress').stdout.strip
 
   conf = {}
 
@@ -20,7 +21,7 @@ step "Configure the classifier's conf file" do
     'puppet-master' => "https://#{master}:8140"
   }
   conf['database'] = {
-    'dbname' => 'pe-classifier',
+    'dbname' => "//#{ipaddress}:5432/pe-classifier",
     'user' => 'pe-classifier',
     'password' => 'classifier'
   }

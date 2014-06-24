@@ -320,6 +320,43 @@ module ClassifierExtensions
   #  acceptance test runs.
   ############################################################################
 
+  def install_pe_classifier_postgres(host)
+    manifest = ''
+    manifest << <<-EOS
+    class { '::postgresql::globals':
+      user                => 'pe-postgres',
+      group              => 'pe-postgres',
+      client_package_name => 'pe-postgresql',
+      server_package_name => 'pe-postgresql-server',
+      service_name        => 'pe-postgresql',
+      default_database    => 'pe-postgres',
+      version            => '9.2',
+      bindir              => '/opt/puppet/bin',
+      datadir            => '/opt/puppet/var/lib/pgsql/9.2/data',
+      confdir            => '/opt/puppet/var/lib/pgsql/9.2/data',
+      psql_path          => '/opt/puppet/bin/psql',
+      pg_hba_conf_path => '/opt/puppet/var/lib/pgsql/9.2/data/pg_hba.conf'
+    }
+
+
+    # get the pg server up and running
+    class { '::postgresql::server':
+      listen_addresses        => '#{database}',
+      ip_mask_allow_all_users => '0.0.0.0/0',
+      require                => Class['::postgresql::globals'],
+    }
+
+    # create the classifier database
+    postgresql::server::db{ "pe-classifier":
+      user      => 'pe-classifier',
+      password  => 'classifier',
+    }
+    EOS
+
+    apply_manifest_on(host, manifest)
+    on database, 'puppet agent -t', :acceptable_exit_codes => [0,2]
+  end
+
   def install_postgres(host)
     Beaker::Log.notify "Installing postgres on #{host}"
 
@@ -436,11 +473,12 @@ module ClassifierExtensions
 
   def clear_database(host)
     if host.is_pe?
-      on host, 'su - postgres -s "/bin/bash" -c "/usr/bin/dropdb pe-classifier"'
+      on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
+      install_pe_classifier_postgres(host)
     else
       on host, 'su postgres -c "dropdb classifier"'
+      install_postgres(host)
     end
-    install_postgres(host)
   end
 
   #########################################################
