@@ -1,7 +1,15 @@
-# 0.5.0
+### 0.5.1
+ * Allow updates that don't introduce errors. This means it's possible
+   to update a group that contains an error, so long as the update
+   doesn't introduce the error.
+ * Improve response when attempting to delete a group with children.
+ * Add an endpoint for enumerating all classes (as opposed to just in an
+   environment).
+
+## 0.5.0
  * Namespace the configuration files previously located under `resources/` to avoid conflicting with other TrapperKeeper apps.
  * Change the inherited group view from being at a seperate path to just being a query parameter on the normal group GET endpoint.
- * Add the 'environment_trumps' field to groups to allow users to resolve environment conflicts at the expense of some safety.
+ * Add the `environment_trumps` field to groups to allow users to resolve environment conflicts at the expense of some safety.
  * If group rules are malformed, instruct the user to consult the documentation, rather than showing them a cryptic error.
  * All JSON payloads now consistently use underscores as word seperators in their keys.
  * Fixed a bug where the terminus would fail if the 'classifier.yaml' config file was not present; now, defaults are used instead.
