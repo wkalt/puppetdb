@@ -1,3 +1,3 @@
 step "install and configure postgres on the classifier node" do
-  install_postgres(database)
+  install_pe_classifier_postgres(database)
 end
