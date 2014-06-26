@@ -4,19 +4,24 @@
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.classifier.storage :as storage]))
 
+(defn throw-unexpected-response
+  [response body url]
+  (throw+ {:kind ::unexpected-response
+           :response (assoc response :body body :url url)}))
+
 (defn get-environments
   [ssl-context puppet-origin]
   (let [search-url (str puppet-origin "/v2.0/environments")
-        {:keys [status body] :as response} (http/get search-url
-                                                     {:ssl-context ssl-context
-                                                      :as :stream
-                                                      :headers {"Accept" "application/json"}})]
+        {:keys [status] :as response} (http/get search-url
+                                                {:ssl-context ssl-context
+                                                 :as :stream
+                                                 :headers {"Accept" "application/json"}})
+        body (slurp (:body response) :encoding "UTF-8")]
+
     (when-not (= 200 status)
-      (throw+ {:kind ::unexpected-response
-               :response response}))
+      (throw-unexpected-response response body search-url))
 
     (-> body
-      (slurp :encoding "UTF-8")
       (json/decode true)
       :environments
       keys)))
@@ -25,14 +30,13 @@
   [ssl-context puppet-origin environment]
   (let [environment (name environment)
         search-url (str puppet-origin "/" environment "/resource_types/*")
-        {:keys [status body] :as response} (http/get search-url
-                                                     {:ssl-context ssl-context
-                                                      :as :stream
-                                                      :headers {"Accept" "text/pson"}})]
+        {:keys [status] :as response} (http/get search-url
+                                                {:ssl-context ssl-context
+                                                 :as :stream
+                                                 :headers {"Accept" "text/pson"}})
+        body (slurp (:body response) :encoding "ISO-8859-1")]
     (condp = status
-      200 (for [class (-> body
-                        (slurp :encoding "ISO-8859-1")
-                        (json/decode true))]
+      200 (for [class (json/decode body true)]
             (-> class
               (->> (merge {:parameters {}}))
               (select-keys [:name :parameters])
@@ -40,8 +44,7 @@
 
       404 nil
 
-      (throw+ {:kind ::unexpected-response
-               :response response}))))
+      (throw-unexpected-response response body search-url))))
 
 (defn get-classes
   [ssl-context puppet-origin]
