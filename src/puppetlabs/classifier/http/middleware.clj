@@ -392,6 +392,22 @@
                             (pr-str (mapv :name children)))
                   :details {:group group, :children children}})}))))
 
+(defn wrap-unexpected-response-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.class-updater/unexpected-response]
+        {response :response}
+        {:status 500
+         :headers {"Content-Type" "application/json"}
+         :body (encode-and-translate-keys
+                 {:kind "unexpected-response"
+                  :msg (str "Received an unexpected "
+                            (:status response)
+                            " status response while trying to access "
+                            (:url response))
+                  :details (select-keys response [:url :status :headers :body])})}))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -405,4 +421,5 @@
     wrap-root-rule-edit-explanation
     wrap-rule-translation-error-explanations
     wrap-children-present-explanations
+    wrap-unexpected-response-explanations
     wrap-error-catchall))
