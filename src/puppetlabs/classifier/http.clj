@@ -461,7 +461,8 @@
                (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
                  (group-resource db api-prefix uuid)
                  (let [exists? (fn [_]
-                                 (if-let [g (and uuid (storage/get-group db uuid))]
+                                 (if-let [g (and uuid
+                                                 (storage/get-group db (UUID/fromString uuid)))]
                                    (let [ancs (storage/get-ancestors db g)
                                          class8ns (map group->classification (concat [g] ancs))
                                          inherited (class8n/collapse-to-inherited class8ns)]
@@ -470,7 +471,8 @@
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]
                      :exists? exists?
-                     :handle-ok ::retrieved))))
+                     :handle-ok ::retrieved
+                     :handle-not-found handle-404))))
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
