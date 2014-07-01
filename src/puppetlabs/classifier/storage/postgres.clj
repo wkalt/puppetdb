@@ -617,12 +617,13 @@
           classes (get-all-classes* {:db db})]
       (validate-classes-and-parameters group subtree ancestors classes))))
 
-(defn validate-group*
+(sc/defn ^:always-validate validate-group* :- Group
   [{db :db} group]
   (when-let [vtree (validation-failures {:db db} group)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* {:db db} group)})))
+             :ancestors (get-ancestors* {:db db} group)}))
+  group)
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
