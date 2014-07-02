@@ -27,10 +27,10 @@
       (is-not-rule-match rule bar-node))))
 
 (deftest structured-lookups
-  (let [red-node {:facts {:appearance {:color "red"}}}
-        blue-node {:facts {:appearance {:color "blue"}}}
+  (let [red-node {:fact {:appearance {:color "red"}}}
+        blue-node {:fact {:appearance {:color "blue"}}}
         empty-node {}
-        red? {:when ["=" ["facts" "appearance" "color"] "red"]
+        red? {:when ["=" ["fact" "appearance" "color"] "red"]
               :group-id (UUID/randomUUID)}]
     (testing "equality against a nested lookup"
       (is-rule-match red? red-node)
@@ -115,17 +115,17 @@
 (deftest rule-explanations
   (testing "rule explanations work as expected for"
     (let [simplest-rule ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
-          negation-rule ["not" ["<" ["facts" "cpu-cores"] "2"]]
+          negation-rule ["not" ["<" ["fact" "cpu-cores"] "2"]]
           disjunction-rule ["or"
-                            [">=" ["facts" "RAM"] "17180000000"]
-                            ["=" ["facts" "storage-type"] "solid-state"]]
+                            [">=" ["fact" "RAM"] "17180000000"]
+                            ["=" ["fact" "storage-type"] "solid-state"]]
           conjunction-rule ["and"
                             ["~" ["trusted" "certname"] "\\.www\\.example\\.com"]
-                            [">=" ["facts" "cpu-cores"] "2"]]
+                            [">=" ["fact" "cpu-cores"] "2"]]
           omni-rule ["and" disjunction-rule negation-rule]
           reference-node {"name" "Riffy"
                           "trusted" {"certname" "riffy.www.example.com"}
-                          "facts" {"cpu-cores" "4"
+                          "fact" {"cpu-cores" "4"
                                    "RAM" "34360000000"
                                    "storage-type" "spinning-plates"}}]
 
@@ -137,7 +137,7 @@
           (is (= expected-explanation (explain-rule simplest-rule reference-node)))))
 
       (testing "negations"
-        (let [node-value {:path ["facts" "cpu-cores"], :value "4"}
+        (let [node-value {:path ["fact" "cpu-cores"], :value "4"}
               sub-explanation {:value false
                                :form ["<" node-value "2"]}
               expected-explanation {:value true
@@ -145,8 +145,8 @@
           (is (= expected-explanation (explain-rule negation-rule reference-node)))))
 
       (testing "disjunctions"
-        (let [node-ram-value {:path ["facts" "RAM"], :value "34360000000"}
-              node-storage-type-value {:path ["facts" "storage-type"], :value "spinning-plates"}
+        (let [node-ram-value {:path ["fact" "RAM"], :value "34360000000"}
+              node-storage-type-value {:path ["fact" "storage-type"], :value "spinning-plates"}
               expected-explanation {:value true
                                     :form ["or"
                                            {:value true
@@ -157,7 +157,7 @@
 
       (testing "conjunctions"
         (let [node-cert-value {:path ["trusted" "certname"], :value "riffy.www.example.com"}
-              node-cpu-value {:path ["facts" "cpu-cores"], :value "4"}
+              node-cpu-value {:path ["fact" "cpu-cores"], :value "4"}
               expected-explanation {:value true
                                     :form ["and"
                                            {:value true
@@ -167,9 +167,9 @@
           (is (= expected-explanation (explain-rule conjunction-rule reference-node)))))
 
       (testing "nested rules that use all condition forms"
-        (let [node-ram-value {:path ["facts" "RAM"], :value "34360000000"}
-              node-storage-type-value {:path ["facts" "storage-type"], :value "spinning-plates"}
-              node-cpu-value {:path ["facts" "cpu-cores"], :value "4"}
+        (let [node-ram-value {:path ["fact" "RAM"], :value "34360000000"}
+              node-storage-type-value {:path ["fact" "storage-type"], :value "spinning-plates"}
+              node-cpu-value {:path ["fact" "cpu-cores"], :value "4"}
               expected-explanation {:value true
                                     :form ["and"
                                            {:value true

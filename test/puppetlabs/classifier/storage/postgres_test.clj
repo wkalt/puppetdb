@@ -436,7 +436,7 @@
         (is (nil? (get-class db class-env class-name))))
 
     (testing "validation allows groups to be updated when they contain missing referents"
-      (let [rule-update {:id (:id top-group), :rule [">" ["facts" "hat_height"] "10"]}
+      (let [rule-update {:id (:id top-group), :rule [">" ["fact" "hat_height"] "10"]}
             top-group' (merge-and-clean top-group rule-update)]
         (is (= top-group' (update-group db rule-update)))
         (is (= top-group' (get-group db (:id top-group)))))

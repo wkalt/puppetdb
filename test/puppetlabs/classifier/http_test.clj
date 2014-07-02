@@ -258,7 +258,7 @@
                             :environment "FDR's third term"
                             :environment-trumps false
                             :parent root-group-uuid
-                            :rule [">=" ["facts" "age"] "93"]
+                            :rule [">=" ["fact" "age"] "93"]
                             :classes {:suspenders {:color "0xff0000"
                                                    :length "38"}
                                       :music {:genre "Crooners"
@@ -273,8 +273,8 @@
                :environment "not inherited"
                :environment-trumps false
                :parent (:id crotchety-ancestor)
-               :rule ["and" ["<" ["facts" "age"] "93"]
-                            [">=" ["facts" "age"] "60"]]
+               :rule ["and" ["<" ["fact" "age"] "93"]
+                            [">=" ["fact" "age"] "60"]]
                :classes {:music {:genre "Rock 'n' Roll"
                                  :top-artists ["The Beatles" "Led Zeppelin"]}
                          :opinions {:politicians "always been rotten"}}
@@ -404,7 +404,7 @@
 
 (deftest classification
   (let [group-id (UUID/randomUUID)
-        rule {:when ["and" ["=" ["facts" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]
+        rule {:when ["and" ["=" ["fact" "a"] "b"] ["=" ["trusted" "certname"] "abcdefg"]]
               :group-id group-id}
         group {:name "factgroup"
                :id group-id
@@ -426,12 +426,12 @@
         app (app {:db mock-db})]
 
     (testing "facts submitted via POST can be used for classification"
-      (let [facts {:a "b"}
+      (let [fact {:a "b"}
             trusted {:certname "abcdefg"}
             {body :body, :as response} (app (classification-request
                                              :post
                                              "qwkeju"
-                                             (encode {:facts facts :trusted trusted})))]
+                                             (encode {:fact fact :trusted trusted})))]
         (is-http-status 200 response)
         (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body json-key->clj-key))))))))
 
@@ -621,13 +621,13 @@
 (deftest node-check-ins
   (let [!check-ins (atom {})
         dwarf-planets {:name "dwarf planets"
-                       :rule ["and" ["=" ["facts" "orbits"] "sol"]
-                              [">" ["facts" "orbital neighbors"] "0"]
-                              ["=" ["facts" "shape"] "spherical"]]
+                       :rule ["and" ["=" ["fact" "orbits"] "sol"]
+                              [">" ["fact" "orbital neighbors"] "0"]
+                              ["=" ["fact" "shape"] "spherical"]]
                        :id (UUID/randomUUID), :environment "space", :environment-trumps false
                        :parent root-group-uuid, :classes {}, :variables {}}
         eris {:name "eris"
-              :facts {"orbits" "sol"
+              :fact {"orbits" "sol"
                       "orbital neighbors" "1200"
                       "shape" "spherical"}}
         mock-db (reify Storage

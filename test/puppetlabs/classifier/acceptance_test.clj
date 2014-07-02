@@ -529,7 +529,7 @@
                             :environment "production"
                             :environment-trumps false
                             :parent root-group-uuid
-                            :rule [">=" ["facts" "age"] "93"]
+                            :rule [">=" ["fact" "age"] "93"]
                             :classes {:suspenders {:color "0xff0000"
                                                    :length "38"}
                                       :music {:genre "Crooners"
@@ -544,8 +544,8 @@
                :environment "dev"
                :environment-trumps false
                :parent (:id crotchety-ancestor)
-               :rule ["and" ["<" ["facts" "age"] "93"]
-                            [">=" ["facts" "age"] "60"]]
+               :rule ["and" ["<" ["fact" "age"] "93"]
+                            [">=" ["fact" "age"] "60"]]
                :classes {:music {:genre "Rock 'n' Roll"
                                  :top-artists ["The Beatles" "Led Zeppelin"]}
                          :opinions {:politicians "always been rotten"}}
@@ -779,7 +779,7 @@
                    :environment "staging"
                    :environment-trumps false
                    :parent root-group-uuid
-                   :rule ["=" ["facts" "architecture"] "alpha"]
+                   :rule ["=" ["fact" "architecture"] "alpha"]
                    :variables {:riscisgood "yes"}}
             group-resp (http/put (str base-url "/v1/groups/" (:id group))
                                  {:content-type :json
@@ -787,7 +787,7 @@
                                   :throw-entire-message? true})
             classification (-> (http/post (str base-url "/v1/classified/nodes/factnode")
                                           {:accept :json
-                                           :body (json/generate-string {:facts {:architecture "alpha"}})})
+                                           :body (json/generate-string {:fact {:architecture "alpha"}})})
                              :body
                              (json/parse-string true))]
         (is (= 201 (:status class-resp)))
@@ -1009,31 +1009,31 @@
                (json/decode json-key->clj-key)
                (update-in [:id] ->uuid))
         spaceships {:name "spaceships"
-                    :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
-                                 [">=" ["facts" "warp cores"] "1"]]
+                    :rule ["and" [">=" ["fact" "pressure hulls"] "1"]
+                                 [">=" ["fact" "warp cores"] "1"]]
                     :environment "deep space", :environment-trumps false, :id (UUID/randomUUID)
                     :parent root-group-uuid, :classes {}, :variables {}}
         spacestations {:name "spacestations"
-                       :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
-                                    ["=" ["facts" "warp cores"] "0"]
-                                    [">" ["facts" "docking pylons"] "0"]]
+                       :rule ["and" [">=" ["fact" "pressure hulls"] "1"]
+                                    ["=" ["fact" "warp cores"] "0"]
+                                    [">" ["fact" "docking pylons"] "0"]]
                        :environment "space", :environment-trumps false, :id (UUID/randomUUID)
                        :parent root-group-uuid, :classes {}, :variables {}}
         fun-spacestations {:name "spacestations to have a good time at"
-                           :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
-                                        ["=" ["facts" "warp cores"] "0"]
-                                        [">" ["facts" "docking pylons"] "0"]
-                                        [">=" ["facts" "bars"] "1"]]
+                           :rule ["and" [">=" ["fact" "pressure hulls"] "1"]
+                                        ["=" ["fact" "warp cores"] "0"]
+                                        [">" ["fact" "docking pylons"] "0"]
+                                        [">=" ["fact" "bars"] "1"]]
                            :environment "space", :environment-trumps false, :id (UUID/randomUUID)
                            :parent root-group-uuid, :classes {}, :variables {}}
         ds9-node {:name "Deep Space 9"
-                  :facts {"pressure hulls" "3"
+                  :fact {"pressure hulls" "3"
                           "docking ports" "18"
                           "docking pylons" "3"
                           "warp cores" "0"
                           "bars" "1"}}
         ncc1701d-node {:name "USS Enterprise"
-                       :facts {"registry" "NCC-1701-D"
+                       :fact {"registry" "NCC-1701-D"
                                "warp cores" "1"
                                "pressure hulls" "2"
                                "docking ports" "3"}}
@@ -1055,7 +1055,7 @@
                 {:content-type :json, :body (json/generate-string g)}))
 
     ;; populate classification history
-    (doseq [{facts :facts, :as node} [ds9-node ncc1701d-node]]
+    (doseq [{fact :fact, :as node} [ds9-node ncc1701d-node]]
       (http/post (str base-url "/v1/classified/nodes/" (:name node))
                  {:content-type :json
                   :body (json/generate-string node)}))
@@ -1115,11 +1115,11 @@
 
     (testing "stores a check-in with no classification if there are classification conflicts"
       (let [ignore-warp-cores-delta {:id (:id spacestations)
-                                     :rule ["and" [">=" ["facts" "pressure hulls"] "1"]
-                                                  [">" ["facts" "docking pylons"] "0"]]}
+                                     :rule ["and" [">=" ["fact" "pressure hulls"] "1"]
+                                                  [">" ["fact" "docking pylons"] "0"]]}
             spacestations' (merge-and-clean spacestations ignore-warp-cores-delta)
             warp-capable-station {:name "USS Scaredycat"
-                                  :facts {"pressure hulls" "1"
+                                  :fact {"pressure hulls" "1"
                                           "warp cores" "1"
                                           "docking pylons" "2"}}]
         (http/post (str base-url "/v1/groups/" (:id spacestations))
@@ -1158,23 +1158,23 @@
                  :environment "alpha quadrant"
                  :parameters {:importance "ignored"}}
         vulcans {:name "Vulcans"
-                 :rule ["and" [">=" ["facts" "eyebrow pitch"] "25"]
-                              ["=" ["facts" "ear-tips"] "pointed"]
-                              ["=" ["facts" "hair"] "dark"]
-                              [">=" ["facts" "resting bpm"] "100"]
-                              ["=" ["facts" "blood oxygen transporter"] "hemocyanin"]]
+                 :rule ["and" [">=" ["fact" "eyebrow pitch"] "25"]
+                              ["=" ["fact" "ear-tips"] "pointed"]
+                              ["=" ["fact" "hair"] "dark"]
+                              [">=" ["fact" "resting bpm"] "100"]
+                              ["=" ["fact" "blood oxygen transporter"] "hemocyanin"]]
                  :classes {:logic {:importance "primary"}
                            :emotion {:importance "ignored"}}
                  :environment "alpha quadrant", :environment-trumps false, :id (UUID/randomUUID)
                  :parent root-group-uuid, :variables {}}
         humans {:name "Humans"
-                :rule [">=" ["facts" "spunk"] "5"]
+                :rule [">=" ["fact" "spunk"] "5"]
                 :classes {:logic {:importance "secondary"}
                           :emotion {:importance "primary"}}
                 :environment "alpha quadrant", :environment-trumps false, :id (UUID/randomUUID)
                 :parent root-group-uuid, :variables {}}
         tuvok {:name "Tuvok"
-               :facts {"eyebrow pitch" "30"
+               :fact {"eyebrow pitch" "30"
                        "ear-tips" "pointed"
                        "hair" "dark"
                        "appendices" "0"
@@ -1182,7 +1182,7 @@
                        "resting bpm" "200"
                        "blood oxygen transporter" "hemocyanin"}}
         spock {:name "Spock"
-               :facts {"eyebrow pitch" "40"
+               :fact {"eyebrow pitch" "40"
                        "ear-tips" "pointed"
                        "hair" "dark"
                        "appendices" "1"
@@ -1226,7 +1226,7 @@
         (is (= expected-response (-> body
                                    (json/decode json-key->clj-key)
                                    uuidify-response
-                                   (update-in [:node-as-received :facts]
+                                   (update-in [:node-as-received :fact]
                                               (partial mapkeys name)))))))
 
     (testing "get a node classification explanation with conflict details"
@@ -1262,7 +1262,7 @@
                                               (comp set (partial map uuidify-conflict-details)))
                                    (update-in [:conflicts :classes :logic :importance]
                                               (comp set (partial map uuidify-conflict-details)))
-                                   (update-in [:node-as-received :facts]
+                                   (update-in [:node-as-received :fact]
                                               (partial mapkeys name)))))))
 
     (testing "get a 400 response if the request payload doesn't match SubmittedNode"
