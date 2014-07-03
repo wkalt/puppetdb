@@ -354,7 +354,7 @@
           transaction-uuid (if (uuid? uuid-str)
                              (UUID/fromString uuid-str))
           node (validate SubmittedNode {:name node-name
-                                        :facts (:facts data {})
+                                        :fact (:fact data {})
                                         :trusted (:trusted data {})})
           matching-group->ancestors (matching-groups-and-ancestors db node)
           class8n-info (class8n/classification-steps node matching-group->ancestors)

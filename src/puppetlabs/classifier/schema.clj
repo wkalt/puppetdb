@@ -107,7 +107,7 @@
 
 (def SubmittedNode
   {:name String
-   :facts {sc/Keyword sc/Any}
+   :fact {sc/Keyword sc/Any}
    :trusted {sc/Keyword sc/Any}})
 
 (def Group

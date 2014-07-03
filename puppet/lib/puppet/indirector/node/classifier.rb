@@ -35,7 +35,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
                             trusted_data.to_h
                           end
 
-    request_body = {"facts" => fact_values,
+    request_body = {"fact" => fact_values,
                     "trusted" => trusted_data_values}
 
     if request.options.include?(:transaction_uuid)
