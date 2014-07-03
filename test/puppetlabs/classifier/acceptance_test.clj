@@ -14,7 +14,7 @@
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [ClientNode Group group->classification]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
+            [puppetlabs.classifier.storage :refer [root-group-uuid]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]

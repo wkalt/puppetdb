@@ -11,8 +11,7 @@
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [get-group Storage]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
+            [puppetlabs.classifier.storage :as storage :refer [get-group root-group-uuid Storage]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import java.util.UUID))

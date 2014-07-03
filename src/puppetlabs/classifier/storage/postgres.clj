@@ -14,7 +14,7 @@
             [puppetlabs.classifier.schema :refer [AnnotatedGroup CheckIn Environment Group
                                                   GroupDelta group->classification HierarchyNode
                                                   Node PuppetClass Rule ValidationNode]]
-            [puppetlabs.classifier.storage :refer [Storage]]
+            [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
             [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with merge-and-clean
@@ -27,8 +27,6 @@
 (def foreign-key-violation-code "23503")
 (def uniqueness-violation-code "23505")
 (def serialization-failure-code "40001")
-
-(def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
 
 (defn public-tables
   "Get the names of all public tables in a database"

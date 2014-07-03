@@ -3,7 +3,7 @@
             schema.test
             [puppetlabs.classifier.classification :refer :all]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]])
+            [puppetlabs.classifier.storage :refer [root-group-uuid]])
   (:import java.util.UUID))
 
 (use-fixtures :once schema.test/validate-schemas)

@@ -1,5 +1,7 @@
 (ns puppetlabs.classifier.storage)
 
+(def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
+
 (defprotocol Storage
   (store-check-in [this check-in] "Store a node check-in.")
   (get-check-ins [this node-name] "Retrieve all check-ins for a node.")
