@@ -12,7 +12,13 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
 
     facts = Puppet::Node::Facts.indirection.find(node_name,
                                                  :environment => request.environment)
-    facts.sanitize
+
+    fact_values = if facts.nil?
+                    {}
+                  else
+                    facts.sanitize
+                    facts.to_data_hash['values']
+                  end
 
     trusted_data = Puppet.lookup(:trusted_information) do
       # This block contains a default implementation for trusted
@@ -21,10 +27,16 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
       temp_node = Puppet::Node.new(node_name)
       temp_node.parameters['clientcert'] = Puppet[:certname]
       Puppet::Context::TrustedInformation.local(temp_node)
-    end.to_h
+    end
 
-    request_body = {"facts" => facts.to_data_hash['values'],
-                    "trusted" => trusted_data}
+    trusted_data_values = if trusted_data.nil?
+                            {}
+                          else
+                            trusted_data.to_h
+                          end
+
+    request_body = {"facts" => fact_values,
+                    "trusted" => trusted_data_values}
 
     if request.options.include?(:transaction_uuid)
       request_body["transaction_uuid"] = request.options[:transaction_uuid]

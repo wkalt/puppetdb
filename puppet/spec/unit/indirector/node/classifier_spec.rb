@@ -28,4 +28,20 @@ describe Puppet::Node::Classifier do
     expect(node.environment.name).to eq(:dev)
     expect(node.classes).to eq(['main'])
   end
+
+  it "works when no facts are available" do
+    node_json = {:name => 'test', :classes => ['main'], :parameters => {}, :environment => :dev}.to_json
+    response = Net::HTTPOK.new('1.1', 200, 'OK')
+    allow(response).to receive(:body) { node_json }
+    connection = double 'connection'
+    expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
+    expect(connection).to receive(:post).with("#{NODE_BASE}/test", anything()) { response }
+    allow(Puppet::Node::Facts.indirection).to receive(:find) { nil }
+
+    node = Puppet::Node.indirection.find('test')
+
+    expect(node.name).to eq('test')
+    expect(node.environment.name).to eq(:dev)
+    expect(node.classes).to eq(['main'])
+  end
 end
