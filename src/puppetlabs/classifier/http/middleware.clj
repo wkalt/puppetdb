@@ -268,7 +268,7 @@
   (fn [request]
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.storage.postgres/uniqueness-violation]
-        {:keys [entity-kind constraint fields values offender]}
+        {:keys [entity-kind constraint fields values]}
         (let [conflict-description (->> (map #(str %1 " = " %2) fields values)
                                      (str/join ", "))
               conflict (zipmap fields values)
