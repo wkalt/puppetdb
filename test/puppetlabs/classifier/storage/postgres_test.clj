@@ -504,6 +504,26 @@
       (let [[test-env] (jdbc/query test-db ["SELECT * FROM environments WHERE name = ?" "test"])]
         (is (nil? test-env))))))
 
+(deftest ^:database last-sync
+  (let [primero (jdbc/query test-db ["select * from last_sync"])
+        _ (set-last-sync test-db)
+        segundo (jdbc/query test-db ["select * from last_sync"])
+        _ (set-last-sync test-db)
+        tercero (jdbc/query test-db ["select * from last_sync"])]
+
+    (testing "initially no last sync"
+      (is (= 0 (count primero))))
+
+    (testing "after first setting of last sync, one value"
+      (is (= 1 (count segundo))))
+
+    (testing "after setting it again, still one value that is later"
+      (is (= 1 (count tercero)))
+
+      (let [[{time1 :time}] segundo
+            [{time2 :time}] tercero]
+        (is (.after time2 time1))))))
+
 (deftest ^:database synchronize
   (let [before [{:name "changed-class", :environment "production"
                  :parameters {:changed-param "1", :unused-param "5", :used-param "6"}}
@@ -523,6 +543,9 @@
     (synchronize-classes db before)
     (create-group db referrer)
     (synchronize-classes db after)
+
+    (testing "sets last sync"
+      (is (not (nil? (get-last-sync db)))))
 
     (testing "unused class is deleted"
       (let [{:keys [name environment]} (get before-by-name "unused-class")]
