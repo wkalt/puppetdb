@@ -2,6 +2,8 @@
   (:require [clojure.walk :as walk]
             [clj-time.format :as fmt-time]
             [schema.core :as sc]
+            [slingshot.slingshot :refer [throw+]]
+            [puppetlabs.classifier.storage :refer [root-group-uuid]]
             [puppetlabs.classifier.util :refer [map-delta uuid?]])
   (:import java.util.UUID))
 
@@ -174,3 +176,63 @@
   {:pre [(= (:id g) (:id h))]}
   (assoc (map-delta g h)
          :id (:id g)))
+
+(defn- extract-cycle
+  ([id id->parent-id id->group] (extract-cycle id id->parent-id id->group [id]))
+  ([id id->parent-id id->group cycle]
+   (let [last-id (or (last cycle) id)
+         next-parent-id (get id->parent-id last-id)]
+     (if (= next-parent-id id)
+       (map id->group cycle)
+       (recur id id->parent-id id->group (conj cycle next-parent-id))))))
+
+(defn- children-by-id->parent-by-id
+  [id->children]
+  (reduce (fn [id->parent [id children]]
+            (apply assoc id->parent (interleave (map :id children) (repeat id))))
+          {}
+          id->children))
+
+(defn- groups->tree*
+  [{id :id :as group} id->group id->children !marked]
+  (when (get @!marked id)
+    (throw+ {:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+             :cycle (extract-cycle id (children-by-id->parent-by-id id->children) id->group)}))
+  (let [children (if (= id root-group-uuid)
+                   (remove #(= (:id %) root-group-uuid) (id->children id))
+                   (id->children id))]
+    (swap! !marked assoc id true)
+    {:group group
+     :children (set (map #(groups->tree* % id->group id->children !marked) children))}))
+
+(sc/defn groups->tree :- HierarchyNode
+  "Converts a flat collection of groups into a group hierarchy tree. The groups
+  must form a complete, valid hierarchy wherein the root group has the expected
+  id, all groups have the root as an ancestor, and there are no cycles. If any
+  of these conditions are violated then an exception will be thrown."
+  [groups :- [Group]]
+  (when-not (apply distinct? (map :id groups))
+    (let [duplicated-ids (for [[id groups] (group-by :id groups)
+                               :when (> (count groups) 1)]
+                           id)
+          dupe-count (count duplicated-ids)]
+      (throw+ {:kind :puppetlabs.classifier.storage.postgres/uniqueness-violation
+               :entity-kind "group"
+               :constraint "groups_pkey"
+               :fields (repeat dupe-count "id")
+               :values duplicated-ids})))
+  (let [group-maps (loop [gs groups, id->g {}, id->c {}]
+                     (if-not (seq gs)
+                       [id->g id->c]
+                       (let [g (first gs)]
+                         (recur (next gs)
+                                (assoc id->g (:id g) g)
+                                (update-in id->c [(:parent g)] (fnil conj []) g)))))
+        [id->group id->children] group-maps
+        !marked (atom {})
+        tree (groups->tree* (get id->group root-group-uuid) id->group id->children !marked)
+        unreachable-groups (remove #(get @!marked (:id %)) groups)]
+    (when (seq unreachable-groups)
+      (throw+ {:kind :puppetlabs.classifier/unreachable-groups
+               :groups unreachable-groups}))
+    tree))
