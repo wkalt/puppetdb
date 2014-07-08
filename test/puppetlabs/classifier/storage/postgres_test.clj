@@ -7,6 +7,7 @@
             [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
+            [puppetlabs.classifier.test-util :refer [blank-group-named]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
             [slingshot.slingshot :refer [try+]]
@@ -313,18 +314,15 @@
         (is (= (get-in e [:tree :errors] {:science nil, :magic nil})))))))
 
 (deftest ^:database hierarchy-and-cycles
-  (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
-                                   :environment-trumps false, :rule ["=" "foo" "bar"], :classes {},
-                                   :variables {}})
-        root (get-group db root-group-uuid)
-        top (-> (blank-group-named "top")
-              (assoc :parent root-group-uuid))
-        child-1 (-> (blank-group-named "child1")
-                  (assoc :parent (:id top)))
-        child-2 (-> (blank-group-named "child2")
-                  (assoc :parent (:id top)))
-        grandchild (-> (blank-group-named "grandchild")
-                     (assoc :parent (:id child-1)))]
+  (let [root (get-group db root-group-uuid)
+        top (merge (blank-group-named "top")
+                   {:parent root-group-uuid})
+        child-1 (merge (blank-group-named "child1")
+                       {:parent (:id top)})
+        child-2 (merge (blank-group-named "child2")
+                       {:parent (:id top)})
+        grandchild (merge (blank-group-named "grandchild")
+                          {:parent (:id child-1)})]
     (doseq [g [top child-1 child-2 grandchild]]
       (create-group db g))
 
@@ -361,8 +359,8 @@
     (testing "the storage layer checks for cycles"
       (testing "when creating a group"
         (let [self-id (UUID/randomUUID)
-              self (-> (blank-group-named "self")
-                     (assoc :id self-id :parent self-id))]
+              self (merge (blank-group-named "self")
+                          {:id self-id, :parent self-id})]
           (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent
                          :group self]
                         (create-group db self))))
