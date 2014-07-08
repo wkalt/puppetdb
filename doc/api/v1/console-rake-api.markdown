@@ -10,11 +10,11 @@ The Node Classifier's REST API will provide a more flexible alternative to the [
 
 All of the available information for a given node is available at the [classification](classification.markdown) endpoint. It's not possible to retrieve a list of nodes from the Node Classifier, so you may need to query the PuppetDB API's [nodes endpoint](http://docs.puppetlabs.com/puppetdb/latest/api/query/v3/nodes.html) if that's part of your existing workflow.
 
-- [Node Tasks: Modifying Info](http://docs.puppetlabs.com/pe/3.2/console_rake_api.html#node-tasks-modifying-info):
+- [Node Tasks: Modifying Info](http://docs.puppetlabs.com/pe/3.2/console_rake_api.html#node-tasks-modifying-info)
 
 These tasks are generally no longer applicable due to the switch to rules-based classification. The [groups endpoint](groups.markdown) makes it possible to update the rules that classify nodes.
 
-- [Class Tasks: Getting Info](http://docs.puppetlabs.com/pe/3.2/console_rake_api.html#class-tasks-getting-info):
+- [Class Tasks: Getting Info](http://docs.puppetlabs.com/pe/3.2/console_rake_api.html#class-tasks-getting-info)
 
 The [classes endpoint](classes.markdown) returns information about all of the known classes within a given environment.
 
