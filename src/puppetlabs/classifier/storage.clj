@@ -1,5 +1,7 @@
 (ns puppetlabs.classifier.storage)
 
+(def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
+
 (defprotocol Storage
   (store-check-in [this check-in] "Store a node check-in.")
   (get-check-ins [this node-name] "Retrieve all check-ins for a node.")
@@ -14,6 +16,8 @@
   (get-subtree [this group] "Returns the subtree of the group hierarchy rooted at the passed group.")
   (update-group [this delta] "Updates class/parameter and variable fields of a group")
   (delete-group [this id] "Deletes a group given its ID")
+
+  (import-hierarchy [this groups] "Batch import a hierarchy given a flat collection of its groups. Any missing classes & class parameters will be created as needed.")
 
   (create-class [this class] "Creates a class specification")
   (get-class [this environment-name class-name] "Retrieves a class specification")

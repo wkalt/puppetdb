@@ -11,8 +11,8 @@
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [get-group Storage]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]]
+            [puppetlabs.classifier.storage :as storage :refer [get-group root-group-uuid Storage]]
+            [puppetlabs.classifier.test-util :refer [blank-group]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import java.util.UUID))
@@ -553,27 +553,23 @@
               :environment-trumps false
               :rule ["~" "name" ".*"]
               :classes {}, :variables {}}
-        blank-group (fn []
-                      {:id (UUID/randomUUID)
-                       :parent root-group-uuid
-                       :rule ["=" "name" "pets"]
-                       :classes {}, :variables {}})
+        base-group #(merge (blank-group) {:rule ["=" "name" "pets"]})
         classified-pets-path "/v1/classified/nodes/pets"
-        kittehs (assoc (blank-group)
-                       :name "Kittehs"
-                       :environment "house"
-                       :environment-trumps true
-                       :variables {:meows true})
-        doggehs (assoc (blank-group)
-                       :name "Doggehs"
-                       :environment "outside"
+        kittehs (merge (base-group)
+                       {:name "Kittehs"
+                        :environment "house"
+                        :environment-trumps true
+                        :variables {:meows true}})
+        doggehs (merge (base-group)
+                       {:name "Doggehs"
+                        :environment "outside"
+                        :environment-trumps false
+                        :variables {:woofs true}})
+        snakes (merge (base-group)
+                      {:name "Snakes"
+                       :environment "plane"
                        :environment-trumps false
-                       :variables {:woofs true})
-        snakes (assoc (blank-group)
-                      :name "Snakes"
-                      :environment "plane"
-                      :environment-trumps false
-                      :variables {:hisses true})
+                       :variables {:hisses true}})
         groups [kittehs doggehs snakes root]
         rules (for [{:keys [id rule]} groups]
                 {:when rule, :group-id id})

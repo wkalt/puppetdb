@@ -12,13 +12,15 @@
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [AnnotatedGroup CheckIn Environment Group
-                                                  GroupDelta group->classification HierarchyNode
-                                                  Node PuppetClass Rule ValidationNode]]
-            [puppetlabs.classifier.storage :refer [Storage]]
+                                                  GroupDelta group->classification groups->tree
+                                                  HierarchyNode Node PuppetClass Rule
+                                                  ValidationNode]]
+            [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
-            [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with merge-and-clean
-                                                relative-complements-by-key uuid? ->uuid]]
+            [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with map-delta
+                                                merge-and-clean relative-complements-by-key uuid?
+                                                ->uuid]]
             [slingshot.slingshot :refer [throw+]])
   (:import java.sql.BatchUpdateException
            java.util.UUID
@@ -27,8 +29,6 @@
 (def foreign-key-violation-code "23503")
 (def uniqueness-violation-code "23505")
 (def serialization-failure-code "40001")
-
-(def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
 
 (defn public-tables
   "Get the names of all public tables in a database"
@@ -536,7 +536,7 @@
 
       ;; if current is somewhere else in ancestors, we have as cycle
       (some #(= (:id current) (:id %)) ancestors)
-      (throw+ {:kind ::inheritance-cycle
+      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
 
       :else
@@ -573,7 +573,7 @@
   the group and all its descendents using classification/validation-tree to
   ensure that all the referents exist. If any do not, returns a ValidationNode
   subtree rooted at the group; if all references are valid, returns nil."
-  [group subtree ancestors classes]
+  [subtree ancestors classes]
   (let [vtree (class8n/validation-tree subtree, (seq classes)
                                        (map group->classification ancestors))]
     (if (class8n/valid-tree? vtree)
@@ -588,7 +588,7 @@
   [group ancestors]
   (when (and (= (:id group) (:parent group))
              (not= (:id group) root-group-uuid))
-    (throw+ {:kind ::inheritance-cycle
+    (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
              :cycle [group]}))
 
   (when (not= (:id group) root-group-uuid)
@@ -596,7 +596,7 @@
     ;; database so get-ancestors* will not see it, meaning we have to check
     ;; ourselves for cycles involving the group.
     (when (some #(= (:id group) (:id %)) ancestors)
-      (throw+ {:kind ::inheritance-cycle
+      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                :cycle (->> ancestors
                         (take-while #(not= (:id group) (:id %)))
                         (concat [group]))}))))
@@ -615,7 +615,7 @@
     (validate-hierarchy-structure* group ancestors)
     (let [subtree (get-subtree* {:db db} group)
           classes (get-all-classes* {:db db})]
-      (validate-classes-and-parameters group subtree ancestors classes))))
+      (validate-classes-and-parameters subtree ancestors classes))))
 
 (sc/defn ^:always-validate validate-group* :- Group
   [{db :db} group]
@@ -805,12 +805,12 @@
         _ (validate-hierarchy-structure* group' ancestors')
         subtree' (get-subtree* {:db db} group')
         classes (get-all-classes* {:db db})]
-    (when-let [vtree' (validate-classes-and-parameters group' subtree' ancestors' classes)]
+    (when-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
                         (get-ancestors* {:db db} extant))
             subtree (assoc subtree' :group extant)
-            vtree (validate-classes-and-parameters extant subtree ancestors classes)
+            vtree (validate-classes-and-parameters subtree ancestors classes)
             vtree-diff (if (nil? vtree)
                          vtree'
                          (class8n/validation-tree-difference vtree' vtree))]
@@ -862,6 +862,57 @@
                  :children (set children)})))
     (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
 
+;; Batch Import
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defn- insert-missing-referents
+  [db referents inherited-classification]
+  (doseq [[class-kw params] referents
+          :let [class-name (name class-kw)]]
+    (if (nil? params) ;; entire class is missing
+      (let [all-params (-> inherited-classification
+                         (get-in [:classes class-kw])
+                         keys)
+            class {:name class-name
+                   :environment (:environment inherited-classification)
+                   :parameters (zipmap all-params (repeat nil))}]
+        (create-class* {:db db} class))
+      ;; otherwise, just particular parameters are missing
+      (doseq [param params]
+        (create-parameter db param nil class-name (:environment inherited-classification))))))
+
+(defn- import-tree
+  ([db {:keys [group children] :as node}]
+   (let [only-group (assoc node :children #{})
+         ancestor-class8ns (map group->classification (get-ancestors* {:db db} group))
+         classes (get-all-classes* {:db db})]
+     (when-let [{missing-referents :errors} (validate-classes-and-parameters
+                                              only-group ancestor-class8ns classes)]
+       (let [inherited-class8n (class8n/collapse-to-inherited (group->classification group)
+                                                              ancestor-class8ns)]
+         (insert-missing-referents db missing-referents inherited-class8n)))
+     (if (not= (:id group) root-group-uuid)
+       (create-group* {:db db} group)
+       (let [old-root (get-group* {:db db} root-group-uuid)
+             delta (assoc (map-delta old-root group) :id root-group-uuid)]
+         (update-group* {:db db} delta)))
+     (doseq [child children] (import-tree db child)))))
+
+(defn- delete-tree
+  [db {:keys [group children]}]
+  (doseq [child children] (delete-tree db child))
+  (when (not= (:id group) root-group-uuid)
+    (delete-group* {:db db} (:id group))))
+
+(sc/defn ^:always-validate import-hierarchy* :- HierarchyNode
+  [{db :db}, groups :- [Group]]
+  (jdbc/with-db-transaction [t-db db]
+    (let [root-node (groups->tree groups)
+          old-root-node (get-subtree* {:db t-db} (get-group* {:db t-db} root-group-uuid))]
+      (delete-tree t-db old-root-node)
+      (import-tree t-db root-node)
+      (get-subtree* {:db t-db} (get-group* {:db t-db} root-group-uuid)))))
+
 ;; Record & Storage Protocol Extension
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -886,6 +937,8 @@
    :get-subtree get-subtree*
    :update-group update-group*
    :delete-group delete-group*
+
+   :import-hierarchy import-hierarchy*
 
    :create-class create-class*
    :get-class get-class*

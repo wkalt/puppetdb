@@ -3,7 +3,8 @@
             schema.test
             [puppetlabs.classifier.classification :refer :all]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.storage.postgres :refer [root-group-uuid]])
+            [puppetlabs.classifier.storage :refer [root-group-uuid]]
+            [puppetlabs.classifier.test-util :refer [vec->tree]])
   (:import java.util.UUID))
 
 (use-fixtures :once schema.test/validate-schemas)
@@ -12,11 +13,6 @@
   [name]
   {:name name, :id (UUID/randomUUID), :environment "production", :environment-trumps false,
    :parent root-group-uuid, :rule ["=" "foo" "bar"], :variables {}})
-
-(defn vec->tree
-  [[group & children]]
-  {:group group
-   :children (set (map vec->tree children))})
 
 (defn find-group-node
   [group-name {:keys [group children] :as tree}]

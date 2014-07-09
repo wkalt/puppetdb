@@ -7,6 +7,7 @@
             [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
             [slingshot.slingshot :refer [try+]]
@@ -313,18 +314,15 @@
         (is (= (get-in e [:tree :errors] {:science nil, :magic nil})))))))
 
 (deftest ^:database hierarchy-and-cycles
-  (let [blank-group-named (fn [n] {:name n, :id (UUID/randomUUID), :environment "test",
-                                   :environment-trumps false, :rule ["=" "foo" "bar"], :classes {},
-                                   :variables {}})
-        root (get-group db root-group-uuid)
-        top (-> (blank-group-named "top")
-              (assoc :parent root-group-uuid))
-        child-1 (-> (blank-group-named "child1")
-                  (assoc :parent (:id top)))
-        child-2 (-> (blank-group-named "child2")
-                  (assoc :parent (:id top)))
-        grandchild (-> (blank-group-named "grandchild")
-                     (assoc :parent (:id child-1)))]
+  (let [root (get-group db root-group-uuid)
+        top (merge (blank-group-named "top")
+                   {:parent root-group-uuid})
+        child-1 (merge (blank-group-named "child1")
+                       {:parent (:id top)})
+        child-2 (merge (blank-group-named "child2")
+                       {:parent (:id top)})
+        grandchild (merge (blank-group-named "grandchild")
+                          {:parent (:id child-1)})]
     (doseq [g [top child-1 child-2 grandchild]]
       (create-group db g))
 
@@ -347,7 +345,7 @@
                                          {:group child-1
                                           :children #{{:group grandchild, :children #{}}}}}}]
         (testing "get-ancestors will detect it and report the cycle in the error"
-          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+          (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                          :cycle [child-1 new-top]]
                         (get-ancestors db grandchild))))
 
@@ -361,8 +359,8 @@
     (testing "the storage layer checks for cycles"
       (testing "when creating a group"
         (let [self-id (UUID/randomUUID)
-              self (-> (blank-group-named "self")
-                     (assoc :id self-id :parent self-id))]
+              self (merge (blank-group-named "self")
+                          {:id self-id, :parent self-id})]
           (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-parent
                          :group self]
                         (create-group db self))))
@@ -370,12 +368,12 @@
         (let [delta {:id (:id top), :parent (:id child-1)}
               top' (merge top delta)]
           (testing "when updating a group"
-            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+            (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                            :cycle [top' child-1]]
                           (update-group db delta))))
 
           (testing "when validating a group"
-            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+            (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                            :cycle [top' child-1]]
                           (validate-group db top')))))))
 
@@ -675,3 +673,63 @@
     (testing "can retrieve all check-ins"
       (store-check-in db (get-in check-ins ["Wintermute" 0]))
       (is (= all-check-ins (get-nodes db))))))
+
+(deftest ^:database hierarchy-import
+  (let [extant-child-1 (blank-group-named "child 1")
+        extant-child-2 (blank-group-named "child 2")
+        extant-gchild-1 (merge (blank-group) {:name "grandchild 1", :parent (:id extant-child-2)})
+        extant-gchild-2 (merge (blank-group) {:name "grandchild 2", :parent (:id extant-child-2)})
+        extant-groups [extant-child-1 extant-child-2 extant-gchild-1 extant-gchild-2]
+        root (get-group db root-group-uuid)
+        root' (merge root {:name "default"
+                           :variables {:x 3}})
+        left-child (merge (blank-group-named "left child")
+                          {:classes {:extant {:new-param "value"}}})
+        left-gchild (merge (blank-group-named "left grandchild")
+                               {:environment "different"
+                                :parent (:id left-child)
+                                :classes {:extant {:newer-param "probably haven't heard of it"}}})
+        extant-classes [{:name "extant"
+                         :environment (:environment left-child)
+                         :parameters {:old-param "so 2010"}}
+                        {:name "extant"
+                         :environment (:environment left-gchild)
+                         :parameters {}}]
+        right-child (merge (blank-group-named "right child")
+                           {:classes {:novel {:plot "thrilling"
+                                              :characters "deep"}}})
+        right-gchild (merge (blank-group-named "right grandchild")
+                                {:environment "new"
+                                 :parent (:id right-child)
+                                 :classes {:adaptation {:faithful "as much as possible"}}})
+        new-groups [root' left-child left-gchild right-child right-gchild]]
+    (doseq [g extant-groups] (create-group db g))
+    (doseq [c extant-classes] (create-class db c))
+
+    (testing "importing a valid, complete hierarchy"
+      (let [hierarchy-root (import-hierarchy db new-groups)]
+        (is hierarchy-root)
+        (is (= root' (:group hierarchy-root)))
+
+        (testing "removes all previous groups"
+          (doseq [{id :id} extant-groups]
+            (is (nil? (get-group db id)))))
+
+        (testing "creates the classes and class parameters referenced by the hierarchy"
+          (let [new-classes [{:name "extant"
+                              :environment (:environment left-child)
+                              :parameters {:old-param "so 2010", :new-param nil}}
+                             {:name "extant"
+                              :environment (:environment left-gchild)
+                              :parameters {:new-param nil, :newer-param nil}}
+                             {:name "novel"
+                              :environment (:environment right-child)
+                              :parameters {:plot nil, :characters nil}}
+                             {:name "novel"
+                              :environment (:environment right-gchild)
+                              :parameters {:plot nil, :characters nil}}
+                             {:name "adaptation"
+                              :environment (:environment right-gchild)
+                              :parameters {:faithful nil}}]]
+            (doseq [{:keys [environment name] :as new-class} new-classes]
+              (is (= new-class (get-class db environment name))))))))))
