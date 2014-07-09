@@ -345,7 +345,7 @@
                                          {:group child-1
                                           :children #{{:group grandchild, :children #{}}}}}}]
         (testing "get-ancestors will detect it and report the cycle in the error"
-          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+          (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                          :cycle [child-1 new-top]]
                         (get-ancestors db grandchild))))
 
@@ -368,12 +368,12 @@
         (let [delta {:id (:id top), :parent (:id child-1)}
               top' (merge top delta)]
           (testing "when updating a group"
-            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+            (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                            :cycle [top' child-1]]
                           (update-group db delta))))
 
           (testing "when validating a group"
-            (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+            (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                            :cycle [top' child-1]]
                           (validate-group db top')))))))
 

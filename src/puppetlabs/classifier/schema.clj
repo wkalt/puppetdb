@@ -196,7 +196,7 @@
 (defn- groups->tree*
   [{id :id :as group} id->group id->children !marked]
   (when (get @!marked id)
-    (throw+ {:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+    (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
              :cycle (extract-cycle id (children-by-id->parent-by-id id->children) id->group)}))
   (let [children (if (= id root-group-uuid)
                    (remove #(= (:id %) root-group-uuid) (id->children id))

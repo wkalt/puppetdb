@@ -39,7 +39,7 @@
     (testing "attempting to unflatten a hierarchy with a cycle throws an error"
       (let [loop-root (assoc root :parent (:id grandchild-2))
             loop-groups [loop-root child-1 child-2 child-3 grandchild-1 grandchild-2 grandchild-3]]
-        (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle
+        (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                        :cycle [loop-root grandchild-2 child-3]]
                       (groups->tree loop-groups)))))
 

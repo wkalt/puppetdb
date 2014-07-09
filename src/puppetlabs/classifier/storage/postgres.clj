@@ -536,7 +536,7 @@
 
       ;; if current is somewhere else in ancestors, we have as cycle
       (some #(= (:id current) (:id %)) ancestors)
-      (throw+ {:kind ::inheritance-cycle
+      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
 
       :else
@@ -588,7 +588,7 @@
   [group ancestors]
   (when (and (= (:id group) (:parent group))
              (not= (:id group) root-group-uuid))
-    (throw+ {:kind ::inheritance-cycle
+    (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
              :cycle [group]}))
 
   (when (not= (:id group) root-group-uuid)
@@ -596,7 +596,7 @@
     ;; database so get-ancestors* will not see it, meaning we have to check
     ;; ourselves for cycles involving the group.
     (when (some #(= (:id group) (:id %)) ancestors)
-      (throw+ {:kind ::inheritance-cycle
+      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                :cycle (->> ancestors
                         (take-while #(not= (:id group) (:id %)))
                         (concat [group]))}))))

@@ -287,7 +287,7 @@
   [handler]
   (fn [request]
     (try+ (handler request)
-      (catch [:kind :puppetlabs.classifier.storage.postgres/inheritance-cycle]
+      (catch [:kind :puppetlabs.classifier/inheritance-cycle]
         {:keys [cycle]}
         {:status 422
          :headers {"Content-Type" "application/json"}
