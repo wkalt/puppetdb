@@ -17,6 +17,8 @@
   (update-group [this delta] "Updates class/parameter and variable fields of a group")
   (delete-group [this id] "Deletes a group given its ID")
 
+  (import-hierarchy [this groups] "Batch import a hierarchy given a flat collection of its groups. Any missing classes & class parameters will be created as needed.")
+
   (create-class [this class] "Creates a class specification")
   (get-class [this environment-name class-name] "Retrieves a class specification")
   (get-classes [this environment-name] "Retrieves all class specifications in an environment")

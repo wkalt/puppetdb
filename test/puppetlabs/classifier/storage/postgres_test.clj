@@ -7,7 +7,7 @@
             [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [puppetlabs.classifier.test-util :refer [blank-group-named]]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
             [slingshot.slingshot :refer [try+]]
@@ -673,3 +673,63 @@
     (testing "can retrieve all check-ins"
       (store-check-in db (get-in check-ins ["Wintermute" 0]))
       (is (= all-check-ins (get-nodes db))))))
+
+(deftest ^:database hierarchy-import
+  (let [extant-child-1 (blank-group-named "child 1")
+        extant-child-2 (blank-group-named "child 2")
+        extant-gchild-1 (merge (blank-group) {:name "grandchild 1", :parent (:id extant-child-2)})
+        extant-gchild-2 (merge (blank-group) {:name "grandchild 2", :parent (:id extant-child-2)})
+        extant-groups [extant-child-1 extant-child-2 extant-gchild-1 extant-gchild-2]
+        root (get-group db root-group-uuid)
+        root' (merge root {:name "default"
+                           :variables {:x 3}})
+        left-child (merge (blank-group-named "left child")
+                          {:classes {:extant {:new-param "value"}}})
+        left-gchild (merge (blank-group-named "left grandchild")
+                               {:environment "different"
+                                :parent (:id left-child)
+                                :classes {:extant {:newer-param "probably haven't heard of it"}}})
+        extant-classes [{:name "extant"
+                         :environment (:environment left-child)
+                         :parameters {:old-param "so 2010"}}
+                        {:name "extant"
+                         :environment (:environment left-gchild)
+                         :parameters {}}]
+        right-child (merge (blank-group-named "right child")
+                           {:classes {:novel {:plot "thrilling"
+                                              :characters "deep"}}})
+        right-gchild (merge (blank-group-named "right grandchild")
+                                {:environment "new"
+                                 :parent (:id right-child)
+                                 :classes {:adaptation {:faithful "as much as possible"}}})
+        new-groups [root' left-child left-gchild right-child right-gchild]]
+    (doseq [g extant-groups] (create-group db g))
+    (doseq [c extant-classes] (create-class db c))
+
+    (testing "importing a valid, complete hierarchy"
+      (let [hierarchy-root (import-hierarchy db new-groups)]
+        (is hierarchy-root)
+        (is (= root' (:group hierarchy-root)))
+
+        (testing "removes all previous groups"
+          (doseq [{id :id} extant-groups]
+            (is (nil? (get-group db id)))))
+
+        (testing "creates the classes and class parameters referenced by the hierarchy"
+          (let [new-classes [{:name "extant"
+                              :environment (:environment left-child)
+                              :parameters {:old-param "so 2010", :new-param nil}}
+                             {:name "extant"
+                              :environment (:environment left-gchild)
+                              :parameters {:new-param nil, :newer-param nil}}
+                             {:name "novel"
+                              :environment (:environment right-child)
+                              :parameters {:plot nil, :characters nil}}
+                             {:name "novel"
+                              :environment (:environment right-gchild)
+                              :parameters {:plot nil, :characters nil}}
+                             {:name "adaptation"
+                              :environment (:environment right-gchild)
+                              :parameters {:faithful nil}}]]
+            (doseq [{:keys [environment name] :as new-class} new-classes]
+              (is (= new-class (get-class db environment name))))))))))
