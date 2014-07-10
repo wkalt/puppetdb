@@ -439,13 +439,14 @@
   (fn [request]
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.storage.permissioned/permission-denied]
-        {:keys [group-id permission-description]}
+        {:keys [group-id description]}
         {:status 403
          :headers {"Content-Type" "application/json"}
          :body (encode-and-translate-keys
                  {:kind "permission-denied"
-                  :msg (str "Sorry, but you don't have permission to " permission-description
-                            (if group-id (str " for group " group-id))
+                  :msg (str "Sorry, but you don't have permission to " description
+                            (if (and group-id (not (re-find #"^create this group" description)))
+                              (str " for group " group-id " or any of its ancestors"))
                             ".")
                   :details nil})}))))
 
