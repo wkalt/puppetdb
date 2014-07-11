@@ -24,6 +24,7 @@
   (get-classes [this environment-name] "Retrieves all class specifications in an environment")
   (get-all-classes [this] "Retrieves all class specifications across all environments")
   (synchronize-classes [this puppet-classes] "Synchronize database class definitions")
+  (get-last-sync [this] "Retrieve the time that classes were last synchronized with puppet")
   (delete-class [this environment-name class-name] "Deletes a class specification")
 
   (get-rules [this] "Retrieve all rules")

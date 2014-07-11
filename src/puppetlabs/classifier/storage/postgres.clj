@@ -347,6 +347,20 @@
                           (compare name1 name2)))]
     (sort-by (juxt :environment :name) env-name-comp classes)))
 
+(defn set-last-sync
+  [db]
+  (let [last-sync (jdbc/query db (sql/select * :last_sync))]
+    (if (empty? last-sync)
+      (jdbc/execute! db ["INSERT INTO last_sync (time) VALUES (now())"])
+      (jdbc/execute! db ["UPDATE last_sync SET time = now()"]))))
+
+(sc/defn get-last-sync* :- (sc/maybe org.joda.time.DateTime)
+  [{db :db}]
+  (let [[last-sync] (jdbc/query db (sql/select * :last_sync))]
+    (if (nil? last-sync)
+      nil
+      (coerce-time/from-sql-time (:time last-sync)))))
+
 (sc/defn ^:always-validate synchronize-classes*
   [{db :db}
    puppet-classes :- [PuppetClass]]
@@ -378,7 +392,8 @@
            (create-class* {:db t-db} class))
          (doseq [[new-class old-class] in-both]
            (when-not (= new-class old-class)
-             (update-class t-db new-class old-class)))))))
+             (update-class t-db new-class old-class))))
+       (set-last-sync t-db))))
 
 ;; Rules
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -945,6 +960,7 @@
    :get-classes get-classes*
    :get-all-classes get-all-classes*
    :synchronize-classes synchronize-classes*
+   :get-last-sync get-last-sync*
    :delete-class delete-class*
 
    :get-rules get-rules*

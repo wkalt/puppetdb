@@ -516,6 +516,14 @@
                           (class-updater/update-classes!
                             (select-keys config [:puppet-master :ssl-context]) db))))
 
+          (GET "/last-class-update" []
+               (resource
+                 :allowed-methods [:get]
+                 :available-media-types ["application/json"]
+                 :exists? true
+                 :handle-ok (fn [_]
+                              {:last_update (storage/get-last-sync db)})))
+
           (context "/validate" []
                    (POST "/group" [] (group-validator db))))
 
