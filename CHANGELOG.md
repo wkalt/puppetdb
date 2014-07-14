@@ -1,3 +1,10 @@
+### 0.5.2
+ * Return a particular 500 error response if Puppet gives us a response we don't understand.
+ * Fix a bug where a 404 response from Puppet would cause the classifier to return a general 500 response.
+ * Fix a bug that caused spurious 404s when trying to view the inherited version of a group.
+ * Fix a terminus bug that would cause Puppet to fail to create a catalog for the node when it first checked in.
+ * Change the path to the facts in a node object (and rules) to start with `fact`, not `facts`.
+
 ### 0.5.1
  * Allow updates that don't introduce errors. This means it's possible
    to update a group that contains an error, so long as the update
