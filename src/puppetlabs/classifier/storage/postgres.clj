@@ -63,7 +63,7 @@
                   (doall
                     (convert-result-arrays (comp (partial remove nil?) vec)
                                            (jdbc/result-set-seq rs))))]
-    (jdbc/db-query-with-resultset db-spec sql-and-params convert)))
+    (jdbc/db-query-with-resultset db-spec (vec sql-and-params) convert)))
 
 (defn migrate [db]
   (migratus/migrate {:store :database
@@ -132,7 +132,7 @@
   (->> (sql/select * :node_check_ins
                    (sql/where {:node node-name})
                    (sql/order-by {:time :desc}))
-    (jdbc/query db)
+    (query db)
     (map convert-check-in-fields)))
 
 (sc/defn ^:always-validate get-nodes* :- [Node]
@@ -141,7 +141,7 @@
   (most recent CheckIn first)."
   [{db :db}]
   (->> (sql/select * :node_check_ins (sql/order-by [:node {:time :desc}]))
-    (jdbc/query db)
+    (query db)
     (map convert-check-in-fields)
     (ordered-group-by :node)
     (map (fn [[n [_ & c-is]]]
@@ -169,13 +169,13 @@
   [{db :db} environment-name]
   {:pre [(string? environment-name)]}
   (let [[environment]
-        (jdbc/query db (sql/select :name :environments
-                                   (sql/where {:name environment-name})))]
+        (query db (sql/select :name :environments
+                              (sql/where {:name environment-name})))]
     environment))
 
 (sc/defn ^:always-validate get-environments* :- [Environment]
   [{db :db}]
-  (jdbc/query db (sql/select :name :environments)))
+  (query db (sql/select :name :environments)))
 
 (sc/defn delete-environment*
   [{db :db}, environment-name :- String]
@@ -232,7 +232,7 @@
             where-param (sql/where {:parameter parameter
                                     :class_name class-name
                                     :environment_name environment-name})
-            [deleted] (jdbc/query t-db (sql/select [:deleted] :class_parameters where-param))]
+            [deleted] (query t-db (sql/select [:deleted] :class_parameters where-param))]
         (if (nil? deleted)
           ;; the parameter doesn't exist, so create it
           (jdbc/insert! t-db, :class_parameters
@@ -253,7 +253,7 @@
     #(jdbc/with-db-transaction
        [t-db db]
        (create-environment-if-missing {:db t-db} {:name environment})
-       (let [[deleted] (jdbc/query t-db (select-class-where-deleted name environment))
+       (let [[deleted] (query t-db (select-class-where-deleted name environment))
              where-class (sql/where {:name name, :environment_name environment})
              new-class-row {:name name, :environment_name environment, :deleted false}]
          (if deleted
@@ -265,7 +265,7 @@
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db}, environment-name :- String, class-name :- String]
-  (let [result (jdbc/query db (select-class class-name environment-name))]
+  (let [result (query db (select-class class-name environment-name))]
     (if-not (empty? result)
       (->> result
         (aggregate-submap-by :parameter :default_value :parameters)
@@ -275,7 +275,7 @@
 
 (sc/defn ^:always-validate get-classes* :- [PuppetClass]
   [{db :db}, environment-name :- String]
-  (let [result (jdbc/query db (select-classes environment-name))]
+  (let [result (query db (select-classes environment-name))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
       (map keywordize-parameters)
@@ -283,7 +283,7 @@
 
 (sc/defn ^:always-validate get-all-classes* :- [PuppetClass]
   [{db :db}]
-  (let [result (jdbc/query db (select-all-classes))]
+  (let [result (query db (select-all-classes))]
     (->> result
       (aggregate-submap-by :parameter :default_value :parameters)
       (map keywordize-parameters)
@@ -309,7 +309,7 @@
       (let [where-param (sql/where {:parameter (clojure.core/name param)
                                     :class_name name
                                     :environment_name environment})
-            [param-used?] (jdbc/query db (sql/select ["1"] :group_class_parameters where-param))]
+            [param-used?] (query db (sql/select ["1"] :group_class_parameters where-param))]
         (if param-used?
           (jdbc/update! db :class_parameters {:deleted true} where-param)
           (try (jdbc/delete! db :class_parameters where-param)
@@ -349,14 +349,14 @@
 
 (defn set-last-sync
   [db]
-  (let [last-sync (jdbc/query db (sql/select * :last_sync))]
+  (let [last-sync (query db (sql/select * :last_sync))]
     (if (empty? last-sync)
       (jdbc/execute! db ["INSERT INTO last_sync (time) VALUES (now())"])
       (jdbc/execute! db ["UPDATE last_sync SET time = now()"]))))
 
 (sc/defn get-last-sync* :- (sc/maybe org.joda.time.DateTime)
   [{db :db}]
-  (let [[last-sync] (jdbc/query db (sql/select * :last_sync))]
+  (let [[last-sync] (query db (sql/select * :last_sync))]
     (if (nil? last-sync)
       nil
       (coerce-time/from-sql-time (:time last-sync)))))
@@ -376,11 +376,11 @@
                                                                      (sort-classes db-classes))]
          (doseq [{:keys [environment name] :as c} to-delete]
            (let [where-class (sql/where {:environment_name environment, :name name})
-                 [class-used?] (jdbc/query t-db (sql/select ["1"]
-                                                            :group_classes
-                                                            (sql/where
-                                                              {:environment_name environment
-                                                               :class_name name})))]
+                 [class-used?] (query t-db (sql/select ["1"]
+                                                       :group_classes
+                                                       (sql/where
+                                                         {:environment_name environment
+                                                          :class_name name})))]
              (if class-used?
                (mark-class-deleted t-db c)
                (try (delete-class* {:db t-db} environment name)
@@ -410,7 +410,7 @@
 
 (sc/defn ^:always-validate get-rules* :- [Rule]
   [{db :db}]
-  (for [{:keys [match group_id]} (jdbc/query db (sql/select * :rules))]
+  (for [{:keys [match group_id]} (query db (sql/select * :rules))]
     {:when (json/decode match)
      :group-id group_id}))
 
@@ -508,12 +508,12 @@
                       (mapcat keys)
                       (map name))
         marked-classes (if-not (empty? class-names)
-                         (->> (jdbc/query db (expand-seq-params
-                                               ["SELECT name FROM classes
-                                                WHERE name IN ? AND deleted = true" class-names]))
+                         (->> (query db (expand-seq-params
+                                          ["SELECT name FROM classes
+                                           WHERE name IN ? AND deleted = true" class-names]))
                            (map (comp keyword :name))))
         marked-params (if-not (or (empty? class-names) (empty? param-names))
-                        (->> (jdbc/query
+                        (->> (query
                                db
                                (expand-seq-params
                                  ["SELECT parameter, class_name FROM class_parameters
