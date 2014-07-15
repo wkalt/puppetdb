@@ -477,6 +477,23 @@
                      :handle-ok ::retrieved
                      :handle-not-found handle-404))))
 
+          (POST "/import-hierarchy" []
+                (let [import! (fn [{raw-groups ::data}]
+                                (let [groups (->> raw-groups
+                                               (map convert-uuids)
+                                               (map hyphenate-group-keys))]
+                                  (storage/import-hierarchy db (validate [Group] groups))))]
+                  (resource
+                    :allowed-methods [:post]
+                    :available-media-types ["application/json"]
+                    :malformed? parse-if-body
+                    :handle-malformed handle-malformed
+                    :exists? false
+                    :can-post-to-missing? true
+                    :post! import!
+                    :new? false
+                    :respond-with-entity? false)))
+
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource
                  :allowed-methods [:get :post]

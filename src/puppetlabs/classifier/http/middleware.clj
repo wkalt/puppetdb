@@ -301,6 +301,26 @@
                             (pretty-cycle cycle)
                             ". See the `details` key for the full groups of the cycle.")})}))))
 
+(defn wrap-unreachable-groups-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier/unreachable-groups]
+        {:keys [groups]}
+        (let [plural? (> (count groups) 1)
+              group-names (->> groups
+                            (map :name)
+                            (map #(str "\"" % "\""))
+                            to-sentence)]
+          {:status 422
+           :headers {"Content-Type" "application/json"}
+           :body (encode-and-translate-keys
+                   {:details groups
+                    :kind "unreachable-groups"
+                    :msg (str "The group" (if plural? "s") " named " group-names
+                              (if plural? " are " " is ") "not reachable from the root of the"
+                              " hierarchy.")})})))))
+
 (defn wrap-missing-parent-explanations
   [handler]
   (fn [request]
@@ -422,6 +442,7 @@
     wrap-hierarchy-validation-fail-explanations
     wrap-uniqueness-violation-explanations
     wrap-inheritance-fail-explanations
+    wrap-unreachable-groups-explanations
     wrap-missing-parent-explanations
     wrap-classification-conflict-explanations
     wrap-root-rule-edit-explanation
