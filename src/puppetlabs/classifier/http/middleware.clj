@@ -34,7 +34,9 @@
                                 (filter (comp nil? first))
                                 (map second))
           remove-passing #(apply dissoc-indices % passing-arg-indices)]
-      {:schema (remove-passing schema)
+      {:schema (if (= (count schema) (count error))
+                 (remove-passing schema)
+                 schema)
        :value (remove-passing value)
        :error (remove-passing error)})))
 
@@ -128,8 +130,8 @@
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.http/user-data-invalid] exc-data
         (let [{:keys [schema value error]} (process-schema-exception-data exc-data)
-              msg (-> (str "The object you submitted does not conform to the schema. The"
-                           " problem is: " error)
+              msg (-> (str "The object(s) in your request submitted did not conform to the schema."
+                           " The problem is: " (seq error))
                     (str/replace #":rule \(not \(some \(check \% [^\)]+\) schemas\)\)"
                                  (str ":rule \"The rule is malformed. Please consult the group"
                                       " documentation for details on the rule grammar.\"")))]
