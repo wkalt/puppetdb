@@ -8,7 +8,7 @@
             [schema.core :as sc]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.util :refer [->client-explanation encode uuid?]
+            [puppetlabs.classifier.util :refer [->client-explanation encode to-sentence uuid?]
                                         :rename {encode encode-and-translate-keys}]))
 
 (defn- log-exception
@@ -260,6 +260,7 @@
                     :msg (referent-error-message error-count
                                                  group-error-count
                                                  child-error-count)})})))))
+
 (defn- pretty-cycle [groups]
   (->> (concat groups [(first groups)])
     (map :name)
@@ -328,16 +329,19 @@
                                         (str "class parameters for "
                                              (->> (:classes details) keys
                                                (map (comp wrap-quotes name))
-                                               (str/join ", "))
+                                               to-sentence)
                                              " classes, "))
                                       (if (contains? details :variables)
                                         (str "variables named "
                                              (->> (:variables details)
                                                keys
                                                (map (comp wrap-quotes name))
-                                               (str/join ", ")))))
-              msg (str "The node was classified into groups named "
-                       (str/join ", "  (map (comp wrap-quotes :name) (keys group->ancestors)))
+                                               to-sentence))))
+              group-names (->> group->ancestors
+                            keys
+                            (map (comp wrap-quotes :name))
+                            to-sentence)
+              msg (str "The node was classified into groups named " group-names
                        " that defined conflicting values for " conflicting-things "."
                        " See `details` for full information on all conflicts.")]
           {:status 500
