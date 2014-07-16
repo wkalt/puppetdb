@@ -105,6 +105,61 @@ def verify_groups(array)
   end
 end
 
+def remove_nil_values(hash)
+  hash.each do |k,v| 
+    case v
+    when Hash
+      remove_nil_values(v)
+    else
+      hash.delete(k) if v == nil
+    end
+  end
+end
+private :remove_nil_values
+
+#This method is used to update the model after you have changed a class definition
+#using the update-classes endpoint. It will add the group['deleted'] key and fill
+#out the object accordingly for a deleted parameter.
+def update_deleted_classes(group, patharray)
+  key = patharray.pop
+  group['deleted'] ||= {}
+  if patharray != []
+    deleted_object = patharray.inject(group['deleted']) do |hash, el|
+      hash[el] ||= {'puppetlabs.classifier/deleted' => false}   
+    end
+    actual_object = patharray.inject(group['classes']) do |hash, el|
+      hash[el]
+    end
+    deleted_object[key] =  actual_object[key]
+    add_pl_deleted_keys(deleted_object)
+  else
+    group['deleted'][key] = group['classes'][key]
+    add_pl_deleted_keys(group['deleted'][key], class_delete_flag = true)
+  end
+end
+
+def add_pl_deleted_keys(deleted_object, class_delete_flag = false)
+  deleted_object.each do |k,v|
+    if v.is_a? Hash
+      add_pl_deleted_keys(deleted_object[k])
+    else
+      deleted_object[k] = {'puppetlabs.classifier/deleted' => true, 'value' => v}
+    end
+  end
+  deleted_object['puppetlabs.classifier/deleted'] = class_delete_flag
+end
+
+def deep_merge(group, update_hash)
+  update_hash.each do |k,v|
+    if v.is_a? Hash
+      group[k] ||= {}
+      deep_merge(group[k], update_hash[k])
+    else
+      group[k] = update_hash[k]
+    end
+  end
+end
+
 def update_group(group, hash)
   response = Classifier.post("/v1/groups/#{group['id']}",
                              :body => hash.to_json)
@@ -112,7 +167,35 @@ def update_group(group, hash)
   if !response.response.is_a?(Net::HTTPSuccess)
     return response
   end
-  hash.each { |k,v|  group[k] = v }
+
+  deep_merge(group, hash)
+  group = remove_nil_values(group)
+
+  #check to see if the update hash had any class changes that require transforms to the groups['deleted'] object 
+  if group['deleted'] && group['classes'] != {} && hash['classes']
+    hash['classes'].each do |classname, parameters|
+      if group['deleted'][classname] == nil
+        next
+      end
+      parameters.each do |parameter, value|
+        if value == nil
+          group['deleted'][classname].delete(parameter)
+        else
+          group['deleted'][classname][parameter]['value'] = value
+        end
+      end
+    end
+  end
+
+  #check to see if we need to delete any classes from the model's group{'deleted'] key
+  if group['deleted']
+    group['deleted'].each do |classname, parameters|
+      if group['classes'][classname] == nil || group['deleted'][classname].keys == ['puppetlabs.classifier/deleted']
+        group['deleted'].delete(classname)
+      end
+    end
+    group.delete('deleted') if group['deleted'] == {}
+  end
 
   assert(group == JSON.parse(response.body),
          "Something went wrong, #{compare(group, JSON.parse(response.body))}")
