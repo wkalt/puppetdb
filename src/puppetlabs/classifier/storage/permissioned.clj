@@ -77,7 +77,8 @@
   ([permission token group-id]
    {:pre [(contains? Permissions permission)]}
    (let [guaranteed-info {:kind ::permission-denied
-                          :permission-to (permission->description permission)
+                          :permission-to permission
+                          :permission-description (permission->description permission)
                           :rbac-token token}
          exc-info (if group-id
                     (assoc guaranteed-info :group-id group-id)

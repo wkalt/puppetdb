@@ -408,6 +408,21 @@
                             (:url response))
                   :details (select-keys response [:url :status :headers :body])})}))))
 
+(defn wrap-permission-denied-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier.storage.permissioned/permission-denied]
+        {:keys [group-id permission-description]}
+        {:status 403
+         :headers {"Content-Type" "application/json"}
+         :body (encode-and-translate-keys
+                 {:kind "permission-denied"
+                  :msg (str "Sorry, but you don't have permission to " permission-description
+                            (if group-id (str " for group " group-id))
+                            ".")
+                  :details nil})}))))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -422,4 +437,5 @@
     wrap-rule-translation-error-explanations
     wrap-children-present-explanations
     wrap-unexpected-response-explanations
+    wrap-permission-denied-explanations
     wrap-error-catchall))
