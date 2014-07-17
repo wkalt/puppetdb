@@ -557,6 +557,15 @@
       :else
       (recur (get-parent db current) (conj ancestors current)))))
 
+(sc/defn ^:always-validate get-group-as-inherited* :- (sc/maybe Group)
+  [{db :db, :as this}, id :- (sc/either String UUID)]
+  {:pre [(uuid? id)]}
+  (if-let [group (get-group* this id)]
+    (let [ancs (get-ancestors* this group)
+          class8ns (map group->classification (concat [group] ancs))
+          inherited (class8n/collapse-to-inherited class8ns)]
+      (merge group inherited))))
+
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]
   (->> (query db (select-group-children group-id))
@@ -946,6 +955,7 @@
    :validate-group validate-group*
    :create-group create-group*
    :get-group get-group*
+   :get-group-as-inherited get-group-as-inherited*
    :get-groups get-groups*
    :annotate-group annotate-group*
    :get-ancestors get-ancestors*

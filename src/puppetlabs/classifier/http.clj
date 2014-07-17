@@ -465,11 +465,9 @@
                  (group-resource db api-prefix uuid)
                  (let [exists? (fn [_]
                                  (if-let [g (and uuid
-                                                 (storage/get-group db (UUID/fromString uuid)))]
-                                   (let [ancs (storage/get-ancestors db g)
-                                         class8ns (map group->classification (concat [g] ancs))
-                                         inherited (class8n/collapse-to-inherited class8ns)]
-                                     {::retrieved (merge g inherited)})))]
+                                                 (storage/get-group-as-inherited
+                                                   db (UUID/fromString uuid)))]
+                                   {::retrieved g}))]
                    (resource
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]

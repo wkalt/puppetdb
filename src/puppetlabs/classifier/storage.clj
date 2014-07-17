@@ -10,6 +10,7 @@
   (validate-group [this group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group.")
   (create-group [this group] "Creates a new group")
   (get-group [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
+  (get-group-as-inherited [this id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID")
   (annotate-group [this group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet.")
   (get-groups [this] "Retrieves all groups")
   (get-ancestors [this group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route.")

@@ -6,7 +6,7 @@
             [puppetlabs.classifier.schema :refer [Environment Group group->classification
                                                   groups->tree GroupDelta Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
-            [puppetlabs.classifier.util :refer [merge-and-clean]] ))
+            [puppetlabs.classifier.util :refer [merge-and-clean]]))
 
 (defn in-memory-storage
   "Create an in-memory Storage protocol instance, given a map with :classes,
@@ -102,6 +102,12 @@
         (get-in @!storage [:groups (:id group)]))
       (get-group [_ id]
         (get-in @!storage [:groups id]))
+      (get-group-as-inherited [this id]
+        (if-let [group (storage/get-group this id)]
+          (let [ancs (storage/get-ancestors this group)
+                class8ns (map group->classification (concat [group] ancs))
+                inherited (class8n/collapse-to-inherited class8ns)]
+            (merge group inherited))))
       (annotate-group [_ group]
         (sc/validate Group group)
         (let [extant-classes (get-in @!storage [:classes (-> group :environment keyword)])
