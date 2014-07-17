@@ -199,6 +199,7 @@
    :gc-params          (timer [ns-str "default" "gc-params-time"])
    :gc-environments    (timer [ns-str "default" "gc-environments-time"])
    :gc-report-statuses (timer [ns-str "default" "gc-report-statuses"])
+   :gc-fact-paths  (timer  [ns-str "default" "gc-fact-paths"])
 
    :updated-catalog    (counter [ns-str "default" "new-catalogs"])
    :duplicate-catalog  (counter [ns-str "default" "duplicate-catalogs"])
