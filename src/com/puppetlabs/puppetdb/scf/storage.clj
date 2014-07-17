@@ -734,6 +734,15 @@
 
 ;; ## Database compaction
 
+(defn delete-unassociated-fact-paths!
+  "Remove fact paths that are not associated with a fact"
+  []
+  (time! (:gc-fact-paths metrics)
+         (sql/delete-rows :fact_values
+            ["ID NOT IN (SELECT fact_value_id FROM facts)"])
+         (sql/delete-rows :fact_paths
+            ["ID NOT IN (SELECT path_id FROM fact_values)"])))
+
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
@@ -769,7 +778,9 @@
          (sql/transaction
           (delete-unassociated-environments!))
          (sql/transaction
-          (delete-unassociated-statuses!))))
+          (delete-unassociated-statuses!))
+         (sql/transaction
+           (delete-unassociated-fact-paths!))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Facts
