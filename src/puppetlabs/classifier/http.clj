@@ -191,6 +191,10 @@
          (if (and (uuid? id) (string? id)) {:id (UUID/fromString id)})
          (if (and (uuid? parent) (string? parent)) {:parent (UUID/fromString parent)})))
 
+(defn- hyphenate-group-keys
+  [group]
+  (rename-keys group {:environment_trumps :environment-trumps}))
+
 (defn malformed-group?
   "Given a group uuid, produces a function that takes one argument (the
   liberator context) and parses the body of the request in the context if said
@@ -207,8 +211,7 @@
               {:keys [parent] :as group} (cond-> data
                                            true convert-uuids
                                            uuid (assoc :id uuid)
-                                           true (rename-keys
-                                                  {:environment_trumps :environment-trumps}))]
+                                           true hyphenate-group-keys)]
           (cond
             (and uuid id (not= (str uuid) (str id)))
             [true (err-with-rep {::submitted-id id, ::uri-id uuid})]
@@ -473,6 +476,23 @@
                      :exists? exists?
                      :handle-ok ::retrieved
                      :handle-not-found handle-404))))
+
+          (POST "/import-hierarchy" []
+                (let [import! (fn [{raw-groups ::data}]
+                                (let [groups (->> raw-groups
+                                               (map convert-uuids)
+                                               (map hyphenate-group-keys))]
+                                  (storage/import-hierarchy db (validate [Group] groups))))]
+                  (resource
+                    :allowed-methods [:post]
+                    :available-media-types ["application/json"]
+                    :malformed? parse-if-body
+                    :handle-malformed handle-malformed
+                    :exists? false
+                    :can-post-to-missing? true
+                    :post! import!
+                    :new? false
+                    :respond-with-entity? false)))
 
           (ANY "/classified/nodes/:node-name" [node-name]
                (resource

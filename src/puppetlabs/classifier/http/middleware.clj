@@ -8,7 +8,7 @@
             [schema.core :as sc]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.util :refer [->client-explanation encode uuid?]
+            [puppetlabs.classifier.util :refer [->client-explanation encode to-sentence uuid?]
                                         :rename {encode encode-and-translate-keys}]))
 
 (defn- log-exception
@@ -34,7 +34,9 @@
                                 (filter (comp nil? first))
                                 (map second))
           remove-passing #(apply dissoc-indices % passing-arg-indices)]
-      {:schema (remove-passing schema)
+      {:schema (if (= (count schema) (count error))
+                 (remove-passing schema)
+                 schema)
        :value (remove-passing value)
        :error (remove-passing error)})))
 
@@ -128,8 +130,8 @@
     (try+ (handler request)
       (catch [:kind :puppetlabs.classifier.http/user-data-invalid] exc-data
         (let [{:keys [schema value error]} (process-schema-exception-data exc-data)
-              msg (-> (str "The object you submitted does not conform to the schema. The"
-                           " problem is: " error)
+              msg (-> (str "The object(s) in your request submitted did not conform to the schema."
+                           " The problem is: " (seq error))
                     (str/replace #":rule \(not \(some \(check \% [^\)]+\) schemas\)\)"
                                  (str ":rule \"The rule is malformed. Please consult the group"
                                       " documentation for details on the rule grammar.\"")))]
@@ -258,6 +260,7 @@
                     :msg (referent-error-message error-count
                                                  group-error-count
                                                  child-error-count)})})))))
+
 (defn- pretty-cycle [groups]
   (->> (concat groups [(first groups)])
     (map :name)
@@ -298,6 +301,26 @@
                             (pretty-cycle cycle)
                             ". See the `details` key for the full groups of the cycle.")})}))))
 
+(defn wrap-unreachable-groups-explanations
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.classifier/unreachable-groups]
+        {:keys [groups]}
+        (let [plural? (> (count groups) 1)
+              group-names (->> groups
+                            (map :name)
+                            (map #(str "\"" % "\""))
+                            to-sentence)]
+          {:status 422
+           :headers {"Content-Type" "application/json"}
+           :body (encode-and-translate-keys
+                   {:details groups
+                    :kind "unreachable-groups"
+                    :msg (str "The group" (if plural? "s") " named " group-names
+                              (if plural? " are " " is ") "not reachable from the root of the"
+                              " hierarchy.")})})))))
+
 (defn wrap-missing-parent-explanations
   [handler]
   (fn [request]
@@ -326,16 +349,19 @@
                                         (str "class parameters for "
                                              (->> (:classes details) keys
                                                (map (comp wrap-quotes name))
-                                               (str/join ", "))
+                                               to-sentence)
                                              " classes, "))
                                       (if (contains? details :variables)
                                         (str "variables named "
                                              (->> (:variables details)
                                                keys
                                                (map (comp wrap-quotes name))
-                                               (str/join ", ")))))
-              msg (str "The node was classified into groups named "
-                       (str/join ", "  (map (comp wrap-quotes :name) (keys group->ancestors)))
+                                               to-sentence))))
+              group-names (->> group->ancestors
+                            keys
+                            (map (comp wrap-quotes :name))
+                            to-sentence)
+              msg (str "The node was classified into groups named " group-names
                        " that defined conflicting values for " conflicting-things "."
                        " See `details` for full information on all conflicts.")]
           {:status 500
@@ -431,6 +457,7 @@
     wrap-hierarchy-validation-fail-explanations
     wrap-uniqueness-violation-explanations
     wrap-inheritance-fail-explanations
+    wrap-unreachable-groups-explanations
     wrap-missing-parent-explanations
     wrap-classification-conflict-explanations
     wrap-root-rule-edit-explanation

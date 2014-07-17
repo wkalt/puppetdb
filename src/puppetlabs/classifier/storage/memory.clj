@@ -3,8 +3,8 @@
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.classifier.classification :as class8n]
-            [puppetlabs.classifier.schema :refer [Environment Group group->classification GroupDelta
-                                                  Node PuppetClass Rule]]
+            [puppetlabs.classifier.schema :refer [Environment Group group->classification
+                                                  groups->tree GroupDelta Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.util :refer [merge-and-clean]] ))
 
@@ -156,6 +156,11 @@
                      :children (set children)})))
         (swap! !storage update-in [:groups] dissoc id)
         (get-in @!storage [:groups id]))
+
+      (import-hierarchy [this groups]
+        (groups->tree groups) ;; for validation only; throws if hierarchy is malformed
+        (swap! !storage assoc :groups (zipmap (map :id groups) groups))
+        (storage/get-subtree this (storage/get-group this root-group-uuid)))
 
       (get-rules [_]
         (let [group->rule (fn [g] {:when (:rule g), :group-id (:id g)})]

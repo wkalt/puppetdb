@@ -13,7 +13,7 @@
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
-            [puppetlabs.classifier.test-util :refer [blank-group]]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import java.util.UUID))
@@ -672,3 +672,70 @@
                 (if (= rule structured)
                   (is (re-find #"support structured facts" msg))
                   (is (re-find #"support trusted facts" msg)))))))))))
+
+(deftest hierarchy-import
+  (testing "import-hierarchy endpoint"
+    (let [root (merge (blank-group-named "default") {:id root-group-uuid})
+          rand-child #(blank-group-named (str "child-" %))
+          old-groups (conj (map rand-child (range 10)) root)
+          new-children (mapv rand-child (range 10 20))]
+
+      (testing "works as expected when given a valid hierarchy"
+        (let [mem-store (in-memory-storage {:groups old-groups})
+              app (app {:db mem-store})
+              rand-grandchild #(merge (blank-group-named (str "grandchild-" %))
+                                      {:parent (:id (rand-nth new-children))})
+              new-grandchildren (map rand-grandchild (range 10))
+              new-groups (concat [root] new-children new-grandchildren)
+              {:keys [status]} (app (request :post, "/v1/import-hierarchy"
+                                             (encode new-groups clj-key->json-key)))]
+          (is (= 204 status))
+          (is (= (set new-groups) (set (storage/get-groups mem-store))))))
+
+      (testing "returns understandable errors when given malformed groups"
+        (let [mem-store (in-memory-storage {:groups old-groups})
+              app (app {:db mem-store})
+              malformed-group-1 (merge (blank-group-named "malformed-1") {:parent "sally"})
+              malformed-group-2 (merge (blank-group-named "malformed-2") {:parent "breedbot 9000"})
+              new-groups (concat [root] [malformed-group-1 malformed-group-2] new-children)
+              {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+              {:keys [msg kind details]} (decode body json-key->clj-key)
+              {:keys [submitted error]} details]
+          (is (= 400 status))
+          (is (= kind "schema-violation"))
+          (is (re-find #"not.*instance\?.*java\.util\.UUID \"breedbot 9000\"" msg))
+          (is (= (set [malformed-group-1 malformed-group-2])
+                 (->> submitted
+                   (map convert-uuids)
+                   set)))))
+
+      (testing "returns understandable errors when given a malformed hierarchy"
+        (testing "that contains a cycle"
+          (let [mem-store (in-memory-storage {:groups old-groups})
+                app (app {:db mem-store})
+                cycle-child (blank-group-named "cycle child")
+                cycle-root (merge root {:parent (:id cycle-child)})
+                new-groups [cycle-child cycle-root]
+                {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+                {:keys [msg kind details] :as error} (decode body json-key->clj-key)]
+            (is (= 422 status))
+            (is (= kind "inheritance-cycle"))
+            (is (re-find #"default -> cycle child -> default" msg))
+            (is (= (set new-groups) (->> details
+                                      (map convert-uuids)
+                                      set)))))
+
+      (testing "that contains unreachable group"
+        (let [mem-store (in-memory-storage {:groups old-groups})
+              app (app {:db mem-store})
+              island-id (UUID/randomUUID)
+              island (merge (blank-group-named "a rock; an island")
+                            {:id island-id
+                             :parent island-id})
+              new-groups (concat [root] new-children [island])
+              {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+              {:keys [msg kind details] :as error} (decode body json-key->clj-key)]
+          (is (= 422 status))
+          (is (= kind "unreachable-groups"))
+          (is (re-find #"group named \"a rock; an island\" is not reachable" msg))
+          (is (= [island] (map convert-uuids details)))))))))

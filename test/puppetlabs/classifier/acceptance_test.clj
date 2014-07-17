@@ -15,7 +15,7 @@
             [puppetlabs.classifier.rules :as rules]
             [puppetlabs.classifier.schema :refer [ClientNode Group group->classification]]
             [puppetlabs.classifier.storage :refer [root-group-uuid]]
-            [puppetlabs.classifier.test-util :refer [blank-group]]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import [java.util.concurrent TimeoutException TimeUnit]
@@ -1268,3 +1268,43 @@
                                               :content-type :json
                                               :body (json/encode {:foo "bar"})})]
         (is (= 400 status))))))
+
+(deftest ^:acceptance hierarchy-import
+  (let [base-url (base-url test-config)
+        deserialize-groups #(-> %
+                              (json/decode json-key->clj-key)
+                              (->> (map convert-uuids)))
+        orig-groups-resp (:body (http/get (str base-url "/v1/groups")))
+        orig-groups (deserialize-groups orig-groups-resp)
+        root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+               :body
+               (json/decode json-key->clj-key)
+               convert-uuids)
+        limited-deck (merge (blank-group-named "limited deck")
+                            {:environment "test"
+                             :classes {:magic-deck {:cards "40"
+                                                    :lands "17"
+                                                    :spells "23"}}
+                             :variables {:draft {:when "2014-07-08T18:00:00-07:00"
+                                                 :where "Puppet Labs"
+                                                 :format "Conspiracy"}}})
+        new-groups #{root limited-deck}]
+
+    (testing "a new hierarchy can be imported through the import-hierarchy endpoint"
+      (let [{:keys [status]} (http/post (str base-url "/v1/import-hierarchy")
+                                        {:content-type :json, :body (json/encode new-groups)})
+            imported-groups (-> (http/get (str base-url "/v1/groups"))
+                              :body
+                              deserialize-groups
+                              set)]
+        (is (= 204 status))
+        (is (= new-groups imported-groups)))
+
+      (let [{:keys [status body]} (http/post (str base-url "/v1/import-hierarchy")
+                                             {:content-type :json, :body orig-groups-resp})
+            restored-groups (-> (http/get (str base-url "/v1/groups"))
+                              :body
+                              deserialize-groups
+                              set)]
+        (is (= 204 status))
+        (is (= (set orig-groups) restored-groups))))))
