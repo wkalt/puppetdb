@@ -321,10 +321,14 @@
   [db]
   (fn [req]
     (let [validate (fn [{submitted ::submitted}]
-                     (let [group (merge group-defaults
-                                        {:id (UUID/randomUUID)}
-                                        submitted)]
-                       {::validated (storage/validate-group db (validate Group group))}))]
+                     (let [group (validate Group (merge group-defaults
+                                                        {:id (UUID/randomUUID)}
+                                                        submitted))]
+                       (if-let [vtree (storage/validate-group db group)]
+                         (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
+                                  :tree vtree
+                                  :ancestors (storage/get-ancestors db group)})
+                         {::validated group})))]
       (run-resource
         req
         {:allowed-methods [:post]

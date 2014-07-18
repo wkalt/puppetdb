@@ -641,13 +641,17 @@
           classes (get-all-classes* {:db db})]
       (validate-classes-and-parameters subtree ancestors classes))))
 
-(sc/defn ^:always-validate validate-group* :- Group
+(sc/defn ^:always-validate validate-group* :- (sc/maybe ValidationNode)
   [{db :db} group]
-  (when-let [vtree (validation-failures {:db db} group)]
+  (if-let [vtree (validation-failures {:db db} group)]
+    vtree))
+
+(defn- validate-group-and-throw-missing-referents
+  [db group]
+  (when-let [vtree (validate-group* {:db db} group)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* {:db db} group)}))
-  group)
+             :ancestors (get-ancestors* {:db db} group)})))
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -665,7 +669,7 @@
      (wrap-uniqueness-failure-info "group"
        #(jdbc/with-db-transaction
           [t-db db]
-          (validate-group* {:db t-db} group)
+          (validate-group-and-throw-missing-referents t-db group)
           (create-environment-if-missing {:db t-db} {:name environment})
           (jdbc/insert! t-db :groups
                         [:name :description :environment_name :environment_trumps :id :parent_id]
@@ -813,12 +817,16 @@
       (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
-(defn- validate-delta
+(sc/defn ^:always-validate validate-delta* :- (sc/maybe ValidationNode)
   "This validates that the delta 1) does not perform an illegal edit such as
-  changing the root group's rule and 2) does not introduce any bad class or
-  class parameter references to the hierarchy. If the delta fails validation, an
-  exception will be thrown; if the delta passes, then nil will be returned."
-  [db delta extant]
+  changing the root group's rule, 2) does not cause the hierarchy to become
+  malformed and 3) does not introduce any bad class or class parameter
+  references to the hierarchy. If the delta fails validation for the first two
+  reasons, an exception will be thrown; if it fails for the last,
+  a ValidationNode for the group that the delta affects will be returned which
+  describes the errors that the edit would introduce to the group's subtree.  If
+  the delta passes all validation, then nil will be returned."
+  [{db :db}, delta :- GroupDelta, extant :- Group]
   (when (and (= (:id delta) root-group-uuid)
              (contains? delta :rule))
     (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
@@ -829,7 +837,7 @@
         _ (validate-hierarchy-structure* group' ancestors')
         subtree' (get-subtree* {:db db} group')
         classes (get-all-classes* {:db db})]
-    (when-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
+    (if-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
                         (get-ancestors* {:db db} extant))
@@ -839,16 +847,21 @@
                          vtree'
                          (class8n/validation-tree-difference vtree' vtree))]
         (if-not (class8n/valid-tree? vtree-diff)
-          (throw+ {:kind ::missing-referents
-                   :tree vtree-diff
-                   :ancestors ancestors'}))))))
+          vtree-diff)))))
+
+(defn- validate-delta-and-throw-missing-referents
+  [db delta extant]
+  (when-let [vtree (validate-delta* {:db db} delta extant)]
+    (throw+ {:kind ::missing-referents
+             :tree vtree
+             :ancestors (get-ancestors* {:db db} (merge-and-clean extant delta))})))
 
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
   (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} (:id delta))]
-                          (validate-delta t-db delta extant)
+                          (validate-delta-and-throw-missing-referents t-db delta extant)
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
@@ -960,6 +973,7 @@
    :annotate-group annotate-group*
    :get-ancestors get-ancestors*
    :get-subtree get-subtree*
+   :validate-delta validate-delta*
    :update-group update-group*
    :delete-group delete-group*
 

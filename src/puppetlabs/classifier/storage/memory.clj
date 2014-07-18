@@ -92,11 +92,8 @@
                 classes (storage/get-all-classes this)
                 vtree (class8n/validation-tree subtree, classes
                                                (map group->classification ancestors))]
-            (when-not (class8n/valid-tree? vtree)
-              (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
-                       :tree vtree
-                       :ancestors ancestors}))
-            group)))
+            (if-not (class8n/valid-tree? vtree)
+              vtree))))
       (create-group [_ group]
         (swap! !storage assoc-in [:groups (:id group)] (sc/validate Group group))
         (get-in @!storage [:groups (:id group)]))

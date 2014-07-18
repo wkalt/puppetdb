@@ -423,8 +423,13 @@
                         (update-group db bad-inheritance-delta))))
 
         (testing "when validating a group"
-          (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
-                        (validate-group db (merge side-group bad-inheritance-delta)))))))
+          (let [side-group' (merge side-group bad-inheritance-delta)
+                validation-errors {:group side-group'
+                                   :errors nil
+                                   :children #{{:group bottom-group
+                                                :errors {:high nil}
+                                                :children #{}}}}]
+          (is (= validation-errors (validate-group db side-group')))))))
 
     ;; mark class as deleted
     (let [class-env (:environment high-class)
