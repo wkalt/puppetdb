@@ -236,3 +236,11 @@
       (throw+ {:kind :puppetlabs.classifier/unreachable-groups
                :groups unreachable-groups}))
     tree))
+
+(defn flatten-tree-with
+  "Flattens a HierarchyNode tree or ValidationNode tree by applying f to each
+  group and returning a sequence of the results."
+  [f tree]
+  (let [{:keys [children group]} tree]
+    (conj (mapcat (partial flatten-tree-with f) children)
+          (f group))))

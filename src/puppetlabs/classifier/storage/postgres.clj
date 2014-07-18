@@ -18,9 +18,8 @@
             [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
-            [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with map-delta
-                                                merge-and-clean relative-complements-by-key uuid?
-                                                ->uuid]]
+            [puppetlabs.classifier.util :refer [dissoc-nil map-delta merge-and-clean
+                                                relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
   (:import java.sql.BatchUpdateException
            java.util.UUID
