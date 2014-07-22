@@ -18,8 +18,8 @@ This can be done as a postgres superuser (usually `su - postgres` on a default i
 Here's an example of creating the user and database, both with a name of `classifier`:
 
 ```
-createuser -d classifier -P
-createdb classifier -U classifier
+createuser -d pe-classifier -P
+createdb pe-classifier -U pe-classifier
 ```
 
 The first command will prompt for the user's password.
@@ -37,9 +37,9 @@ For the example above, assuming `classifier` was entered for the user's password
 
 ```
 database: {
-  dbname: classifier,
-  user: classifier,
-  password: classifier
+  dbname: pe-classifier,
+  user: pe-classifier,
+  password: pe-classifier
 }
 ```
 
