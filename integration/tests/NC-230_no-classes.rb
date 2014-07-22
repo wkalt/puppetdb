@@ -1,9 +1,9 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 
 step "verify the classifier doesn't fail when no classes specified"
 

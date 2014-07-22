@@ -1,6 +1,6 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 #declare empty array of groups
 #add to this group as necessary, send through verify_groups method to check
@@ -10,7 +10,7 @@ groups = []
 
 step "create a basic class and add it to the classifier"
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 testdir = master.tmpdir('test_synchronized_inheritance_changes')
 
 on master, "mkdir -p #{testdir}/environments/one/manifests"

@@ -3,7 +3,7 @@ require 'uuidtools'
 
 test_name "puppet retrieves a static classification"
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_classifies')
 
@@ -34,7 +34,7 @@ class Classifier
   headers({'Content-Type' => 'application/json'})
 end
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 
 step "Create class"

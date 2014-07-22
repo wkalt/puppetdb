@@ -2,7 +2,7 @@ require 'httparty'
 
 test_name "a fresh install of nc classifies into default group"
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_default')
 
@@ -31,7 +31,7 @@ class Classifier
   headers({'Content-Type' => 'application/json'})
 end
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 RootUUID = "00000000-0000-4000-8000-000000000000"
 group_response = Classifier.get("/v1/groups/#{RootUUID}")

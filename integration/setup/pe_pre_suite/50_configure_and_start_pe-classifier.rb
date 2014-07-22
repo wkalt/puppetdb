@@ -1,8 +1,12 @@
 step "Configure the classifier's conf file" do
-  cert = on(database, 'puppet agent --configprint hostcert').stdout.strip
-  key = on(database, 'puppet agent --configprint hostprivkey').stdout.strip
-  cacert = on(database, 'puppet agent --configprint localcacert').stdout.strip
-  ipaddress = on(database, 'facter ipaddress').stdout.strip
+  cert = on(classifier, 'puppet agent --configprint hostcert').stdout.strip
+  key = on(classifier, 'puppet agent --configprint hostprivkey').stdout.strip
+  cacert = on(classifier, 'puppet agent --configprint localcacert').stdout.strip
+  if classifier == master
+    postgres_host = on(classifier, 'facter ipaddress').stdout.strip
+  else
+    postgres_host = "localhost"
+  end
 
   conf = {}
 
@@ -21,16 +25,16 @@ step "Configure the classifier's conf file" do
     'puppet-master' => "https://#{master}:8140"
   }
   conf['database'] = {
-    'dbname' => "//#{ipaddress}:5432/pe-classifier",
+    'dbname' => "//#{postgres_host}:5432/pe-classifier",
     'user' => 'pe-classifier',
     'password' => 'classifier'
   }
-  create_remote_file(database, '/etc/puppetlabs/classifier/conf.d/classifier.conf', conf.to_json)
-  on(database, "chmod 644 /etc/puppetlabs/classifier/conf.d/classifier.conf")
+  create_remote_file(classifier, '/etc/puppetlabs/classifier/conf.d/classifier.conf', conf.to_json)
+  on(classifier, "chmod 644 /etc/puppetlabs/classifier/conf.d/classifier.conf")
 
-  on(database, "usermod -G pe-puppet pe-classifier")
+  on(classifier, "usermod -G pe-puppet pe-classifier")
 end
 
 step "Start classifier" do
-  start_classifier(database)
+  start_classifier(classifier)
 end

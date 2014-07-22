@@ -1,3 +1,3 @@
 step "Install postgres" do
-  install_postgres(database)
+  install_postgres(classifier)
 end
