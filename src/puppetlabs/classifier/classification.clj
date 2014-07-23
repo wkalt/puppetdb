@@ -246,14 +246,14 @@
                                           (if (= (keyword environment) class8n-env)
                                             [(keyword name) c])))]
     (reduce merge
-          (for [[class-key class8n-params] (:classes classification)]
-            (if-let [class (get env-classes-by-kw-name class-key)]
-              (let [class8n-params-set (-> class8n-params keys set)
-                    extant-params-set (-> class :parameters keys set)]
-                (if-not (subset? class8n-params-set extant-params-set)
-                  {class-key (difference class8n-params-set extant-params-set)}))
-              ;; else (class doesn't exist)
-              {class-key nil})))))
+            (for [[class-key class8n-params] (:classes classification)]
+              (if-let [class (get env-classes-by-kw-name class-key)]
+                (let [class8n-params-set (-> class8n-params keys set)
+                      extant-params-set (-> class :parameters keys set)]
+                  (if-not (subset? class8n-params-set extant-params-set)
+                    {class-key (difference class8n-params-set extant-params-set)}))
+                ;; else (class doesn't exist)
+                {class-key nil})))))
 
 (sc/defn validation-tree :- ValidationNode
   "Turn a group hierarchy tree into a validation tree, which is composed of
