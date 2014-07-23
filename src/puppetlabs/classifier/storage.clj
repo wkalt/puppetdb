@@ -15,7 +15,7 @@
   (get-groups [this] "Retrieves all groups")
   (get-ancestors [this group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route.")
   (get-subtree [this group] "Returns the subtree of the group hierarchy rooted at the passed group.")
-  (validate-delta [this delta] "Performs validation of the structure and references for the group hierarchy as it would be if the delta is applied.")
+  (validate-delta [this delta group] "Performs validation of the structure and references for the group hierarchy as it would be if the delta is applied.")
   (update-group [this delta] "Updates class/parameter and variable fields of a group")
   (delete-group [this id] "Deletes a group given its ID")
 

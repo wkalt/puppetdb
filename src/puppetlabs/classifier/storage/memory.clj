@@ -144,6 +144,21 @@
                                  (remove #(= (:id %) root-group-uuid)))))]
           {:group group
            :children (set (map (partial storage/get-subtree this) (get-children group)))}))
+      (validate-delta [this delta extant]
+        (when (and (= (:id delta) root-group-uuid)
+                   (contains? delta :rule))
+          (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
+                   :delta delta}))
+        (let [group' (merge-and-clean extant delta)
+              ancestors' (storage/get-ancestors this group')
+              subtree' (storage/get-subtree this group')]
+          (if-let [vtree' (storage/validate-group this group')]
+            (let [vtree (storage/validate-group this extant)
+                  vtree-diff (if (nil? vtree)
+                               vtree'
+                               (class8n/validation-tree-difference vtree' vtree))]
+              (if-not (class8n/valid-tree? vtree-diff)
+                vtree-diff)))))
       (update-group [_ delta]
         (sc/validate GroupDelta delta)
         (swap! !storage update-in [:groups (:id delta)] merge-and-clean delta)
