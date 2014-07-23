@@ -71,7 +71,7 @@
 
       (validate-group [this group]
         (let [parent (storage/get-group this (:parent group))
-              _ (when (nil? (:parent group))
+              _ (when (nil? parent)
                   (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-parent
                            :group group}))
               ancestors (storage/get-ancestors this group)]
@@ -135,7 +135,7 @@
               (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                        :cycle (drop-while #(not= (:id curr) (:id %)) ancs)})
 
-              :else (recur (get-parent group) (conj ancs curr))))))
+              :else (recur (get-parent curr) (conj ancs curr))))))
       (get-subtree [this group]
         (let [get-children (fn [g]
                              (let [groups (storage/get-groups this)]
