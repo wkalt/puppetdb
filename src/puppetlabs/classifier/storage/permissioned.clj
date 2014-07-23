@@ -1,7 +1,9 @@
 (ns puppetlabs.classifier.storage.permissioned
   (:require [clojure.walk :refer [prewalk]]
+            [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
+            [puppetlabs.classifier.schema :refer [hierarchy-zipper]]
             [puppetlabs.classifier.storage :as storage :refer [Storage]]))
 
 (defprotocol PermissionedStorage
@@ -84,6 +86,15 @@
                     (assoc guaranteed-info :group-id group-id)
                     guaranteed-info)]
      (throw+ exc-info))))
+
+(defn- viewable-subtrees
+  [root-node viewable-ids]
+  (let [zip-root (hierarchy-zipper root-node)
+        viewable-visitor (zv/visitor
+                           :pre [node subtrees]
+                            (if (viewable-ids (-> node :group :id))
+                             {:state (conj subtrees node), :cut true}))]
+    (:state (zv/visit zip-root [] [viewable-visitor]))))
 
 (sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
   [storage :- (sc/protocol Storage), permissions :- Permissions]

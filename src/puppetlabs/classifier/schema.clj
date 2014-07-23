@@ -1,6 +1,8 @@
 (ns puppetlabs.classifier.schema
   (:require [clojure.walk :as walk]
             [clj-time.format :as fmt-time]
+            [fast-zip.core :as z]
+            [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.classifier.storage :refer [root-group-uuid]]
@@ -237,10 +239,20 @@
                :groups unreachable-groups}))
     tree))
 
-(defn flatten-tree-with
-  "Flattens a HierarchyNode tree or ValidationNode tree by applying f to each
-  group and returning a sequence of the results."
-  [f tree]
-  (let [{:keys [children group]} tree]
-    (conj (mapcat (partial flatten-tree-with f) children)
-          (f group))))
+(defn- hierarchy-node?
+  "Predicate that returns true if `x` conforms to either the HierarchyNode or
+  ValidationNode schema."
+  [x]
+  (or (nil? (sc/check HierarchyNode x))
+      (nil? (sc/check ValidationNode x))))
+
+(def hierarchy-zipper
+  (partial z/zipper hierarchy-node? (comp seq :children) (fn [n cs] (assoc n :children (set cs)))))
+
+(defn tree->groups
+  [root-node]
+  (let [zip-root (hierarchy-zipper root-node)
+        group-accum (zv/visitor
+                      :pre [node groups]
+                      {:state (conj groups (:group node))})]
+    (:state (zv/visit zip-root [] [group-accum]))))
