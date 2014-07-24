@@ -2,7 +2,7 @@
 (require '[clojure.java.io :refer [file]])
 (require '[clojure.java.shell :refer [sh]])
 
-(def tk-version "0.3.4")
+(def tk-version "0.4.2")
 
 (defn deploy-info
   [url]
@@ -17,7 +17,7 @@
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/java.jdbc "0.3.2"]
-                 [cheshire "5.2.0"]
+                 [cheshire "5.3.1"]
                  [clj-http "0.7.8"]
                  [clj-stacktrace "0.2.7"]
                  [clj-time "0.6.0"]
@@ -28,15 +28,16 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc4"]
                  [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
-                 [puppetlabs/http-client "0.1.4"]
-                 [puppetlabs/kitchensink "0.5.3"]
+                 [puppetlabs/http-client "0.1.7"]
+                 [puppetlabs/certificate-authority "0.1.5"]
+                 [puppetlabs/kitchensink "0.7.1"]
                  [puppetlabs/trapperkeeper ~tk-version]]
   :profiles {:dev {:dependencies [[http-kit.fake "0.2.1"]
                                   [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                                   [ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.3.4"]]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.5.2"]]
                    :injections [(require 'spyscope.core)]}}
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
