@@ -1,3 +1,7 @@
+### 0.5.3
+ * Store the time classes were last updated from puppet
+ * Add the ability to import a group hierarchy
+
 ### 0.5.2
  * Return a particular 500 error response if Puppet gives us a response we don't understand.
  * Fix a bug where a 404 response from Puppet would cause the classifier to return a general 500 response.
