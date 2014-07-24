@@ -3,7 +3,7 @@
             [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
-            [puppetlabs.kitchensink.ssl :as ssl]
+            [puppetlabs.certificate-authority.core :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.classifier.http :as http]
             [puppetlabs.classifier.storage.postgres :as postgres]))
