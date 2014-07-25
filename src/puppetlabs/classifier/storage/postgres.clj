@@ -18,9 +18,8 @@
             [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
-            [puppetlabs.classifier.util :refer [dissoc-nil flatten-tree-with map-delta
-                                                merge-and-clean relative-complements-by-key uuid?
-                                                ->uuid]]
+            [puppetlabs.classifier.util :refer [dissoc-nil map-delta merge-and-clean
+                                                relative-complements-by-key uuid? ->uuid]]
             [slingshot.slingshot :refer [throw+]])
   (:import java.sql.BatchUpdateException
            java.util.UUID
@@ -557,6 +556,15 @@
       :else
       (recur (get-parent db current) (conj ancestors current)))))
 
+(sc/defn ^:always-validate get-group-as-inherited* :- (sc/maybe Group)
+  [{db :db, :as this}, id :- (sc/either String UUID)]
+  {:pre [(uuid? id)]}
+  (if-let [group (get-group* this id)]
+    (let [ancs (get-ancestors* this group)
+          class8ns (map group->classification (concat [group] ancs))
+          inherited (class8n/collapse-to-inherited class8ns)]
+      (merge group inherited))))
+
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]
   (->> (query db (select-group-children group-id))
@@ -632,13 +640,17 @@
           classes (get-all-classes* {:db db})]
       (validate-classes-and-parameters subtree ancestors classes))))
 
-(sc/defn ^:always-validate validate-group* :- Group
+(sc/defn ^:always-validate group-validation-failures* :- (sc/maybe ValidationNode)
   [{db :db} group]
-  (when-let [vtree (validation-failures {:db db} group)]
+  (if-let [vtree (validation-failures {:db db} group)]
+    vtree))
+
+(defn- validate-group-and-throw-missing-referents
+  [db group]
+  (when-let [vtree (group-validation-failures* {:db db} group)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* {:db db} group)}))
-  group)
+             :ancestors (get-ancestors* {:db db} group)})))
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -656,7 +668,7 @@
      (wrap-uniqueness-failure-info "group"
        #(jdbc/with-db-transaction
           [t-db db]
-          (validate-group* {:db t-db} group)
+          (validate-group-and-throw-missing-referents t-db group)
           (create-environment-if-missing {:db t-db} {:name environment})
           (jdbc/insert! t-db :groups
                         [:name :description :environment_name :environment_trumps :id :parent_id]
@@ -804,12 +816,16 @@
       (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
-(defn- validate-delta
+(sc/defn ^:always-validate delta-validation-failures* :- (sc/maybe ValidationNode)
   "This validates that the delta 1) does not perform an illegal edit such as
-  changing the root group's rule and 2) does not introduce any bad class or
-  class parameter references to the hierarchy. If the delta fails validation, an
-  exception will be thrown; if the delta passes, then nil will be returned."
-  [db delta extant]
+  changing the root group's rule, 2) does not cause the hierarchy to become
+  malformed and 3) does not introduce any bad class or class parameter
+  references to the hierarchy. If the delta fails validation for the first two
+  reasons, an exception will be thrown; if it fails for the last,
+  a ValidationNode for the group that the delta affects will be returned which
+  describes the errors that the edit would introduce to the group's subtree.  If
+  the delta passes all validation, then nil will be returned."
+  [{db :db}, delta :- GroupDelta, extant :- Group]
   (when (and (= (:id delta) root-group-uuid)
              (contains? delta :rule))
     (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
@@ -820,7 +836,7 @@
         _ (validate-hierarchy-structure* group' ancestors')
         subtree' (get-subtree* {:db db} group')
         classes (get-all-classes* {:db db})]
-    (when-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
+    (if-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
                         (get-ancestors* {:db db} extant))
@@ -830,16 +846,21 @@
                          vtree'
                          (class8n/validation-tree-difference vtree' vtree))]
         (if-not (class8n/valid-tree? vtree-diff)
-          (throw+ {:kind ::missing-referents
-                   :tree vtree-diff
-                   :ancestors ancestors'}))))))
+          vtree-diff)))))
+
+(defn- validate-delta-and-throw-missing-referents
+  [db delta extant]
+  (when-let [vtree (delta-validation-failures* {:db db} delta extant)]
+    (throw+ {:kind ::missing-referents
+             :tree vtree
+             :ancestors (get-ancestors* {:db db} (merge-and-clean extant delta))})))
 
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}
    delta :- GroupDelta]
   (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
                         (when-let [extant (get-group* {:db t-db} (:id delta))]
-                          (validate-delta t-db delta extant)
+                          (validate-delta-and-throw-missing-referents t-db delta extant)
                           (update-group-classes t-db extant delta)
                           (update-group-variables t-db extant delta)
                           (update-group-environment t-db extant delta)
@@ -943,13 +964,15 @@
    :get-check-ins get-check-ins*
    :get-nodes get-nodes*
 
-   :validate-group validate-group*
+   :group-validation-failures group-validation-failures*
    :create-group create-group*
    :get-group get-group*
+   :get-group-as-inherited get-group-as-inherited*
    :get-groups get-groups*
    :annotate-group annotate-group*
    :get-ancestors get-ancestors*
    :get-subtree get-subtree*
+   :delta-validation-failures delta-validation-failures*
    :update-group update-group*
    :delete-group delete-group*
 

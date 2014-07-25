@@ -6,6 +6,8 @@
   (:import java.util.regex.Pattern
            java.util.UUID))
 
+(def always-matches ["~" "name" ".*"])
+
 (defn- lookup-field
   [m ks]
   (let [get* (fn [m k] (or (get m (keyword k)) (get m k)))]

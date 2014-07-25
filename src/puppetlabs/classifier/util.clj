@@ -113,14 +113,6 @@
                    [k (map-delta mv nv)]
                    [k nv]))))))
 
-(defn flatten-tree-with
-  "Flattens a HierarchyNode tree or ValidationNode tree by applying f to each
-  group and returning a sequence of the results."
-  [f tree]
-  (let [{:keys [children group]} tree]
-    (conj (mapcat (partial flatten-tree-with f) children)
-          (f group))))
-
 (defn ->uuid
   "Attempts to convert `x` to a java.util.UUID, returning nil if the conversion
   fails."

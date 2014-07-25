@@ -6,7 +6,7 @@
             [puppetlabs.classifier.schema :refer [Environment Group group->classification
                                                   groups->tree GroupDelta Node PuppetClass Rule]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
-            [puppetlabs.classifier.util :refer [merge-and-clean]] ))
+            [puppetlabs.classifier.util :refer [merge-and-clean]]))
 
 (defn in-memory-storage
   "Create an in-memory Storage protocol instance, given a map with :classes,
@@ -69,9 +69,9 @@
             (swap! !storage update-in [:classes] dissoc env-kw)
             (get-in @!storage [:classes env-kw]))))
 
-      (validate-group [this group]
+      (group-validation-failures [this group]
         (let [parent (storage/get-group this (:parent group))
-              _ (when (nil? (:parent group))
+              _ (when (nil? parent)
                   (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-parent
                            :group group}))
               ancestors (storage/get-ancestors this group)]
@@ -92,16 +92,19 @@
                 classes (storage/get-all-classes this)
                 vtree (class8n/validation-tree subtree, classes
                                                (map group->classification ancestors))]
-            (when-not (class8n/valid-tree? vtree)
-              (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
-                       :tree vtree
-                       :ancestors ancestors}))
-            group)))
+            (if-not (class8n/valid-tree? vtree)
+              vtree))))
       (create-group [_ group]
         (swap! !storage assoc-in [:groups (:id group)] (sc/validate Group group))
         (get-in @!storage [:groups (:id group)]))
       (get-group [_ id]
         (get-in @!storage [:groups id]))
+      (get-group-as-inherited [this id]
+        (if-let [group (storage/get-group this id)]
+          (let [ancs (storage/get-ancestors this group)
+                class8ns (map group->classification (concat [group] ancs))
+                inherited (class8n/collapse-to-inherited class8ns)]
+            (merge group inherited))))
       (annotate-group [_ group]
         (sc/validate Group group)
         (let [extant-classes (get-in @!storage [:classes (-> group :environment keyword)])
@@ -132,7 +135,7 @@
               (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
                        :cycle (drop-while #(not= (:id curr) (:id %)) ancs)})
 
-              :else (recur (get-parent group) (conj ancs curr))))))
+              :else (recur (get-parent curr) (conj ancs curr))))))
       (get-subtree [this group]
         (let [get-children (fn [g]
                              (let [groups (storage/get-groups this)]
@@ -141,6 +144,21 @@
                                  (remove #(= (:id %) root-group-uuid)))))]
           {:group group
            :children (set (map (partial storage/get-subtree this) (get-children group)))}))
+      (delta-validation-failures [this delta extant]
+        (when (and (= (:id delta) root-group-uuid)
+                   (contains? delta :rule))
+          (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
+                   :delta delta}))
+        (let [group' (merge-and-clean extant delta)
+              ancestors' (storage/get-ancestors this group')
+              subtree' (storage/get-subtree this group')]
+          (if-let [vtree' (storage/group-validation-failures this group')]
+            (let [vtree (storage/group-validation-failures this extant)
+                  vtree-diff (if (nil? vtree)
+                               vtree'
+                               (class8n/validation-tree-difference vtree' vtree))]
+              (if-not (class8n/valid-tree? vtree-diff)
+                vtree-diff)))))
       (update-group [_ delta]
         (sc/validate GroupDelta delta)
         (swap! !storage update-in [:groups (:id delta)] merge-and-clean delta)

@@ -22,6 +22,7 @@
                  [clj-stacktrace "0.2.7"]
                  [clj-time "0.6.0"]
                  [compojure "1.1.6" :exclusions [[clj-time] [org.clojure/tools.macro]]]
+                 [fast-zip-visit "1.0.2"]
                  [java-jdbc/dsl "0.1.0"]
                  [liberator "0.11.0"]
                  [migratus "0.7.0"]

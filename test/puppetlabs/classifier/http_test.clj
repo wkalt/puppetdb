@@ -257,7 +257,8 @@
                          :opinions {:politicians "always been rotten"}}
                :variables {}}
         child-path (str "/v1/groups/" (:id child))
-        groups [crotchety-ancestor child]
+        root (merge (blank-group-named "default") {:id root-group-uuid})
+        groups [root crotchety-ancestor child]
         mem-db (in-memory-storage {:groups groups
                                    :classes (for [env (map :environment groups)
                                                   class [suspenders music opinions]]
@@ -617,7 +618,9 @@
         (is (re-find #"Unexpected close marker" (-> error :details :error)))))))
 
 (deftest schema-validation
-  (let [app (app {:db (in-memory-storage {})})
+  (let [root (merge (blank-group-named "default")
+                    {:id root-group-uuid})
+        app (app {:db (in-memory-storage {:groups [root]})})
         invalid {:name "invalid"
                  :rule ["=" "name" "Val Knott"]
                  :classes {}}

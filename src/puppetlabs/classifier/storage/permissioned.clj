@@ -1,8 +1,15 @@
 (ns puppetlabs.classifier.storage.permissioned
-  (:require [clojure.walk :refer [prewalk]]
+  (:require [clojure.set :as set]
+            [clojure.walk :refer [prewalk]]
+            [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
-            [puppetlabs.classifier.storage :as storage :refer [Storage]]))
+            [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.rules :refer [always-matches]]
+            [puppetlabs.classifier.schema :refer [group->classification hierarchy-zipper
+                                                  tree->groups]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.util :refer [map-delta merge-and-clean]]))
 
 (defprotocol PermissionedStorage
   "This \"wraps\" the Storage protocol with permissions. It has all the same
@@ -14,14 +21,15 @@
   (get-check-ins [this token node-name] "Retrieve all check-ins for a node by name.")
   (get-nodes [this token] "Retrieve check-ins for all nodes.")
 
-  (validate-group [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group.")
+  (group-validation-failures [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, scrubbing inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
   (create-group [this token group] "Creates a new group if permitted.")
   (get-group [this token id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID if permitted.")
+  (get-group-as-inherited [this token id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID. Values inherited from groups that the subject is not permitted to view will be replaced with `puppetlabs.classifier/redacted`.")
   (annotate-group [this token group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet, if permitted to access the original group.")
   (get-groups [this token] "Retrieves all groups if permitted.")
   (get-ancestors [this token group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route, if permitted to view all of said groups.")
-  (get-subtree [this token group] "Returns the subtree of the group hierarchy rooted at the passed group, if permitted to view all of said groups.")
-  (update-group [this token delta] "Updates class/parameter and variable fields of a group if permitted.")
+  (get-subtree [this token group] "Returns the subtree of the group hierarchy rooted at the passed group, if the token's subject is permitted to view the group.")
+  (update-group [this token delta] "Updates fields of a group if permitted.")
   (delete-group [this token id] "Deletes a group given its ID if permitted.")
 
   (create-class [this token class] "Creates a class specification if permitted.")
@@ -40,20 +48,20 @@
 (def Permissions
   "A map that provides the requisite functions for creating
   a PermissionedStorage instance. These functions are mostly permission
-  predicates, which take an RBAC API token and group id (if applicable) and
-  return a boolean indicating whether the subject owning the token has
-  the given permission. The non-predicates are :permitted-group-actions and
-  :viewable-group-ids, which take a token and return either the actions the
-  subject is allowed to perform on the group, or a list of the ids of groups the
-  subject as allowed to view."
+  predicates, which take an RBAC API token and, if applicable, a group id and
+  list of the group's ancestors' ids, and return a boolean indicating whether
+  the subject owning the token has the given permission. The non-predicates are
+  :permitted-group-actions, which takes a token, a group id, and a list of the
+  group's ancestors' ids, and returns all the actions that the subject owning
+  the token has permissions for on the given group  and :viewable-group-ids,
+  which takes a token and returns all the ids of groups that the subject is
+  allowed to view."
   (let [Function (sc/pred fn?)]
     {:classifier-access? Function
-     :group-create? Function
-     :group-delete? Function
      :group-edit-classification? Function
      :group-edit-environment? Function
-     :group-edit-parent? Function
-     :group-edit-rules? Function
+     :group-edit-child-rules? Function
+     :group-modify-children? Function
      :group-view? Function
      :permitted-group-actions Function
      :viewable-group-ids Function}))
@@ -62,38 +70,101 @@
   "Human-readable descriptions for the action that each permission key in
   a Permissions map represents, mainly to embed in error messages."
   {:classifier-access? "access the classifier"
-   :group-create? "create a group"
-   :group-delete? "delete a group"
-   :group-edit-classification? "edit the group's classification values"
-   :group-edit-environment? "change the group's environment"
-   :group-edit-parent? "change a group's parent"
-   :group-edit-rules? "change the group's rules"
-   :group-view? "view the group"})
+   :group-modify-children? "create or delete children"
+   :group-edit-classification? "edit the classes and variables"
+   :group-edit-environment? "change the environment"
+   :group-edit-child-rules? "change the rules"
+   :group-view? "view"})
 
-(defn- throw-permission-exception
-  "Throws a slingshot exception for a permission denial. `permission` must be
+(defn- permission-exception
+  "Returns a slingshot exception for a permission denial. `permission` must be
   one of the keys allowed in a Permissions map."
-  ([permission token] (throw-permission-exception permission token nil))
+  ([permission token] (permission-exception permission token nil))
   ([permission token group-id]
    {:pre [(contains? Permissions permission)]}
    (let [guaranteed-info {:kind ::permission-denied
                           :permission-to permission
-                          :permission-description (permission->description permission)
+                          :description (permission->description permission)
                           :rbac-token token}
          exc-info (if group-id
                     (assoc guaranteed-info :group-id group-id)
                     guaranteed-info)]
      (throw+ exc-info))))
 
+(defn- split-ancestors-by-viewability
+  "Given a group's ancestors (starting at the parent and ending with root) and
+  a set of ids that some subject is permitted to view, return a vector
+  containing two sequences of groups, the first being the groups that the
+  subject is not allowed to view, and the second being those groups that the
+  subject can view. One of the sequences may be empty."
+  [ancestors viewable-ids]
+  (->> ancestors
+    reverse
+    (split-with #(not (viewable-ids (:id %))))
+    (map reverse)))
+
+(defn- scrub-inheritable-values
+  [{:keys [classes variables] :as group}]
+  (assoc group
+         :classes (into {} (for [[class-kw params] classes]
+                             [class-kw (into {} (for [[param _] params]
+                                                  [param "puppetlabs.classifier/redacted"]))]))
+         :variables (into {} (for [[variable _] variables]
+                               [variable "puppetlabs.classifier/redacted"]))))
+
+(defn- scrub-invisible-ancestors
+  [ancestors viewable-group-ids]
+  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-group-ids)]
+    (concat vis (map scrub-inheritable-values invis))))
+
+(defn- viewable-subtrees
+  [root-node viewable-ids]
+  (let [zip-root (hierarchy-zipper root-node)
+        viewable-visitor (zv/visitor
+                           :pre [node subtrees]
+                            (if (viewable-ids (-> node :group :id))
+                             {:state (conj subtrees node), :cut true}))]
+    (:state (zv/visit zip-root [] [viewable-visitor]))))
+
+(defn- check-update-permissions
+  "Throw a permission exception if the changes made by the update are not
+  allowed by the RBAC permissions for token's subject."
+  [update-changes token id parent'-id parent-id ancs' ancs permission-fns]
+  (let [{:keys [group-modify-children? permitted-group-actions]} permission-fns
+        permitted-actions' (permitted-group-actions token id ancs')
+        parent'-permitted-actions (permitted-group-actions token parent'-id (rest ancs'))]
+
+    (when-not (permitted-actions' :view)
+      (throw+ (permission-exception :group-view? token id)))
+
+    (when (contains? update-changes :parent)
+      (let [modify-parents-children? (group-modify-children? token parent-id (rest ancs))]
+        (when-not modify-parents-children?
+          (throw+ (permission-exception :group-modify-children? token parent-id)))
+        (when-not (parent'-permitted-actions :modify-children)
+          (throw+ (permission-exception :group-modify-children? token parent'-id)))))
+
+    (when (and (contains? update-changes :rule)
+               (not (or (parent'-permitted-actions :edit-child-rules)
+                        (parent'-permitted-actions :modify-children))))
+      (throw+ (permission-exception :group-edit-child-rules? token id)))
+
+    (when (and (contains? update-changes :environment)
+               (not (permitted-actions' :edit-environment)))
+      (throw+ (permission-exception :group-edit-environment? token id)))
+
+    (when (and (some #(contains? update-changes %) [:name :classes :variables])
+               (not (or (permitted-actions' :edit-classification)
+                        (parent'-permitted-actions :modify-children))))
+      (throw+ (permission-exception :group-edit-classification? token id)))))
+
 (sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
   [storage :- (sc/protocol Storage), permissions :- Permissions]
   (let [{:keys [classifier-access?
-                group-create?
-                group-delete?
+                group-modify-children?
                 group-edit-classification?
                 group-edit-environment?
-                group-edit-parent?
-                group-edit-rules?
+                group-edit-child-rules?
                 group-view?
                 permitted-group-actions
                 viewable-group-ids]} permissions
@@ -101,65 +172,115 @@
                                   (fn [this token & args]
                                     (if (classifier-access? token)
                                       (apply f storage args)
-                                      (throw-permission-exception :classifier-access? token))))]
+                                      (throw+ (permission-exception :classifier-access? token)))))]
 
     (reify PermissionedStorage
-      ;; the group methods are the only interesting ones; the rest just depend
-      ;; on whether the token's subject has classifier access at all
-      (validate-group [this token {id :id :as group}]
-        (if-let [group (storage/get-group storage id)]
-          (if (group-view? token id)
-            (storage/validate-group storage group)
-            (throw-permission-exception :group-view? token id))
-          (if (group-create? token)
-            (storage/validate-group storage group)
-            (throw-permission-exception :group-create? token))))
-      (create-group [this token group]
-        (if (group-create? token)
-          (storage/create-group storage group)
-          (throw-permission-exception :group-create? token)))
+      ;;
+      ;; Group Storage methods
+      ;;
+      ;; The group methods are the only interesting ones; the rest just depend
+      ;; on whether the token's subject has classifier access at all.
+      ;;
+
+      (group-validation-failures [this token {:keys [id parent] :as group}]
+        (let [ancs (storage/get-ancestors storage group)]
+          (if-let [group (storage/get-group storage id)]
+            (if-not (group-view? token id ancs)
+              (throw+ (permission-exception :group-view? token id))
+              (storage/group-validation-failures storage group))
+            ;; else (group doesn't exist)
+            (if-not (group-modify-children? token parent (rest ancs))
+              (throw+ (permission-exception :group-modify-children? token parent))
+              (storage/group-validation-failures storage group)))))
+
+      (create-group [this token {id :id, parent-id :parent, :as group}]
+        (let [ancs (storage/get-ancestors storage group)
+              actions (permitted-group-actions token id ancs)
+              parent-actions (permitted-group-actions token parent-id (rest ancs))
+              parent (storage/get-group storage parent-id)]
+          (when-not (contains? parent-actions :modify-children)
+            (throw+ (permission-exception :group-modify-children? token parent-id)))
+          (when-let [vtree (storage/group-validation-failures storage group)]
+            (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
+                     :tree vtree
+                     :ancestors ancs}))
+          (when (and (not (contains? actions :edit-environment))
+                     (not= (:environment group) (:environment parent)))
+            (throw+ (assoc (permission-exception :group-edit-environment? token id)
+                           :description (str "create this group with a different environment"
+                                             " than its parent's environment of "
+                                             (pr-str (:environment parent)) " because you"
+                                             " can't edit the parent's environment"))))
+          (storage/create-group storage group)))
+
       (get-group [this token id]
-        (if (group-view? token id)
-          (storage/get-group storage id)
-          (throw-permission-exception :group-view? token id)))
+        (let [group (storage/get-group storage id)
+              ancs (storage/get-ancestors storage group)]
+          (if-not (group-view? token id ancs)
+            (throw+ (permission-exception :group-view? token id))
+            group)))
+
+      (get-group-as-inherited [this token id]
+        (let [group (storage/get-group storage id)
+              ancs (storage/get-ancestors storage group)]
+          (if-not (group-view? token id ancs)
+            (throw+ (permission-exception :group-view? token id))
+            (let [viewable-ids (viewable-group-ids token)
+                  [invis vis] (split-ancestors-by-viewability ancs viewable-ids)
+                  scrubbed (map scrub-inheritable-values invis)
+                  class8ns (map group->classification (concat [group] vis scrubbed))
+                  inherited (class8n/collapse-to-inherited class8ns)]
+              (merge group inherited)))))
+
       (get-groups [this token]
-        (let [viewable-ids (set (viewable-group-ids token))]
-          (filter #(contains? viewable-ids (:id %)) (storage/get-groups storage))))
+        (let [viewable-ids (viewable-group-ids token)
+              root (storage/get-group storage root-group-uuid)
+              root-node (storage/get-subtree storage root)
+              subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
+          (for [subtree subtrees, group (tree->groups subtree)]
+            group)))
+
       (get-ancestors [this token group]
-        (let [viewable-ids (set (viewable-group-ids token))]
-          (filter #(contains? viewable-ids (:id %)) (storage/get-ancestors storage group))))
-      (get-subtree [this token group]
-        (let [viewable-ids (set (viewable-group-ids token))
-              subtree (storage/get-subtree storage group)]
-          (prewalk (fn [form]
-                     (if (and (map? form)
-                              (contains? form :group)
-                              (contains? form :children)
-                              (not (contains? viewable-ids (get-in form [:group :id]))))
-                       (assoc form :group nil)
-                       form))
-                   subtree)))
-      (update-group [this token delta]
-        (let [id (:id delta)
-              permitted-actions (->> (permitted-group-actions token id)
-                                  (map keyword)
-                                  set)]
-          (when-not (permitted-actions :view)
-            (throw-permission-exception :group-view? token id))
-          (when (and (contains? delta :parent) (not (permitted-actions :edit_parent)))
-            (throw-permission-exception :group-edit-parent? token))
-          (when (and (contains? delta :rule) (not (permitted-actions :edit_rules)))
-            (throw-permission-exception :group-edit-rules? token id))
-          (when (and (contains? delta :environment) (not (permitted-actions :edit_env)))
-            (throw-permission-exception :group-edit-environment? token id))
-          (when (and (some #(contains? delta %) [:name :classes :variables])
-                     (not (contains? permitted-actions :configure)))
-            (throw-permission-exception :group-edit-classification? token id))
+        (let [viewable-ids (viewable-group-ids token)
+              ancs (storage/get-ancestors storage group)
+              [_ vis] (split-ancestors-by-viewability ancs viewable-ids)]
+          vis))
+
+      (get-subtree [this token {id :id :as group}]
+        (let [ancs (storage/get-ancestors storage group)]
+          (if-not (group-view? token id ancs)
+            (throw+ (permission-exception :group-view? token id))
+            (storage/get-subtree storage group))))
+
+      (update-group [this token {id :id :as delta}]
+        (let [group (storage/get-group storage id)
+              group' (merge-and-clean group delta)
+              only-changes (map-delta group group')
+              ancs' (storage/get-ancestors storage group')
+              ancs (if (contains? only-changes :parent)
+                     (storage/get-ancestors storage group)
+                     ancs')]
+          (check-update-permissions
+            only-changes token id (:parent group') (:parent group) ancs' ancs permissions)
+          (when-let [vtree (storage/delta-validation-failures storage delta group)]
+            (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
+                     :tree vtree
+                     :ancestors (scrub-invisible-ancestors ancs (viewable-group-ids token))}))
           (storage/update-group storage delta)))
+
       (delete-group [this token id]
-        (if (group-delete? token id)
-          (storage/delete-group storage id)
-          (throw-permission-exception :group-delete? token)))
+        (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
+          (let [ancs (storage/get-ancestors storage group)]
+            (if (group-modify-children? token parent (rest ancs))
+              (storage/delete-group storage id)
+              (throw+ (permission-exception :group-modify-children? token parent))))))
+
+      ;;
+      ;; Non-Group Storage methods
+      ;;
+      ;; These all just depend on whether the token's owner has any permissions
+      ;; in RBAC for NC at all.
+      ;;
 
       (store-check-in [this token check-in]
         ((wrap-access-permissions storage/store-check-in) this token check-in))
