@@ -77,4 +77,4 @@ final_time = Classifier.get("/v1/last-class-update")
 last_update = Time.parse(final_time['last_update'])
 
 assert((start_time < last_update) && (last_update < end_time),
-       "Last update of #{last_update} was not in the expected range of #{start_time}..#{end_time}.")
+       "Last update of #{last_update.utc} was not in the expected range of #{start_time.utc}..#{end_time.utc}.")
