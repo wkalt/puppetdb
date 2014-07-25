@@ -207,6 +207,10 @@ Note that any existing group with that ID will be overwritten!
 
 The request format is the same as the format for the [POST group creation endpoint](#post-v1groups) above.
 
+##### Deleted classes and class parameters
+
+It is possible to overwrite an existing group with a new group definition that contains deleted classes or parameters.
+
 #### Response Format
 
 If the group was successfully created, the server will return a 201 Created response, with the group object (in JSON) as the body.
@@ -294,6 +298,10 @@ then the value of the group after the update will be:
     }
 
 Note how the "ssl" class was deleted because its entire object was mapped to null, whereas for the "apache" class only the "keepalive_timeout" parameter was deleted.
+
+##### Deleted classes and class parameters
+
+If the group definition contains classes and parameters that have been deleted it is still possible to update the group with those parameters and classes. Updates that don't increase the number of errors associated with a group are allowed.
 
 #### Error Responses
 
