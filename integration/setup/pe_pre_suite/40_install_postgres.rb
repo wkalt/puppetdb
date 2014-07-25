@@ -3,7 +3,7 @@ step "install and configure postgres on the classifier node" do
   #the classifier should  use the pe-postgres user to set up the classifier's
   #database.
   if classifier == master
-    create_pe_classifier_db_with_pe_postgres(host)
+    create_pe_classifier_db_with_pe_postgres(classifier)
   else
     install_postgres(classifier)
   end
