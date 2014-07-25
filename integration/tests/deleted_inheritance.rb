@@ -1,12 +1,12 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 groups = []
 
 step "clear classifier database"
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 
 root_group = get_root_group
 groups.push(root_group)

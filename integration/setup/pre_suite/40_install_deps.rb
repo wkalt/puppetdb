@@ -1,24 +1,24 @@
 step "Install other dependencies on database" do
-  os = test_config[:os_families][database.name]
+  os = test_config[:os_families][classifier.name]
 
   case test_config[:install_type]
   when :git
     case os
     when :debian
-      on database, "apt-get install -y --force-yes openjdk-6-jre-headless rake"
+      on classifier, "apt-get install -y --force-yes openjdk-6-jre-headless rake"
     when :redhat
-      on database, "yum install -y java-1.6.0-openjdk rubygem-rake"
+      on classifier, "yum install -y java-1.6.0-openjdk rubygem-rake"
     else
       raise ArgumentError, "Unsupported OS '#{os}'"
     end
 
     step "Install lein on the classifier server" do
-      which_result = on database, "which lein", :acceptable_exit_codes => [0,1]
+      which_result = on classifier, "which lein", :acceptable_exit_codes => [0,1]
       needs_lein = which_result.exit_code == 1
       if (needs_lein)
-        on database, "curl -k https://raw.github.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein"
-        on database, "chmod +x /usr/local/bin/lein"
-        on database, "LEIN_ROOT=true lein"
+        on classifier, "curl -k https://raw.github.com/technomancy/leiningen/stable/bin/lein -o /usr/local/bin/lein"
+        on classifier, "chmod +x /usr/local/bin/lein"
+        on classifier, "LEIN_ROOT=true lein"
       end
     end
   end

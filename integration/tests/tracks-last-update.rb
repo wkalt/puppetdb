@@ -3,7 +3,7 @@ require 'httparty'
 
 test_name "the classifier tracks the time of the most recent update from puppet"
 
-clear_and_restart_classifier(database)
+clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_last_update')
 
@@ -47,7 +47,7 @@ class Classifier
   headers({'Content-Type' => 'application/json'})
 end
 
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 step "Verify that initially the last_update time is null"
 

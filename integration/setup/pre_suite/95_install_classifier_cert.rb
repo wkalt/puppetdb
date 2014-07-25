@@ -1,18 +1,18 @@
 require 'json'
 
 step "Configure SSL on classifier" do
-  cert = on(database, 'puppet agent --configprint hostcert').stdout.strip
-  key = on(database, 'puppet agent --configprint hostprivkey').stdout.strip
-  cacert = on(database, 'puppet agent --configprint localcacert').stdout.strip
+  cert = on(classifier, 'puppet agent --configprint hostcert').stdout.strip
+  key = on(classifier, 'puppet agent --configprint hostprivkey').stdout.strip
+  cacert = on(classifier, 'puppet agent --configprint localcacert').stdout.strip
 
   ssldir = "/etc/classifier/ssl"
 
-  on(database, "mkdir -p #{ssldir}")
-  on(database, "cp #{cert} #{ssldir}/cert.pem")
-  on(database, "cp #{key} #{ssldir}/key.pem")
-  on(database, "cp #{cacert} #{ssldir}/ca.pem")
-  on(database, "chown -R classifier:classifier #{ssldir}")
-  on(database, "chmod 600 #{ssldir}/*")
+  on(classifier, "mkdir -p #{ssldir}")
+  on(classifier, "cp #{cert} #{ssldir}/cert.pem")
+  on(classifier, "cp #{key} #{ssldir}/key.pem")
+  on(classifier, "cp #{cacert} #{ssldir}/ca.pem")
+  on(classifier, "chown -R classifier:classifier #{ssldir}")
+  on(classifier, "chmod 600 #{ssldir}/*")
 
   conf = {}
   conf['webserver'] = {
@@ -30,10 +30,10 @@ step "Configure SSL on classifier" do
     'puppet-master' => "https://#{master}:8140"
   }
 
-  create_remote_file(database, '/etc/classifier/conf.d/classifier.conf', conf.to_json)
-  on(database, "chmod 644 /etc/classifier/conf.d/classifier.conf")
+  create_remote_file(classifier, '/etc/classifier/conf.d/classifier.conf', conf.to_json)
+  on(classifier, "chmod 644 /etc/classifier/conf.d/classifier.conf")
 end
 
 step "Start classifier" do
-  start_classifier(database)
+  start_classifier(classifier)
 end

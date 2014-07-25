@@ -6,7 +6,7 @@ class Classifier
   headers({'Content-Type' => 'application/json'})
 end
 
-Classifier.base_uri "#{database.reachable_name}:#{CLASSIFIER_PORT}"
+Classifier.base_uri "#{classifier.reachable_name}:#{CLASSIFIER_PORT}"
 
 
 step "Create a manifest"

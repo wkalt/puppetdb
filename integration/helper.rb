@@ -147,6 +147,13 @@ module ClassifierExtensions
     ClassifierExtensions.config
   end
 
+  #This classifier method forces a returned host that has a defined role of 
+  #classifier in the beaker config. Once beaker PR 362 has been merged, this
+  #definition in this file should no longer be necessary.
+  def classifier 
+    find_only_one(:classifier)
+  end
+
   def get_os_family(host)
     on(host, "which yum", :silent => true)
     if result.exit_code == 0
@@ -236,9 +243,9 @@ module ClassifierExtensions
 
     case os
     when :debian
-      on host, "apt-get install -y --force-yes #{classifier_service_name(database)}"
+      on host, "apt-get install -y --force-yes #{classifier_service_name(classifier)}"
     when :redhat
-      on host, "yum install -y #{classifier_service_name(database)}"
+      on host, "yum install -y #{classifier_service_name(classifier)}"
     else
       raise ArgumentError, "Unsupported OS '#{os}'"
     end
@@ -320,7 +327,7 @@ module ClassifierExtensions
   #  acceptance test runs.
   ############################################################################
 
-  def install_pe_classifier_postgres(host)
+  def create_pe_classifier_db_with_pe_postgres(host)
     manifest = ''
     manifest << <<-EOS
     class { '::postgresql::globals':
@@ -341,7 +348,7 @@ module ClassifierExtensions
 
     # get the pg server up and running
     class { '::postgresql::server':
-      listen_addresses        => '#{database}',
+      listen_addresses        => '#{host}',
       ip_mask_allow_all_users => '0.0.0.0/0',
       require                => Class['::postgresql::globals'],
     }
@@ -354,7 +361,7 @@ module ClassifierExtensions
     EOS
 
     apply_manifest_on(host, manifest)
-    on database, 'puppet agent -t', :acceptable_exit_codes => [0,2]
+    on host, 'puppet agent -t', :acceptable_exit_codes => [0,2]
   end
 
   def install_postgres(host)
@@ -391,8 +398,8 @@ module ClassifierExtensions
     manifest << <<-EOS
     class { 'postgresql::server': }
 
-    postgresql::server::db { '#{classifier_service_name(database)}':
-      user => '#{classifier_service_name(database)}',
+    postgresql::server::db { '#{classifier_service_name(host)}':
+      user => '#{classifier_service_name(host)}',
       password => 'classifier',
     }
     EOS
@@ -472,11 +479,11 @@ module ClassifierExtensions
   end
 
   def clear_database(host)
-    if host.is_pe?
+    if host.is_pe? && classifier == master
       on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
-      install_pe_classifier_postgres(host)
+      create_pe_classifier_db_with_pe_postgres(host)
     else
-      on host, 'su postgres -c "dropdb classifier"'
+      on host, "su postgres -c 'dropdb #{classifier_service_name(host)}'"
       install_postgres(host)
     end
   end

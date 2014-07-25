@@ -8,7 +8,7 @@ class Classifier
   debug_output($stdout)
   headers({'Content-Type' => 'application/json'})
 end
-Classifier.base_uri("#{database.reachable_name}:#{CLASSIFIER_PORT}")
+Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 
 step "Set up puppet without a classifier.yaml"
@@ -38,7 +38,7 @@ master_opts = {
 
 step "Run puppet"
 
-stub_hosts_on(master, 'classifier' => fact_on(database, 'ipaddress'))
+stub_hosts_on(master, 'classifier' => fact_on(classifier, 'ipaddress'))
 with_puppet_running_on(master, master_opts, testdir) do
   agents.each do |agent|
     run_agent_on(agent, "--no-daemonize --onetime --verbose --server #{master}")
