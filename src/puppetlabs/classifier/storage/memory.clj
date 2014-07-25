@@ -69,7 +69,7 @@
             (swap! !storage update-in [:classes] dissoc env-kw)
             (get-in @!storage [:classes env-kw]))))
 
-      (validate-group [this group]
+      (group-validation-failures [this group]
         (let [parent (storage/get-group this (:parent group))
               _ (when (nil? parent)
                   (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-parent
@@ -144,7 +144,7 @@
                                  (remove #(= (:id %) root-group-uuid)))))]
           {:group group
            :children (set (map (partial storage/get-subtree this) (get-children group)))}))
-      (validate-delta [this delta extant]
+      (delta-validation-failures [this delta extant]
         (when (and (= (:id delta) root-group-uuid)
                    (contains? delta :rule))
           (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
@@ -152,8 +152,8 @@
         (let [group' (merge-and-clean extant delta)
               ancestors' (storage/get-ancestors this group')
               subtree' (storage/get-subtree this group')]
-          (if-let [vtree' (storage/validate-group this group')]
-            (let [vtree (storage/validate-group this extant)
+          (if-let [vtree' (storage/group-validation-failures this group')]
+            (let [vtree (storage/group-validation-failures this extant)
                   vtree-diff (if (nil? vtree)
                                vtree'
                                (class8n/validation-tree-difference vtree' vtree))]

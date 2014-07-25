@@ -640,14 +640,14 @@
           classes (get-all-classes* {:db db})]
       (validate-classes-and-parameters subtree ancestors classes))))
 
-(sc/defn ^:always-validate validate-group* :- (sc/maybe ValidationNode)
+(sc/defn ^:always-validate group-validation-failures* :- (sc/maybe ValidationNode)
   [{db :db} group]
   (if-let [vtree (validation-failures {:db db} group)]
     vtree))
 
 (defn- validate-group-and-throw-missing-referents
   [db group]
-  (when-let [vtree (validate-group* {:db db} group)]
+  (when-let [vtree (group-validation-failures* {:db db} group)]
     (throw+ {:kind ::missing-referents
              :tree vtree
              :ancestors (get-ancestors* {:db db} group)})))
@@ -816,7 +816,7 @@
       (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
-(sc/defn ^:always-validate validate-delta* :- (sc/maybe ValidationNode)
+(sc/defn ^:always-validate delta-validation-failures* :- (sc/maybe ValidationNode)
   "This validates that the delta 1) does not perform an illegal edit such as
   changing the root group's rule, 2) does not cause the hierarchy to become
   malformed and 3) does not introduce any bad class or class parameter
@@ -850,7 +850,7 @@
 
 (defn- validate-delta-and-throw-missing-referents
   [db delta extant]
-  (when-let [vtree (validate-delta* {:db db} delta extant)]
+  (when-let [vtree (delta-validation-failures* {:db db} delta extant)]
     (throw+ {:kind ::missing-referents
              :tree vtree
              :ancestors (get-ancestors* {:db db} (merge-and-clean extant delta))})))
@@ -964,7 +964,7 @@
    :get-check-ins get-check-ins*
    :get-nodes get-nodes*
 
-   :validate-group validate-group*
+   :group-validation-failures group-validation-failures*
    :create-group create-group*
    :get-group get-group*
    :get-group-as-inherited get-group-as-inherited*
@@ -972,7 +972,7 @@
    :annotate-group annotate-group*
    :get-ancestors get-ancestors*
    :get-subtree get-subtree*
-   :validate-delta validate-delta*
+   :delta-validation-failures delta-validation-failures*
    :update-group update-group*
    :delete-group delete-group*
 

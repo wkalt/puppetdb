@@ -375,7 +375,7 @@
           (testing "when validating a group"
             (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                            :cycle [top' child-1]]
-                          (validate-group db top')))))))
+                          (group-validation-failures db top')))))))
 
     (testing "attempting to delete a group that has children results in an error"
       (is (thrown+? [:kind :puppetlabs.classifier.storage.postgres/children-present
@@ -429,7 +429,7 @@
                                    :children #{{:group bottom-group
                                                 :errors {:high nil}
                                                 :children #{}}}}]
-          (is (= validation-errors (validate-group db side-group')))))))
+          (is (= validation-errors (group-validation-failures db side-group')))))))
 
     ;; mark class as deleted
     (let [class-env (:environment high-class)

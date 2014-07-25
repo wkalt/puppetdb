@@ -21,7 +21,7 @@
   (get-check-ins [this token node-name] "Retrieve all check-ins for a node by name.")
   (get-nodes [this token] "Retrieve check-ins for all nodes.")
 
-  (validate-group [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, scrubbing inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
+  (group-validation-failures [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, scrubbing inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
   (create-group [this token group] "Creates a new group if permitted.")
   (get-group [this token id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID if permitted.")
   (get-group-as-inherited [this token id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID. Values inherited from groups that the subject is not permitted to view will be replaced with `puppetlabs.classifier/redacted`.")
@@ -182,16 +182,16 @@
       ;; on whether the token's subject has classifier access at all.
       ;;
 
-      (validate-group [this token {:keys [id parent] :as group}]
+      (group-validation-failures [this token {:keys [id parent] :as group}]
         (let [ancs (storage/get-ancestors storage group)]
           (if-let [group (storage/get-group storage id)]
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
-              (storage/validate-group storage group))
+              (storage/group-validation-failures storage group))
             ;; else (group doesn't exist)
             (if-not (group-modify-children? token parent (rest ancs))
               (throw+ (permission-exception :group-modify-children? token parent))
-              (storage/validate-group storage group)))))
+              (storage/group-validation-failures storage group)))))
 
       (create-group [this token {id :id, parent-id :parent, :as group}]
         (let [ancs (storage/get-ancestors storage group)
@@ -200,7 +200,7 @@
               parent (storage/get-group storage parent-id)]
           (when-not (contains? parent-actions :modify-children)
             (throw+ (permission-exception :group-modify-children? token parent-id)))
-          (when-let [vtree (storage/validate-group storage group)]
+          (when-let [vtree (storage/group-validation-failures storage group)]
             (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                      :tree vtree
                      :ancestors ancs}))
@@ -262,7 +262,7 @@
                      ancs')]
           (check-update-permissions
             only-changes token id (:parent group') (:parent group) ancs' ancs permissions)
-          (when-let [vtree (storage/validate-delta storage delta group)]
+          (when-let [vtree (storage/delta-validation-failures storage delta group)]
             (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                      :tree vtree
                      :ancestors (scrub-invisible-ancestors ancs (viewable-group-ids token))}))

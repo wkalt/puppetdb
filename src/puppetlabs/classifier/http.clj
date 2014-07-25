@@ -324,7 +324,7 @@
                      (let [group (validate Group (merge group-defaults
                                                         {:id (UUID/randomUUID)}
                                                         submitted))]
-                       (if-let [vtree (storage/validate-group db group)]
+                       (if-let [vtree (storage/group-validation-failures db group)]
                          (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                                   :tree vtree
                                   :ancestors (storage/get-ancestors db group)})
