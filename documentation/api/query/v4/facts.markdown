@@ -51,9 +51,12 @@ The result will be a JSON array, with one entry per fact. Each entry is of the f
       "environment": <facts environment>
     }
 
-The array is unsorted.
+The array is unsorted. Fact values can be strings, floats, integers, booleans,
+arrays, or maps. Map and array values can be any of the same types.
 
-If no facts match the query, an empty JSON array will be returned.
+If no facts match the query, an empty JSON array will be returned. Querying
+against `value` will return matches only at the top-level, rather than to
+individual fact nodes.
 
 ### Examples
 
@@ -89,11 +92,30 @@ this route.
 
 ### Examples
 
+Get the operating system fact for all nodes:
+
     curl -X GET http://puppetdb:8080/v4/facts/operatingsystem
 
     [{"certname": "a.example.com", "name": "operatingsystem", "value": "Debian"},
      {"certname": "b.example.com", "name": "operatingsystem", "value": "Redhat"},
      {"certname": "c.example.com", "name": "operatingsystem", "value": "Ubuntu"}]
+
+Get the structured partitions fact for a single node:
+
+    curl -X GET http://puppetdb:8080/v4/facts/partitions --data-urlencode 'query=["=", "certname", "a.example.com"]'
+
+     [{"certname" : "a.example.com",
+       "name" : "partitions"
+       "value" : {
+             "sda3" : {"mount" : "/home",
+                       "size" : "174389248",
+                       "uuid" : "26d79d9a-96b3-4cc7-960d-0d6558d7dc54"},
+             "sda1" : {"mount" : "/boot",
+                       "size" : "1048576"},
+             "sda2" : {"mount" : "/",
+                       "size" : "74629120",
+                       "uuid":"30d0108f-ec67-4557-8331-09ebc8b937f9"}}]
+
 
 ## `GET /v4/facts/<FACT NAME>/<VALUE>`
 

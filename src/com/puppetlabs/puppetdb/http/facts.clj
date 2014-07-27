@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.http.query :as http-q]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
-            [com.puppetlabs.puppetdb.query.facts :as f]
+            [com.puppetlabs.puppetdb.query.facts :as facts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
             [net.cgrand.moustache :refer [app]]
@@ -10,6 +10,12 @@
                                                wrap-with-paging-options]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.http :as http]))
+
+(defn munge-result-rows
+  [version]
+  (fn [rows]
+    (if (empty? rows) []
+      (facts/collapsed-fact-seq version rows))))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query
@@ -21,11 +27,13 @@
     (jdbc/with-transacted-connection db
       (let [parsed-query (json/parse-strict-string query true)
             {[sql & params] :results-query
-             count-query :count-query} (f/query->sql version parsed-query paging-options)
+             count-query :count-query} (facts/query->sql version parsed-query
+                                                      paging-options)
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db
-                      (query/streamed-query-result version sql params f))))]
+                      (query/streamed-query-result version sql params
+                                                   (comp f (munge-result-rows version))))))]
         (if count-query
           (http/add-headers resp {:count (jdbc/get-result-count count-query)})
           resp)))
@@ -66,13 +74,13 @@
   (case version
     :v1 (throw (IllegalArgumentException. "No support for v1 for facts end-point"))
     :v2 (build-facts-app
-         (-> (query-app version)
-             (validate-query-params
-              {:optional ["query"]})))
+          (-> (query-app version)
+              (validate-query-params
+                {:optional ["query"]})))
     (build-facts-app
       (-> (query-app version)
           (validate-query-params
-           {:optional (cons "query" paging/query-params)})
+            {:optional (cons "query" paging/query-params)})
           wrap-with-paging-options))))
 
 ;; Local Variables:

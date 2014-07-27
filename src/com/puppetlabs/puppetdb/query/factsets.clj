@@ -39,7 +39,7 @@
   [rows :- [row-schema]]
   (map convert-row-type rows))
 
-(pls/defn-validated collapse-facts :- factset-schema
+(pls/defn-validated collapse-factset :- factset-schema
   "Aggregate all facts for a certname into a single structure."
   [certname-rows :- [converted-row-schema]]
   (let [first-row (first certname-rows)
@@ -47,13 +47,13 @@
     (assoc (select-keys first-row [:certname :environment :timestamp])
       :facts (f/int-maps->vectors facts))))
 
-(pls/defn-validated collapsed-fact-seq
+(pls/defn-validated factset-seq
   "Produce a sequence of factsets from a list of rows ordered by certname."
   [rows]
   (when (seq rows)
     (let [[certname-facts more-rows] (split-with (f/create-certname-pred rows) rows)]
-      (cons ((comp collapse-facts convert-types) certname-facts)
-            (lazy-seq (collapsed-fact-seq more-rows))))))
+      (cons ((comp collapse-factset convert-types) certname-facts)
+            (lazy-seq (factset-seq more-rows))))))
 
 (defn query->sql
   "Compile a query into an SQL expression."

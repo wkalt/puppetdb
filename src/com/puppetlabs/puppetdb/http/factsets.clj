@@ -26,7 +26,7 @@
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db
-                      (query/streamed-query-result version sql params (comp f fs/collapsed-fact-seq)))))]
+                      (query/streamed-query-result version sql params (comp f fs/factset-seq)))))]
         (if count-query
           (http/add-headers resp {:count (jdbc/get-result-count count-query)})
           resp)))

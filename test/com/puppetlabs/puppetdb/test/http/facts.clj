@@ -2,6 +2,7 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.http :as pl-http]
             [cheshire.core :as json]
+            [clojure.core.match :as cm]
             [clojure.java.jdbc :as sql]
             [com.puppetlabs.puppetdb.http.server :as server]
             [clojure.java.io :as io]
@@ -9,6 +10,7 @@
             [clj-time.coerce :refer [to-timestamp to-string]]
             [puppetlabs.kitchensink.core :as ks]
             [com.puppetlabs.puppetdb.query :refer [remove-all-environments]]
+            [clojure.string :as string]
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [com.puppetlabs.puppetdb.fixtures :refer :all]
@@ -24,9 +26,9 @@
 (def v4-facts-endpoint "/v4/facts")
 (def v4-facts-environment "/v4/environments/DEV/facts")
 (def facts-endpoints [[:v2 v2-facts-endpoint]
-                [:v3 v3-facts-endpoint]
-                [:v4 v4-facts-endpoint]
-                [:v4 v4-facts-environment]])
+                      [:v3 v3-facts-endpoint]
+                      [:v4 v4-facts-endpoint]
+                      [:v4 v4-facts-environment]])
 
 (def factsets-endpoints [[:v4 "/v4/factsets"]])
 
@@ -229,7 +231,7 @@
                 ;; In-query for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, environment, name, value")
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")
 
    "/v3/facts" (omap/ordered-map
                 ;; Extract using an invalid fields should throw an error
@@ -250,7 +252,7 @@
                 ;; In-queries for invalid fields should throw an error
                 ["in" "nothing" ["extract" "certname" ["select-resources"
                                                        ["=" "type" "Class"]]]]
-                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, environment, name, value")))
+                "Can't match on unknown fact field 'nothing' for 'in'. Acceptable fields are: certname, depth, environment, name, path, type, value")))
 
 (def common-well-formed-tests
   (omap/ordered-map
@@ -430,7 +432,7 @@
                              :environment "DEV"
                              :producer-timestamp nil})
       (scf-store/add-facts! {:name "foo4"
-                             :values facts3
+                             :values facts4
                              :timestamp (now)
                              :environment "DEV"
                              :producer-timestamp nil})
@@ -942,6 +944,166 @@
                 "environment" "DEV"
                 "certname" "foo2"}]))))))
 
+(defn structured-fact-results
+  [version endpoint]
+  (case [version endpoint]
+    [:v4 "/v4/environments/DEV/facts"]
+        {["=" "certname" "foo1"]
+              [{"value" "testing.com" "name" "domain" "environment" "DEV" "certname" "foo1"}
+                {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                {"value" "foo" "name" "test#~delimiter" "environment" "DEV" "certname" "foo1"}
+                {"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"}]
+              ["=" "value" 3.14] ()
+              ["<=" "value" 10] ()
+              [">=" "value" 10]
+                [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+              ["<" "value" 10] ()
+              [">" "value" 10]
+              [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+              ["=" "name" "my_structured_fact"]
+              [{"value"  {"b" 3.14 "a" 1 "e" "1" "d"  {"n" ""} "c"  ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+               {"value"  {"d"  {"n" ""} "b" 3.14 "a" 1 "e" "1" "c"  ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo2"}]}
+    [:v4 "/v4/facts"]
+              {["=" "certname" "foo1"]
+               [{"value" "testing.com" "name" "domain" "environment" "DEV" "certname" "foo1"}
+                 {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                 {"value" "foo" "name" "test#~delimiter" "environment" "DEV" "certname" "foo1"}
+                 {"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"}]
+               ["=" "value" 3.14] ()
+               ["<=" "value" 10] ()
+               [">=" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+               ["<" "value" 10] ()
+               [">" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "environment" "DEV" "certname" "foo2"}]
+               ["=" "name" "my_structured_fact"]
+               [ {"value" {"b" 3.14 "a" 1 "e" "1" "d" {"n" ""} "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo1"}
+                 {"value" {"d" {"n" ""} "b" 3.14 "a" 1 "e" "1" "c" ["a" "b" "c"]} "name" "my_structured_fact" "environment" "DEV" "certname" "foo2"}
+                 {"value" {"b" 3.14 "a" 1 "d" {"n" ""} "c" ["a" "b" "c"] "e" "1"} "name" "my_structured_fact" "environment" "PROD" "certname" "foo3"}]}
+
+              {["=" "certname" "foo1"]
+               [{"value" "testing.com" "name" "domain" "certname" "foo1"}
+                 {"value" "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo1"}
+                 {"value" "foo" "name" "test#~delimiter" "certname" "foo1"}
+                 {"value" "4000" "name" "uptime_seconds" "certname" "foo1"}]
+               ["=" "value" 3.14] ()
+               ["<=" "value" 10] ()
+               [">=" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "certname" "foo2"}]
+               ["<" "value" 10] ()
+               [">" "value" 10]
+               [{"value" "4000" "name" "uptime_seconds" "certname" "foo1"} {"value" "6000" "name" "uptime_seconds" "certname" "foo2"}]
+               ["=" "name" "my_structured_fact"]
+               [ {"value" "{\"b\":3.14,\"a\":1,\"e\":\"1\",\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"]}"
+                  "name" "my_structured_fact"
+                  "certname" "foo1"}
+                 {"value" "{\"d\":{\"n\":\"\"},\"b\":3.14,\"a\":1,\"e\":\"1\",\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo2"}
+                 {"value" "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" "name" "my_structured_fact" "certname" "foo3"}]}))
+
+(defn munge-structured-response
+  [row]
+  (let [value (get row "value")]
+    (if (= (first value) \{)
+      (update-in row ["value"] json/parse-string)
+      row)))
+
+(defn compare-structured-response
+  "hacky function to compare maps that may have been stringified differently."
+  [response expected version]
+  (case version
+    (:v2 :v3)
+      (is (= (map munge-structured-response response)
+             (map munge-structured-response expected)))
+      (is (= response expected))))
+
+(deftestseq structured-fact-queries
+  [[version endpoint] facts-endpoints]
+    ( let [current-time (now)
+         facts1 {"my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                "domain" "testing.com"
+                "uptime_seconds" "4000"
+                "test#~delimiter" "foo"}
+          facts2 {
+                 "my_structured_fact" {"a" 1
+                                       "b" 3.14
+                                       "c" ["a" "b" "c"]
+                                       "d" {"n" ""}
+                                       "e" "1"
+                                       }
+                  "domain" "testing.com"
+                  "uptime_seconds" "6000"}
+          facts3 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 3.14
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "operatingsystem" "Darwin"}
+          facts4 {
+                  "my_structured_fact" {"a" 1
+                                        "b" 2.71
+                                        "c" ["a" "b" "c"]
+                                        "d" {"n" ""}
+                                        "e" "1"
+                                        }
+                  "domain" "testing.com"
+                  "hostname" "foo4"
+                  "uptime_seconds" "6000"}]
+      (with-transacted-connection *db*
+        (scf-store/add-certname! "foo1")
+        (scf-store/add-certname! "foo2")
+        (scf-store/add-certname! "foo3")
+        (scf-store/add-certname! "foo4")
+        (scf-store/add-facts! {:name "foo1"
+                              :values facts1
+                              :timestamp current-time
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name  "foo2"
+                              :values facts2
+                              :timestamp (to-timestamp "2013-01-01")
+                              :environment "DEV"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo3"
+                              :values facts3
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/add-facts! {:name "foo4"
+                              :values facts4
+                              :timestamp current-time
+                              :environment "PROD"
+                              :producer-timestamp nil})
+        (scf-store/deactivate-node! "foo4"))
+
+    (testing "query without param should not fail"
+    (let [response (get-response endpoint)]
+      (assert-success! response)
+      (slurp (:body response))))
+
+    (testing "fact queries should return appropriate results"
+      (let [queries [["=" "certname" "foo1"]
+                      ["=" "value" 3.14]
+                      ["<=" "value" 10]
+                      [">=" "value" 10]
+                      ["<" "value" 10]
+                      [">" "value" 10]
+                      ["=" "name" "my_structured_fact"]]
+            responses (map (comp json/parse-string
+                                 slurp
+                                 :body
+                                 (partial get-response endpoint)) queries)]
+
+          (doseq [[response query] (map vector responses queries)]
+            (compare-structured-response response (get (structured-fact-results version endpoint) query) version))))))
+
 (deftestseq fact-nodes-queries
   [[version endpoint] fact-nodes-endpoints]
   (let [current-time (now)]
@@ -952,7 +1114,7 @@
         (assert-success! response)
         (slurp (:body response))))
 
-    (testing "factsets query should ignore deactivated nodes"
+    (testing "fact nodes queries should ignore deactivated nodes"
       (let [responses (json/parse-string (slurp (:body (get-response endpoint))))]
         (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
