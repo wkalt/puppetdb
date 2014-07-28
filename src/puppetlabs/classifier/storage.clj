@@ -1,4 +1,5 @@
-(ns puppetlabs.classifier.storage)
+(ns puppetlabs.classifier.storage
+  (:require [schema.core :as sc]))
 
 (def root-group-uuid (java.util.UUID/fromString "00000000-0000-4000-8000-000000000000"))
 
@@ -35,3 +36,26 @@
   (get-environment [this environment-name] "Retrieves an environment")
   (get-environments [this] "Retrieves all environments")
   (delete-environment [this environment-name] "Deletes an environment"))
+
+(defn get-groups-ancestors
+  "Retrieves the ancestors of the given groups up through the root. Returns
+  a map from the groups in `groups` to a vector of their ancestors."
+  [storage groups]
+  (let [id->g (loop [ids-to-fetch (map :parent groups)
+                     id->g (into {} (map (juxt :id identity) groups))]
+                (if-let [id (first ids-to-fetch)]
+                  (if (contains? id->g id)
+                    (recur (next ids-to-fetch) id->g)
+                    (let [{:keys [parent] :as group} (get-group storage id)]
+                      (recur (-> ids-to-fetch
+                               rest
+                               (conj parent))
+                             (assoc id->g id group))))
+                  ;; else (no more ids to fetch)
+                  id->g))
+        get-ancs (fn [{parent-id :parent :as g} ancs]
+                   (if (= parent-id (:id g))
+                     ancs
+                     (let [parent (get id->g parent-id)]
+                       (recur parent (conj ancs parent)))))]
+    (into {} (map (juxt identity #(get-ancs % [])) groups))))
