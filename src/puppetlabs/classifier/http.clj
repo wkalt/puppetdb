@@ -347,9 +347,17 @@
   "Given a storage instance and a node, returns a map from each group that the
   node matched to that group's ancestors."
   [db node]
-  (let [matching-group-ids (set (class8n/matching-groups node (storage/get-rules db)))
-        matching-groups (map (partial storage/get-group db) matching-group-ids)]
-    (into {} (map (juxt identity (partial storage/get-ancestors db)) matching-groups))))
+  (let [maybe-matching-ids (set (class8n/matching-groups node (storage/get-rules db)))
+        maybe-matching-groups (map (partial storage/get-group db) maybe-matching-ids)
+        mmg->ancs (storage/get-groups-ancestors db maybe-matching-groups)
+        w-full-rules (for [[mmg ancs] mmg->ancs
+                           :let [rules (map :rule (conj ancs mmg))]]
+                       (assoc mmg :full-rule (concat ["and"] rules)))
+        ->rule (fn [g] {:when (:full-rule g), :group-id (:id g)})
+        matching-groups (->> w-full-rules
+                          (filter #(rules/apply-rule node (->rule %)))
+                          (map #(dissoc % :full-rule)))]
+    (into {} (map (juxt identity mmg->ancs) matching-groups))))
 
 (defn classify-node
   [db node-name]

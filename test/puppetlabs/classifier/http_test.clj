@@ -13,7 +13,8 @@
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
-            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named
+                                                     blank-root-group]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
                                                 merge-and-clean]])
   (:import java.util.UUID))
@@ -369,7 +370,7 @@
                :rule (:when rule)
                :classes {}
                :variables {}}
-        mem-db (in-memory-storage {:groups [group]})
+        mem-db (in-memory-storage {:groups [(blank-root-group) group]})
         app (app {:db mem-db})]
 
     (testing "facts submitted via POST can be used for classification"
@@ -380,7 +381,10 @@
                                              "qwkeju"
                                              (encode {:fact fact :trusted trusted})))]
         (is-http-status 200 response)
-        (is (= [group-id] (map #(UUID/fromString %) (:groups (decode body json-key->clj-key))))))))
+        (is (= #{group-id root-group-uuid}
+               (->> (:groups (decode body json-key->clj-key))
+                 (map #(UUID/fromString %))
+                 set))))))
 
   (let [red-class {:name "redclass"
                    :environment "staging"
@@ -392,7 +396,7 @@
               :parent root-group-uuid
               :environment "production"
               :environment-trumps false
-              :rule ["=" "foo" "foo"]
+              :rule ["~" "name" ".*"]
               :classes {}, :variables {}}
         left-child {:name "left-child", :id (UUID/randomUUID)
                     :environment "staging"
@@ -424,7 +428,7 @@
         (is (= 200 status))
         (is (= {:name "multinode"
                 :environment "staging"
-                :groups (->> [left-child right-child grandchild]
+                :groups (->> [left-child right-child grandchild root]
                           (map :id)
                           set)
                 :classes {:blueclass {:blue "since my baby left me"}
@@ -478,6 +482,40 @@
                          {:value "since my baby left me"
                           :from grandchild'
                           :defined-by grandchild'}}))))))))))
+
+(deftest rules-inherit
+  (let [borg (assoc (blank-root-group)
+                    :name "the collective"
+                    :description "resistance is futile")
+        drones (assoc (blank-group-named "drones")
+                      :rule ["=" ["fact" "assimilated"] "true"])
+        klingon-drones (assoc (blank-group-named "klingon drones")
+                              :parent (:id drones)
+                              :rule ["=" ["fact" "race"] "klingon"])
+        unassimilated-klingon {:fact {:assimilated "false", :race "klingon"}}]
+
+    (testing "matching a group"
+      (testing "succeeds if the node also matches all the group's ancestors' rules"
+        (let [klingon-drones' (assoc klingon-drones :parent (:parent borg))
+              mem-store (in-memory-storage {:groups [borg klingon-drones']})
+              app (app {:db mem-store})
+              {:keys [body status]} (app (classification-request :post, "Rurik"
+                                                                 (encode unassimilated-klingon)))
+              groups (->> (:groups (-> body (decode json-key->clj-key)))
+                       (map #(UUID/fromString %))
+                       set)]
+          (is (= 200 status))
+          (is (= #{root-group-uuid (:id klingon-drones')} groups))))
+
+      (testing "fails if the node does not match one of the group's ancestors"
+        (let [mem-store (in-memory-storage {:groups [borg drones klingon-drones]})
+              app (app {:db mem-store})
+              {:keys [body status]} (app (classification-request :post, "Rurik"
+                                                                 (encode unassimilated-klingon)))
+              groups (->> (:groups (-> body (decode json-key->clj-key)))
+                       (map #(UUID/fromString %)))]
+          (is (= 200 status))
+          (is (= [root-group-uuid] groups)))))))
 
 (deftest environment-trump-classification
   (let [root {:name "default"
@@ -536,7 +574,8 @@
           (is (= "classification-conflict" (:kind error))))))))
 
 (deftest node-check-ins
-  (let [dwarf-planets {:name "dwarf planets"
+  (let [root (blank-root-group)
+        dwarf-planets {:name "dwarf planets"
                        :rule ["and" ["=" ["fact" "orbits"] "sol"]
                               [">" ["fact" "orbital neighbors"] "0"]
                               ["=" ["fact" "shape"] "spherical"]]
@@ -546,7 +585,7 @@
               :fact {"orbits" "sol"
                       "orbital neighbors" "1200"
                       "shape" "spherical"}}
-        mem-db (in-memory-storage {:groups [dwarf-planets]})
+        mem-db (in-memory-storage {:groups [root dwarf-planets]})
         handler (app {:db mem-db})]
 
     (testing "stores a node check-in when a node is classified"

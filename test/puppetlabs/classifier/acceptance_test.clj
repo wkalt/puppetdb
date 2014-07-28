@@ -706,6 +706,39 @@
                               :from grandchild'
                               :defined-by grandchild'}}))))))))))))
 
+(deftest ^:acceptance rules-inherit
+  (let [base-url (base-url test-config)
+        drones (assoc (blank-group-named "drones")
+                      :rule ["=" ["fact" "assimilated"] "true"])
+        klingon-drones (assoc (blank-group-named "klingon drones")
+                              :parent (:id drones)
+                              :rule ["=" ["fact" "race"] "klingon"])
+        unassimilated-klingon {:fact {:assimilated "false", :race "klingon"}}
+        assimilated-klingon {:fact {:assimilated "true", :race "klingon"}}]
+    (doseq [g [drones klingon-drones]]
+      (http/put (str base-url "/v1/groups/" (:id g))
+                {:content-type :json, :body (json/encode g {:key-fn clj-key->json-key})}))
+
+    (testing "matching a group"
+      (testing "succeeds if the node matches the group and all of its ancestors"
+        (let [{:keys [status body]} (http/post (str base-url "/v1/classified/nodes/5-of-8")
+                                             {:accept :json
+                                              :body (json/encode assimilated-klingon)})
+            groups (->> (:groups (-> body (json/decode json-key->clj-key)))
+                     (map #(UUID/fromString %))
+                     set)]
+        (is (= 200 status))
+        (is (= #{root-group-uuid (:id drones) (:id klingon-drones)} groups))))
+
+      (testing "fails if the node does not match one of the group's ancestors"
+        (let [{:keys [status body]} (http/post (str base-url "/v1/classified/nodes/Rurik")
+                                               {:accept :json
+                                                :body (json/encode unassimilated-klingon)})
+              groups (->> (:groups (-> body (json/decode json-key->clj-key)))
+                       (map #(UUID/fromString %)))]
+          (is (= 200 status))
+          (is (= [root-group-uuid] groups)))))))
+
 (deftest ^:acceptance environment-trumps
   (let [base-url (base-url test-config)
         base-group #(merge (blank-group) {:rule ["=" "name" "pets"]})
