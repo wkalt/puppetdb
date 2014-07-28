@@ -21,3 +21,9 @@
 (defn blank-group-named
   [n]
   (merge (blank-group) {:name n}))
+
+(defn blank-root-group
+  []
+  (merge (blank-group-named "default")
+         {:id root-group-uuid
+          :rule ["~" "name" ".*"]}))
