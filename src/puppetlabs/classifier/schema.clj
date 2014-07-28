@@ -172,6 +172,10 @@
   [group]
   (dissoc group :name :id :description :parent :rule))
 
+(defn group->rule
+  [group]
+  {:when (:rule group) :group-id (:id group)})
+
 (sc/defn group-delta :- GroupDelta
   "Returns a delta that, when applied, turns group `g` into group `h`"
   [g :- Group, h :- Group]
