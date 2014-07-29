@@ -107,7 +107,6 @@ step "add child of the parent"
 child = create_group(options = {"parent" => "#{parent['id']}", 
                                 "environment" => 'production', 
                                 'rule' => match_nodes})
-update_group(parent, {'rule' => RandomRule.generate})
 groups.push(child)
 verify_groups(groups)
 
@@ -151,13 +150,12 @@ end
 
 step "add a grandchild and verify it inherits from both the child and parent"
 
-grandchild = create_group(options = {"parent" => "#{child['id']}", 
-                                "environment" => 'production', 
-                                'rule' => match_nodes,
-                                'classes' => {"production_class" => {}}
-                                })
+grandchild = create_group(options = {"parent" => "#{child['id']}",
+                                     "environment" => 'production',
+                                     'rule' => match_nodes,
+                                     'classes' => {"production_class" => {}}
+                                    })
 
-update_group(child, {'rule' => RandomRule.generate})
 groups.push(grandchild)
 verify_groups(groups)
 verify_inheritance(grandchild)

@@ -158,21 +158,11 @@ with_puppet_running_on(master, master_opts, testdir) do
   end
 end
 
-step "change the parent group's rule so it no longer applies to the node"
+step "remove staging_class association from the parent group"
 update_group(parent, {"classes" => {'staging_class' => nil}})
-update_group(parent, {'rule' => RandomRule.generate})
 
 verify_inheritance(child)
 verify_groups(groups)
-
-#step "run puppet to ensure the node is no longer classified as staging"
-
-#with_puppet_running_on(master, master_opts, testdir) do
-#  agents.each do |agent|
-#    stdout = run_agent_on(agent, "--no-daemonize --onetime --verbose --server #{master}").stdout
-#    assert_no_match(/staging notification message/, stdout)
-#  end
-#end
 
 step "Change the child environment to production"
 update_group(child, {'environment' => 'production',
