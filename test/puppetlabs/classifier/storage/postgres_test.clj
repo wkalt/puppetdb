@@ -413,18 +413,22 @@
                                  :top-artists ["The Beatles" "Led Zeppelin"]}
                          :opinions {:politicians "always been rotten"}}
                :variables {}}
-        groups [crotchety-ancestor child]]
+        root (get-group db root-group-uuid)
+        new-groups [crotchety-ancestor child]
+        child-as-inherited (assoc (merge-and-clean crotchety-ancestor child)
+                                  :rule (concat '("and") (map :rule [child
+                                                                     crotchety-ancestor
+                                                                     root])))]
 
-    (doseq [env (map :environment groups)
+    (doseq [env (map :environment new-groups)
             c [suspenders music opinions]]
       (create-class db (assoc c :environment env)))
 
-    (doseq [g groups]
+    (doseq [g new-groups]
       (create-group db g))
 
     (testing "can get an inherited version of a group"
-      (is (= (merge-and-clean crotchety-ancestor child)
-             (get-group-as-inherited db (:id child)))))))
+      (is (= child-as-inherited (get-group-as-inherited db (:id child)))))))
 
 (deftest ^:database hierarchy-inheritance-validation
   (let [high-class {:name "high"

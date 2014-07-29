@@ -561,9 +561,10 @@
   {:pre [(uuid? id)]}
   (if-let [group (get-group* this id)]
     (let [ancs (get-ancestors* this group)
-          class8ns (map group->classification (concat [group] ancs))
-          inherited (class8n/collapse-to-inherited class8ns)]
-      (merge group inherited))))
+          chain (concat [group] ancs)
+          inherited (class8n/collapse-to-inherited (map group->classification chain))
+          inherited-rule (class8n/inherited-rule chain)]
+      (assoc (merge group inherited) :rule inherited-rule))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]
