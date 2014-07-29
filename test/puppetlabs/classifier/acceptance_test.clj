@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
+            [clojure.set :refer [intersection rename-keys subset?]]
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
@@ -402,13 +402,10 @@
     (testing "lists all resource instances"
       (let [{body :body, :as resp} (http/get (str base-url "/v1/environments"))]
         (is (= 200 (:status resp)))
-        (is (= (set env-names) (-> body
-                                 (json/decode json-key->clj-key)
-                                 (->> (map :name))
-                                 set
-                                 (disj "production")
-                                 (disj "staging")
-                                 (disj "dev"))))))
+        (is (subset? (set env-names) (-> body
+                                       (json/decode json-key->clj-key)
+                                       (->> (map :name))
+                                       set)))))
 
     (http/put (str base-url "/v1/groups/" (:id group))
               {:content-type :json, :body (json/encode group)})
@@ -421,9 +418,7 @@
                       (json/decode json-key->clj-key)
                       (->> (map :name))
                       set
-                      (disj "production")
-                      (disj "staging")
-                      (disj "dev")))))
+                      (intersection (set env-names))))))
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
