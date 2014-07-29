@@ -4,7 +4,8 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [Environment Group group->classification
-                                                  groups->tree GroupDelta Node PuppetClass Rule]]
+                                                  group->rule groups->tree GroupDelta Node
+                                                  PuppetClass Rule]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]))
 
@@ -181,9 +182,8 @@
         (storage/get-subtree this (storage/get-group this root-group-uuid)))
 
       (get-rules [_]
-        (let [group->rule (fn [g] {:when (:rule g), :group-id (:id g)})]
-          (->> @!storage
-            :groups
-            vals
-            (map group->rule)
-            (map (partial sc/validate Rule))))))))
+        (->> @!storage
+          :groups
+          vals
+          (map group->rule)
+          (map (partial sc/validate Rule)))))))

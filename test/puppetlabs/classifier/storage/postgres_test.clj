@@ -7,7 +7,7 @@
             [java-jdbc.sql :as sql]
             [puppetlabs.classifier.storage :refer :all]
             [puppetlabs.classifier.storage.postgres :refer :all]
-            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named]]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named vec->tree]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.test]
             [slingshot.slingshot :refer [try+]]
@@ -329,10 +329,7 @@
     (testing "can retrieve the ancestors of a group up through the root"
       (is (= [child-1 top root] (get-ancestors db grandchild))))
 
-    (let [tree {:group top
-                :children #{{:group child-2, :children #{}}
-                            {:group child-1
-                             :children #{{:group grandchild, :children #{}}}}}}]
+    (let [tree (vec->tree [top [child-1 [grandchild]] [child-2]])]
       (testing "can retrieve the subtree rooted at a particular group"
         (is (= tree (get-subtree db top)))))
 
@@ -340,10 +337,7 @@
       (jdbc/update! test-db :groups {:parent_id (:id child-1)} (sql/where {:id (:id top)}))
 
       (let [new-top (get-group db (:id top))
-            new-top-subtree {:group new-top
-                             :children #{{:group child-2, :children #{}}
-                                         {:group child-1
-                                          :children #{{:group grandchild, :children #{}}}}}}]
+            new-top-subtree (vec->tree [new-top [child-1 [grandchild]] [child-2]])]
         (testing "get-ancestors will detect it and report the cycle in the error"
           (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle
                          :cycle [child-1 new-top]]

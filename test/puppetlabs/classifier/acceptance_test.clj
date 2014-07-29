@@ -2,7 +2,7 @@
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh] :rename {sh blocking-sh}]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
+            [clojure.set :refer [intersection rename-keys subset?]]
             [clojure.test :refer :all]
             [cheshire.core :as json]
             [clj-http.client :as http]
@@ -402,13 +402,10 @@
     (testing "lists all resource instances"
       (let [{body :body, :as resp} (http/get (str base-url "/v1/environments"))]
         (is (= 200 (:status resp)))
-        (is (= (set env-names) (-> body
-                                 (json/decode json-key->clj-key)
-                                 (->> (map :name))
-                                 set
-                                 (disj "production")
-                                 (disj "staging")
-                                 (disj "dev"))))))
+        (is (subset? (set env-names) (-> body
+                                       (json/decode json-key->clj-key)
+                                       (->> (map :name))
+                                       set)))))
 
     (http/put (str base-url "/v1/groups/" (:id group))
               {:content-type :json, :body (json/encode group)})
@@ -421,9 +418,7 @@
                       (json/decode json-key->clj-key)
                       (->> (map :name))
                       set
-                      (disj "production")
-                      (disj "staging")
-                      (disj "dev")))))
+                      (intersection (set env-names))))))
       (is (= 204 (:status (http/delete (str base-url "/v1/groups/" (:id group))))))
       (let [{body :body} (http/get (str base-url "/v1/groups"))
             group-names (-> body
@@ -710,6 +705,39 @@
                              {:value "since my baby left me"
                               :from grandchild'
                               :defined-by grandchild'}}))))))))))))
+
+(deftest ^:acceptance rules-inherit
+  (let [base-url (base-url test-config)
+        drones (assoc (blank-group-named "drones")
+                      :rule ["=" ["fact" "assimilated"] "true"])
+        klingon-drones (assoc (blank-group-named "klingon drones")
+                              :parent (:id drones)
+                              :rule ["=" ["fact" "race"] "klingon"])
+        unassimilated-klingon {:fact {:assimilated "false", :race "klingon"}}
+        assimilated-klingon {:fact {:assimilated "true", :race "klingon"}}]
+    (doseq [g [drones klingon-drones]]
+      (http/put (str base-url "/v1/groups/" (:id g))
+                {:content-type :json, :body (json/encode g {:key-fn clj-key->json-key})}))
+
+    (testing "matching a group"
+      (testing "succeeds if the node matches the group and all of its ancestors"
+        (let [{:keys [status body]} (http/post (str base-url "/v1/classified/nodes/5-of-8")
+                                             {:accept :json
+                                              :body (json/encode assimilated-klingon)})
+            groups (->> (:groups (-> body (json/decode json-key->clj-key)))
+                     (map #(UUID/fromString %))
+                     set)]
+        (is (= 200 status))
+        (is (= #{root-group-uuid (:id drones) (:id klingon-drones)} groups))))
+
+      (testing "fails if the node does not match one of the group's ancestors"
+        (let [{:keys [status body]} (http/post (str base-url "/v1/classified/nodes/Rurik")
+                                               {:accept :json
+                                                :body (json/encode unassimilated-klingon)})
+              groups (->> (:groups (-> body (json/decode json-key->clj-key)))
+                       (map #(UUID/fromString %)))]
+          (is (= 200 status))
+          (is (= [root-group-uuid] groups)))))))
 
 (deftest ^:acceptance environment-trumps
   (let [base-url (base-url test-config)
