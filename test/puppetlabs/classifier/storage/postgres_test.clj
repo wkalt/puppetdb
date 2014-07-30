@@ -277,6 +277,10 @@
       (is (thrown+? [:kind :puppetlabs.classifier.storage/root-rule-edit]
                    (update-group db {:id root-group-uuid, :rule ["=" "osfamily" "AIX"]}))))
 
+    (testing "throws an error when trying to update the root group's parent"
+      (is (thrown+? [:kind :puppetlabs.classifier/inheritance-cycle]
+                    (update-group db {:id root-group-uuid, :parent (:id g2)}))))
+
     (testing "returns nil when attempting to update unknown group"
       (is (nil? (update-group db {:id (UUID/randomUUID)}))))
 
