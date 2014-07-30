@@ -1,3 +1,6 @@
+### 0.5.4
+ * Rules now inherit during classification
+
 ### 0.5.3
  * Store the time classes were last updated from puppet
  * Add the ability to import a group hierarchy
