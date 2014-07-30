@@ -103,9 +103,10 @@
       (get-group-as-inherited [this id]
         (if-let [group (storage/get-group this id)]
           (let [ancs (storage/get-ancestors this group)
-                class8ns (map group->classification (concat [group] ancs))
-                inherited (class8n/collapse-to-inherited class8ns)]
-            (merge group inherited))))
+                chain (concat [group] ancs)
+                inherited (class8n/collapse-to-inherited (map group->classification chain))
+                inherited-rule (class8n/inherited-rule chain)]
+            (assoc (merge group inherited) :rule inherited-rule))))
       (annotate-group [_ group]
         (sc/validate Group group)
         (let [extant-classes (get-in @!storage [:classes (-> group :environment keyword)])

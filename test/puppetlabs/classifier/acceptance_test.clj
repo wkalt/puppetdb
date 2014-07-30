@@ -564,13 +564,19 @@
                 {:content-type :json, :body (json/encode group)}))
 
     (testing "retrieving an inherited view of a group"
-      (let [child-path (str "/v1/groups/" (:id child))
+      (let [root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+                   :body
+                   (json/decode true))
+            as-inherited (assoc (deep-merge crotchety-ancestor child)
+                                :rule (concat ["and"] (map :rule [child crotchety-ancestor root])))
+            child-path (str "/v1/groups/" (:id child))
             {:keys [body status]} (http/get (str base-url child-path)
-                                            {:query-params {"inherited" "true"}})]
+                                            {:query-params {"inherited" "true"}})
+            retrieved (-> body
+                        (json/decode json-key->clj-key)
+                        convert-uuids)]
         (is (= 200 status))
-        (is (= (deep-merge crotchety-ancestor child) (-> body
-                                                       (json/decode json-key->clj-key)
-                                                       convert-uuids)))))
+        (is (= as-inherited retrieved))))
 
     ;; clean up (since acceptance tests all share the same instance)
     (doseq [group [child crotchety-ancestor]]

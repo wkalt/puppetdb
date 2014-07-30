@@ -257,9 +257,12 @@
                                  :top-artists ["The Beatles" "Led Zeppelin"]}
                          :opinions {:politicians "always been rotten"}}
                :variables {}}
+        root (blank-root-group)
+        groups [root crotchety-ancestor child]
+        child-as-inherited (assoc (deep-merge crotchety-ancestor child)
+                                  :rule (concat '("and") (map :rule (reverse groups))))
         child-path (str "/v1/groups/" (:id child))
         root (merge (blank-group-named "default") {:id root-group-uuid})
-        groups [root crotchety-ancestor child]
         mem-db (in-memory-storage {:groups groups
                                    :classes (for [env (map :environment groups)
                                                   class [suspenders music opinions]]
@@ -269,7 +272,7 @@
     (testing "can get an inherited version of a group"
       (let [{:keys [status body]} (handler (request :get child-path {:inherited true}))]
         (is (= 200 status))
-        (is (= (deep-merge crotchety-ancestor child)
+        (is (= child-as-inherited
                (-> body
                  (decode json-key->clj-key)
                  convert-uuids)))))

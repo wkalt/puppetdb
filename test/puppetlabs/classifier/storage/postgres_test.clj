@@ -377,6 +377,59 @@
                      :children #{child-1 child-2}]
                     (delete-group db (:id top)))))))
 
+(deftest ^:database group-inheritance
+  (let [suspenders {:name "suspenders"
+                    :parameters {:color "0x000000", :length nil}}
+        music {:name "music"
+               :parameters {:genre "Rock'n'Roll", :top-artists ["Elvis Presley" "Chuck Berry"]}}
+        opinions {:name "opinions"
+                  :parameters {:the-guvmnt nil
+                               :politicians nil
+                               :fashion nil
+                               :popular-music nil}}
+        crotchety-ancestor {:name "Hubert"
+                            :id (UUID/randomUUID)
+                            :environment "FDR's third term"
+                            :environment-trumps false
+                            :parent root-group-uuid
+                            :rule [">=" ["fact" "age"] "93"]
+                            :classes {:suspenders {:color "0xff0000"
+                                                   :length "38"}
+                                      :music {:genre "Crooners"
+                                              :top-artists ["Bing Crosby" "Frank Sinatra"]}
+                                      :opinions {:the-guvmnt "not what it used to be"
+                                                 :politicians "bunch of lying crooks these days"
+                                                 :fashion "utterly depraved"
+                                                 :popular-music "don't get me started"}}
+                            :variables {:ancestry "Scottish"}}
+        child {:name "Huck"
+               :id (UUID/randomUUID)
+               :environment "not inherited"
+               :environment-trumps false
+               :parent (:id crotchety-ancestor)
+               :rule ["and" ["<" ["fact" "age"] "93"]
+                            [">=" ["fact" "age"] "60"]]
+               :classes {:music {:genre "Rock 'n' Roll"
+                                 :top-artists ["The Beatles" "Led Zeppelin"]}
+                         :opinions {:politicians "always been rotten"}}
+               :variables {}}
+        root (get-group db root-group-uuid)
+        new-groups [crotchety-ancestor child]
+        child-as-inherited (assoc (merge-and-clean crotchety-ancestor child)
+                                  :rule (concat '("and") (map :rule [child
+                                                                     crotchety-ancestor
+                                                                     root])))]
+
+    (doseq [env (map :environment new-groups)
+            c [suspenders music opinions]]
+      (create-class db (assoc c :environment env)))
+
+    (doseq [g new-groups]
+      (create-group db g))
+
+    (testing "can get an inherited version of a group"
+      (is (= child-as-inherited (get-group-as-inherited db (:id child)))))))
+
 (deftest ^:database hierarchy-inheritance-validation
   (let [high-class {:name "high"
                     :environment "production"

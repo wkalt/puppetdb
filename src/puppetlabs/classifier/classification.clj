@@ -6,7 +6,8 @@
             [puppetlabs.classifier.schema :refer [Classification ClassificationConflict
                                                   ClassificationOutput ExplainedConflict Group
                                                   group->classification HierarchyNode Node
-                                                  PuppetClass Rule SubmittedNode ValidationNode]]
+                                                  PuppetClass Rule RuleCondition SubmittedNode
+                                                  ValidationNode]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]
             [schema.core :as sc]))
 
@@ -17,6 +18,12 @@
   (->> rules
        (map (partial rules/apply-rule node))
        (keep identity)))
+
+(sc/defn inherited-rule :- RuleCondition
+  "Given a sequence of groups starting at the group whose inherited rule you
+  want and ending at the root, return the full inherited rule condition."
+  [groups :- [Group]]
+  (concat ["and"] (map :rule groups)))
 
 (sc/defn collapse-to-inherited :- Classification
   "Given a group classification and the chain of its ancestors' classifications,
