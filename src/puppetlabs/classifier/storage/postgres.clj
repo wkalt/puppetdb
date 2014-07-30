@@ -609,21 +609,22 @@
   parent exists and the group doesn't create a cycle in the hierarchy). If the
   group causes any such errors in the hierarchy (i.e. a missing parent or
   a cycle), throws an exception."
-  [group ancestors]
-  (when (and (= (:id group) (:parent group))
-             (not= (:id group) root-group-uuid))
+  [{id :id :as group} ancestors]
+  (when (and (= id (:parent group))
+             (not= id root-group-uuid))
     (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
              :cycle [group]}))
 
-  (when (not= (:id group) root-group-uuid)
-    ;; If the group's parent is being changed, that edge is not yet in the
-    ;; database so get-ancestors* will not see it, meaning we have to check
-    ;; ourselves for cycles involving the group.
-    (when (some #(= (:id group) (:id %)) ancestors)
-      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-               :cycle (->> ancestors
-                        (take-while #(not= (:id group) (:id %)))
-                        (concat [group]))}))))
+  ;; If the group's parent is being changed, that edge is not yet in the
+  ;; database so get-ancestors* will not see it, meaning we have to check
+  ;; ourselves for cycles involving the group.
+  (when (some #(= id (:id %)) ancestors)
+    (let [cycle (->> ancestors
+                  (take-while #(not= id (:id %)))
+                  (concat [group]))]
+      (when-not (and (= id root-group-uuid) (= (count cycle) 1))
+        (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
+               :cycle cycle})))))
 
 (sc/defn ^:always-validate validation-failures :- (sc/maybe ValidationNode)
   "Validates a group using `validate-hierarchy-structure*` and
