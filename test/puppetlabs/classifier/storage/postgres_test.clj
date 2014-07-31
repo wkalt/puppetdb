@@ -17,7 +17,7 @@
            org.postgresql.util.PSQLException))
 
 (def test-db {:subprotocol "postgresql"
-              :subname (or (System/getenv "CLASSIFIER_DBNAME") "classifier_test")
+              :subname (or (System/getenv "CLASSIFIER_DBSUBNAME") "classifier_test")
               :user (or (System/getenv "CLASSIFIER_DBUSER") "classifier_test")
               :password (or (System/getenv "CLASSIFIER_DBPASS") "classifier_test")})
 
