@@ -186,35 +186,48 @@
                     :details {:trace (->> (.getStackTrace root-e) (map #(.toString %)))}})})))))
 
 
-(defn- referent-error-message
-  [total-error-count group-error-count child-error-count]
-  (let [prelude (fn [error-count]
-                  (if (= error-count 1)
-                    "A class or class parameter"
-                    (str error-count " classes or class parameters")))
-        do-or-does (fn [plurality]
-                         (if (= plurality 1)
-                           "does"
-                           "do"))]
+(defn- missing-referents-error-message
+  [group-errors descendent-errors]
+  (let [all-errors (concat group-errors descendent-errors)
+        class-errors (filter #(= (:kind %) "missing-class") all-errors)
+        parameter-errors (filter #(= (:kind %) "missing-parameter") all-errors)
+        erroring-descendents (keys (group-by :group descendent-errors))
+        referent->str (fn [{:keys [kind missing environment]}]
+                        (str
+                          (if (= kind "missing-parameter")
+                            (let [[c p] missing]
+                              (str "\"" (name c) "\" class's \"" (name p) "\" parameter"))
+                            (str "\"" (name missing) "\" class"))
+                          " in the \"" (name environment) "\" environment"))]
     (str
       (cond
-        (zero? child-error-count)
-        (str (prelude group-error-count)
-             " that the group defines or inherits " (do-or-does group-error-count) " not exist in"
-             " the group's environment.")
+        (and (empty? group-errors) (> (count erroring-descendents) 1))
+        "Descendents of the group being edited make"
 
-        (zero? group-error-count)
-        (str (prelude child-error-count)
-             " defined or inherited by the group's children " (do-or-does child-error-count)
-             " not exist in the appropriate child's environment.")
+        (empty? group-errors)
+        "A descendent of the group being edited makes"
 
-        :otherwise
-        (str (prelude group-error-count)
-             " defined or inherited by the group and "
-             (str/lower-case (prelude child-error-count))
-             " defined or inherited by the group's children do not exist the appropriate"
-             " environments."))
-      " See the `details` key for a list of the specific errors.")))
+        (empty? descendent-errors)
+        "The group being edited or created makes"
+
+        :else
+        (str "The group being edited and " (count erroring-descendents) " of its descendents make"))
+
+      " reference to the following missing "
+      (cond
+        (empty? class-errors) "class parameters"
+        (empty? parameter-errors) "classes"
+        :else "classes and class parameters")
+      ": "
+      (to-sentence (map referent->str (->> all-errors
+                                        (map #(select-keys % [:kind :missing :environment]))
+                                        distinct)))
+      ". See the `details` key for complete information on where each reference to a missing "
+      (cond
+        (empty? class-errors) "class parameter"
+        (empty? parameter-errors) "class"
+        :else "class or class parameter")
+      " originated.")))
 
 (defn- flatten-errors
   [{:keys [group errors children]} ancestors]
@@ -246,20 +259,14 @@
       (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
         {:keys [tree ancestors]}
         (let [errors (flatten-errors tree (seq ancestors))
-              error-count (count errors)
-              group-error-count (->> errors
-                                  (filter #(= (:group %) (get-in tree [:group :name])))
-                                  count)
-              child-error-count (- error-count group-error-count)
-              inherited-errors (filter #(not= (:group %) (:defined-by %)) errors)]
+              group-err? #(= (:group %) (get-in tree [:group :name]))
+              seggd-errs ((juxt (partial filter group-err?) (partial remove group-err?)) errors)]
           {:status 422
            :headers {"Content-Type" "application/json"}
            :body (encode-and-translate-keys
                    {:details errors
                     :kind "missing-referents"
-                    :msg (referent-error-message error-count
-                                                 group-error-count
-                                                 child-error-count)})})))))
+                    :msg (apply missing-referents-error-message seggd-errs)})})))))
 
 (defn- pretty-cycle [groups]
   (->> (concat groups [(first groups)])
