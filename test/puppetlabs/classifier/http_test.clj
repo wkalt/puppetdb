@@ -469,22 +469,26 @@
             (testing "variable conflicts"
               (let [variable-conflicts (get-in error [:details :variables])
                     snowflake-conflicts (->> (:snowflake variable-conflicts)
-                                          (map (partial mapvals convert-uuids-if-group)))]
+                                          (map (partial mapvals convert-uuids-if-group))
+                                          set)]
                 (is (= [:snowflake] (keys variable-conflicts)))
                 (is (= #{{:value "unique", :from grandchild', :defined-by grandchild'}
-                         {:value "identical", :from left-child', :defined-by left-child'}}))))
+                         {:value "identical", :from left-child', :defined-by left-child'}}
+                       snowflake-conflicts))))
 
             (testing "class parameter conflicts"
               (let [class-conflicts (get-in error [:details :classes])
                     blueclass-conflicts (:blueclass class-conflicts)
                     blue-param-conflicts (->> (:blue blueclass-conflicts)
-                                           (map (partial mapvals convert-uuids-if-group)))]
+                                           (map (partial mapvals convert-uuids-if-group))
+                                           set)]
                 (is (= [:blueclass] (keys class-conflicts)))
                 (is (= [:blue] (keys blueclass-conflicts)))
                 (is (= #{{:value "suede shoes", :from grandchild', :defined-by right-child'}
                          {:value "since my baby left me"
-                          :from grandchild'
-                          :defined-by grandchild'}}))))))))))
+                          :from left-child'
+                          :defined-by left-child'}}
+                       blue-param-conflicts))))))))))
 
 (deftest rules-inherit
   (let [borg (assoc (blank-root-group)
@@ -625,7 +629,7 @@
       (let [{:keys [status body]} (app (request :get "/v1/groups/not-a-uuid"))
             error (decode body json-key->clj-key)]
         (is (= 400 status))
-        (is (= #{:kind :msg :details}) (-> error keys set))
+        (is (= #{:kind :msg :details} (-> error keys set)))
         (is (= "malformed-uuid" (:kind error)))
         (is (= (:details error) "not-a-uuid")))
 
@@ -633,7 +637,7 @@
                                          (mock/body (encode {:parent "not-a-uuid"}))))
             error (decode body json-key->clj-key)]
         (is (= 400 status))
-        (is (= #{:kind :msg :details}) (-> error keys set))
+        (is (= #{:kind :msg :details} (-> error keys set)))
         (is (= "malformed-uuid" (:kind error)))
         (is (= (:details error) "not-a-uuid"))))
 

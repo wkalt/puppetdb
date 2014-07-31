@@ -695,22 +695,26 @@
                 (testing "variable conflicts"
                   (let [variable-conflicts (get-in error [:details :variables])
                         snowflake-conflicts (->> (:snowflake variable-conflicts)
-                                              (map (partial mapvals convert-uuids-if-group)))]
+                                              (map (partial mapvals convert-uuids-if-group))
+                                              set)]
                     (is (= [:snowflake] (keys variable-conflicts)))
                     (is (= #{{:value "unique", :from grandchild', :defined-by grandchild'}
-                             {:value "identical", :from left-child', :defined-by left-child'}}))))
+                             {:value "identical", :from left-child', :defined-by left-child'}}
+                           snowflake-conflicts))))
 
                 (testing "class parameter conflicts"
                   (let [class-conflicts (get-in error [:details :classes])
                         blueclass-conflicts (:blueclass class-conflicts)
                         blue-param-conflicts (->> (:blue blueclass-conflicts)
-                                               (map (partial mapvals convert-uuids-if-group)))]
+                                               (map (partial mapvals convert-uuids-if-group))
+                                               set)]
                     (is (= [:blueclass] (keys class-conflicts)))
                     (is (= [:blue] (keys blueclass-conflicts)))
                     (is (= #{{:value "suede shoes", :from grandchild', :defined-by right-child'}
                              {:value "since my baby left me"
-                              :from grandchild'
-                              :defined-by grandchild'}}))))))))))))
+                              :from left-child'
+                              :defined-by left-child'}}
+                           blue-param-conflicts))))))))))))
 
 (deftest ^:acceptance rules-inherit
   (let [base-url (base-url test-config)
@@ -911,7 +915,7 @@
                                                {:content-type :json
                                                 :body (json/encode revert-delta)})]
           (is (= 200 status))
-          (is (= root-group) (-> body (json/decode json-key->clj-key) convert-uuids)))))
+          (is (= root-group (-> body (json/decode json-key->clj-key) convert-uuids))))))
 
     (testing "can't update the root group's rule"
       (let [root-rule-delta {:id root-group-uuid

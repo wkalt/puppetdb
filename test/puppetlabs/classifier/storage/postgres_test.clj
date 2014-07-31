@@ -315,7 +315,7 @@
                   e))]
         (is e)
         (is (= (get-in e [:tree :group :name]) (:name g2)))
-        (is (= (get-in e [:tree :errors] {:science nil, :magic nil})))))))
+        (is (= (get-in e [:tree :errors]) {:science nil, :magic nil}))))))
 
 (deftest ^:database hierarchy-and-cycles
   (let [root (get-group db root-group-uuid)
