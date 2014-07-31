@@ -52,7 +52,7 @@
   config file, returning a conch process map describing the server instance
   process."
   (let [test-db {:subprotocol "postgresql"
-                 :dbname (or (System/getenv "CLASSIFIER_DBNAME")
+                 :subname (or (System/getenv "CLASSIFIER_DBSUBNAME")
                               "classifier_test")
                  :user (or (System/getenv "CLASSIFIER_DBUSER")
                            "classifier_test")

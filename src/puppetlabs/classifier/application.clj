@@ -9,14 +9,13 @@
             [puppetlabs.classifier.storage.postgres :as postgres]))
 
 (def fallback-db-spec {:subprotocol "postgresql"
-                       :dbname "classifier"
+                       :subname "classifier"
                        :user "classifier"
                        :password "classifier"})
 
 (defn- config->db-spec
   [{:keys [database]}]
-  (-> (merge fallback-db-spec database)
-    (rename-keys {:dbname :subname})))
+  (merge fallback-db-spec database))
 
 (defn on-shutdown
   []
