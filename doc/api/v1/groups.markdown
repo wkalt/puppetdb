@@ -292,7 +292,7 @@ then the value of the group after the update will be:
         }
       },
       "variables": {
-        "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"]
+        "ntp_servers": ["0.us.pool.ntp.org", "1.us.pool.ntp.org", "2.us.pool.ntp.org"],
         "dns_servers": ["dns.reynholm.co.uk"]
       }
     }
