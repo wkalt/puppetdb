@@ -444,7 +444,7 @@
             {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
         (is (= kind "missing-referents"))
-        (is (re-find #"exist in the group's environment" body))
+        (is (re-find #".missing. class in the .production. environment" msg))
         (is (= (count details) 1))
         (is (= (first details)
                {:kind "missing-class", :group "with-missing", :defined-by "with-missing"
@@ -879,7 +879,7 @@
                                               :throw-exceptions false})
             {:keys [details kind msg]} (json/decode body json-key->clj-key)]
         (is (= 422 status))
-        (is (re-find #"not exist in the group's environment" msg))
+        (is (re-find #".aclass. class in the .dne. environment" msg))
         (is (every? #(and (= (:kind %) "missing-class")
                           (= (:environment %) "dne")
                           (= (:defined-by %) "zgroup"))
