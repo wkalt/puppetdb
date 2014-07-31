@@ -37,7 +37,7 @@ For the example above, assuming `classifier` was entered for the user's password
 
 ```
 database: {
-  dbname: pe-classifier,
+  subname: pe-classifier,
   user: pe-classifier,
   password: pe-classifier
 }
