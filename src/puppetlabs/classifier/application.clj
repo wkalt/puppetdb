@@ -2,9 +2,12 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
+            [overtone.at-at :as at-at]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.certificate-authority.core :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
+            [puppetlabs.trapperkeeper.services :refer [service-context]]
+            [puppetlabs.classifier.class-updater :refer [update-classes-and-log-errors!]]
             [puppetlabs.classifier.http :as http]
             [puppetlabs.classifier.storage.postgres :as postgres]))
 
@@ -12,6 +15,8 @@
                        :subname "classifier"
                        :user "classifier"
                        :password "classifier"})
+
+(def default-sync-period (* 15 60))
 
 (defn- config->db-spec
   [{:keys [database]}]
@@ -29,36 +34,40 @@
     (context prefix [] app)
     app))
 
-(defprotocol ClassifierService
-  (shutdown [this] "Shut down the classifier."))
-
 (defn- init-ssl-context
   [{:keys [ssl-cert ssl-key ssl-ca-cert]}]
     (if (and ssl-cert ssl-key ssl-ca-cert)
       (ssl/pems->ssl-context ssl-cert ssl-key ssl-ca-cert)))
 
 (defservice classifier-service
-  ClassifierService
-
   [[:ConfigService get-config]
    [:WebserverService add-ring-handler]]
 
   (start [_ context]
          (let [config (get-config)
                db-spec (config->db-spec config)
+               db (postgres/new-db db-spec)
                api-prefix (get-in config [:classifier :url-prefix] "")
-               app-config {:db (postgres/new-db db-spec)
+               app-config {:db db
                            :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
                            :ssl-files (select-keys (:webserver config) [:ssl-cert :ssl-key :ssl-ca-cert])
                            :ssl-context (init-ssl-context (:webserver config))}
-               app (add-url-prefix api-prefix (http/app app-config))]
+               app (add-url-prefix api-prefix (http/app app-config))
+               sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
+               job-pool (at-at/mk-pool)]
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
            (add-ring-handler app api-prefix)
-           context))
+           (at-at/every (* sync-period 1000)
+                        #(update-classes-and-log-errors! app-config db)
+                        job-pool)
+           (assoc context :job-pool job-pool)))
 
-  (shutdown [_] (on-shutdown)))
+  (stop [this _]
+        (let [{:keys [job-pool]} (service-context this)]
+          (when job-pool
+            (at-at/stop-and-reset-pool! job-pool)))))
 
 (defservice initdb
   [[:ConfigService get-config]

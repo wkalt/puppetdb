@@ -1,6 +1,8 @@
 (ns puppetlabs.classifier.class-updater
-  (:require [cheshire.core :as json]
-            [slingshot.slingshot :refer [throw+]]
+  (:require [clojure.tools.logging :as log]
+            [clj-time.core :as time]
+            [cheshire.core :as json]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.http.client.sync :as http]
             [puppetlabs.classifier.storage :as storage]))
 
@@ -55,11 +57,35 @@
 
 (defn update-classes!
   [{:keys [puppet-master ssl-context]} db]
-  (let [env-name-comp (fn [[env1 name1]
+  (let [start (time/now)
+        env-name-comp (fn [[env1 name1]
                            [env2 name2]]
                         (if (not= env1 env2)
                           (compare env1 env2)
                           (compare name1 name2)))
         puppet-classes (-> (get-classes ssl-context puppet-master)
-                         flatten)]
-    (storage/synchronize-classes db puppet-classes)))
+                         flatten)
+        _ (storage/synchronize-classes db puppet-classes)
+        stop (time/now)]
+    (log/info "Synchronized" (count puppet-classes) "classes from the Puppet Master in"
+              (-> (time/interval start stop) time/in-seconds) "seconds")))
+
+(defn update-classes-and-log-errors!
+  [config db]
+  (let [start (time/now)]
+    (try+
+      (update-classes! config db)
+      (catch [:kind ::unexpected-response]
+        {{:keys [body status url]} :response}
+        (log/error "Received an unexpected" status "response when trying to synchronize classes"
+                   "from the Puppet Master's REST interface at" url "The response is:"
+                   (str "\"" body "\"")))
+      (catch clojure.lang.ExceptionInfo e
+        (if (re-find #"not \(instance\? javax\.net\.ssl\.SSLContext" (.getMessage e))
+          (log/warn "Could not synchronize classes from the Puppet Master because SSL is not"
+                    "configured in the classifier's configuration file")
+          (log/error "Encountered an unexpected exception while trying to synchronize classes from"
+                     "the Puppet Master:" (.getMessage e))))
+      (catch Exception e
+        (log/error "Encountered an unexpected exception while trying to synchronize classes from"
+                   "the Puppet Master:" (.getMessage e))))))

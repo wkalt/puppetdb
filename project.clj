@@ -26,6 +26,7 @@
                  [java-jdbc/dsl "0.1.0"]
                  [liberator "0.11.0"]
                  [migratus "0.7.0"]
+                 [overtone/at-at "1.2.0"]
                  [org.postgresql/postgresql "9.3-1100-jdbc41"]
                  [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
