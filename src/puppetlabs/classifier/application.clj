@@ -8,14 +8,14 @@
             [puppetlabs.classifier.http :as http]
             [puppetlabs.classifier.storage.postgres :as postgres]))
 
-(def fallback-db-spec {:subprotocol "postgresql"
+(def default-db-spec {:subprotocol "postgresql"
                        :subname "classifier"
                        :user "classifier"
                        :password "classifier"})
 
 (defn- config->db-spec
   [{:keys [database]}]
-  (merge fallback-db-spec database))
+  (merge default-db-spec database))
 
 (defn on-shutdown
   []
