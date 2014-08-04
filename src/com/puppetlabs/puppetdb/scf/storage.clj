@@ -1113,15 +1113,15 @@
   "Returns a string with an deprecation message if the DB is deprecated,
    nil otherwise."
   []
-  (when (sutils/pg-8-4?)
-    "PostgreSQL DB 8.4 is deprecated and won't be supported in the future."))
+  (when (sutils/pg-9-3?)
+    "PostgreSQL DB 9.3 is deprecated and won't be supported in the future."))
 
 (defn db-unsupported?
   "Returns a string with an unsupported message if the DB is not supported,
    nil otherwise."
   []
-  (when (sutils/pg-older-than-8-4?)
-    "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
+  (when (sutils/pg-older-than-9-3?)
+    "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

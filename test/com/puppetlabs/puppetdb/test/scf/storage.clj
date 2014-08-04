@@ -1194,11 +1194,11 @@
       (with-db-version db version
         (fn []
           (is (= result (db-deprecated?)))))
-      "PostgreSQL" [8 4] "PostgreSQL DB 8.4 is deprecated and won't be supported in the future."
+      "PostgreSQL" [8 4] nil
       "PostgreSQL" [9 0] nil
       "PostgreSQL" [9 1] nil
       "PostgreSQL" [9 2] nil
-      "PostgreSQL" [9 3] nil
+      "PostgreSQL" [9 3] "PostgreSQL DB 9.3 is deprecated and won't be supported in the future."
       "PostgreSQL" [9 4] nil)))
 
 (deftest test-db-unsupported?
@@ -1207,17 +1207,17 @@
       (with-db-version db version
         (fn []
           (is (= result (db-unsupported?)))))
-      "PostgreSQL" [8 1] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 2] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 3] "PostgreSQL DB versions 8.3 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
-      "PostgreSQL" [8 4] nil
-      "PostgreSQL" [9 0] nil
-      "PostgreSQL" [9 1] nil
-      "PostgreSQL" [9 2] nil
+      "PostgreSQL" [8 1] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 2] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 3] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [8 4] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [9 0] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [9 1] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
+      "PostgreSQL" [9 2] "PostgreSQL DB versions 9.2 and older are no longer supported. Please upgrade Postgres and restart PuppetDB."
       "PostgreSQL" [9 3] nil
       "PostgreSQL" [9 4] nil)))
 
-(def not-supported-regex #"PostgreSQL DB versions 8.3 and older are no longer supported")
+(def not-supported-regex #"PostgreSQL DB versions 9.2 and older are no longer supported")
 
 (deftest test-unsupported-fail
   (testing "unsupported postgres version"
@@ -1232,7 +1232,7 @@
             (is (re-find not-supported-regex (last (first @log)))))))))
   (testing "supported postgres version"
     (let [fail? (atom false)]
-      (with-db-version "PostgreSQL" [9 3]
+      (with-db-version "PostgreSQL" [9 4]
         (fn []
           (pllog/with-log-output log
             (is (str/blank?

@@ -94,6 +94,13 @@ Your site's puppet masters must be running Puppet 3.5.1 or later. [You will need
 >
 > * Due to packaging changes related to the integration of PuppetDB with Puppet Enterprise, the latest PuppetDB packages are not available for use with Puppet Enterprise 2.8 or below. Users of Puppet Enterprise 2.8 or below can use PuppetDB 1.1, and should visit the [PuppetDB 1.1 documentation][old_docs]. PuppetDB is now included by default in Puppet Enterprise, and will be released on a separate schedule.
 
+### PostgreSQL 9.3
+
+As of PuppetDB 2.2, PuppetDB requires PostgresSQL 9.3 or later.  For users of
+Redhat/Fedora/Debian, configuration instructions can be found here
+https://wiki.postgresql.org/wiki/RPM_Installation and
+here http://wiki.postgresql.org/wiki/Apt.
+
 ### Robust Hardware
 
 PuppetDB will be a critical component of your Puppet deployment and so should be run on a robust and reliable server.

@@ -28,23 +28,24 @@
   []
   (= (sql-current-connection-database-name) "PostgreSQL"))
 
-(defn pg-older-than-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
+(defn pg-older-than-9-3?
+  "Returns true if connected to a Postgres instance that is older than 9.3"
   []
   (and (postgres?)
-       (neg? (compare (sql-current-connection-database-version) [8 4]))))
+       (neg? (compare (sql-current-connection-database-version) [9 3]))))
 
-(defn pg-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
+(defn pg-9-3?
+  "Returns true if connected to a Postgres instance version 9.3"
   []
   (and (postgres?)
-       (= (sql-current-connection-database-version) [8 4])))
+       (= (sql-current-connection-database-version) [9 3])))
 
-(defn pg-newer-than-8-4?
-  "Returns true if connected to a Postgres instance that is newer than 8.1"
+(defn pg-newer-than-9-3?
+  "Returns true if connected to a Postgres instance that is newer than 9.3"
   []
   (and (postgres?)
-       (pos? (compare (sql-current-connection-database-version) [8 4]))))
+       (= (sql-current-connection-database-version) [9 3]))
+  )
 
 (defn sql-current-connection-table-names
   "Return all of the table names that are present in the database based on the
