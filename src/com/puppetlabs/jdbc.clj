@@ -133,6 +133,10 @@
       (string/join ", "
         (map order-by-term->sql order-by)))))
 
+(defn compile-facts-offset
+  [sql offset]
+  (format "WHERE name in SELECT DISTINCT name FROM (%s) OFFSET %s" sql offset))
+
 (defn paged-sql
   "Given a sql string and a map of paging options, return a modified SQL string
   that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
@@ -155,6 +159,35 @@
    :post [(string? %)]}
     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
           offset-clause    (if offset (format " OFFSET %s" offset) "")
+          order-by-clause  (order-by->sql order-by)]
+      (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+          sql
+          order-by-clause
+          limit-clause
+          offset-clause)))
+
+(defn paged-facts-sql
+  "Given a sql string and a map of paging options, return a modified SQL string
+  that contains the necessary LIMIT/OFFSET/ORDER BY clauses.  The map of paging
+  options can contain any of the following keys:
+
+  * :limit  (int)
+  * :offset (int)
+  * :order-by (array of maps; each map is an order-by term, consisting of
+      required key :field and optional key :order.  Legal values for :order
+      include 'asc' or 'desc'.)
+
+  Note that if no paging options are specified, the original SQL will be
+  returned completely unmodified."
+  [sql {:keys [limit offset order-by]}]
+  {:pre [(string? sql)
+         ((some-fn nil? integer?) limit)
+         ((some-fn nil? integer?) offset)
+         ((some-fn nil? sequential?) order-by)
+         (every? kitchensink/order-by-expr? order-by)]
+   :post [(string? %)]}
+    (let [limit-clause     (if limit (format " WHERE name,certname IN (SELECT DISTINCT name,certname FROM paged_results LIMIT %s)" limit) "")
+          offset-clause    (if offset (format " WHERE name,certname IN (SELECT DISTINCT name,certname FROM paged_results OFFSET %s)" offset) "")
           order-by-clause  (order-by->sql order-by)]
       (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
           sql

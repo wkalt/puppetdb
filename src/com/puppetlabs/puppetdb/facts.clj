@@ -277,3 +277,11 @@
            factpath-glob-elements-to-regexp
            factpath-to-string)
        "$"))
+
+(defn augment-paging-options
+  [{:keys [order-by] :as paging-options}]
+  (if (nil? order-by)
+    paging-options
+    (assoc paging-options :order-by (concat
+                                      (filter #(not= (first %) :value) order-by)
+                                      [[:name :ascending] [:certname :ascending]]))))

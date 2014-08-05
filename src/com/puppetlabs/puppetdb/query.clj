@@ -405,6 +405,7 @@
                       AS facts
                       WHERE %s"
               (column-map->sql fact-columns) where)]
+    (println "WHERE IS" where)
     (apply vector sql params)))
 
 (defn node-query->sql

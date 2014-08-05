@@ -78,14 +78,15 @@
 (defn facts-sql
   "Return a vector with the facts SQL query string as the first element,
   parameters needed for that query as the rest."
-  [operators query paging-options]
+  [operators query]
   (if query
     (let [[subselect & params] (query/fact-query->sql operators query)
           sql (format "SELECT facts.certname, facts.environment, facts.name,
                        facts.value, facts.path, facts.type, facts.depth
                       FROM (%s) facts" subselect)]
       (apply vector sql params))
-      ["SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
+      [
+       "SELECT fs.certname, fp.path as path, fp.name as name, fp.depth as depth,
                         COALESCE(fv.value_string,
                                 cast(fv.value_integer as text),
                                 cast(fv.value_boolean as text),
@@ -99,7 +100,8 @@
                       INNER JOIN fact_paths as fp on fv.path_id = fp.id
                       INNER JOIN value_types as vt on vt.id=fv.value_type_id
                       LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-        ORDER BY name, fs.certname"]))
+        ORDER BY name, fs.certname"
+       ]))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -108,16 +110,17 @@
    :post [(map? %)
           (string? (first (:results-query %)))
           (every? (complement coll?) (rest (:results-query %)))]}
-  (paging/validate-order-by! (map keyword (keys query/fact-columns)) paging-options)
-  (case version
-    (:v2 :v3)
-    (let [operators (query/fact-operators version)
-          [sql & params] (facts-sql operators query paging-options)]
-      (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
-            (when (:count? paging-options)
-              [:count-query (apply vector (jdbc/count-sql sql) params)])))
-  (qe/compile-user-query->sql
-    qe/facts-query query paging-options)))
+  (paging/validate-order-by! (map keyword (keys (dissoc query/fact-columns))) paging-options)
+  (let [augmented-paging-options (f/augment-paging-options paging-options)]
+    (case version
+      (:v2 :v3)
+      (let [operators (query/fact-operators version)
+            [sql & params] (facts-sql operators query)]
+        (conj {:results-query (apply vector (jdbc/paged-facts-sql sql augmented-paging-options) params)}
+              (when (:count? augmented-paging-options)
+                [:count-query (apply vector (jdbc/count-sql sql) params)])))
+      (qe/compile-user-query->sql
+        qe/facts-query query paging-options))))
 
 (defn flat-facts-by-node
   "Similar to `facts-for-node`, but returns facts in the form:

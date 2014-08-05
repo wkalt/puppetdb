@@ -62,6 +62,23 @@
     (is (= (set actual-result) expected-results))
     (is (= status pl-http/status-ok))))
 
+(defn munge-structured-response
+  [row]
+  (let [val-key (if (contains? row "value") "value" :value)]
+  (let [value (get row val-key)]
+    (if (= (first value) \{)
+      (update-in row [val-key] json/parse-string)
+      row))))
+
+(defn compare-structured-response
+  "hacky function to compare maps that may have been stringified differently."
+  [response expected version]
+  (case version
+    (:v2 :v3)
+      (is (= (map munge-structured-response response)
+             (map munge-structured-response expected)))
+      (is (= response expected))))
+
 (def common-subquery-tests
   (omap/ordered-map
    ["and"
@@ -636,10 +653,38 @@
      :count (when-let [rec-count (get headers "X-Records")]
               (ks/parse-int rec-count))}))
 
+(defn unkeywordize-keys
+  [m]
+  (if-not (map? m) m
+    (zipmap (map name (keys m))
+            (map unkeywordize-keys (vals m)))))
+
+(defn unkeywordize-values
+  [m]
+  (if-not (map? m) m
+    (zipmap (keys m)
+            (map (fn [x] (if (= x :value)
+                           (unkeywordize-keys (get m x))
+                           (unkeywordize-values (get m x)))) (keys m)))))
+
 (defn- query-facts
   [endpoint paging-options]
   (:results (raw-query-facts endpoint nil paging-options)))
 
+
+(def actual [{:certname "e.local", :name "my_structured_fact", :value "{\"a\":[1,2,3,4,5,6,7,8,9,10]}"}
+             {:certname "d.local", :name "uptime_days", :value "2"}
+             {:certname "c.local", :name "hostname", :value "c-host"}
+             {:certname "b.local", :name "uptime_days", :value "4"}
+             {:certname "a.local", :name "hostname", :value "a-host"}])
+
+(def expected [{:name "my_structured_fact", :value {"a" [1 2 3 4 5 6 7 8 9 10]}, :certname "e.local"}
+               {:name "uptime_days", :value "2", :certname "d.local"}
+               {:name "hostname", :value "c-host", :certname "c.local"}
+               {:name "uptime_days", :value "4", :certname "b.local"}
+               {:name "hostname", :value "a-host", :certname "a.local"}])
+
+#_ (paging-results)
 (deftestseq paging-results
   [[version endpoint] facts-endpoints
    :when (not= version :v2)]
@@ -648,7 +693,9 @@
         f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
         f3         {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
         f4         {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
-        fact-count 4]
+        f5         {:certname "e.local" :name "my_structured_fact"
+                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "PROD"}
+        fact-count 5]
 
     (scf-store/add-certname! "c.local")
     (scf-store/add-facts! {:name "c.local"
@@ -674,6 +721,12 @@
                            :timestamp (now)
                            :environment "DEV"
                            :producer-timestamp nil})
+    (scf-store/add-certname! "e.local")
+    (scf-store/add-facts! {:name "e.local"
+                          :values {"my_structured_fact" (:value f5)} 
+                          :timestamp (now)
+                          :environment "PROD"
+                          :producer-timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-facts endpoint nil {:include-total true}))]
@@ -690,42 +743,44 @@
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
                         (:body (*app* (get-request endpoint nil {:order-by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
       (testing "alphabetical fields"
-        (doseq [[order expected] [["ASC" [f1 f2 f3 f4]]
-                                  ["DESC" [f4 f3 f2 f1]]]]
+        (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
+                                  ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}})]
-              (is (= actual (remove-all-environments version expected)))))))
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version)))))
 
       (testing "multiple fields"
-        (doseq [[[name-order value-order] expected] [[["DESC" "ASC"]  [f4 f2 f1 f3]]
-                                                     [["DESC" "DESC"] [f2 f4 f3 f1]]
-                                                     [["ASC" "DESC"]  [f3 f1 f2 f4]]
-                                                     [["ASC" "ASC"]   [f1 f3 f4 f2]]]]
-          (testing (format "name %s value %s" name-order value-order)
+        (doseq [[[name-order certname-order] expected] [[["DESC" "ASC"]  [f2 f4 f5 f1 f3]]
+                                                        [["DESC" "DESC"] [f4 f2 f5 f3 f1]]
+                                                        [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
+                                                        [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
+          (testing (format "name %s certname %s" name-order certname-order)
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "name" "order" name-order}
-                                                                     {"field" "value" "order" value-order}])}})]
-              (is (= actual (remove-all-environments version expected))))))))
+                                                                     {"field" "certname" "order" certname-order}])}})]
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))
 
     (testing "offset"
-      (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4]]
-                                                   [1 [f2 f3 f4]]
-                                                   [2 [f3 f4]]
-                                                   [3 [f4]]
-                                                   [4 []]]]
-                                          ["DESC" [[0 [f4 f3 f2 f1]]
-                                                   [1 [f3 f2 f1]]
-                                                   [2 [f2 f1]]
-                                                   [3 [f1]]
-                                                   [4 []]]]]]
+      (doseq [[order expected-sequences] [["ASC"  [[0 [f1 f2 f3 f4 f5]]
+                                                   [1 [f2 f3 f4 f5]]
+                                                   [2 [f3 f4 f5]]
+                                                   [3 [f4 f5]]
+                                                   [4 [f5]]
+                                                   [5 []]]]
+                                          ["DESC" [[0 [f5 f4 f3 f2 f1]]
+                                                   [1 [f4 f3 f2 f1]]
+                                                   [2 [f3 f2 f1]]
+                                                   [3 [f2 f1]]
+                                                   [4 [f1]]
+                                                   [5 []]]]]]
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
-              (is (= actual (remove-all-environments version expected))))))))))
-
+              (println "VERSION IS" version "OFFSET IS" offset "EXPECTED IS" expected "ACTUAL IS" actual)
+              (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))))
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints
@@ -999,22 +1054,6 @@
                   "certname" "foo1"}
                  {"value" "{\"d\":{\"n\":\"\"},\"b\":3.14,\"a\":1,\"e\":\"1\",\"c\":[\"a\",\"b\",\"c\"]}" "name" "my_structured_fact" "certname" "foo2"}
                  {"value" "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" "name" "my_structured_fact" "certname" "foo3"}]}))
-
-(defn munge-structured-response
-  [row]
-  (let [value (get row "value")]
-    (if (= (first value) \{)
-      (update-in row ["value"] json/parse-string)
-      row)))
-
-(defn compare-structured-response
-  "hacky function to compare maps that may have been stringified differently."
-  [response expected version]
-  (case version
-    (:v2 :v3)
-      (is (= (map munge-structured-response response)
-             (map munge-structured-response expected)))
-      (is (= response expected))))
 
 (deftestseq structured-fact-queries
   [[version endpoint] facts-endpoints]

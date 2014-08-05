@@ -89,7 +89,7 @@
                          "name" :string
                          "type" :string}
                :alias "facts"
-               :queryable-fields ["name" "value" "certname" "environment"]
+               :queryable-fields ["name" "certname" "environment" "value"]
                :source-table "facts"
                :entity :facts
                :subquery? false
@@ -758,9 +758,12 @@
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
+        augmented-paging-options (if (= :facts (:entity query-rec))
+                                   (facts/augment-paging-options paging-options)
+                                   paging-options)
         sql (plan->sql plan)
-        paged-sql (if paging-options
-                    (jdbc/paged-sql sql paging-options)
+        paged-sql (if augmented-paging-options
+                    (jdbc/paged-sql sql augmented-paging-options)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
