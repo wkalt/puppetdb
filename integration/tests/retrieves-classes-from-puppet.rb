@@ -1,3 +1,5 @@
+require 'httparty'
+
 test_name "classifier gets class definition from puppet"
 
 class Classifier
