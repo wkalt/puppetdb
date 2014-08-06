@@ -146,7 +146,9 @@
 
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
-  [sql {:keys [limit offset order-by]}]
+  ([sql {:keys [limit offset order-by]}]
+   (paged-sql sql {:limit limit :offset offset :order-by order-by} false))
+  ([sql {:keys [limit offset order-by]} structured?]
   {:pre [(string? sql)
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
@@ -156,11 +158,16 @@
     (let [limit-clause     (if limit (format " LIMIT %s" limit) "")
           offset-clause    (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
-      (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
-          sql
-          order-by-clause
-          limit-clause
-          offset-clause)))
+      (if structured?
+        (format "WITH paged_results AS (%s%s) SELECT * FROM paged_results WHERE
+                (name, certname) IN (SELECT DISTINCT
+                name, certname FROM paged_results %s%s%s)"
+                sql order-by-clause order-by-clause limit-clause offset-clause)
+        (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
+                sql
+                order-by-clause
+                limit-clause
+                offset-clause)))))
 
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select

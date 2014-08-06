@@ -42,7 +42,9 @@
                      "float" (comp double clj-edn/read-string)
                      "integer" (comp biginteger clj-edn/read-string)
                      ("string" "null") identity)]
-    (reduce #(dissoc %1 %2) row dissociated-fields)))
+    (reduce #(dissoc %1 %2)
+            (update-in row [:value] conversion)
+            dissociated-fields)))
 
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
@@ -115,7 +117,7 @@
       (:v2 :v3)
       (let [operators (query/fact-operators version)
             [sql & params] (facts-sql operators query)]
-        (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options) params)}
+        (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options true) params)}
               (when (:count? augmented-paging-options)
                 [:count-query (apply vector (jdbc/count-sql sql) params)])))
       (qe/compile-user-query->sql

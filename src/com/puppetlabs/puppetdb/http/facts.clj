@@ -17,7 +17,7 @@
   (fn [rows]
     (if (empty? rows) []
       (facts/structured-data-seq version rows f/factname-certname-pred
-                                 facts/collapse-facts))))
+                                 facts/collapse-facts facts/convert-types))))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query

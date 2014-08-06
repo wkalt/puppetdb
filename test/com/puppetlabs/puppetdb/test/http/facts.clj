@@ -71,7 +71,7 @@
       row))))
 
 (defn compare-structured-response
-  "hacky function to compare maps that may have been stringified differently."
+  "compare maps that may have been stringified differently."
   [response expected version]
   (case version
     (:v2 :v3)
@@ -760,9 +760,17 @@
                                                    [3 [f2 f1]]
                                                    [4 [f1]]
                                                    [5 []]]]]]
+
+        (testing "what"
+          (let [a1 (query-facts endpoint {:params {:order-by (json/generate-string [{"field" "certname" "order" "ASC"}])}
+                                          :offset 1})
+                a2 (query-facts endpoint {:params {:order-by (json/generate-string [{"field" "certname" "order" "ASC"}])}})]
+            (compare-structured-response a1 a2 :v4)))
+
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-facts endpoint
+            (println "OFFSET IS" offset)
+            (let [actual #spy/d (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))))

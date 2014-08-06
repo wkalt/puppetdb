@@ -120,7 +120,7 @@
       (is (= (string-to-factpath r) l))
       (is (= r (factpath-to-string l))))))
 
-(deftest test-factset-seq
+(deftest test-structured-data-seq
   (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :timestamp current-time}
                    {:certname "foo.com" :environment "DEV" :path "a#~b#~d" :value "1" :type "integer" :timestamp current-time}
                    {:certname "foo.com" :environment "DEV" :path "a#~b#~e" :value "true" :type "boolean" :timestamp current-time}
@@ -132,20 +132,26 @@
                                "e" true
                                "f" 3.14}}}
              :timestamp current-time}]
-           (fs/factset-seq test-rows))))
+           (structured-data-seq :v4 test-rows create-certname-pred
+                                fs/collapse-factset fs/convert-types))))
 
   (testing "laziness of the collapsing fns"
     (let [ten-billion 10000000000]
       (is (= 10
              (count
               (take 10
-                    (fs/factset-seq
+                    (structured-data-seq :v4
                      (mapcat (fn [certname]
-                               [{:certname certname :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :timestamp current-time}
-                                {:certname certname :environment "DEV" :path "a#~b#~d" :value "1" :type "integer" :timestamp current-time}
-                                {:certname certname :environment "DEV" :path "a#~b#~e" :value "3.14" :type "float" :timestamp current-time}
-                                {:certname certname :environment "DEV" :path "a#~b#~f" :value "true" :type "boolean" :timestamp current-time}])
-                             (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
+                               [{:certname certname :environment "DEV" :path "a#~b#~c"
+                                 :value "abc" :type "string" :timestamp current-time}
+                                {:certname certname :environment "DEV" :path "a#~b#~d"
+                                 :value "1" :type "integer" :timestamp current-time}
+                                {:certname certname :environment "DEV" :path "a#~b#~e"
+                                 :value "3.14" :type "float" :timestamp current-time}
+                                {:certname certname :environment "DEV" :path "a#~b#~f"
+                                 :value "true" :type "boolean" :timestamp current-time}])
+                             (map #(str "foo" % ".com") (range 0 ten-billion)))
+                    create-certname-pred fs/collapse-factset fs/convert-types)))))))
 
   (testing "map with a nested vector"
     (let [test-rows [{:certname "foo.com" :environment "DEV"
@@ -166,7 +172,8 @@
                                  "e" true
                                  "f" "abf"}}}
                :timestamp current-time}]
-             (fs/factset-seq test-rows)))))
+             (structured-data-seq :v4 test-rows create-certname-pred
+                                   fs/collapse-factset fs/convert-types)))))
   (testing "map with a nested vector of maps"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :timestamp current-time}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~0#~e#~f#~0" :value "1" :type "integer" :timestamp current-time}
@@ -181,7 +188,8 @@
                                  "e" "abe"
                                  "f" "abf"}}}
                :timestamp current-time}]
-             (fs/factset-seq test-rows)))))
+             (structured-data-seq :v4 test-rows create-certname-pred
+                                  fs/collapse-factset fs/convert-types)))))
 
   (testing "json numeric formats"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "10E10" :type "integer" :timestamp current-time}
@@ -197,7 +205,8 @@
                                  "e"  -1.0e-4
                                  "f" -2.5E-6}}}
                :timestamp current-time}]
-             (fs/factset-seq test-rows)))))
+             (structured-data-seq :v4 test-rows create-certname-pred
+                                  fs/collapse-factset fs/convert-types)))))
 
   (testing "map stringified integer keys"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c"
@@ -223,7 +232,8 @@
                                  "f" "abf"
                                  "j" nil}}}
                :timestamp current-time}]
-             (fs/factset-seq test-rows))))))
+             (structured-data-seq :v4 test-rows create-certname-pred
+                                  fs/collapse-factset fs/convert-types))))))
 
 (deftest test-facts-seq
   (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :name "a" :depth 2}
@@ -237,20 +247,23 @@
                                "e" true
                                "f" 3.14}}
              :name "a"}]
-           (collapsed-fact-seq test-rows))))
+ 
+             (structured-data-seq :v4 test-rows factname-certname-pred
+                                  collapse-facts convert-types))))
 
   (testing "laziness of the collapsing fns"
     (let [ten-billion 10000000000]
       (is (= 10
              (count
               (take 10
-                    (collapsed-fact-seq
+                    (structured-data-seq :v4
                      (mapcat (fn [certname]
                                [{:certname certname :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :name "a" :depth 2}
                                 {:certname certname :environment "DEV" :path "a#~b#~d" :value "1" :type "integer" :name "a" :depth 2}
                                 {:certname certname :environment "DEV" :path "a#~b#~e" :value "3.14" :type "float" :name "a" :depth 2}
                                 {:certname certname :environment "DEV" :path "a#~b#~f" :value "true" :type "boolean" :name "a" :depth 2}])
-                             (map #(str "foo" % ".com") (range 0 ten-billion))))))))))
+                             (map #(str "foo" % ".com") (range 0 ten-billion)))
+                     factname-certname-pred collapse-facts convert-types)))))))
 
   (testing "map with a nested vector"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :name "a" :depth 2}
@@ -266,7 +279,9 @@
                                  "e" true
                                  "f" "abf"}}
                :name "a"}]
-             (collapsed-fact-seq test-rows)))))
+             (structured-data-seq :v4 test-rows
+                                  factname-certname-pred collapse-facts
+                                  convert-types)))))
   (testing "map with a nested vector of maps"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :name "a" :depth 2}
                      {:certname "foo.com" :environment "DEV" :path "a#~b#~d#~0#~e#~f#~0" :value "1" :type "integer" :name "a" :depth 6}
@@ -281,7 +296,10 @@
                                  "e" "abe"
                                  "f" "abf"}}
                :name "a"}]
-             (collapsed-fact-seq test-rows)))))
+
+             (structured-data-seq :v4 test-rows
+                                  factname-certname-pred collapse-facts
+                                  convert-types)))))
 
   (testing "json numeric formats"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "10E10" :type "integer" :name "a" :depth 2}
@@ -297,7 +315,9 @@
                                  "e"  -1.0e-4
                                  "f" -2.5E-6}}
                :name "a"}]
-             (collapsed-fact-seq test-rows)))))
+             (structured-data-seq :v4 test-rows
+                                  factname-certname-pred collapse-facts
+                                  convert-types)))))
 
   (testing "map stringified integer keys"
     (let [test-rows [{:certname "foo.com" :environment "DEV" :path "a#~b#~c" :value "abc" :type "string" :name "a" :depth 2}
@@ -316,4 +336,7 @@
                                  "f" "abf"
                                  "j" nil}}
               :name "a" }]
-             (collapsed-fact-seq test-rows))))))
+
+             (structured-data-seq :v4 test-rows
+                                  factname-certname-pred collapse-facts
+                                  convert-types))))))

@@ -66,7 +66,7 @@
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
-    (scf-store/add-facts! {:name "host1"
+    #spy/d (scf-store/add-facts! {:name "host1"
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
