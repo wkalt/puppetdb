@@ -3,6 +3,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.facts :as facts]
+            [com.puppetlabs.puppetdb.facts :as f]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
             [net.cgrand.moustache :refer [app]]
@@ -15,7 +16,8 @@
   [version]
   (fn [rows]
     (if (empty? rows) []
-      (facts/collapsed-fact-seq version rows))))
+      (facts/structured-data-seq version rows f/factname-certname-pred
+                                 facts/collapse-facts))))
 
 (defn produce-body
   "Given a query, and database connection, return a Ring response with the query

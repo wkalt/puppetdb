@@ -36,17 +36,17 @@
 
 (defn convert-row-type
   "Coerce the value of a row to the proper type."
-  [row]
+  [dissociated-fields row]
   (let [conversion (case (:type row)
                      "boolean" clj-edn/read-string
                      "float" (comp double clj-edn/read-string)
                      "integer" (comp biginteger clj-edn/read-string)
                      ("string" "null") identity)]
-    (dissoc (update-in row [:value] conversion) :type :depth)))
+    (reduce #(dissoc %1 %2) row dissociated-fields)))
 
 (pls/defn-validated convert-types :- [converted-row-schema]
   [rows :- [row-schema]]
-  (map convert-row-type rows))
+  (map (partial convert-row-type [:type :depth]) rows))
 
 (defn stringify-value
   [value]
@@ -65,15 +65,15 @@
     (assoc (select-keys first-row [:certname :environment :timestamp :name])
       :value (conversion (first (vals keyval))))))
 
-(defn collapsed-fact-seq
+(defn structured-data-seq
   "Produce a lazy sequence of facts from a list of rows ordered by fact name"
-  ([rows]
-   (collapsed-fact-seq :v4 rows))
-  ([version rows]
+  ([version rows pred collapsing-fun conversion-fn]
   (when (seq rows)
-    (let [[certname-facts more-rows] (split-with (f/factname-certname-pred rows) rows)]
-      (cons ((comp (partial collapse-facts version) convert-types) certname-facts)
-            (lazy-seq (collapsed-fact-seq version more-rows)))))))
+    (let [[certname-facts more-rows] (split-with (pred rows) rows)]
+      (cons ((comp (partial collapsing-fun version) conversion-fn) certname-facts)
+            (lazy-seq (structured-data-seq version more-rows pred collapsing-fun
+                                           conversion-fn)))))))
+
 
 (defn facts-sql
   "Return a vector with the facts SQL query string as the first element,
@@ -100,8 +100,7 @@
                       INNER JOIN fact_paths as fp on fv.path_id = fp.id
                       INNER JOIN value_types as vt on vt.id=fv.value_type_id
                       LEFT OUTER JOIN environments as env on fs.environment_id = env.id
-        ORDER BY name, fs.certname"
-       ]))
+        ORDER BY name, fs.certname"]))
 
 (defn query->sql
   "Compile a query into an SQL expression."
@@ -116,7 +115,7 @@
       (:v2 :v3)
       (let [operators (query/fact-operators version)
             [sql & params] (facts-sql operators query)]
-        (conj {:results-query (apply vector (jdbc/paged-facts-sql sql augmented-paging-options) params)}
+        (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options) params)}
               (when (:count? augmented-paging-options)
                 [:count-query (apply vector (jdbc/count-sql sql) params)])))
       (qe/compile-user-query->sql

@@ -170,7 +170,7 @@
        ;; Leaf
        (let [type-id (value-type-id data)
              initial-map {:path (factpath-to-string path)
-                          :name (str (first path))
+                          :name (first path) 
                           :depth (dec (count path))
                           :value_type_id type-id
                           :value_hash (hash/generic-identity-hash data)

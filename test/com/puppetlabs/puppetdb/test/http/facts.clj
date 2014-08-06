@@ -671,20 +671,6 @@
   [endpoint paging-options]
   (:results (raw-query-facts endpoint nil paging-options)))
 
-
-(def actual [{:certname "e.local", :name "my_structured_fact", :value "{\"a\":[1,2,3,4,5,6,7,8,9,10]}"}
-             {:certname "d.local", :name "uptime_days", :value "2"}
-             {:certname "c.local", :name "hostname", :value "c-host"}
-             {:certname "b.local", :name "uptime_days", :value "4"}
-             {:certname "a.local", :name "hostname", :value "a-host"}])
-
-(def expected [{:name "my_structured_fact", :value {"a" [1 2 3 4 5 6 7 8 9 10]}, :certname "e.local"}
-               {:name "uptime_days", :value "2", :certname "d.local"}
-               {:name "hostname", :value "c-host", :certname "c.local"}
-               {:name "uptime_days", :value "4", :certname "b.local"}
-               {:name "hostname", :value "a-host", :certname "a.local"}])
-
-#_ (paging-results)
 (deftestseq paging-results
   [[version endpoint] facts-endpoints
    :when (not= version :v2)]
@@ -779,7 +765,6 @@
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
-              (println "VERSION IS" version "OFFSET IS" offset "EXPECTED IS" expected "ACTUAL IS" actual)
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))))
 
 (deftestseq fact-environment-queries
