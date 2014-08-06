@@ -32,6 +32,7 @@
                  [puppetlabs/http-client "0.2.0" :exclusions [commons-io]]
                  [puppetlabs/certificate-authority "0.1.5"]
                  [puppetlabs/kitchensink ~ks-version]
+                 [puppetlabs/schema-tools "0.1.0" :exclusions [prismatic/schema]]
                  [puppetlabs/trapperkeeper ~tk-version]]
   :profiles {:dev {:dependencies [[clj-http "0.7.9"]
                                   [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]

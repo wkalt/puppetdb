@@ -7,57 +7,6 @@
             [puppetlabs.kitchensink.core :refer [deep-merge]])
   (:import java.util.UUID))
 
-(defn- has-schema-error-classes?
-  [x]
-  (let [!has? (atom false)
-        trip-on-schema-error (fn [x]
-                               (let [c (class x)]
-                                 (when (or (= c schema.utils.ValidationError)
-                                           (= c schema.utils.NamedError))
-                                   (reset! !has? true))
-                                 x))]
-    (prewalk trip-on-schema-error x)
-    @!has?))
-
-(defn explain-schema-errors
-  [x]
-  (let [explainer (fn [x]
-                    (condp = (class x)
-                      schema.utils.ValidationError (validation-error-explain x)
-                      schema.utils.NamedError (named-error-explain x)
-                      x))
-        explained (postwalk explainer x)]
-    (if (has-schema-error-classes? explained)
-      (recur explained)
-      explained)))
-
-(defn ->client-explanation
-  "Transforms a schema explanation into one that makes more sense to javascript
-  client by removing any java.lang. prefixes and changing any Keyword symbols to
-  String."
-  [explanation]
-  (let [explained (explain-schema-errors explanation)
-        strip-sym-prefix (fn [x]
-                           (let [xstr (str x)]
-                             (cond
-                               (not (symbol? x)) x
-                               (not (re-find #"^java\.lang\." xstr)) x
-                               :else (symbol (str/replace xstr "java.lang." "")))))
-        keyword->string (fn [x]
-                          (if (= x 'Keyword)
-                            'String
-                            x))
-        var->string (fn [x]
-                      (if (var? x)
-                        (str x)
-                        x))
-        fn->string (fn [x]
-                     (if (fn? x)
-                       (-> (str x) (str/replace #"@.*$" ""))
-                       x))]
-    (postwalk (comp var->string fn->string keyword->string strip-sym-prefix)
-              explained)))
-
 (defn- remove-paths-to-nils
   [m]
   (let [pre-fn #(if-not (= (type %) clojure.lang.MapEntry)

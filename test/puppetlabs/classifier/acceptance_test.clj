@@ -175,7 +175,7 @@
         (is (re-find #":rule \"The rule is malformed\. Please consult the group documentation" msg))
 
         (testing "that also includes other schema failures"
-          (is (re-find #":environment \(not \(instance\? java\.lang\.String" msg)))))))
+          (is (re-find #":environment \(not \(instance\? String" msg)))))))
 
 (deftest ^:acceptance group-api
   (let [base-url (base-url test-config)]
