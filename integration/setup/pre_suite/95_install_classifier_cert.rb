@@ -30,8 +30,7 @@ step "Configure SSL on classifier" do
     'puppet-master' => "https://#{master}:8140"
   }
 
-  create_remote_file(classifier, '/etc/classifier/conf.d/classifier.conf', conf.to_json)
-  on(classifier, "chmod 644 /etc/classifier/conf.d/classifier.conf")
+  set_classifier_configuration(classifier, conf)
 end
 
 step "Start classifier" do

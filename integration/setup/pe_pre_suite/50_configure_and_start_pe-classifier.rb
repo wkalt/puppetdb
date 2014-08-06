@@ -29,8 +29,7 @@ step "Configure the classifier's conf file" do
     'user' => 'pe-classifier',
     'password' => 'classifier'
   }
-  create_remote_file(classifier, '/etc/puppetlabs/classifier/conf.d/classifier.conf', conf.to_json)
-  on(classifier, "chmod 644 /etc/puppetlabs/classifier/conf.d/classifier.conf")
+  set_classifier_configuration(classifier, conf)
 
   on(classifier, "usermod -G pe-puppet pe-classifier")
 end
