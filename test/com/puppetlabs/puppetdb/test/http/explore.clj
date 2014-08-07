@@ -176,7 +176,7 @@
 
         (testing "/facts/<fact> should return all instances of the given fact"
           (check-json-response
-           facts response (get-response "facts/kernel")
+           facts response #spy/d (get-response "facts/kernel")
            (is (= (set (map :name facts)) #{"kernel"}))
            (is (= (count facts) 2))))
 
