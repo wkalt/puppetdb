@@ -31,6 +31,7 @@
             {[sql & params] :results-query
              count-query :count-query} (facts/query->sql version parsed-query
                                                       paging-options)
+            _ (println sql)
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db

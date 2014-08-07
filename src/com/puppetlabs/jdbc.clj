@@ -159,9 +159,12 @@
           offset-clause    (if offset (format " OFFSET %s" offset) "")
           order-by-clause  (order-by->sql order-by)]
       (if structured?
-        (format "SELECT * FROM (%s%s) pr
-                WHERE (name, certname) IN (SELECT DISTINCT
-                name, certname FROM (%s%s) pz %s%s%s)"
+;        (format "WITH paged_results AS (%s%s) SELECT * FROM paged_results WHERE
+;                (name, certname) IN (SELECT DISTINCT
+;                name, certname FROM paged_results %s%s%s)"
+;                sql order-by-clause order-by-clause limit-clause offset-clause)
+        (format "SELECT paged_results.* FROM (%s%s) paged_results WHERE
+                (name,certname) IN (SELECT DISTINCT name,certname FROM ((%s%s) pr%s%s%s)"
                 sql order-by-clause sql order-by-clause order-by-clause limit-clause offset-clause)
         (format "SELECT paged_results.* FROM (%s) paged_results%s%s%s"
                 sql

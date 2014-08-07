@@ -66,7 +66,7 @@
     (scf-store/replace-catalog! cat1 (now))
     (scf-store/replace-catalog! cat2 (now))
     (scf-store/replace-catalog! cat3 (now))
-    #spy/d (scf-store/add-facts! {:name "host1"
+    (scf-store/add-facts! {:name "host1"
                            :values facts1
                            :timestamp (now)
                            :environment "DEV"
@@ -176,7 +176,7 @@
 
         (testing "/facts/<fact> should return all instances of the given fact"
           (check-json-response
-           facts response #spy/d (get-response "facts/kernel")
+           facts response (get-response "facts/kernel")
            (is (= (set (map :name facts)) #{"kernel"}))
            (is (= (count facts) 2))))
 
