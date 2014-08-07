@@ -758,14 +758,15 @@
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
-        augmented-paging-options (if (= :facts (:entity query-rec))
+        facts? (= :facts (:entity query-rec))
+        augmented-paging-options (if facts?
                                    (facts/augment-paging-options paging-options)
                                    paging-options)
         sql (plan->sql plan)
         paged-sql (if augmented-paging-options
-                    (jdbc/paged-sql sql augmented-paging-options)
+                    (jdbc/paged-sql sql augmented-paging-options facts?)
                     sql)
         result-query {:results-query (apply vector paged-sql params)}]
     (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql sql) params))
+      (assoc result-query :count-query (apply vector (jdbc/count-sql facts? sql) params))
       result-query)))

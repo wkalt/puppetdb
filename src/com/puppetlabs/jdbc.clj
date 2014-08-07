@@ -172,10 +172,15 @@
 (defn count-sql
   "Takes a sql string and returns a modified sql string that will select
   the count of results that would be returned by the original sql."
-  [sql]
+  ([sql]
+   (count-sql false sql))
+  ([structured? sql]
   {:pre   [(string? sql)]
    :post  [(string? %)]}
-  (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))
+  (if structured?
+    (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT name,certname
+            FROM (%s) paged_sql) results_to_count" sql)
+    (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count
   "Takes a sql string, executes a `COUNT` statement against the database,

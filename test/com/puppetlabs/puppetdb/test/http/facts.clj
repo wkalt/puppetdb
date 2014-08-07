@@ -680,7 +680,7 @@
         f3         {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
         f4         {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
         f5         {:certname "e.local" :name "my_structured_fact"
-                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "PROD"}
+                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
         fact-count 5]
 
     (scf-store/add-certname! "c.local")
@@ -708,10 +708,10 @@
                            :environment "DEV"
                            :producer-timestamp nil})
     (scf-store/add-certname! "e.local")
-    (scf-store/add-facts! {:name "e.local"
+     (scf-store/add-facts! {:name "e.local"
                           :values {"my_structured_fact" (:value f5)} 
                           :timestamp (now)
-                          :environment "PROD"
+                          :environment "DEV"
                           :producer-timestamp nil})
 
     (testing "include total results count"
@@ -761,16 +761,9 @@
                                                    [4 [f1]]
                                                    [5 []]]]]]
 
-        (testing "what"
-          (let [a1 (query-facts endpoint {:params {:order-by (json/generate-string [{"field" "certname" "order" "ASC"}])}
-                                          :offset 1})
-                a2 (query-facts endpoint {:params {:order-by (json/generate-string [{"field" "certname" "order" "ASC"}])}})]
-            (compare-structured-response a1 a2 :v4)))
-
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (println "OFFSET IS" offset)
-            (let [actual #spy/d (query-facts endpoint
+            (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))))

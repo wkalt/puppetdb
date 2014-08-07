@@ -119,7 +119,7 @@
             [sql & params] (facts-sql operators query)]
         (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options true) params)}
               (when (:count? augmented-paging-options)
-                [:count-query (apply vector (jdbc/count-sql sql) params)])))
+                [:count-query (apply vector (jdbc/count-sql true sql) params)])))
       (qe/compile-user-query->sql
         qe/facts-query query paging-options))))
 
