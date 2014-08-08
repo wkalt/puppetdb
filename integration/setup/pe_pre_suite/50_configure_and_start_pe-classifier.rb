@@ -11,13 +11,19 @@ step "Configure the classifier's conf file" do
   conf = {}
 
   conf['webserver'] = {
-    'host' => '0.0.0.0',
-    'port' => CLASSIFIER_PORT,
-    'ssl-host' => '0.0.0.0',
-    'ssl-port' => CLASSIFIER_SSL_PORT,
-    'ssl-cert' => cert,
-    'ssl-key' => key,
-    'ssl-ca-cert' => cacert
+    'default' => {
+      'host' => '0.0.0.0',
+      'port' => 8989
+    },
+    'classifier' => {
+      'host' => '0.0.0.0',
+      'port' => CLASSIFIER_PORT,
+      'ssl-host' => '0.0.0.0',
+      'ssl-port' => CLASSIFIER_SSL_PORT,
+      'ssl-cert' => cert,
+      'ssl-key' => key,
+      'ssl-ca-cert' => cacert
+    }
   }
 
   conf['classifier'] = {
