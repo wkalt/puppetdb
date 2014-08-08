@@ -31,11 +31,11 @@
             {[sql & params] :results-query
              count-query :count-query} (facts/query->sql version parsed-query
                                                       paging-options)
-            _ (println sql)
+            query-params (concat params params)
             resp (pl-http/stream-json-response
                   (fn [f]
                     (jdbc/with-transacted-connection db
-                      (query/streamed-query-result version sql params
+                      (query/streamed-query-result version sql query-params
                                                    (comp f (munge-result-rows version))))))]
         (if count-query
           (http/add-headers resp {:count (jdbc/get-result-count count-query)})

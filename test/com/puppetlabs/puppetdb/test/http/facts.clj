@@ -766,6 +766,7 @@
             (let [actual (query-facts endpoint
                           {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
                            :offset offset})]
+              (println "OFFSET" offset "EXPECTED" expected "ACTUAL" actual)
               (compare-structured-response (map unkeywordize-values actual) (remove-all-environments version expected) version))))))))
 
 (deftestseq fact-environment-queries
