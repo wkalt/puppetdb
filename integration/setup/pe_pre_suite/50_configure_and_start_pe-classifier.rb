@@ -22,12 +22,12 @@ step "Configure the classifier's conf file" do
 
   conf['classifier'] = {
     'url-prefix' => '',
-    'puppet-master' => "https://#{master}:8140"
-  }
-  conf['database'] = {
-    'subname' => "//#{postgres_host}:5432/pe-classifier",
-    'user' => 'pe-classifier',
-    'password' => 'classifier'
+    'puppet-master' => "https://#{master}:8140",
+    'database' => {
+      'subname' => "//#{postgres_host}:5432/pe-classifier",
+      'user' => 'pe-classifier',
+      'password' => 'classifier'
+    }
   }
   set_classifier_configuration(classifier, conf)
 

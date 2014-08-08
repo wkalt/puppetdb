@@ -58,7 +58,7 @@
                            "classifier_test")
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
-        config-with-db (assoc test-config :database test-db)
+        config-with-db (assoc-in test-config [:classifier :database] test-db)
         test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
         test-config-path (.getAbsolutePath test-config-file)
         _ (spit test-config-file (json/encode config-with-db))

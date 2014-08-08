@@ -19,7 +19,7 @@
 (def default-sync-period (* 15 60))
 
 (defn- config->db-spec
-  [{:keys [database]}]
+  [{{:keys [database]} :classifier}]
   (merge default-db-spec database))
 
 (defn on-shutdown
@@ -51,7 +51,8 @@
                app-config {:db db
                            :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
-                           :ssl-files (select-keys (:webserver config) [:ssl-cert :ssl-key :ssl-ca-cert])
+                           :ssl-files (select-keys (:webserver config)
+                                                   [:ssl-cert :ssl-key :ssl-ca-cert])
                            :ssl-context (init-ssl-context (:webserver config))}
                app (add-url-prefix api-prefix (http/app app-config))
                sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
