@@ -11,6 +11,8 @@ module ClassifierExtensions
 
   CLASSIFIER_PORT = 1261
   CLASSIFIER_SSL_PORT = 1262
+  CLASSIFIER_CONFIG_PATH = '/etc/classifier/conf.d/classifier.conf'
+  PE_CLASSIFIER_CONFIG_PATH = '/etc/puppetlabs/classifier/conf.d/classifier.conf'
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
   LeinCommandPrefix = "cd #{GitReposDir}/classifier; LEIN_ROOT=true"
@@ -147,10 +149,10 @@ module ClassifierExtensions
     ClassifierExtensions.config
   end
 
-  #This classifier method forces a returned host that has a defined role of 
+  #This classifier method forces a returned host that has a defined role of
   #classifier in the beaker config. Once beaker PR 362 has been merged, this
   #definition in this file should no longer be necessary.
-  def classifier 
+  def classifier
     find_only_one(:classifier)
   end
 
@@ -432,6 +434,21 @@ module ClassifierExtensions
 
   ###########################################################################
 
+  def get_classifier_configuration(host)
+    conf_path = host.is_pe? ? PE_CLASSIFIER_CONFIG_PATH : CLASSIFIER_CONFIG_PATH
+    if host.file_exist?(conf_path)
+      raw = on(host, "cat #{conf_path}").stdout.strip
+      JSON.parse(raw)
+    else
+      {}
+    end
+  end
+
+  def set_classifier_configuration(host, conf)
+    conf_path = host.is_pe? ? PE_CLASSIFIER_CONFIG_PATH : CLASSIFIER_CONFIG_PATH
+    create_remote_file(host, conf_path, conf.to_json)
+    on(host, "chmod 644 #{conf_path}")
+  end
 
   def stop_classifier(host)
     if host.is_pe?
@@ -880,7 +897,7 @@ module ClassifierExtensions
   # Taken from puppet acceptance lib
   # Install development repos
   def install_dev_repos_on(package, host, sha, repo_configs_dir)
-    platform = host['platform'] =~ /^(debian|ubuntu)/ ? host['platform'].with_version_codename : host['platform'] 
+    platform = host['platform'] =~ /^(debian|ubuntu)/ ? host['platform'].with_version_codename : host['platform']
     platform_configs_dir = File.join(repo_configs_dir, platform)
 
     case platform

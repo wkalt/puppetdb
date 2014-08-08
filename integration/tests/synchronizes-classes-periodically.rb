@@ -50,16 +50,24 @@ master_opts = {
     'environmentpath' => "#{testdir}/environments",
     'rest_authconfig' => "#{testdir}/auth.conf",
     'modulepath' => "#{testdir}/modules",
+    'environment_timeout' => 0,
     'verbose' => true,
     'debug' => true,
     'trace' => true
   }
 }
 
-step "Trigger an update on the classifier"
+step "Configure and restart the classifier"
+
+ClassifierSyncPeriod = 15
+SyncDurationUpperBound = 10
+conf = get_classifier_configuration(classifier)
+conf['classifier']['synchronization-period'] = ClassifierSyncPeriod
+set_classifier_configuration(classifier, conf)
 
 with_puppet_running_on(master, master_opts, testdir) do
-  Classifier.post("/v1/update-classes")
+  restart_classifier(classifier)
+  sleep SyncDurationUpperBound
 
   step "Check classifier classes"
 
@@ -87,4 +95,28 @@ with_puppet_running_on(master, master_opts, testdir) do
                                                 "c" => nil},
                                "environment" => "two"}))
 
+  create_remote_file(master, "#{testdir}/environments/two/manifests/site.pp", <<-PP)
+    class noargs {
+    }
+
+    class args($a, $b=["1", "2"], $c, $d=foo) {
+    }
+
+    class aliens($greetings=humans) {
+    }
+  PP
+
+  sleep ClassifierSyncPeriod + SyncDurationUpperBound
+  new_classes_two = Classifier.get("/v1/environments/two/classes")
+  assert(new_classes_two.include?({"name" => "args",
+                                   "parameters" => {"a" => nil,
+                                                    "b" => '["1", "2"]',
+                                                    "c" => nil,
+                                                    "d" => "foo"},
+                                   "environment" => "two"}),
+        "classes were not updated after waiting for periodic sync")
+  assert(new_classes_two.include?({"name" => "aliens",
+                                   "parameters" => {"greetings" => "humans"},
+                                   "environment" => "two"}),
+        "classes were not updated after waiting for periodic sync")
 end
