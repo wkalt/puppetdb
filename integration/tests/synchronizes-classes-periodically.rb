@@ -2,6 +2,8 @@ require 'httparty'
 
 test_name "classifier gets class definition from puppet"
 
+stop_classifier(classifier)
+
 class Classifier
   include HTTParty
   debug_output $stdout
@@ -59,8 +61,8 @@ master_opts = {
 
 step "Configure and restart the classifier"
 
-ClassifierSyncPeriod = 15
-SyncDurationUpperBound = 10
+ClassifierSyncPeriod = 20
+SyncDurationUpperBound = 15
 conf = get_classifier_configuration(classifier)
 conf['classifier']['synchronization-period'] = ClassifierSyncPeriod
 set_classifier_configuration(classifier, conf)
