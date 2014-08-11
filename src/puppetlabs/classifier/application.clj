@@ -59,9 +59,10 @@
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
            (add-ring-handler app api-prefix)
-           (at-at/every (* sync-period 1000)
-                        #(update-classes-and-log-errors! app-config db)
-                        job-pool)
+           (when (pos? sync-period)
+             (at-at/every (* sync-period 1000)
+                          #(update-classes-and-log-errors! app-config db)
+                          job-pool))
            (assoc context :job-pool job-pool)))
 
   (stop [this _]
