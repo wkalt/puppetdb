@@ -3,6 +3,9 @@ require 'httparty'
 
 test_name "the classifier tracks the time of the most recent update from puppet"
 
+conf = get_classifier_configuration(classifier)
+conf['classifier']['synchronization-period'] = 0 # disable class sync
+set_classifier_configuration(classifier, conf)
 clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_last_update')

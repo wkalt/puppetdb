@@ -3,6 +3,9 @@ require 'uuidtools'
 
 test_name "puppet retrieves a static classification"
 
+conf = get_classifier_configuration(classifier)
+conf['classifier']['synchronization-period'] = 0 # disable class sync
+set_classifier_configuration(classifier, conf)
 clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_classifies')
