@@ -775,6 +775,50 @@
                                                   {:order-by
                                                    (json/generate-string
                                                      [{"field" "value" "order" "ASC"}])})))))))))))
+(deftestseq facts-environment-paging
+  [[version endpoint] facts-endpoints
+   :when (not= version :v2)]
+
+  (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
+        f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "abc"}
+        f3         {:certname "c.local" :name "my_structured_fact"
+                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "PROD"}]
+
+    (scf-store/add-certname! "c.local")
+    (scf-store/add-facts! {:name "c.local"
+                           :values {"my_structured_fact" (:value f3)}
+                           :timestamp (now)
+                           :environment "PROD"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "a.local")
+    (scf-store/add-facts! {:name "a.local"
+                           :values {"hostname" "a-host"}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer-timestamp nil})
+    (scf-store/add-certname! "b.local")
+    (scf-store/add-facts! {:name "b.local"
+                           :values {"uptime_days" "4"}
+                           :timestamp (now)
+                           :environment "abc"
+                           :producer-timestamp nil})
+
+      (testing "ordering by environment should work"
+        (when-not (= endpoint v4-facts-environment)
+
+        (doseq [[[certname-order env-order] expected] [[["DESC" "ASC"]  [f3 f2 f1]]
+                                                       [["DESC" "DESC"] [f3 f2 f1]]
+                                                       [["ASC" "DESC"]  [f1 f2 f3]]
+                                                       [["ASC" "ASC"]   [f1 f2 f3]]]]
+          (testing (format "certname %s environment %s" certname-order env-order)
+            (let [actual (query-facts
+                           endpoint
+                           {:params {:order-by
+                                     (json/generate-string [{"field" "certname" "order" certname-order}
+                                                            {"field" "environment" "order" env-order}])}})]
+              (compare-structured-response (map unkeywordize-values actual)
+                                           (remove-all-environments version expected) version))))))))
+
 
 (deftestseq fact-environment-queries
   [[version endpoint] facts-endpoints
