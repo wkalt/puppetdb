@@ -16,13 +16,19 @@ step "Configure SSL on classifier" do
 
   conf = {}
   conf['webserver'] = {
-    'host' => '0.0.0.0',
-    'port' => CLASSIFIER_PORT,
-    'ssl-host' => '0.0.0.0',
-    'ssl-port' => CLASSIFIER_SSL_PORT,
-    'ssl-cert' => "#{ssldir}/cert.pem",
-    'ssl-key' => "#{ssldir}/key.pem",
-    'ssl-ca-cert' => "#{ssldir}/ca.pem"
+    'default' => {
+      'host' => '0.0.0.0',
+      'port' => 8989
+    },
+    'classifier' => {
+      'host' => '0.0.0.0',
+      'port' => CLASSIFIER_PORT,
+      'ssl-host' => '0.0.0.0',
+      'ssl-port' => CLASSIFIER_SSL_PORT,
+      'ssl-cert' => "#{ssldir}/cert.pem",
+      'ssl-key' => "#{ssldir}/key.pem",
+      'ssl-ca-cert' => "#{ssldir}/ca.pem"
+    }
   }
 
   conf['classifier'] = {

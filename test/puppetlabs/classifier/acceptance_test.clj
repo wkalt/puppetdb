@@ -24,14 +24,14 @@
 
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  {:webserver {:host "0.0.0.0"
-               :port 1261}
+  {:webserver {:default {:host "0.0.0.0"}
+               :classifier {:port 1261}}
    :classifier {:url-prefix "/classifier"
                 :puppet-master "https://localhost:8140"}})
 
 (defn- origin-url
   [app-config]
-  (let [{{:keys [host port]} :webserver} app-config]
+  (let [{{{host :host} :default, {port :port} :classifier} :webserver} app-config]
     (str "http://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
 
 (defn- base-url
@@ -58,7 +58,7 @@
                            "classifier_test")
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
-        config-with-db (assoc test-config :database test-db)
+        config-with-db (assoc-in test-config [:classifier :database] test-db)
         test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
         test-config-path (.getAbsolutePath test-config-file)
         _ (spit test-config-file (json/encode config-with-db))

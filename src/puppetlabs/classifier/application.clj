@@ -19,7 +19,7 @@
 (def default-sync-period (* 15 60))
 
 (defn- config->db-spec
-  [{:keys [database]}]
+  [{{:keys [database]} :classifier}]
   (merge default-db-spec database))
 
 (defn on-shutdown
@@ -48,17 +48,19 @@
                db-spec (config->db-spec config)
                db (postgres/new-db db-spec)
                api-prefix (get-in config [:classifier :url-prefix] "")
+               webserver-config (get-in config [:webserver :classifier])
                app-config {:db db
                            :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
-                           :ssl-files (select-keys (:webserver config) [:ssl-cert :ssl-key :ssl-ca-cert])
-                           :ssl-context (init-ssl-context (:webserver config))}
+                           :ssl-files (select-keys webserver-config
+                                                   [:ssl-cert :ssl-key :ssl-ca-cert])
+                           :ssl-context (init-ssl-context webserver-config)}
                app (add-url-prefix api-prefix (http/app app-config))
                sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
                job-pool (at-at/mk-pool)]
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
-           (add-ring-handler app api-prefix)
+           (add-ring-handler app api-prefix {:server-id :classifier})
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
                           #(update-classes-and-log-errors! app-config db)
