@@ -113,17 +113,17 @@ Retrieve an explanation of how a node with nodename `name` will be classified by
 
 The body of the request must be a JSON object describing the node's facts.
 This object is allowed to have these keys:
-  * `facts`: this key describes the regular (i.e. non-trusted) facts of the node.
+  * `fact`: this key describes the regular (i.e. non-trusted) facts of the node.
              Its value must be a further object whose keys are fact names, and whose values are the corresponding fact values.
              Structured facts may be included here; structured fact values are further objects or arrays.
   * `trusted`: this optional key describes the trusted facts of the node.
-               Its value has exactly the same format as the `facts` key's value.
+               Its value has exactly the same format as the `fact` key's value.
 The node's name from the request's URL will be merged into this object under the `name` key.
 
 Here is an example of a valid request body:
 
     {
-      "facts": {
+      "fact": {
         "ear-tips": "pointed",
         "eyebrow pitch": "40",
         "hair": "dark",
@@ -176,7 +176,7 @@ Here's an example of a response the endpoint could return in the case of a succe
       "node_as_received": {
         "name": "Tuvok",
         "trusted": {},
-        "facts": {
+        "fact": {
           "ear-tips": "pointed",
           "eyebrow pitch": "30",
           "blood oxygen transporter": "hemocyanin",
@@ -197,25 +197,25 @@ Here's an example of a response the endpoint could return in the case of a succe
           "form": ["and",
                    {
                      "value": true,
-                     "form": [">=", {"path": ["facts", "eyebrow pitch"], "value": "30"}, "25"]
+                     "form": [">=", {"path": ["fact", "eyebrow pitch"], "value": "30"}, "25"]
                    },
                    {
                      "value": true,
-                     "form": ["=", {"path": ["facts", "ear-tips"], "value": "pointed"}, "pointed"]
+                     "form": ["=", {"path": ["fact", "ear-tips"], "value": "pointed"}, "pointed"]
                    },
                    {
                      "value": true,
-                     "form": ["=", {"path": ["facts", "hair"], "value": "dark"}, "dark"]
+                     "form": ["=", {"path": ["fact", "hair"], "value": "dark"}, "dark"]
                    },
                    {
                      "value": true,
-                     "form": [">=", {"path": ["facts", "resting bpm"], "value": "200"}, "100"]
+                     "form": [">=", {"path": ["fact", "resting bpm"], "value": "200"}, "100"]
                    },
                    {
                      "value": true,
                      "form": ["=",
                               {
-                                "path": ["facts", "blood oxygen transporter"],
+                                "path": ["fact", "blood oxygen transporter"],
                                 "value": "hemocyanin"
                               },
                               "hemocyanin"
@@ -229,11 +229,11 @@ Here's an example of a response the endpoint could return in the case of a succe
                          "name": "Vulcans",
                          "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                          "parent": "00000000-0000-4000-8000-000000000000",
-                         "rule": ["and", [">=", ["facts", "eyebrow pitch"], "25"]
-                                         ["=", ["facts", "ear-tips"], "pointed"]
-                                         ["=", ["facts", "hair"], "dark"]
-                                         [">=", ["facts", "resting bpm"], "100"]
-                                         ["=", ["facts", "blood oxygen transporter"], "hemocyanin"]
+                         "rule": ["and", [">=", ["fact", "eyebrow pitch"], "25"]
+                                         ["=", ["fact", "ear-tips"], "pointed"]
+                                         ["=", ["fact", "hair"], "dark"]
+                                         [">=", ["fact", "resting bpm"], "100"]
+                                         ["=", ["fact", "blood oxygen transporter"], "hemocyanin"]
                          ],
                          "environment": "alpha quadrant",
                          "variables": {},
@@ -269,7 +269,7 @@ and here's an example of a response in the case of conflicts:
       "node_as_received": {
         "name": "Spock",
         "trusted": {},
-        "facts": {
+        "fact": {
           "ear-tips": "pointed",
           "eyebrow pitch": "40",
           "blood oxygen transporter": "hemocyanin",
@@ -287,32 +287,32 @@ and here's an example of a response in the case of conflicts:
         },
         "a130f715-c929-448b-82cd-fe21d3f83b58": {
           "value": true,
-          "form": [">=": {"path": ["facts", "spunk"], "value": "10"}, "5"]
+          "form": [">=": {"path": ["fact", "spunk"], "value": "10"}, "5"]
         },
         "8aeeb640-8dca-4b99-9c40-3b75de6579c2": {
           "value": true,
           "form": ["and",
                    {
                      "value": true,
-                     "form": [">=", {"path": ["facts", "eyebrow pitch"], "value": "30"}, "25"]
+                     "form": [">=", {"path": ["fact", "eyebrow pitch"], "value": "30"}, "25"]
                    },
                    {
                      "value": true,
-                     "form": ["=", {"path": ["facts", "ear-tips"], "value": "pointed"}, "pointed"]
+                     "form": ["=", {"path": ["fact", "ear-tips"], "value": "pointed"}, "pointed"]
                    },
                    {
                      "value": true,
-                     "form": ["=", {"path": ["facts", "hair"], "value": "dark"}, "dark"]
+                     "form": ["=", {"path": ["fact", "hair"], "value": "dark"}, "dark"]
                    },
                    {
                      "value": true,
-                     "form": [">=", {"path": ["facts", "resting bpm"], "value": "200"}, "100"]
+                     "form": [">=", {"path": ["fact", "resting bpm"], "value": "200"}, "100"]
                    },
                    {
                      "value": true,
                      "form": ["=",
                               {
-                                "path": ["facts", "blood oxygen transporter"],
+                                "path": ["fact", "blood oxygen transporter"],
                                 "value": "hemocyanin"
                               },
                               "hemocyanin"
@@ -326,7 +326,7 @@ and here's an example of a response in the case of conflicts:
                          "name": "Humans",
                          "id": "a130f715-c929-448b-82cd-fe21d3f83b58",
                          "parent":: "00000000-0000-4000-8000-000000000000",
-                         "rule": [">=", ["facts", "spunk"], "5"],
+                         "rule": [">=", ["fact", "spunk"], "5"],
                          "environment": "alpha quadrant",
                          "variables": {},
                          "classes": {
@@ -338,11 +338,11 @@ and here's an example of a response in the case of conflicts:
                          "name": "Vulcans",
                          "id": "8aeeb640-8dca-4b99-9c40-3b75de6579c2",
                          "parent": "00000000-0000-4000-8000-000000000000",
-                         "rule": ["and", [">=", ["facts", "eyebrow pitch"], "25"]
-                                         ["=", ["facts", "ear-tips"], "pointed"]
-                                         ["=", ["facts", "hair"], "dark"]
-                                         [">=", ["facts", "resting bpm"], "100"]
-                                         ["=", ["facts", "blood oxygen transporter"], "hemocyanin"]
+                         "rule": ["and", [">=", ["fact", "eyebrow pitch"], "25"]
+                                         ["=", ["fact", "ear-tips"], "pointed"]
+                                         ["=", ["fact", "hair"], "dark"]
+                                         [">=", ["fact", "resting bpm"], "100"]
+                                         ["=", ["fact", "blood oxygen transporter"], "hemocyanin"]
                          ],
                          "environment": "alpha quadrant",
                          "variables": {},

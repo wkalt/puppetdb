@@ -35,15 +35,15 @@ Besides the condition markup, the comparison operations of the rule condition wi
 It may be easier to grasp the format of an explained condition through example.
 Let's say that we have a group with this rule:
 
-    ["and", [">=", ["facts", "pressure hulls"], "1"],
-            ["=", ["facts", "warp cores"], "0],
-            [">=", ["facts", "docking ports"], "10"]]
+    ["and", [">=", ["fact", "pressure hulls"], "1"],
+            ["=", ["fact", "warp cores"], "0],
+            [">=", ["fact", "docking ports"], "10"]]
 
 and we have this node:
 
     {
       "name": "Deep Space 9",
-      "facts": {
+      "fact": {
         "pressure hulls": "10",
         "docking ports": "18",
         "docking pylons": "3",
@@ -61,15 +61,15 @@ The value of this entry will be this explained condition object:
         "and",
         {
           "value": true,
-          "form": [">=", {"path": ["facts", "pressure hulls"], "value": "3"}, "1"]
+          "form": [">=", {"path": ["fact", "pressure hulls"], "value": "3"}, "1"]
         },
         {
           "value": true,
-          "form": ["=", {"path": ["facts", "warp cores"], "value": "0"}, "0"]
+          "form": ["=", {"path": ["fact", "warp cores"], "value": "0"}, "0"]
         },
         {
           "value": true,
-          "form": [">" {"path": ["facts", "docking ports"], "value": "18"}, "9"]
+          "form": [">" {"path": ["fact", "docking ports"], "value": "18"}, "9"]
         }
       ]
     }
@@ -95,15 +95,15 @@ Here's an example node object:
                 "and",
                 {
                   "value": true,
-                  "form": [">=", {"path": ["facts", "pressure hulls"], "value": "3"}, "1"]
+                  "form": [">=", {"path": ["fact", "pressure hulls"], "value": "3"}, "1"]
                 },
                 {
                   "value": true,
-                  "form": ["=", {"path": ["facts", "warp cores"], "value": "0"}, "0"]
+                  "form": ["=", {"path": ["fact", "warp cores"], "value": "0"}, "0"]
                 },
                 {
                   "value": true,
-                  "form": [">" {"path": ["facts", "docking ports"], "value": "18"}, "9"]
+                  "form": [">" {"path": ["fact", "docking ports"], "value": "18"}, "9"]
                 }
               ]
             }

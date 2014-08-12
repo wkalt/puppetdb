@@ -57,7 +57,7 @@ Here is an example of group object:
       "description": "This group captures configuration relevant to all web-facing production webservers, regardless of location."
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": ["and", ["~", ["trusted", "certname"], "www"],
-                      [">=", ["facts", "total_ram"], "512"]],
+                      [">=", ["fact", "total_ram"], "512"]],
       "classes": {
         "apache": {
           "serveradmin": "bofh@travaglia.net",
@@ -76,7 +76,7 @@ Here is an example of a group object that refers to some classes and parameters 
       "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "space",
       "parent": "00000000-0000-4000-8000-000000000000",
-      "rule": ["=", ["facts", "is_spaceship"], "true"],
+      "rule": ["=", ["fact", "is_spaceship"], "true"],
       "classes": {
         "payload": {
           "type": "cubesat",
@@ -118,7 +118,7 @@ For the regex operator `"~"`, the value will be interpreted as a Java regular ex
 For the numeric comparison operators (`">"`, `">="`, `"<"`, and `"<="`), the fact value (which is always a string) will be coerced to a number (either integral or floating-point).
 If the value cannot be coerced to a number, then the numeric operation will always evaluate to false.
 
-For the fact path, this can be either a string representing a top level field (the only current meaningful value here would be "name" representing the node name) or a list of strings that represent looking up a field in a nested data structure. Regular facts will all start with "facts" (e.g. `["facts", "architecture"] ` and trusted facts start with "trusted" (e.g. `["trusted", "certname"]`).
+For the fact path, this can be either a string representing a top level field (the only current meaningful value here would be "name" representing the node name) or a list of strings that represent looking up a field in a nested data structure. Regular facts will all start with "fact" (e.g. `["fact", "architecture"] ` and trusted facts start with "trusted" (e.g. `["trusted", "certname"]`).
 
 #### Error Responses
 
