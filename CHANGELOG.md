@@ -1,3 +1,11 @@
+### 0.5.5
+ * Periodically synchronize classes with Puppet starting at service startup, instead of only synchronizing on-demand.
+ * Namespace the database configuration by nesting inside the `classifier` configuration section, rather than putting it at the top level.
+ * Change the `dbname` database configuration key to `subname`, to match what it's called by the JDBC.
+ * Namespace the webserver configuration by the classifier service id.
+ * Fixed a bug where the root group's parent could be changed.
+ * Improve the error message for group creation and edit requests that refer to missing classes or class parameters.
+
 ### 0.5.4
  * Rules now inherit during classification
 
