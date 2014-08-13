@@ -1,4 +1,4 @@
-(ns puppetlabs.classifier.application
+(ns puppetlabs.classifier.main
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
