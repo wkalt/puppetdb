@@ -16,11 +16,8 @@ step "Configure SSL on classifier" do
 
   conf = {}
   conf['webserver'] = {
-    'default' => {
-      'host' => '0.0.0.0',
-      'port' => 8989
-    },
     'classifier' => {
+      'default-server' => true,
       'host' => '0.0.0.0',
       'port' => CLASSIFIER_PORT,
       'ssl-host' => '0.0.0.0',

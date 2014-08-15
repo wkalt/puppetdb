@@ -24,14 +24,14 @@
 
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  {:webserver {:default {:host "0.0.0.0"}
-               :classifier {:port 1261}}
+  {:webserver {:classifier {:host "0.0.0.0"
+                            :port 1261}}
    :classifier {:url-prefix "/classifier"
                 :puppet-master "https://localhost:8140"}})
 
 (defn- origin-url
   [app-config]
-  (let [{{{host :host} :default, {port :port} :classifier} :webserver} app-config]
+  (let [{{{host :host port :port} :classifier} :webserver} app-config]
     (str "http://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
 
 (defn- base-url
