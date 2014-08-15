@@ -1,6 +1,5 @@
 (ns puppetlabs.classifier.storage.postgres-test
   (:require [clojure.java.jdbc :as jdbc]
-            [clojure.set :refer [project]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk]]
             [clj-time.core :as time]
@@ -204,7 +203,7 @@
         g1 {:name "complex-group"
             :id (UUID/randomUUID)
             :environment "test"
-            :environment-trumps false
+            :environment-trumps true
             :parent root-group-uuid
             :rule ["or"
                    ["=" "name" "foo"]
@@ -249,7 +248,7 @@
       (let [g1-delta {:id (:id g1)
                       :name "sally"
                       :environment "tropical"
-                      :environment-trumps true
+                      :environment-trumps false
                       :description "this description is tautological."
                       :rule ["and"
                              ["=" "name" "baz"]

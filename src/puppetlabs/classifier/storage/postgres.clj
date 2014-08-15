@@ -814,7 +814,8 @@
 (defn- update-group-field
   [db map-field row-field extant delta]
   (let [new-value (get delta map-field)]
-    (when (and new-value (not= new-value (get extant map-field)))
+    (when (and (not (nil? new-value))
+               (not= new-value (get extant map-field)))
       (jdbc/update! db, :groups, (hash-map row-field new-value)
                     (sql/where {:id (:id delta)})))))
 
