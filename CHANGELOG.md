@@ -1,3 +1,7 @@
+### 0.5.6
+ * Fix a bug where groups without rules and their descendents could not be viewed as-inherited.
+ * Fix a bug where the `environment_trumps` flag could not be changed from false to true.
+
 ### 0.5.5
  * Periodically synchronize classes with Puppet starting at service startup, instead of only synchronizing on-demand.
  * Namespace the database configuration by nesting inside the `classifier` configuration section, rather than putting it at the top level.
