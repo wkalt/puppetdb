@@ -23,7 +23,7 @@
   "Given a sequence of groups starting at the group whose inherited rule you
   want and ending at the root, return the full inherited rule condition."
   [groups :- [Group]]
-  (concat ["and"] (map :rule groups)))
+  (concat ["and"] (keep :rule groups)))
 
 (sc/defn collapse-to-inherited :- Classification
   "Given a group classification and the chain of its ancestors' classifications,

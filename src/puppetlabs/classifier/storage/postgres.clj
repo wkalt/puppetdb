@@ -564,7 +564,9 @@
           chain (concat [group] ancs)
           inherited (class8n/collapse-to-inherited (map group->classification chain))
           inherited-rule (class8n/inherited-rule chain)]
-      (assoc (merge group inherited) :rule inherited-rule))))
+      (if (contains? group :rule)
+        (assoc (merge group inherited) :rule inherited-rule)
+        (dissoc (merge group inherited) :rule)))))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [db, group-id :- java.util.UUID]
