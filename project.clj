@@ -41,7 +41,7 @@
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.6.0"]]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.7.0"]]
                    :injections [(require 'spyscope.core)]}}
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
