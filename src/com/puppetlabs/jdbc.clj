@@ -147,6 +147,7 @@
   Note that if no paging options are specified, the original SQL will be
   returned completely unmodified."
   ([sql {:keys [limit offset order-by]}]
+   (println sql)
    (paged-sql sql {:limit limit :offset offset :order-by order-by} nil))
   ([sql {:keys [limit offset order-by]} entity]
   {:pre [(string? sql)

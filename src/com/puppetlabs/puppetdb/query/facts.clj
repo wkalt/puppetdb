@@ -105,7 +105,8 @@
   {:pre [((some-fn nil? sequential?) query) ]
    :post [(map? %)
           (string? (first (:results-query %)))
-          (every? (complement coll?) (rest (:results-query %)))]}
+         ; (every? (complement coll?) (rest (:results-query %)))
+          ]}
   (let [augmented-paging-options (f/augment-paging-options paging-options :facts)
         columns (if (contains? #{:v2 :v3} version)
                   (map keyword (keys (dissoc query/fact-columns "environment")))
@@ -115,6 +116,7 @@
       (:v2 :v3)
       (let [operators (query/fact-operators version)
             [sql & params] (facts-sql operators query)]
+            (println "SQL IS" sql)
         (conj {:results-query (apply vector (jdbc/paged-sql sql augmented-paging-options :facts) params)}
               (when (:count? augmented-paging-options)
                 [:count-query (apply vector (jdbc/count-sql :facts sql) params)])))

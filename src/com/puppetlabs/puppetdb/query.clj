@@ -153,6 +153,7 @@
   [op ops & terms]
   {:pre  [(every? coll? terms)]
    :post [(string? (:where %))]}
+  (println "OP OPS TERMS" op ops terms)
   (when (empty? terms)
     (throw (IllegalArgumentException. (str op " requires at least one term"))))
   (let [compiled-terms (map #(compile-term ops %) terms)
@@ -410,6 +411,7 @@
                         ORDER BY name, fs.certname)
                       AS facts
                       WHERE %s" (column-map->sql fact-columns) where)]
+    (println "SQL IS" sql "PARAMS ARE" params)
     (apply vector sql params)))
 
 (defn node-query->sql
@@ -581,6 +583,9 @@
            :else (throw (IllegalArgumentException.
                          (format "'%s' cannot be the target of a regexp match for version %s of the resources API" path (last (name version))))))))
 
+(declare compile-fact-equality)
+(declare aggregate-vector-args)
+
 (defn compile-fact-equality
   "Compile an = predicate for a fact query. `path` represents the field to
   query against, and `value` is the value."
@@ -588,7 +593,15 @@
   (fn [path value]
     {:post [(map? %)
             (:where %)]}
+    (println path value)
     (match [path]
+           [["node" "active"]]
+           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)"
+                           (if value "NULL" "NOT NULL"))}
+
+           [[p & ps]]
+           (aggregate-vector-args (cons p ps) value version)
+
            ["name"]
            {:where "facts.name = ?"
             :params [value]}
@@ -605,14 +618,20 @@
            {:where "facts.environment = ?"
             :params [value]}
 
-           [["node" "active"]]
-           {:where (format "facts.certname IN (SELECT name FROM certnames WHERE deactivated IS %s)"
-                           (if value "NULL" "NOT NULL"))}
 
            :else
            (throw (IllegalArgumentException.
                     (format "%s is not a queryable object for version %s of the facts query api"
                             path (last (name version))))))))
+
+(defn aggregate-vector-args
+  [[p & ps] [v & vs] version]
+  (println "PATH AND PATHS ARE" p ps)
+  (if (nil? ps) ((compile-fact-equality version) p v)
+  (let [head-result ((compile-fact-equality version) p v)
+        tail-result (aggregate-vector-args ps vs version)]
+      {:where (string/join " AND " (map :where [head-result tail-result]))
+       :params (map first (map :params [head-result tail-result]))})))
 
 (defn compile-fact-regexp
   "Compile an '~' predicate for a fact query, which does regexp matching.  This

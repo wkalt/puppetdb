@@ -423,6 +423,10 @@
             (if (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
 
+            [["=" [& paths] [& values]]]
+            (if (= :facts (get-in (meta node) [:query-context :entity]))
+            (into [] (cons "and" (map #(vector "=" %1 %2) paths values))))
+
             [["=" ["node" "active"] value]]
             ["in" "certname"
              ["extract" "certname"
