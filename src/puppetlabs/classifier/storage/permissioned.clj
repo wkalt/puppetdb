@@ -3,12 +3,14 @@
             [clojure.walk :refer [prewalk]]
             [fast-zip.visit :as zv]
             [schema.core :as sc]
-            [slingshot.slingshot :refer [throw+]]
+            [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification hierarchy-zipper
                                                   tree->groups]]
-            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid OptimizedStorage
+                                                               PrimitiveStorage]]
+            [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.util :refer [map-delta merge-and-clean]]))
 
 (defprotocol PermissionedStorage
@@ -159,7 +161,7 @@
       (throw+ (permission-exception :group-edit-classification? token id)))))
 
 (sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
-  [storage :- (sc/protocol Storage), permissions :- Permissions]
+  [storage :- (sc/protocol PrimitiveStorage), permissions :- Permissions]
   (let [{:keys [classifier-access?
                 group-modify-children?
                 group-edit-classification?
@@ -172,7 +174,13 @@
                                   (fn [this token & args]
                                     (if (classifier-access? token)
                                       (apply f storage args)
-                                      (throw+ (permission-exception :classifier-access? token)))))]
+                                      (throw+ (permission-exception :classifier-access? token)))))
+        get-ancestors (if (satisfies? OptimizedStorage storage)
+                        storage/get-ancestors
+                        naive/get-ancestors)
+        group-validation-failures (if (satisfies? OptimizedStorage storage)
+                                    storage/group-validation-failures
+                                    naive/group-validation-failures)]
 
     (reify PermissionedStorage
       ;;
@@ -183,24 +191,24 @@
       ;;
 
       (group-validation-failures [this token {:keys [id parent] :as group}]
-        (let [ancs (storage/get-ancestors storage group)]
+        (let [ancs (get-ancestors storage group)]
           (if-let [group (storage/get-group storage id)]
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
-              (storage/group-validation-failures storage group))
+              (group-validation-failures storage group))
             ;; else (group doesn't exist)
             (if-not (group-modify-children? token parent (rest ancs))
               (throw+ (permission-exception :group-modify-children? token parent))
-              (storage/group-validation-failures storage group)))))
+              (group-validation-failures storage group)))))
 
       (create-group [this token {id :id, parent-id :parent, :as group}]
-        (let [ancs (storage/get-ancestors storage group)
+        (let [ancs (get-ancestors storage group)
               actions (permitted-group-actions token id ancs)
               parent-actions (permitted-group-actions token parent-id (rest ancs))
               parent (storage/get-group storage parent-id)]
           (when-not (contains? parent-actions :modify-children)
             (throw+ (permission-exception :group-modify-children? token parent-id)))
-          (when-let [vtree (storage/group-validation-failures storage group)]
+          (when-let [vtree (group-validation-failures storage group)]
             (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                      :tree vtree
                      :ancestors ancs}))
@@ -215,14 +223,14 @@
 
       (get-group [this token id]
         (let [group (storage/get-group storage id)
-              ancs (storage/get-ancestors storage group)]
+              ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
             group)))
 
       (get-group-as-inherited [this token id]
         (let [group (storage/get-group storage id)
-              ancs (storage/get-ancestors storage group)]
+              ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
             (let [viewable-ids (viewable-group-ids token)
@@ -242,12 +250,12 @@
 
       (get-ancestors [this token group]
         (let [viewable-ids (viewable-group-ids token)
-              ancs (storage/get-ancestors storage group)
+              ancs (get-ancestors storage group)
               [_ vis] (split-ancestors-by-viewability ancs viewable-ids)]
           vis))
 
       (get-subtree [this token {id :id :as group}]
-        (let [ancs (storage/get-ancestors storage group)]
+        (let [ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
             (storage/get-subtree storage group))))
@@ -256,21 +264,24 @@
         (let [group (storage/get-group storage id)
               group' (merge-and-clean group delta)
               only-changes (map-delta group group')
-              ancs' (storage/get-ancestors storage group')
+              ancs' (get-ancestors storage group')
               ancs (if (contains? only-changes :parent)
-                     (storage/get-ancestors storage group)
+                     (get-ancestors storage group)
                      ancs')]
           (check-update-permissions
             only-changes token id (:parent group') (:parent group) ancs' ancs permissions)
-          (when-let [vtree (storage/delta-validation-failures storage delta group)]
-            (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
-                     :tree vtree
-                     :ancestors (scrub-invisible-ancestors ancs (viewable-group-ids token))}))
-          (storage/update-group storage delta)))
+          (try+
+            (storage/update-group storage delta)
+            (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
+              {:keys [tree ancestors]}
+              (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
+                       :tree tree
+                       :ancestors (scrub-invisible-ancestors ancestors
+                                                             (viewable-group-ids token))})))))
 
       (delete-group [this token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
-          (let [ancs (storage/get-ancestors storage group)]
+          (let [ancs (get-ancestors storage group)]
             (if (group-modify-children? token parent (rest ancs))
               (storage/delete-group storage id)
               (throw+ (permission-exception :group-modify-children? token parent))))))

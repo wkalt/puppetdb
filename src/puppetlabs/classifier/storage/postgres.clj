@@ -15,7 +15,9 @@
                                                   GroupDelta group->classification groups->tree
                                                   HierarchyNode Node PuppetClass Rule
                                                   ValidationNode]]
-            [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid OptimizedStorage
+                                                               PrimitiveStorage]]
+            [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
             [puppetlabs.classifier.util :refer [dissoc-nil map-delta merge-and-clean
@@ -547,34 +549,6 @@
   [this, group :- Group]
   (get-group* this (:parent group)))
 
-(sc/defn ^:always-validate get-ancestors* :- [Group]
-  [this group :- Group]
-  (loop [current (get-parent this group), ancestors []]
-    (cond
-      ;; if current is = to last parent, it is its own parent, so it's the root
-      (= current (last ancestors))
-      ancestors
-
-      ;; if current is somewhere else in ancestors, we have as cycle
-      (some #(= (:id current) (:id %)) ancestors)
-      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-               :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
-
-      :else
-      (recur (get-parent this current) (conj ancestors current)))))
-
-(sc/defn ^:always-validate get-group-as-inherited* :- (sc/maybe Group)
-  [{db :db, :as this}, id :- (sc/either String UUID)]
-  {:pre [(uuid? id)]}
-  (if-let [group (get-group* this id)]
-    (let [ancs (get-ancestors* this group)
-          chain (concat [group] ancs)
-          inherited (class8n/collapse-to-inherited (map group->classification chain))
-          inherited-rule (class8n/inherited-rule chain)]
-      (if (contains? group :rule)
-        (assoc (merge group inherited) :rule inherited-rule)
-        (dissoc (merge group inherited) :rule)))))
-
 (sc/defn ^:always-validate get-immediate-children :- [Group]
   [{db :db}, group-id :- java.util.UUID]
   (->> (query db (select-group-children group-id))
@@ -645,7 +619,7 @@
   (let [parent (get-parent this group)
         _ (when (nil? parent)
             (throw+ {:kind ::missing-parent, :group group}))
-        ancestors (get-ancestors* this group)]
+        ancestors (storage/get-ancestors this group)]
     (validate-hierarchy-structure* group ancestors)
     (let [subtree (get-subtree* this group)
           classes (get-all-classes* this)]
@@ -842,14 +816,14 @@
   the delta passes all validation, then nil will be returned."
   [this, delta :- GroupDelta, extant :- Group]
   (let [group' (merge-and-clean extant delta)
-        ancestors' (get-ancestors* this group')
+        ancestors' (storage/get-ancestors this group')
         _ (validate-hierarchy-structure* group' ancestors')
         subtree' (get-subtree* this group')
         classes (get-all-classes* this)]
     (if-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
-                        (get-ancestors* this extant))
+                        (storage/get-ancestors this extant))
             subtree (assoc subtree' :group extant)
             vtree (validate-classes-and-parameters subtree ancestors classes)
             vtree-diff (if (nil? vtree)
@@ -863,7 +837,7 @@
   (when-let [vtree (delta-validation-failures* this delta extant)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* this (merge-and-clean extant delta))})))
+             :ancestors (storage/get-ancestors this (merge-and-clean extant delta))})))
 
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
   [{db :db}, delta :- GroupDelta]
@@ -930,7 +904,7 @@
 (defn- import-tree
   [this {:keys [group children] :as node}]
   (let [only-group (assoc node :children #{})
-        ancestor-class8ns (map group->classification (get-ancestors* this group))
+        ancestor-class8ns (map group->classification (storage/get-ancestors this group))
         classes (get-all-classes* this)]
     (when-let [{missing-referents :errors} (validate-classes-and-parameters
                                              only-group ancestor-class8ns classes)]
@@ -964,21 +938,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (extend Postgres
-  Storage
 
+  PrimitiveStorage
   {:store-check-in store-check-in*
    :get-check-ins get-check-ins*
    :get-nodes get-nodes*
 
-   :group-validation-failures group-validation-failures*
    :create-group create-group*
    :get-group get-group*
-   :get-group-as-inherited get-group-as-inherited*
    :get-groups get-groups*
-   :annotate-group annotate-group*
-   :get-ancestors get-ancestors*
    :get-subtree get-subtree*
-   :delta-validation-failures delta-validation-failures*
    :update-group update-group*
    :delete-group delete-group*
 
@@ -987,7 +956,6 @@
    :create-class create-class*
    :get-class get-class*
    :get-classes get-classes*
-   :get-all-classes get-all-classes*
    :synchronize-classes synchronize-classes*
    :get-last-sync get-last-sync*
    :delete-class delete-class*
@@ -997,4 +965,11 @@
    :create-environment create-environment*
    :get-environment get-environment*
    :get-environments get-environments*
-   :delete-environment delete-environment*})
+   :delete-environment delete-environment*}
+
+  OptimizedStorage
+  {:get-ancestors naive/get-ancestors
+   :annotate-group annotate-group*
+   :group-validation-failures group-validation-failures*
+
+   :get-all-classes get-all-classes*})

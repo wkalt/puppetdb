@@ -8,7 +8,7 @@
             [puppetlabs.classifier.classification :refer [collapse-to-inherited]]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.storage :refer [root-group-uuid Storage] :as storage]
+            [puppetlabs.classifier.storage :refer [root-group-uuid PrimitiveStorage] :as storage]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
             [puppetlabs.classifier.storage.permissioned :refer :all]
             [puppetlabs.classifier.test-util :refer [blank-group blank-group-named vec->tree]]
@@ -42,10 +42,10 @@
   "Given both a map of the permissions by rbac token, permission name, and then (if
   the permission is for a particular group) by group id that map to a boolean
   value indicating whether the permission is granted with, and also an instance
-  of Storage, return an instance of PermissionedStorage that wraps the Storage
-  instance and enforces the given permissions"
+  of PrimitiveStorage, return an instance of PermissionedStorage that wraps the
+  PrimitiveStorage instance and enforces the given permissions"
   [permissions-by-token storage]
-  {:pre [(satisfies? Storage storage)]}
+  {:pre [(satisfies? PrimitiveStorage storage)]}
   (let [token-perm-fn (fn [perm] (fn [t] (get-in permissions-by-token [t perm])))
         group-perm-fn (group-perm-fn-for-map permissions-by-token)
         permission-fns (merge (into {} (map (juxt identity token-perm-fn)
