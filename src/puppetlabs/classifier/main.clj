@@ -7,6 +7,7 @@
             [puppetlabs.certificate-authority.core :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [service-context]]
+            [puppetlabs.classifier.application.default :refer [default-application]]
             [puppetlabs.classifier.class-updater :refer [update-classes-and-log-errors!]]
             [puppetlabs.classifier.http :as http]
             [puppetlabs.classifier.storage.postgres :as postgres]))
@@ -55,12 +56,13 @@
                            :ssl-files (select-keys webserver-config
                                                    [:ssl-cert :ssl-key :ssl-ca-cert])
                            :ssl-context (init-ssl-context webserver-config)}
-               app (add-url-prefix api-prefix (http/app app-config))
+               app (default-application app-config)
+               handler (add-url-prefix api-prefix (http/api-handler app))
                sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
                job-pool (at-at/mk-pool)]
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
-           (add-ring-handler app api-prefix {:server-id :classifier})
+           (add-ring-handler handler api-prefix {:server-id :classifier})
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
                           #(update-classes-and-log-errors! app-config db)
