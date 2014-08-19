@@ -29,9 +29,25 @@ step "Configure the classifier's conf file" do
     'database' => {
       'subname' => "//#{postgres_host}:5432/pe-classifier",
       'user' => 'pe-classifier',
-      'password' => 'classifier'
+      'password' => 'pe-classifier'
     }
   }
+
+  conf['rbac-database'] = {
+    'subprotocol' => 'postgresql',
+    'subname' => "//#{postgres_host}:5432/rbac",
+    'user' => 'rbac',
+    'password' => 'rbac'
+  }
+
+  conf['activity'] = {
+    'database' => {
+      'subname' => "//#{postgres_host}:5432/activity",
+      'user' => 'activity',
+      'password' => 'activity'
+    }
+  }
+
   set_classifier_configuration(classifier, conf)
 
   on(classifier, "usermod -G pe-puppet pe-classifier")

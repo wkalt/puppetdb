@@ -7,4 +7,15 @@ step "install and configure postgres on the classifier node" do
   else
     install_postgres(classifier)
   end
+
+  create_databases_on(classifier,
+                      [{:database => "pe-classifier",
+                        :user => "pe-classifier",
+                        :password => "pe-classifier"},
+                       {:database => "rbac",
+                        :user => "rbac",
+                        :password => "rbac"},
+                       {:database => "activity",
+                        :user => "activity",
+                        :password => "activity"}])
 end

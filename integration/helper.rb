@@ -354,16 +354,26 @@ module ClassifierExtensions
       ip_mask_allow_all_users => '0.0.0.0/0',
       require                => Class['::postgresql::globals'],
     }
-
-    # create the classifier database
-    postgresql::server::db{ "pe-classifier":
-      user      => 'pe-classifier',
-      password  => 'classifier',
-    }
     EOS
 
     apply_manifest_on(host, manifest)
     on host, 'puppet agent -t', :acceptable_exit_codes => [0,2]
+  end
+
+  def create_databases_on(host, db_specs)
+    manifest = <<-EOS
+    class { '::postgresql::server': }
+    EOS
+    db_specs.each do |spec|
+      manifest << <<-EOS % spec
+      postgresql::server::db{ "%{database}":
+        user      => '%{user}',
+        password  => '%{password}',
+        require => Class['::postgresql::server']
+      }
+      EOS
+    end
+    apply_manifest_on(host, manifest)
   end
 
   def install_postgres(host)
