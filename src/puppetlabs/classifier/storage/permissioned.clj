@@ -4,6 +4,8 @@
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
+            [puppetlabs.kitchensink.core :refer [mapvals]]
+            [puppetlabs.classifier.application.default :refer [matching-groups-and-ancestors]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification hierarchy-zipper
@@ -12,6 +14,8 @@
                                                                PrimitiveStorage]]
             [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.util :refer [map-delta merge-and-clean]]))
+
+(def redacted-str "puppetlabs.classifier/redacted")
 
 (defprotocol PermissionedStorage
   "This \"wraps\" the Storage protocol with permissions. It has all the same
@@ -23,7 +27,9 @@
   (get-check-ins [this token node-name] "Retrieve all check-ins for a node by name.")
   (get-nodes [this token] "Retrieve check-ins for all nodes.")
 
-  (group-validation-failures [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, scrubbing inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
+  (explain-classification [this token node])
+
+  (group-validation-failures [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, redacting inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
   (create-group [this token group] "Creates a new group if permitted.")
   (get-group [this token id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID if permitted.")
   (get-group-as-inherited [this token id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID. Values inherited from groups that the subject is not permitted to view will be replaced with `puppetlabs.classifier/redacted`.")
@@ -105,19 +111,46 @@
     (split-with #(not (viewable-ids (:id %))))
     (map reverse)))
 
-(defn- scrub-inheritable-values
+(defn- redact-inheritable-values
   [{:keys [classes variables] :as group}]
   (assoc group
          :classes (into {} (for [[class-kw params] classes]
                              [class-kw (into {} (for [[param _] params]
-                                                  [param "puppetlabs.classifier/redacted"]))]))
+                                                  [param redacted-str]))]))
          :variables (into {} (for [[variable _] variables]
-                               [variable "puppetlabs.classifier/redacted"]))))
+                               [variable redacted-str]))))
 
-(defn- scrub-invisible-ancestors
+(defn- redact-invisible-ancestors
   [ancestors viewable-group-ids]
   (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-group-ids)]
-    (concat vis (map scrub-inheritable-values invis))))
+    (concat vis (map redact-inheritable-values invis))))
+
+(defn- redact-group
+  [group]
+  (merge group
+         (redact-inheritable-values group)
+         {:name redacted-str
+          :environment redacted-str
+          :description redacted-str}))
+
+(defn- redact-group-if-needed
+  [group id-viewable?]
+  (if (id-viewable? (:id group))
+    group
+    (redact-group group)))
+
+(defn- redact-tagged-conflict-val-if-needed
+  [{:keys [defined-by from value] :as tagged-val} id-viewable?]
+  {:value (if (id-viewable? (:id defined-by)) value redacted-str)
+   :defined-by (redact-group-if-needed defined-by id-viewable?)
+   :from (redact-group-if-needed from id-viewable?)})
+
+(defn- inherited-with-redaction
+  [groups viewable-group-ids]
+  (->> (redact-invisible-ancestors groups viewable-group-ids)
+    (map group->classification)
+    class8n/collapse-to-inherited
+    (merge (first groups))))
 
 (defn- viewable-subtrees
   [root-node viewable-ids]
@@ -183,11 +216,13 @@
                                     naive/group-validation-failures)]
 
     (reify PermissionedStorage
+
       ;;
       ;; Group Storage methods
       ;;
-      ;; The group methods are the only interesting ones; the rest just depend
-      ;; on whether the token's subject has classifier access at all.
+      ;; The group methods & explain-classification are the only interesting
+      ;; ones; the rest just depend on whether the token's subject has
+      ;; classifier access at all.
       ;;
 
       (group-validation-failures [this token {:keys [id parent] :as group}]
@@ -233,12 +268,8 @@
               ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
-            (let [viewable-ids (viewable-group-ids token)
-                  [invis vis] (split-ancestors-by-viewability ancs viewable-ids)
-                  scrubbed (map scrub-inheritable-values invis)
-                  class8ns (map group->classification (concat [group] vis scrubbed))
-                  inherited (class8n/collapse-to-inherited class8ns)]
-              (merge group inherited)))))
+            (let [viewable-ids (viewable-group-ids token)]
+              (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
 
       (get-groups [this token]
         (let [viewable-ids (viewable-group-ids token)
@@ -276,8 +307,8 @@
               {:keys [tree ancestors]}
               (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                        :tree tree
-                       :ancestors (scrub-invisible-ancestors ancestors
-                                                             (viewable-group-ids token))})))))
+                       :ancestors (redact-invisible-ancestors ancestors
+                                                              (viewable-group-ids token))})))))
 
       (delete-group [this token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
@@ -285,6 +316,67 @@
             (if (group-modify-children? token parent (rest ancs))
               (storage/delete-group storage id)
               (throw+ (permission-exception :group-modify-children? token parent))))))
+
+      ;;
+      ;; Classification Explanation Scrubbing
+      ;;
+
+      (explain-classification [_ token node]
+        (let [viewable-ids (viewable-group-ids token)
+              matching-group->ancestors (matching-groups-and-ancestors storage node)
+              class8n-info (class8n/classification-steps node matching-group->ancestors)
+              {:keys [conflicts classification id->leaf leaf-id->classification]} class8n-info
+              id->ancestor-ids (fn [id]
+                                 (->> (matching-group->ancestors (id->leaf id))
+                                   (map :id)))
+              id->redacted-leaf (mapvals (fn [{:keys [id] :as g}]
+                                           (let [ids (-> (id->ancestor-ids id)
+                                                       (conj id), set)]
+                                             (if (empty? (filter viewable-ids ids))
+                                               (redact-group g)
+                                               g)))
+                                         id->leaf)
+              redacted-class8n (fn [id]
+                                 (let [leaf (id->leaf id)
+                                       ancs (matching-group->ancestors leaf)
+                                       groups (concat [leaf] ancs)]
+                                   (-> (inherited-with-redaction groups viewable-ids)
+                                     group->classification)))
+              leaf-id->redacted-class8n (let [ids (keys id->leaf)]
+                                          (zipmap ids (map redacted-class8n ids)))
+              redacted-conflict-val (fn [{:keys [value from defined-by] :as tagged-val}]
+                                      (if (viewable-ids (:id defined-by))
+                                        tagged-val
+                                        (assoc tagged-val :value redacted-str)))
+              explained-conflicts (if conflicts
+                                    (let [l->as (into {} (for [[g as] matching-group->ancestors
+                                                               :when (contains? id->leaf (:id g))]
+                                                           [g as]))]
+                                      (class8n/explain-conflicts conflicts l->as)))
+              redact-tagged-conflict-val #(redact-tagged-conflict-val-if-needed % viewable-ids)
+              r-cs (merge (if-let [conflict-deets (:environment explained-conflicts)]
+                            {:environment (set (map redact-tagged-conflict-val conflict-deets))})
+                          (if-let [vars (:variables explained-conflicts)]
+                            {:variables
+                             (into {} (for [[vr conflict-deets] vars]
+                                        [vr (set (map redact-tagged-conflict-val
+                                                      conflict-deets))]))})
+                          (if-let [classes (:classes explained-conflicts)]
+                            {:classes
+                             (into {}
+                                   (for [[c params] classes]
+                                     [c (into {} (for [[p conflict-deets] params]
+                                                   [p (set (map redact-tagged-conflict-val
+                                                                conflict-deets))]))]))}))
+              partial-resp {:node-as-received node
+                            :match-explanations (:match-explanations class8n-info)
+                            :leaf-groups id->redacted-leaf
+                            :inherited-classifications leaf-id->redacted-class8n}]
+          (if (seq conflicts)
+            (assoc partial-resp :conflicts r-cs)
+            (assoc partial-resp
+                   :final-classification (class8n/merge-classifications
+                                           (vals leaf-id->redacted-class8n))))))
 
       ;;
       ;; Non-Group Storage methods

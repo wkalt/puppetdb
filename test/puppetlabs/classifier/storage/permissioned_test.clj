@@ -1,17 +1,19 @@
 (ns puppetlabs.classifier.storage.permissioned-test
   (:require [clojure.set :refer [union]]
             [clojure.test :refer :all]
+            [clojure.walk :refer [prewalk postwalk]]
             [clj-time.core :as time]
             schema.test
             [slingshot.test]
-            [puppetlabs.kitchensink.core :refer [mapvals]]
+            [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
             [puppetlabs.classifier.classification :refer [collapse-to-inherited]]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification]]
             [puppetlabs.classifier.storage :refer [root-group-uuid PrimitiveStorage] :as storage]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
-            [puppetlabs.classifier.storage.permissioned :refer :all]
-            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named vec->tree]]
+            [puppetlabs.classifier.storage.permissioned :as perm :refer :all]
+            [puppetlabs.classifier.test-util :refer [blank-group blank-group-named extract-classes
+                                                     vec->tree]]
             [puppetlabs.classifier.util :refer [merge-and-clean]])
   (:import java.util.UUID))
 
@@ -40,7 +42,7 @@
 
 (defn- storage-with-mapped-permissions
   "Given both a map of the permissions by rbac token, permission name, and then (if
-  the permission is for a particular group) by group id that map to a boolean
+  the permission is for a particular group) by group id that maps to a boolean
   value indicating whether the permission is granted with, and also an instance
   of PrimitiveStorage, return an instance of PermissionedStorage that wraps the
   PrimitiveStorage instance and enforces the given permissions"
@@ -470,3 +472,122 @@
                (update-group perm-store :operator-owen spurious-parent-delta)))
         (is (= (merge child spurious-rule-delta)
                (update-group perm-store :operator-owen spurious-rule-delta)))))))
+
+(deftest explanation-scrubbing
+  (let [node {:name "test-node", :fact {}, :trusted {}}
+        root (assoc (blank-group-named "default")
+                    :id root-group-uuid
+                    :rule ["~" "name" ".*"])
+        invis-gp (assoc (blank-group-named "elusive septuagenarian")
+                        :parent root-group-uuid
+                        :variables {:ancient-wisdom "ineffable"}
+                        :classes {:the-bomb {:activation-code "00000"}}
+                        :rule ["=" "name" "test-node"])
+        vis-parent (assoc (blank-group-named "helicopter dad")
+                          :parent (:id invis-gp)
+                          :variables {:jokes "bad"}
+                          :classes {:wardrobe {:decade "nineties"}}
+                          :rule ["=" "name" "test-node"])
+        vis-child (assoc (blank-group-named "wrathful toddler")
+                         :parent (:id vis-parent)
+                         :variables {:volume 95}
+                         :classes {:waste-disposal {:method "diapers"}}
+                         :rule ["=" "name" "test-node"])
+        invis-leaf (assoc (blank-group-named "spook country")
+                          :parent root-group-uuid
+                          :variables {:courts "we can't even tell ya"}
+                          :classes {:surveillance {:things :all}}
+                          :rule ["=" "name" "test-node"])
+        groups [root invis-gp vis-parent vis-child invis-leaf]
+        ids (map :id groups)
+        all-groups-denied (zipmap ids (repeat false))
+        permissions {:operator-owen
+                     {:classifier-access? true
+                      :group-edit-classification? all-groups-denied
+                      :group-edit-environment? all-groups-denied
+                      :group-edit-child-rules? all-groups-denied
+                      :group-modify-children? all-groups-denied
+                      :permitted-group-actions {(:id root) #{}
+                                                (:id invis-gp) #{}
+                                                (:id vis-parent) #{:view}
+                                                (:id vis-child) #{:view}
+                                                (:id invis-leaf) #{}}
+                      :group-view {(:id root) false
+                                   (:id invis-gp) false
+                                   (:id vis-parent) true
+                                   (:id vis-child) true
+                                   (:id invis-leaf) false}
+                      :viewable-group-ids #{(:id vis-parent) (:id vis-child)}}}
+        perm-store-w-groups #(storage-with-mapped-permissions
+                               permissions
+                               (in-memory-storage {:groups % :classes (extract-classes %)}))]
+
+    (let [perm-store (perm-store-w-groups groups)
+          exp (explain-classification perm-store :operator-owen node)
+          {:keys [leaf-groups inherited-classifications final-classification]} exp]
+
+      (testing "leaf groups token can't see are redacted"
+        (is (= {:name redacted-str
+                :environment redacted-str
+                :classes {:surveillance {:things redacted-str}}
+                :variables {:courts redacted-str}}
+               (-> (get leaf-groups (:id invis-leaf))
+                 (select-keys [:name :environment :classes :variables])))))
+
+      (testing "values in leaf classifications inherited from invisible groups are redacted"
+        (is (= {:environment (:environment vis-child)
+                :environment-trumps false
+                :classes {:the-bomb {:activation-code redacted-str}
+                          :wardrobe {:decade "nineties"}
+                          :waste-disposal {:method "diapers"}}
+                :variables {:ancient-wisdom redacted-str
+                            :jokes "bad"
+                            :volume 95}}
+               (get inherited-classifications (:id vis-child)))))
+
+      (testing "values in final classification inherited from invisible groups are redacted"
+        (is (= {:environment (:environment vis-child)
+                :classes {:the-bomb {:activation-code redacted-str}
+                          :wardrobe {:decade "nineties"}
+                          :waste-disposal {:method "diapers"}
+                          :surveillance {:things redacted-str}}
+                :variables {:ancient-wisdom redacted-str
+                            :jokes "bad"
+                            :volume 95
+                            :courts redacted-str}}
+               final-classification))))
+
+    (let [conflictor (assoc invis-leaf
+                            :classes {:the-bomb {:activation-code "99999"}
+                                      :wardrobe {:decade "sixties"}}
+                            :variables {:volume 10
+                                        :jokes "chuckle-worthy"})
+          groups' [root invis-gp vis-parent vis-child conflictor]
+          perm-store (perm-store-w-groups groups')
+          {:keys [conflicts]} (explain-classification perm-store :operator-owen node)]
+
+      (testing "conflicting values defined by invisible groups are redacted"
+        (is (= {:classes
+                {:the-bomb {:activation-code
+                            #{{:value redacted-str
+                               :from (#'perm/redact-group conflictor)
+                               :defined-by (#'perm/redact-group conflictor)}
+                              {:value redacted-str
+                               :from vis-child
+                               :defined-by (#'perm/redact-group invis-gp)}}}
+                 :wardrobe {:decade
+                            #{{:value redacted-str
+                               :from (#'perm/redact-group conflictor)
+                               :defined-by (#'perm/redact-group conflictor)}
+                              {:value "nineties", :from vis-child, :defined-by vis-parent}}}}
+                :variables {:jokes
+                            #{{:value redacted-str
+                               :from (#'perm/redact-group conflictor)
+                               :defined-by (#'perm/redact-group conflictor)}
+                              {:value "bad", :from vis-child, :defined-by vis-parent}}
+                            :volume
+                            #{{:value redacted-str
+                               :from (#'perm/redact-group conflictor)
+                               :defined-by (#'perm/redact-group conflictor)}
+                              {:value 95, :from vis-child, :defined-by vis-child}}}}
+               conflicts))))))
