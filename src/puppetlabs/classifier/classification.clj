@@ -159,12 +159,11 @@
   classification process:
     * :match-explanations - a map from a group id to an explanation of why its
                             rule matched the node.
-    * :leaves-by-id - a map between the id and group of the classification
-                      leaves (that is, those matched groups that are not the
-                      ancestors of any of the other matched groups).
-    * :inherited-leaf-classifications - a map from each leaf's id to the
-                                        classification it provides, including
-                                        inherited values.
+    * :id->leaf - a map between the id and group of the classification leaves
+                  (that is, those matched groups that are not the ancestors of
+                  any of the other matched groups).
+    * leaf-id->classification - a map from each leaf's id to the classification
+                                it provides, including inherited values.
     * :conflicts - the conflicts between the leaf classifications. If there are
                    no conflicts, this value is nil.
     * :classification - if there are no conflicts, this is the result of
