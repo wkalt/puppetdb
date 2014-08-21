@@ -1,17 +1,6 @@
-require 'httparty'
-
 test_name "classifier gets class definition from puppet"
 
 stop_classifier(classifier)
-
-class Classifier
-  include HTTParty
-  debug_output $stdout
-  headers({'Content-Type' => 'application/json'})
-end
-
-Classifier.base_uri "#{classifier.reachable_name}:#{CLASSIFIER_PORT}"
-
 
 step "Create a manifest"
 
@@ -63,9 +52,8 @@ step "Configure and restart the classifier"
 
 ClassifierSyncPeriod = 20
 SyncDurationUpperBound = 15
-conf = get_classifier_configuration(classifier)
-conf['classifier']['synchronization-period'] = ClassifierSyncPeriod
-set_classifier_configuration(classifier, conf)
+conf = {'classifier' => {'synchronization-period' => ClassifierSyncPeriod}}
+write_conf_file(classifier, "sync.conf", conf)
 
 with_puppet_running_on(master, master_opts, testdir) do
   restart_classifier(classifier)

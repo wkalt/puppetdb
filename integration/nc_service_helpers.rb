@@ -1,6 +1,9 @@
 require 'httparty'
 require 'securerandom'
 
+# One woe is past; and, behold, there come two woes more hereafter.
+Classifier = Beaker::TestCase::Classifier
+
 class RandomString
   def self.generate(length = 32)
     characters = [('0'..'9'), ('a'..'z'), ('A'..'Z')]
@@ -15,12 +18,6 @@ class RandomRule
     operator = operators[rand(operators.length)]
     [operator, RandomString.generate(6), RandomString.generate(6)]
   end
-end
-
-class Classifier
-  include HTTParty
-  debug_output($stdout)
-  headers({'Content-Type' => 'application/json'})
 end
 
 def compare(hash1, hash2)

@@ -1,7 +1,5 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
-
 step "set up master denying requests"
 
 testdir = master.tmpdir('puppet_network_errors')

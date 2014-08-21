@@ -5,6 +5,8 @@ require 'set'
 require 'test/unit/assertions'
 require 'json'
 require 'inifile'
+require 'httparty'
+require 'hocon'
 
 module ClassifierExtensions
   include Test::Unit::Assertions
@@ -12,7 +14,7 @@ module ClassifierExtensions
   CLASSIFIER_PORT = 1261
   CLASSIFIER_SSL_PORT = 1262
   CLASSIFIER_CONFIG_PATH = '/etc/classifier/conf.d/classifier.conf'
-  PE_CLASSIFIER_CONFIG_PATH = '/etc/puppetlabs/classifier/conf.d/classifier.conf'
+  PE_CLASSIFIER_CONFIG_PATH = '/etc/puppetlabs/console-services/conf.d/classifier.conf'
   GitReposDir = Beaker::DSL::InstallUtils::SourcePath
 
   LeinCommandPrefix = "cd #{GitReposDir}/classifier; LEIN_ROOT=true"
@@ -167,7 +169,7 @@ module ClassifierExtensions
 
   def classifier_service_name(host)
     if host.is_pe?
-      "pe-classifier"
+      "pe-console-services"
     else
       "classifier"
     end
@@ -175,7 +177,7 @@ module ClassifierExtensions
 
   def classifier_terminus_name(host)
     if host.is_pe?
-      "pe-classifier-termini"
+      "pe-console-services-termini"
     else
       "classifier-terminus"
     end
@@ -183,15 +185,15 @@ module ClassifierExtensions
 
   def classifier_confdir(host)
     if host.is_pe?
-      "/etc/puppetlabs/classifier"
+      "/etc/puppetlabs/console-services/conf.d"
     else
-      "/etc/classifier"
+      "/etc/classifier/conf.d"
     end
   end
 
   def classifier_sharedir(host)
     if host.is_pe?
-      "/opt/puppet/share/classifier"
+      "/opt/puppet/share/pe-console-services"
     else
       "/usr/share/classifier"
     end
@@ -208,8 +210,8 @@ module ClassifierExtensions
   def start_classifier(host)
     step "Starting Classifier" do
       if host.is_pe?
-        on host, "service pe-classifier stop"
-        on host, "service pe-classifier start"
+        on host, "service pe-console-services stop"
+        on host, "service pe-console-services start"
       else
         on host, "service classifier stop"
         on host, "service classifier start"
@@ -219,7 +221,12 @@ module ClassifierExtensions
   end
 
   def sleep_until_started(host)
-    curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}/v1/environments", 0, 120)
+    prefix = if host.is_pe?
+               "/classifier-api"
+             else
+               ""
+             end
+    curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}#{prefix}/v1/environments", 0, 120)
   end
 
   def get_package_version(host, version = nil)
@@ -329,7 +336,7 @@ module ClassifierExtensions
   #  acceptance test runs.
   ############################################################################
 
-  def create_pe_classifier_db_with_pe_postgres(host)
+  def create_pe_databases_on(host, db_specs)
     manifest = ''
     manifest << <<-EOS
     class { '::postgresql::globals':
@@ -356,14 +363,6 @@ module ClassifierExtensions
     }
     EOS
 
-    apply_manifest_on(host, manifest)
-    on host, 'puppet agent -t', :acceptable_exit_codes => [0,2]
-  end
-
-  def create_databases_on(host, db_specs)
-    manifest = <<-EOS
-    class { '::postgresql::server': }
-    EOS
     db_specs.each do |spec|
       manifest << <<-EOS % spec
       postgresql::server::db{ "%{database}":
@@ -374,6 +373,7 @@ module ClassifierExtensions
       EOS
     end
     apply_manifest_on(host, manifest)
+    on host, 'puppet agent -t', :acceptable_exit_codes => [0,2]
   end
 
   def install_postgres(host)
@@ -456,13 +456,19 @@ module ClassifierExtensions
 
   def set_classifier_configuration(host, conf)
     conf_path = host.is_pe? ? PE_CLASSIFIER_CONFIG_PATH : CLASSIFIER_CONFIG_PATH
-    create_remote_file(host, conf_path, conf.to_json)
+    create_remote_file(host, conf_path, JSON.pretty_generate(conf))
+    on(host, "chmod 644 #{conf_path}")
+  end
+
+  def write_conf_file(host, file, conf)
+    conf_path = File.join(classifier_confdir(host), file)
+    create_remote_file(host, conf_path, JSON.pretty_generate(conf))
     on(host, "chmod 644 #{conf_path}")
   end
 
   def stop_classifier(host)
     if host.is_pe?
-      on host, "service pe-classifier stop"
+      on host, "service pe-console-services stop"
     else
       on host, "service classifier stop"
     end
@@ -508,7 +514,7 @@ module ClassifierExtensions
   def clear_database(host)
     if host.is_pe? && classifier == master
       on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/dropdb pe-classifier"'
-      create_pe_classifier_db_with_pe_postgres(host)
+      on host, 'su - pe-postgres -s "/bin/bash" -c "/opt/puppet/bin/createdb pe-classifier pe-classifier"'
     else
       on host, "su postgres -c 'dropdb #{classifier_service_name(host)}'"
       install_postgres(host)
@@ -957,7 +963,12 @@ module ClassifierExtensions
         host.logger.notify("No repository installation step for #{platform} yet...")
     end
   end
+
+  class Classifier
+    include HTTParty
+    debug_output($stdout)
+    headers({'Content-Type' => 'application/json'})
+  end
 end
 
-# oh dear.
 Beaker::TestCase.send(:include, ClassifierExtensions)

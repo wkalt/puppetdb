@@ -1,7 +1,5 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
-
 test_name "Basic error cases"
 
 step "Drop database and reload classifier service"

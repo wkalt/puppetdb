@@ -1,15 +1,6 @@
-require 'httparty'
 require 'uuidtools'
 
 test_name "Terminus runs without config file"
-
-class Classifier
-  include HTTParty
-  debug_output($stdout)
-  headers({'Content-Type' => 'application/json'})
-end
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
-
 
 step "Set up puppet without a classifier.yaml"
 
