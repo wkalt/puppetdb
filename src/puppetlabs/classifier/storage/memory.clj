@@ -6,7 +6,7 @@
             [puppetlabs.classifier.schema :refer [Environment Group group->classification
                                                   group->rule groups->tree GroupDelta Node
                                                   PuppetClass Rule]]
-            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid PrimitiveStorage]]
             [puppetlabs.classifier.util :refer [merge-and-clean]]))
 
 (defn in-memory-storage
@@ -22,7 +22,8 @@
         !storage (atom {:groups (zipmap (map :id groups) groups)
                         :check-ins (group-by :node check-ins)
                         :classes (->class-storage-map classes)})]
-    (reify Storage
+
+    (reify PrimitiveStorage
       (store-check-in [_ check-in]
         (swap! !storage update-in [:check-ins (:node check-in)] (fnil conj []) check-in)
         (-> @!storage
@@ -43,10 +44,6 @@
         (get-in @!storage [:classes (keyword env) (keyword name)]))
       (get-classes [_ env]
         (vals (get-in @!storage [:classes (keyword env)])))
-      (get-all-classes [_]
-        (for [[_ env-classes] (:classes @!storage)
-              [_ class] env-classes]
-          class))
       (synchronize-classes [_ classes]
         (swap! !storage assoc :classes (->class-storage-map classes))
         (get @!storage :classes))
@@ -63,81 +60,21 @@
         (if (get-in @!storage [:classes (keyword env-name)])
           (sc/validate Environment {:name (name env-name)})))
       (get-environments [_]
-        (-> @!storage :classes keys))
+        (map (fn [env-kw] (sc/validate Environment {:name (name env-kw)}))
+             (-> @!storage :classes keys)))
       (delete-environment [_ env-name]
         (let [env-kw (keyword env-name)]
           (when (empty? (get-in @!storage [:classes env-kw]))
             (swap! !storage update-in [:classes] dissoc env-kw)
             (get-in @!storage [:classes env-kw]))))
 
-      (group-validation-failures [this group]
-        (let [parent (storage/get-group this (:parent group))
-              _ (when (nil? parent)
-                  (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-parent
-                           :group group}))
-              ancestors (storage/get-ancestors this group)]
-          (when (and (= (:id group) (:parent group))
-                     (not= (:id group) root-group-uuid))
-            (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-                     :cycle [group]}))
-          (when (not= (:id group) root-group-uuid)
-            ;; If the group's parent is being changed, the change is not yet in
-            ;; the atom so get-ancestors* will not see it, meaning we have to
-            ;; check ourselves for cycles involving the group.
-            (when (some #(= (:id group) (:id %)) ancestors)
-              (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-                       :cycle (->> ancestors
-                                (take-while #(not= (:id group) (:id %)))
-                                (concat [group]))})))
-          (let [subtree (storage/get-subtree this group)
-                classes (storage/get-all-classes this)
-                vtree (class8n/validation-tree subtree, classes
-                                               (map group->classification ancestors))]
-            (if-not (class8n/valid-tree? vtree)
-              vtree))))
       (create-group [_ group]
         (swap! !storage assoc-in [:groups (:id group)] (sc/validate Group group))
         (get-in @!storage [:groups (:id group)]))
       (get-group [_ id]
         (get-in @!storage [:groups id]))
-      (get-group-as-inherited [this id]
-        (if-let [group (storage/get-group this id)]
-          (let [ancs (storage/get-ancestors this group)
-                chain (concat [group] ancs)
-                inherited (class8n/collapse-to-inherited (map group->classification chain))
-                inherited-rule (class8n/inherited-rule chain)]
-            (assoc (merge group inherited) :rule inherited-rule))))
-      (annotate-group [_ group]
-        (sc/validate Group group)
-        (let [extant-classes (get-in @!storage [:classes (-> group :environment keyword)])
-              missing-parameters (fn [g-ps ext-ps]
-                                   (into {} (for [[p v] g-ps]
-                                              (if-not (contains? ext-ps p)
-                                                [p {:puppetlabs.classifier/deleted true
-                                                    :value v}]))))
-              deleted (into {} (for [[c ps] (:classes group)
-                                     :let [extant-class (get extant-classes c)]]
-                                 (if-not extant-class
-                                   [c {:puppetlabs.classifier/deleted true}]
-                                   (let [missing (missing-parameters ps (:parameters extant-class))]
-                                     (if-not (empty? missing)
-                                       [c (assoc missing :puppetlabs.classifier/deleted false)])))))]
-          (if-not (empty? deleted)
-            (assoc group :deleted deleted)
-            group)))
       (get-groups [_]
         (-> @!storage :groups vals))
-      (get-ancestors [this group]
-        (let [get-parent #(storage/get-group this (:parent %))]
-          (loop [curr (get-parent group), ancs []]
-            (cond
-              (= curr (last ancs)) ancs
-
-              (some #(= (:id curr) (:id %)) ancs)
-              (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-                       :cycle (drop-while #(not= (:id curr) (:id %)) ancs)})
-
-              :else (recur (get-parent curr) (conj ancs curr))))))
       (get-subtree [this group]
         (let [get-children (fn [g]
                              (let [groups (storage/get-groups this)]
@@ -146,21 +83,6 @@
                                  (remove #(= (:id %) root-group-uuid)))))]
           {:group group
            :children (set (map (partial storage/get-subtree this) (get-children group)))}))
-      (delta-validation-failures [this delta extant]
-        (when (and (= (:id delta) root-group-uuid)
-                   (contains? delta :rule))
-          (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
-                   :delta delta}))
-        (let [group' (merge-and-clean extant delta)
-              ancestors' (storage/get-ancestors this group')
-              subtree' (storage/get-subtree this group')]
-          (if-let [vtree' (storage/group-validation-failures this group')]
-            (let [vtree (storage/group-validation-failures this extant)
-                  vtree-diff (if (nil? vtree)
-                               vtree'
-                               (class8n/validation-tree-difference vtree' vtree))]
-              (if-not (class8n/valid-tree? vtree-diff)
-                vtree-diff)))))
       (update-group [_ delta]
         (sc/validate GroupDelta delta)
         (swap! !storage update-in [:groups (:id delta)] merge-and-clean delta)

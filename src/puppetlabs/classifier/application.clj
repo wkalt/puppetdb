@@ -1,84 +1,33 @@
-(ns puppetlabs.classifier.application
-  (:require [clojure.set :refer [rename-keys]]
-            [clojure.tools.logging :as log]
-            [compojure.core :refer [context]]
-            [overtone.at-at :as at-at]
-            [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
-            [puppetlabs.certificate-authority.core :as ssl]
-            [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]]
-            [puppetlabs.classifier.class-updater :refer [update-classes-and-log-errors!]]
-            [puppetlabs.classifier.http :as http]
-            [puppetlabs.classifier.storage.postgres :as postgres]))
+(ns puppetlabs.classifier.application)
 
-(def default-db-spec {:subprotocol "postgresql"
-                       :subname "classifier"
-                       :user "classifier"
-                       :password "classifier"})
+(defprotocol Classifier
+  (get-config [this] "Returns a map of the configuration settings for the application.")
 
-(def default-sync-period (* 15 60))
+  (classify-node [this node transaction-uuid] "Returns the node's classification as a map conforming to the Classification schema, provided that there are no conflicts encountered during classification-time. If conflicts are encountered, an exception is thrown.")
+  (explain-classification [this node] "Returns an explanation of the node's classification as returned by the `puppetlabs.classifier.classification/classification-step` function.")
 
-(defn- config->db-spec
-  [{{:keys [database]} :classifier}]
-  (merge default-db-spec database))
+  (get-check-ins [this node-name] "Returns the check-in history (with classification) for the node with the given name.")
+  (get-nodes [this] "Returns all nodes, each of which contains its own check-in history.")
 
-(defn on-shutdown
-  []
-  (log/info "Classifier service shutting down."))
+  (validate-group [this group] "Validates the parent link, references, and inherited references for the given group and all of its descendents (if any). If the group would invalidate the group hierarchy's structure or introduce missing referents, a slingshot exception is thrown.")
+  (create-group [this group] "Creates a new group")
+  (get-group [this id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
+  (get-group-as-inherited [this id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID")
+  (get-groups [this] "Retrieves all groups")
+  (update-group [this delta] "Edits any attribute of a group besides ID, subject to validation for illegal edits, malformed hierarchy structure, and missing references.")
+  (delete-group [this id] "Deletes a group given its ID")
 
-(defn- add-url-prefix
-  "Puts the application in an optional url prefix. If none is given just
-  returns the original handler."
-  [prefix app]
-  (if (seq prefix)
-    (context prefix [] app)
-    app))
+  (import-hierarchy [this groups] "Batch import a hierarchy given a flat collection of its groups. Any missing classes & class parameters will be created as needed.")
 
-(defn- init-ssl-context
-  [{:keys [ssl-cert ssl-key ssl-ca-cert]}]
-    (if (and ssl-cert ssl-key ssl-ca-cert)
-      (ssl/pems->ssl-context ssl-cert ssl-key ssl-ca-cert)))
+  (create-class [this class] "Creates a class specification")
+  (get-class [this environment-name class-name] "Retrieves a class specification")
+  (get-classes [this environment-name] "Retrieves all class specifications in an environment")
+  (get-all-classes [this] "Retrieves all class specifications across all environments")
+  (synchronize-classes [this puppet-classes] "Synchronize database class definitions")
+  (get-last-sync [this] "Retrieve the time that classes were last synchronized with puppet")
+  (delete-class [this environment-name class-name] "Deletes a class specification")
 
-(defservice classifier-service
-  [[:ConfigService get-config]
-   [:WebserverService add-ring-handler]]
-
-  (start [_ context]
-         (let [config (get-config)
-               db-spec (config->db-spec config)
-               db (postgres/new-db db-spec)
-               api-prefix (get-in config [:classifier :url-prefix] "")
-               webserver-config (get-in config [:webserver :classifier])
-               app-config {:db db
-                           :api-prefix api-prefix
-                           :puppet-master (get-in config [:classifier :puppet-master])
-                           :ssl-files (select-keys webserver-config
-                                                   [:ssl-cert :ssl-key :ssl-ca-cert])
-                           :ssl-context (init-ssl-context webserver-config)}
-               app (add-url-prefix api-prefix (http/app app-config))
-               sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
-               job-pool (at-at/mk-pool)]
-           (postgres/migrate db-spec)
-           (add-common-json-encoders!)
-           (add-ring-handler app api-prefix {:server-id :classifier})
-           (when (pos? sync-period)
-             (at-at/every (* sync-period 1000)
-                          #(update-classes-and-log-errors! app-config db)
-                          job-pool))
-           (assoc context :job-pool job-pool)))
-
-  (stop [this _]
-        (let [{:keys [job-pool]} (service-context this)]
-          (when job-pool
-            (at-at/stop-and-reset-pool! job-pool)))))
-
-(defservice initdb
-  [[:ConfigService get-config]
-   [:ShutdownService request-shutdown]]
-  (start [_ context]
-         (let [config (get-config)
-               db-spec (config->db-spec config)]
-           (postgres/drop-public-tables db-spec)
-           (postgres/migrate db-spec)
-           (request-shutdown)
-           context)))
+  (create-environment [this environment] "Creates an environment")
+  (get-environment [this environment-name] "Retrieves an environment")
+  (get-environments [this] "Retrieves all environments")
+  (delete-environment [this environment-name] "Deletes an environment"))

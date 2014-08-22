@@ -1,5 +1,6 @@
 (ns puppetlabs.classifier.test-util
-  (:require [puppetlabs.classifier.storage :refer [root-group-uuid]])
+  (:require [puppetlabs.classifier.storage :refer [root-group-uuid]]
+            [puppetlabs.kitchensink.core :refer [deep-merge mapvals]])
   (:import java.util.UUID))
 
 (defn vec->tree
@@ -27,3 +28,13 @@
   (merge (blank-group-named "default")
          {:id root-group-uuid
           :rule ["~" "name" ".*"]}))
+
+(defn extract-classes
+  [groups]
+  (let [by-env (group-by :environment groups)
+        w-classes (mapvals (fn [gs] (apply deep-merge (map :classes gs))) by-env)]
+    (for [[env classes] w-classes
+          [class-kw params] classes]
+      {:name (name class-kw)
+       :environment (name env)
+       :parameters (mapvals (constantly nil) params)})))

@@ -4,7 +4,7 @@
             [cheshire.core :as json]
             [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.http.client.sync :as http]
-            [puppetlabs.classifier.storage :as storage]))
+            [puppetlabs.classifier.application :as app]))
 
 (defn throw-unexpected-response
   [response body url]
@@ -56,7 +56,7 @@
       (remove nil?))))
 
 (defn update-classes!
-  [{:keys [puppet-master ssl-context]} db]
+  [{:keys [puppet-master ssl-context]} app]
   (let [start (time/now)
         env-name-comp (fn [[env1 name1]
                            [env2 name2]]
@@ -65,16 +65,16 @@
                           (compare name1 name2)))
         puppet-classes (-> (get-classes ssl-context puppet-master)
                          flatten)
-        _ (storage/synchronize-classes db puppet-classes)
+        _ (app/synchronize-classes app puppet-classes)
         stop (time/now)]
     (log/info "Synchronized" (count puppet-classes) "classes from the Puppet Master in"
               (-> (time/interval start stop) time/in-seconds) "seconds")))
 
 (defn update-classes-and-log-errors!
-  [config db]
+  [config app]
   (let [start (time/now)]
     (try+
-      (update-classes! config db)
+      (update-classes! config app)
       (catch [:kind ::unexpected-response]
         {{:keys [body status url]} :response}
         (log/error "Received an unexpected" status "response when trying to synchronize classes"

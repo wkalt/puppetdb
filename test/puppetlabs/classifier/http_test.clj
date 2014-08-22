@@ -9,10 +9,13 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge mapkeys mapvals]]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
+            [puppetlabs.classifier.application :refer [Classifier]]
+            [puppetlabs.classifier.application.default :refer [default-application]]
             [puppetlabs.classifier.http :refer :all]
             [puppetlabs.classifier.schema :refer [CheckIn ClientNode Group GroupDelta PuppetClass]]
-            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid]]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
+            [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.test-util :refer [blank-group blank-group-named
                                                      blank-root-group]]
             [puppetlabs.classifier.util :refer [->uuid clj-key->json-key json-key->clj-key
@@ -37,7 +40,8 @@
         bad-obj {:name "bad" :property 3}
         schema {:name String
                 :property String}
-        storage (in-memory-storage {})
+        mem-store (in-memory-storage {})
+        app (default-application {:db mem-store})
         !created? (atom false)
         storage-fns {:get (fn [_ obj-name]
                             (if (and (= obj-name test-obj-name) @!created?)
@@ -46,15 +50,15 @@
                                (reset! !created? true)
                                obj)
                      :delete (fn [_ obj-name])}
-        app (compojure/routes
-              (compojure/ANY "/objs/:obj-name" [obj-name]
-                             (crd-resource storage, schema, [obj-name]
-                                           {:name obj-name}, storage-fns)))]
+        handler (compojure/routes
+                  (compojure/ANY "/objs/:obj-name" [obj-name]
+                                 (crd-resource app, schema, [obj-name]
+                                               {:name obj-name}, storage-fns)))]
 
     (testing "returns 404 when storage returns nil"
-      (is-http-status 404 (app (request :get "/objs/nothing"))))
+      (is-http-status 404 (handler (request :get "/objs/nothing"))))
 
-    (let [response (app (mock/body
+    (let [response (handler (mock/body
                           (request :put "/objs/test-obj")
                           (generate-string test-obj)))]
       (testing "returns the 201 on creation"
@@ -64,7 +68,7 @@
         (is (= (generate-string test-obj) (:body response)))))
 
     (testing "returns 200 with the object when it exists"
-      (let [response (app (request :get "/objs/test-obj"))]
+      (let [response (handler (request :get "/objs/test-obj"))]
         (is-http-status 200 response)
         (is (= (generate-string test-obj) (:body response)))))))
 
@@ -119,20 +123,21 @@
         classes [{:name "foo", :environment "bar", :parameters {:override "default"}}
                  {:name "baz", :environment "production", :parameters {}}]
         mem-db (in-memory-storage {:groups [root] , :classes classes})
-        app (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "returns 404 to a GET request if the group doesn't exist"
-      (let [{status :status} (app (group-request :get (UUID/randomUUID)))]
+      (let [{status :status} (handler (group-request :get (UUID/randomUUID)))]
         (is (= 404 status))))
 
     (testing "returns 404 to a POST request if the group doesn't exist"
-      (let [{status :status} (app (group-request :post, (UUID/randomUUID)
+      (let [{status :status} (handler (group-request :post, (UUID/randomUUID)
                                                  (encode {:environment "staging"})))]
         (is (= 404 status))))
 
     (testing "can create a group with a PUT to the URI"
       (let [group-json-rep (encode agroup {:key-fn clj-key->json-key})
-            {body :body, :as resp} (app (group-request :put (:id agroup) group-json-rep))]
+            {body :body, :as resp} (handler (group-request :put (:id agroup) group-json-rep))]
         (testing "and get a 201 Created response"
           (is-http-status 201 resp))
         (testing "and get the group back in the response body"
@@ -142,12 +147,12 @@
       (let [group-json-rep (-> bgroup
                              (dissoc :id)
                              (encode {:key-fn clj-key->json-key}))
-            {:keys [status headers]} (app (group-request :post nil group-json-rep))]
+            {:keys [status headers]} (handler (group-request :post nil group-json-rep))]
         (testing "and get a 303 back with the group's location"
           (is (= 303 status))
           (is (contains? headers "Location")))
         (testing "and retrieve the group from the received location"
-          (let [{:keys [body status]} (app (request :get (get headers "Location" "dne")))
+          (let [{:keys [body status]} (handler (request :get (get headers "Location" "dne")))
                 bgroup-id (re-find #"[^-]{8}-[^-]{4}-[^-]{4}-[^-]{4}-[^-]{12}"
                                    (get headers "Location" ""))
                 bgroup-with-id (-> bgroup (assoc :id bgroup-id), convert-uuids)]
@@ -155,20 +160,20 @@
             (is (= bgroup-with-id (-> body (decode json-key->clj-key) convert-uuids)))))))
 
     (testing "returns the group if it exists"
-      (let [{body :body, :as resp} (app (group-request :get (:id agroup)))]
+      (let [{body :body, :as resp} (handler (group-request :get (:id agroup)))]
         (is-http-status 200 resp)
         (is (= agroup (-> body (decode json-key->clj-key) convert-uuids)))))
 
     (testing "returns annotated version of a group"
-      (app (group-request :put (:id annotated) (encode annotated {:key-fn clj-key->json-key})))
-      (let [{body :body, :as resp} (app (group-request :get (:id annotated)))]
+      (handler (group-request :put (:id annotated) (encode annotated {:key-fn clj-key->json-key})))
+      (let [{body :body, :as resp} (handler (group-request :get (:id annotated)))]
         (is-http-status 200 resp)
         (is (= with-annotations (-> body (decode json-key->clj-key) convert-uuids)))))
 
     (testing "returns all groups"
-      (let [{body :body, :as resp} (app (group-request))
+      (let [{body :body, :as resp} (handler (group-request))
             groups-with-annotations (->> [root agroup bgroup annotated]
-                                      (map (partial storage/annotate-group mem-db))
+                                      (map (partial naive/annotate-group mem-db))
                                       (map #(dissoc % :id)))]
         (is-http-status 200 resp)
         (is (= (set groups-with-annotations) (-> body
@@ -181,20 +186,20 @@
     (testing "updates a group"
       (let [delta {:classes {:foo {:override nil}}
                    :variables {:ntpservers nil}}
-            {body :body, :as resp} (app (group-request :post (:id agroup) (encode delta)))]
+            {body :body, :as resp} (handler (group-request :post (:id agroup) (encode delta)))]
         (is-http-status 200 resp)
         (is (= (merge-and-clean agroup delta)
                (-> body (decode json-key->clj-key) convert-uuids)))))
 
     (testing "updating a group that doesn't exist produces a 404"
       (let [post-body (encode {:name "different", :variables {:exists false}})
-            {:keys [status]} (app (group-request :post (UUID/randomUUID) post-body))]
+            {:keys [status]} (handler (group-request :post (UUID/randomUUID) post-body))]
         (is (= 404 status))))
 
     (testing "tells storage to delete the group and returns 204"
-      (let [response (app (group-request :delete (:id agroup)))]
+      (let [response (handler (group-request :delete (:id agroup)))]
         (is-http-status 204 response)
-        (is-http-status 404 (app (group-request :get (:id agroup))))))))
+        (is-http-status 404 (handler (group-request :get (:id agroup))))))))
 
 (deftest dont-make-orphans
   (let [parent {:name "Breeders"
@@ -208,7 +213,8 @@
                :environment "production", :environment-trumps false
                :rule ["=" "foo" "bar"], :classes {}, :variables {}}
         mem-db (in-memory-storage {:groups [parent annie]})
-        handler (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "delete requests that would create orphans get a 422 response"
       (let [{:keys [body status]} (handler (group-request :delete (:id parent)))
@@ -267,7 +273,8 @@
                                    :classes (for [env (map :environment groups)
                                                   class [suspenders music opinions]]
                                               (assoc class :environment env))})
-        handler (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "can get an inherited version of a group"
       (let [{:keys [status body]} (handler (request :get child-path {:inherited true}))]
@@ -304,26 +311,27 @@
                                  :stinkiness "definitely"
                                  :looks_like_a_butt? "from some angles"}}
         mem-db (in-memory-storage {:classes [theirclass]})
-        app (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "tells the storage layer to store the class map"
-      (let [{body :body, :as resp} (app (class-request :put "test" (:name myclass)
+      (let [{body :body, :as resp} (handler (class-request :put "test" (:name myclass)
                                                        (encode myclass)))]
         (is-http-status 201 resp)
         (is (= myclass (decode body true)))))
 
     (testing "returns class with its parameters"
-      (let [{body :body, :as resp} (app (class-request :get "test" (:name myclass)))]
+      (let [{body :body, :as resp} (handler (class-request :get "test" (:name myclass)))]
         (is-http-status 200 resp)
         (is (= myclass (decode body true)))))
 
     (testing "retrieves all classes"
-      (let [{body :body, :as resp} (app (class-request :get "test"))]
+      (let [{body :body, :as resp} (handler (class-request :get "test"))]
         (is-http-status 200 resp)
         (is (= #{myclass theirclass} (set (decode body true))))))
 
     (testing "tells storage to delete the class and returns 204"
-      (let [response (app (class-request :delete "test" (:name myclass)))]
+      (let [response (handler (class-request :delete "test" (:name myclass)))]
         (is-http-status 204 response)))))
 
 (defn classification-request
@@ -345,12 +353,14 @@
               :rule ["~" "name" ".*"]
               :classes {}, :variables {}}
         mem-db (in-memory-storage {:groups [root]})
-        app (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
+
     (testing "classification returns the right structure with a blank db"
-      (let [{body :body, :as response} (app (classification-request
-                                              :post
-                                              "hellote"
-                                              (encode {})))]
+      (let [{body :body, :as response} (handler (classification-request
+                                                  :post
+                                                  "hellote"
+                                                  (encode {})))]
         (is-http-status 200 response)
         (is (= {:name "hellote"
                 :environment "production"
@@ -374,15 +384,16 @@
                :classes {}
                :variables {}}
         mem-db (in-memory-storage {:groups [(blank-root-group) group]})
-        app (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "facts submitted via POST can be used for classification"
       (let [fact {:a "b"}
             trusted {:certname "abcdefg"}
-            {body :body, :as response} (app (classification-request
-                                             :post
-                                             "qwkeju"
-                                             (encode {:fact fact :trusted trusted})))]
+            {body :body, :as response} (handler (classification-request
+                                                  :post
+                                                  "qwkeju"
+                                                  (encode {:fact fact :trusted trusted})))]
         (is-http-status 200 response)
         (is (= #{group-id root-group-uuid}
                (->> (:groups (decode body json-key->clj-key))
@@ -424,7 +435,8 @@
                     :classes {:blueclass {:blue "since my baby left me"}}
                     :variables {:snowflake "identical"}}
         mem-db (in-memory-storage {:groups [root left-child right-child grandchild]})
-        handler (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "classifications are merged if they are disjoint"
       (let [{:keys [status body]} (handler (classification-request "multinode"))]
@@ -448,7 +460,8 @@
             grandchild' (merge-and-clean grandchild {:classes {:blueclass nil}
                                                      :variables {:snowflake "unique"}})
             mem-db' (in-memory-storage {:groups [root left-child' right-child' grandchild']})
-            handler' (app {:db mem-db'})
+            app' (default-application {:db mem-db'})
+            handler' (api-handler app')
             {:keys [status body]} (handler' (classification-request "multinode"))
             error (decode body json-key->clj-key)
             convert-uuids-if-group #(if (map? %) (convert-uuids %) %)]
@@ -505,9 +518,11 @@
       (testing "succeeds if the node also matches all the group's ancestors' rules"
         (let [klingon-drones' (assoc klingon-drones :parent (:parent borg))
               mem-store (in-memory-storage {:groups [borg klingon-drones']})
-              app (app {:db mem-store})
-              {:keys [body status]} (app (classification-request :post, "Rurik"
-                                                                 (encode unassimilated-klingon)))
+              app (default-application {:db mem-store})
+              handler (api-handler app)
+              {:keys [body status]} (handler
+                                      (classification-request :post, "Rurik"
+                                                              (encode unassimilated-klingon)))
               groups (->> (:groups (-> body (decode json-key->clj-key)))
                        (map #(UUID/fromString %))
                        set)]
@@ -516,9 +531,11 @@
 
       (testing "fails if the node does not match one of the group's ancestors"
         (let [mem-store (in-memory-storage {:groups [borg drones klingon-drones]})
-              app (app {:db mem-store})
-              {:keys [body status]} (app (classification-request :post, "Rurik"
-                                                                 (encode unassimilated-klingon)))
+              app (default-application {:db mem-store})
+              handler (api-handler app)
+              {:keys [body status]} (handler
+                                      (classification-request :post, "Rurik"
+                                                              (encode unassimilated-klingon)))
               groups (->> (:groups (-> body (decode json-key->clj-key)))
                        (map #(UUID/fromString %)))]
           (is (= 200 status))
@@ -554,7 +571,8 @@
                     (map :id)
                     set)
         mem-db (in-memory-storage {:groups groups})
-        handler (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "classifying a node into multiple groups with different environments"
 
@@ -574,7 +592,8 @@
         (let [doggehs-trump (assoc doggehs :environment-trumps true)
               groups' [kittehs doggehs-trump snakes root]
               mem-db' (in-memory-storage {:groups groups'})
-              handler' (app {:db mem-db'})
+              app' (default-application {:db mem-db'})
+              handler' (api-handler app')
               {:keys [status body]} (handler' (classification-request "pets"))
               error (decode body json-key->clj-key)]
           (is (= 500 status))
@@ -593,7 +612,8 @@
                       "orbital neighbors" "1200"
                       "shape" "spherical"}}
         mem-db (in-memory-storage {:groups [root dwarf-planets]})
-        handler (app {:db mem-db})]
+        app (default-application {:db mem-db})
+        handler (api-handler app)]
 
     (testing "stores a node check-in when a node is classified"
       (is-http-status 200 (handler (classification-request :post (:name eris) (encode eris))))
@@ -623,18 +643,18 @@
 
 (deftest malformed-requests
   (let [mem-db (in-memory-storage {})
-        app (app {:db mem-db})]
+        handler (api-handler (default-application {:db mem-db}))]
 
     (testing "requests with a malformed UUID get a structured 400 response"
-      (let [{:keys [status body]} (app (request :get "/v1/groups/not-a-uuid"))
+      (let [{:keys [status body]} (handler (request :get "/v1/groups/not-a-uuid"))
             error (decode body json-key->clj-key)]
         (is (= 400 status))
         (is (= #{:kind :msg :details} (-> error keys set)))
         (is (= "malformed-uuid" (:kind error)))
         (is (= (:details error) "not-a-uuid")))
 
-      (let [{:keys [status body]} (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
-                                         (mock/body (encode {:parent "not-a-uuid"}))))
+      (let [{:keys [status body]} (handler (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                                             (mock/body (encode {:parent "not-a-uuid"}))))
             error (decode body json-key->clj-key)]
         (is (= 400 status))
         (is (= #{:kind :msg :details} (-> error keys set)))
@@ -643,8 +663,8 @@
 
     (testing "requests that don't match schema get a structured 400 response."
       (let [incomplete-group {:classes ["foo" "bar" "baz"]}
-            resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
-                        (mock/body (encode incomplete-group))))
+            resp (handler (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                            (mock/body (encode incomplete-group))))
             error (decode (:body resp) json-key->clj-key)]
         (is-http-status 400 resp)
         (is (= "application/json" (get-in resp [:headers "Content-Type"])))
@@ -654,8 +674,8 @@
 
     (testing "malformed requests get a structured 400 response."
       (let [bad-body "{\"haha\": [\"i'm broken\"})"
-            resp (app (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
-                        (mock/body bad-body)))
+            resp (handler (-> (request :put (str "/v1/groups/" (UUID/randomUUID)))
+                            (mock/body bad-body)))
             error (decode (:body resp) json-key->clj-key)]
         (is-http-status 400 resp)
         (is (re-find #"application/json" (get-in resp [:headers "Content-Type"])))
@@ -666,21 +686,22 @@
 (deftest schema-validation
   (let [root (merge (blank-group-named "default")
                     {:id root-group-uuid})
-        app (app {:db (in-memory-storage {:groups [root]})})
+        app (default-application {:db (in-memory-storage {:groups [root]})})
+        handler (api-handler app)
         invalid {:name "invalid"
                  :rule ["=" "name" "Val Knott"]
                  :classes {}}
         valid (assoc invalid :parent root-group-uuid)]
 
     (testing "invalid groups get a 400 with a structured error message"
-      (let [{:keys [body status]} (app (request :post "/v1/validate/group" (encode invalid)))
+      (let [{:keys [body status] :as resp} (handler (request :post "/v1/validate/group" (encode invalid)))
             {:keys [kind msg details]} (decode body json-key->clj-key)]
         (is (= status 400))
         (is (= kind "schema-violation"))
         (is (re-find #"parent missing-required-key" msg))))
 
     (testing "valid groups get a 200 back with the as-validated group in the body"
-      (let [{:keys [body status]} (app (request :post "/v1/validate/group" (encode valid)))
+      (let [{:keys [body status]} (handler (request :post "/v1/validate/group" (encode valid)))
             as-validated (-> body (decode json-key->clj-key) convert-uuids)]
         (is (= status 200))
         (is (contains? as-validated :id))
@@ -689,11 +710,11 @@
 
     (testing "groups with malformed IDs are marked as invalid"
       (let [bad-id (assoc valid :id "not-a-uuid")
-            {:keys [status]} (app (request :post "/v1/validate/group" (encode bad-id)))]
+            {:keys [status]} (handler (request :post "/v1/validate/group" (encode bad-id)))]
         (is (= status 400))))))
 
 (deftest rule-translation
-  (let [app (app {:db (in-memory-storage {})})
+  (let [handler (api-handler (default-application {:db (in-memory-storage {})}))
         endpoint "/v1/rules/translate"]
 
     (testing "the rule translation endpoint"
@@ -701,7 +722,7 @@
         (let [translatable [">=" ["fact" "docking_pylons"] "3"]
               translation ["and" ["=" "name" "docking_pylons"]
                                  [">=" "value" "3"]]
-              {:keys [body status]} (app (request :post endpoint (encode translatable)))]
+              {:keys [body status]} (handler (request :post endpoint (encode translatable)))]
           (is (= status 200))
           (is (= translation (decode body)))))
 
@@ -709,7 +730,7 @@
             trusted ["=" ["trusted" "certname"] "trent.totally-leg.it"]]
         (doseq [rule [structured trusted]]
           (testing "returns an error when translation isn't possible"
-            (let [{:keys [body status]} (app (request :post endpoint (encode rule)))
+            (let [{:keys [body status]} (handler (request :post endpoint (encode rule)))
                   {:keys [kind msg details]} (decode body json-key->clj-key)]
               (testing "that has a 422 status code"
                 (is (= 422 status)))
@@ -731,23 +752,24 @@
 
       (testing "works as expected when given a valid hierarchy"
         (let [mem-store (in-memory-storage {:groups old-groups})
-              app (app {:db mem-store})
+              handler (api-handler (default-application {:db mem-store}))
               rand-grandchild #(merge (blank-group-named (str "grandchild-" %))
                                       {:parent (:id (rand-nth new-children))})
               new-grandchildren (map rand-grandchild (range 10))
               new-groups (concat [root] new-children new-grandchildren)
-              {:keys [status]} (app (request :post, "/v1/import-hierarchy"
-                                             (encode new-groups clj-key->json-key)))]
+              {:keys [status]} (handler (request :post, "/v1/import-hierarchy"
+                                                 (encode new-groups clj-key->json-key)))]
           (is (= 204 status))
           (is (= (set new-groups) (set (storage/get-groups mem-store))))))
 
       (testing "returns understandable errors when given malformed groups"
         (let [mem-store (in-memory-storage {:groups old-groups})
-              app (app {:db mem-store})
+              handler (api-handler (default-application {:db mem-store}))
               malformed-group-1 (merge (blank-group-named "malformed-1") {:parent "sally"})
               malformed-group-2 (merge (blank-group-named "malformed-2") {:parent "breedbot 9000"})
               new-groups (concat [root] [malformed-group-1 malformed-group-2] new-children)
-              {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+              {:keys [status body]} (handler (request :post "/v1/import-hierarchy"
+                                                      (encode new-groups)))
               {:keys [msg kind details]} (decode body json-key->clj-key)
               {:keys [submitted error]} details]
           (is (= 400 status))
@@ -761,11 +783,12 @@
       (testing "returns understandable errors when given a malformed hierarchy"
         (testing "that contains a cycle"
           (let [mem-store (in-memory-storage {:groups old-groups})
-                app (app {:db mem-store})
+                handler (api-handler (default-application {:db mem-store}))
                 cycle-child (blank-group-named "cycle child")
                 cycle-root (merge root {:parent (:id cycle-child)})
                 new-groups [cycle-child cycle-root]
-                {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+                {:keys [status body]} (handler (request :post "/v1/import-hierarchy"
+                                                        (encode new-groups)))
                 {:keys [msg kind details] :as error} (decode body json-key->clj-key)]
             (is (= 422 status))
             (is (= kind "inheritance-cycle"))
@@ -776,13 +799,14 @@
 
       (testing "that contains unreachable group"
         (let [mem-store (in-memory-storage {:groups old-groups})
-              app (app {:db mem-store})
+              handler (api-handler (default-application {:db mem-store}))
               island-id (UUID/randomUUID)
               island (merge (blank-group-named "a rock; an island")
                             {:id island-id
                              :parent island-id})
               new-groups (concat [root] new-children [island])
-              {:keys [status body]} (app (request :post "/v1/import-hierarchy" (encode new-groups)))
+              {:keys [status body]} (handler (request :post "/v1/import-hierarchy"
+                                                      (encode new-groups)))
               {:keys [msg kind details] :as error} (decode body json-key->clj-key)]
           (is (= 422 status))
           (is (= kind "unreachable-groups"))

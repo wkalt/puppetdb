@@ -3,7 +3,6 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [clj-time.core :as time]
             [clj-time.format :as fmt-time]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
@@ -14,11 +13,11 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge]]
             [puppetlabs.kitchensink.json :refer [with-datetime-encoder]]
+            [puppetlabs.classifier.application :as app]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http.middleware :as middleware]
             [puppetlabs.classifier.rules :as rules]
-            [puppetlabs.classifier.storage :as storage]
             [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
                                                   group->classification Node PuppetClass
                                                   SubmittedNode]]
@@ -101,9 +100,9 @@
                  :error error})))))
 
 (sc/defn crd-resource
-  "Create a basic CRD endpoint for a resource, given a storage object and a
-  map of functions to create/retrieve/delete the resource."
-  [storage :- (sc/protocol storage/Storage)
+  "Create a basic CRD endpoint for a resource, given an application instance and
+  a map of functions to create/retrieve/delete the resource."
+  [app :- (sc/protocol app/Classifier)
    schema :- (sc/protocol sc/Schema)
    resource-path :- [String]
    attributes :- {sc/Keyword sc/Any}
@@ -111,13 +110,13 @@
                                    :create (sc/pred fn?)
                                    :delete (sc/pred fn?)}]
   (let [exists? (fn [_]
-                  (if-let [resource (apply get storage resource-path)]
+                  (if-let [resource (apply get app resource-path)]
                     {::retrieved resource}))
         put! (fn [ctx]
                (let [resource (merge (::data ctx {}) attributes)
-                     inserted-resource (create storage (validate schema resource))]
+                     inserted-resource (create app (validate schema resource))]
                  {::created inserted-resource}))
-        delete! (fn [_] (apply delete storage resource-path))
+        delete! (fn [_] (apply delete app resource-path))
         ;; We override put-to-existing? to return false if the resource being put to already exists.
         ;; This causes liberator to just return 200 when this happens, rather than going down a part
         ;; of its decision graph that involves either a 409 response or another `put!` happening.
@@ -143,12 +142,12 @@
          :handle-malformed handle-malformed}))))
 
 (sc/defn listing-resource
-  [storage :- (sc/protocol storage/Storage)
+  [app :- (sc/protocol app/Classifier)
    get-all :- (sc/pred fn?)]
   (resource
     :allowed-methods [:get]
     :available-media-types ["application/json"]
-    :exists? (fn [_] {::retrieved (get-all storage)})
+    :exists? (fn [_] {::retrieved (get-all app)})
     :handle-ok ::retrieved))
 
 ;; Liberator Group Resource Decisions & Actions
@@ -262,40 +261,37 @@
   {:environment "production", :environment-trumps false, :variables {}})
 
 (defn group-resource
-  [db prefix uuid-str]
+  [app prefix uuid-str]
   (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
         malformed? (if (and uuid (not (uuid? uuid)))
                      (err-with-rep {::malformed-uuid uuid})
                      (malformed-group? uuid))
         exists? (fn [_]
-                  (if-let [g (and uuid (storage/get-group db uuid))]
+                  (if-let [g (and uuid (app/get-group app uuid))]
                     {::retrieved g}))
-        delete! (fn [_] (storage/delete-group db uuid))
+        delete! (fn [_] (app/delete-group app uuid))
         post! (fn [{:as ctx, submitted ::submitted, retrieved ::retrieved}]
                 (let [group (merge group-defaults submitted)]
                   (cond
                     (post-new-group? ctx)
                     (let [with-id (assoc group :id (UUID/randomUUID))]
-                      {::created (storage/create-group db (validate Group with-id))})
+                      {::created (app/create-group app (validate Group with-id))})
 
                     (post-delta-update? ctx)
-                    {::updated (storage/update-group db (validate GroupDelta submitted))}
+                    {::updated (app/update-group app (validate GroupDelta submitted))}
 
                     (and (put-group? ctx) (not retrieved))
-                    {::created (storage/create-group db (validate Group group))}
+                    {::created (app/create-group app (validate Group group))}
 
                     (and (put-group? ctx) retrieved (not= group retrieved))
                     (let [delta (group-delta retrieved (validate Group group))]
-                      {::created (storage/update-group db (validate GroupDelta delta))}))))
+                      {::created (app/update-group app (validate GroupDelta delta))}))))
         put! (fn [{submitted ::submitted}]
                (let [group (merge group-defaults submitted)]
-                 {::created (storage/create-group db (validate Group group))}))
+                 {::created (app/create-group app (validate Group group))}))
         redirect? (fn [{:as ctx, created ::created}]
                     (if (post-new-group? ctx)
-                      {:location (str prefix "/v1/groups/" (:id created))}))
-        ok (fn [{updated ::updated, retrieved ::retrieved}]
-             (if-let [g (or updated retrieved)]
-               (storage/annotate-group db g)))]
+                      {:location (str prefix "/v1/groups/" (:id created))}))]
     (fn [req]
       (run-resource
         req
@@ -305,7 +301,7 @@
          :malformed? malformed?
          :exists? exists?
          :handle-not-found handle-404
-         :handle-ok ok
+         :handle-ok (fn [{updated ::updated, retrieved ::retrieved}] (or updated retrieved))
          :post-to-existing? submitting-overwrite?
          :can-post-to-missing? post-new-group?
          :put-to-existing? (constantly false)
@@ -317,249 +313,182 @@
          :delete! delete!
          :handle-malformed handle-malformed-group}))))
 
-(defn group-validator
-  [db]
-  (fn [req]
-    (let [validate (fn [{submitted ::submitted}]
-                     (let [group (validate Group (merge group-defaults
-                                                        {:id (UUID/randomUUID)}
-                                                        submitted))]
-                       (if-let [vtree (storage/group-validation-failures db group)]
-                         (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
-                                  :tree vtree
-                                  :ancestors (storage/get-ancestors db group)})
-                         {::validated group})))]
-      (run-resource
-        req
-        {:allowed-methods [:post]
-         :respond-with-entity? true
-         :available-media-types ["application/json"]
-         :malformed? (malformed-group? nil)
-         :handle-malformed handle-malformed-group
-         :exists? validate
-         :post-to-existing? false
-         :handle-ok ::validated}))))
-
-;; Classification
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn matching-groups-and-ancestors
-  "Given a storage instance and a node, returns a map from each group that the
-  node matched to that group's ancestors."
-  [db node]
-  (let [maybe-matching-ids (set (class8n/matching-groups node (storage/get-rules db)))
-        maybe-matching-groups (map (partial storage/get-group db) maybe-matching-ids)
-        mmg->ancs (storage/get-groups-ancestors db maybe-matching-groups)
-        w-full-rules (for [[mmg ancs] mmg->ancs]
-                       (assoc mmg :full-rule (class8n/inherited-rule (concat [mmg] ancs))))
-        ->rule (fn [g] {:when (:full-rule g), :group-id (:id g)})
-        matching-groups (->> w-full-rules
-                          (filter #(rules/apply-rule node (->rule %)))
-                          (map #(dissoc % :full-rule)))]
-    (into {} (map (juxt identity mmg->ancs) matching-groups))))
-
-(defn classify-node
-  [db node-name]
-  (fn [ctx]
-    (let [check-in-time (time/now)
-          data (-> (::data ctx {})
-                 (rename-keys {:transaction_uuid :transaction-uuid}))
-          uuid-str (:transaction-uuid data)
-          transaction-uuid (if (uuid? uuid-str)
-                             (UUID/fromString uuid-str))
-          node (validate SubmittedNode {:name node-name
-                                        :fact (:fact data {})
-                                        :trusted (:trusted data {})})
-          matching-group->ancestors (matching-groups-and-ancestors db node)
-          class8n-info (class8n/classification-steps node matching-group->ancestors)
-          {:keys [conflicts classification match-explanations id->leaf]} class8n-info
-          leaves (vals id->leaf)
-          check-in {:node node-name
-                    :time check-in-time
-                    :explanation match-explanations}
-          check-in (if transaction-uuid
-                     (assoc check-in :transaction-uuid transaction-uuid)
-                     check-in)]
-      (storage/store-check-in db (if (nil? conflicts)
-                                   (assoc check-in :classification classification)
-                                   check-in))
-      (if-not (nil? conflicts)
-        (throw+
-          {:kind ::classification-conflict
-           :group->ancestors (into {} (map (juxt identity matching-group->ancestors) leaves))
-           :conflicts conflicts})
-        {:name node-name
-         :environment (:environment classification)
-         :groups (keys match-explanations)
-         :classes (:classes classification {})
-         :parameters (:variables classification {})}))))
-
-(defn explain-classification
-  [db node-name]
-  (fn [{data ::data}]
-    (let [node (validate SubmittedNode (-> data
-                                         (assoc :name node-name)
-                                         (update-in [:trusted] #(or %1 %2) {})))
-          matching-group->ancestors (matching-groups-and-ancestors db node)
-          class8n-info (class8n/classification-steps node matching-group->ancestors)
-          {:keys [conflicts classification]} class8n-info
-          partial-resp {:node-as-received node
-                        :match-explanations (:match-explanations class8n-info)
-                        :leaf-groups (:id->leaf class8n-info)
-                        :inherited-classifications (:leaf-id->classification class8n-info)}]
-      (if (nil? conflicts)
-        (assoc partial-resp :final-classification classification)
-        (assoc partial-resp
-               :conflicts (class8n/explain-conflicts conflicts matching-group->ancestors))))))
-
 ;; Ring Handler
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn app
-  [{:keys [api-prefix db], :as config}]
-  (-> (routes
-        (context
-          "/v1" []
+(defn api-handler
+  [app]
+  (let [{:keys [api-prefix] :as config} (app/get-config app)]
+    (-> (routes
+          (context
+            "/v1" []
 
-          (GET "/nodes" []
-               (listing-resource db (fn [db] (->> (storage/get-nodes db)
-                                               (map #(rename-keys % {:check-ins :check_ins}))))))
+            (GET "/nodes" []
+                 (listing-resource app (fn [app]
+                                         (->> (app/get-nodes app)
+                                           (map #(rename-keys % {:check-ins :check_ins}))))))
 
-          (GET "/nodes/:node-name" [node-name]
-               (listing-resource
-                 db
-                 (fn [db]
-                   (let [check-ins (storage/get-check-ins db node-name)]
-                     {:name node-name
-                      :check_ins (map #(dissoc % :node) check-ins)}))))
+            (GET "/nodes/:node-name" [node-name]
+                 (listing-resource
+                   app
+                   (fn [app]
+                     (let [check-ins (app/get-check-ins app node-name)]
+                       {:name node-name
+                        :check_ins (map #(dissoc % :node) check-ins)}))))
 
-          (GET "/classes" []
-               (listing-resource db storage/get-all-classes))
+            (GET "/classes" []
+                 (listing-resource app app/get-all-classes))
 
-          (GET "/environments" []
-               (listing-resource db storage/get-environments))
+            (GET "/environments" []
+                 (listing-resource app app/get-environments))
 
-          (context "/environments/:environment-name" [environment-name]
-                   (ANY "/" []
-                        (crd-resource db
-                                      Environment
-                                      [environment-name]
-                                      {:name environment-name}
-                                      {:get storage/get-environment
-                                       :create storage/create-environment
-                                       :delete storage/delete-environment}))
+            (context "/environments/:environment-name" [environment-name]
+                     (ANY "/" []
+                          (crd-resource app
+                                        Environment
+                                        [environment-name]
+                                        {:name environment-name}
+                                        {:get app/get-environment
+                                         :create app/create-environment
+                                         :delete app/delete-environment}))
 
-                   (GET "/classes" []
-                        (listing-resource db #(storage/get-classes % environment-name)))
+                     (GET "/classes" []
+                          (listing-resource app #(app/get-classes % environment-name)))
 
-                   (ANY "/classes/:class-name" [class-name]
-                        (crd-resource db
-                                      PuppetClass
-                                      [environment-name class-name]
-                                      {:name class-name
-                                       :environment environment-name}
-                                      {:get storage/get-class
-                                       :create storage/create-class
-                                       :delete storage/delete-class})))
+                     (ANY "/classes/:class-name" [class-name]
+                          (crd-resource app
+                                        PuppetClass
+                                        [environment-name class-name]
+                                        {:name class-name
+                                         :environment environment-name}
+                                        {:get app/get-class
+                                         :create app/create-class
+                                         :delete app/delete-class})))
 
-          (GET "/groups" []
-               (listing-resource db
-                                 (fn [db]
-                                   (->> (storage/get-groups db)
-                                     (map (partial storage/annotate-group db))))))
+            (GET "/groups" []
+                 (listing-resource app app/get-groups))
 
-          (POST "/groups" []
-                (group-resource db api-prefix nil))
+            (POST "/groups" []
+                  (group-resource app api-prefix nil))
 
-          (ANY "/groups/:uuid" [uuid inherited]
-               (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
-                 (group-resource db api-prefix uuid)
-                 (let [exists? (fn [_]
-                                 (if-let [g (and uuid
-                                                 (storage/get-group-as-inherited
-                                                   db (UUID/fromString uuid)))]
-                                   {::retrieved g}))]
+            (ANY "/groups/:uuid" [uuid inherited]
+                 (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
+                   (group-resource app api-prefix uuid)
                    (resource
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]
-                     :exists? exists?
+                     :exists? (fn [_]
+                                (if-let [g (and uuid
+                                                (app/get-group-as-inherited
+                                                  app (UUID/fromString uuid)))]
+                                  {::retrieved g}))
                      :handle-ok ::retrieved
-                     :handle-not-found handle-404))))
+                     :handle-not-found handle-404)))
 
-          (POST "/import-hierarchy" []
-                (let [import! (fn [{raw-groups ::data}]
-                                (let [groups (->> raw-groups
-                                               (map convert-uuids)
-                                               (map hyphenate-group-keys))]
-                                  (storage/import-hierarchy db (validate [Group] groups))))]
+            (POST "/import-hierarchy" []
+                  (let [import! (fn [{raw-groups ::data}]
+                                  (let [groups (->> raw-groups
+                                                 (map convert-uuids)
+                                                 (map hyphenate-group-keys))]
+                                    (app/import-hierarchy app (validate [Group] groups))))]
+                    (resource
+                      :allowed-methods [:post]
+                      :available-media-types ["application/json"]
+                      :malformed? parse-if-body
+                      :handle-malformed handle-malformed
+                      :exists? false
+                      :can-post-to-missing? true
+                      :post! import!
+                      :new? false
+                      :respond-with-entity? false)))
+
+            (ANY "/classified/nodes/:node-name" [node-name]
+                 (resource
+                   :allowed-methods [:get :post]
+                   :available-media-types ["application/json"]
+                   :exists? true
+                   :new? false
+                   :respond-with-entity? true
+                   :malformed? parse-if-body
+                   :handle-malformed handle-malformed
+                   :handle-ok (fn [ctx]
+                                (let [data (-> (::data ctx {})
+                                             (rename-keys {:transaction_uuid :transaction-uuid}))
+                                      uuid-str (:transaction-uuid data)
+                                      transaction-uuid (if (uuid? uuid-str)
+                                                         (UUID/fromString uuid-str))
+                                      node (validate SubmittedNode
+                                                     (-> data
+                                                       (update-in [:fact] (fnil identity {}))
+                                                       (update-in [:trusted] (fnil identity {}))
+                                                       (assoc :name node-name)
+                                                       (dissoc :transaction-uuid)))]
+                                  (app/classify-node app node transaction-uuid)))))
+
+            (POST "/classified/nodes/:node-name/explanation" [node-name]
                   (resource
                     :allowed-methods [:post]
                     :available-media-types ["application/json"]
                     :malformed? parse-if-body
                     :handle-malformed handle-malformed
-                    :exists? false
-                    :can-post-to-missing? true
-                    :post! import!
+                    :exists? true
                     :new? false
-                    :respond-with-entity? false)))
+                    :respond-with-entity? true
+                    :handle-ok (fn [ctx]
+                                 (let [node (validate SubmittedNode
+                                                      (-> (::data ctx {})
+                                                        (update-in [:fact] (fnil identity {}))
+                                                        (update-in [:trusted] (fnil identity {}))
+                                                        (assoc :name node-name)))]
+                                   (app/explain-classification app node)))))
 
-          (ANY "/classified/nodes/:node-name" [node-name]
-               (resource
-                 :allowed-methods [:get :post]
-                 :available-media-types ["application/json"]
-                 :exists? true
-                 :handle-ok (classify-node db node-name)
-                 :new? false
-                 :respond-with-entity? true
-                 :malformed? parse-if-body
-                 :handle-malformed handle-malformed))
+            (POST "/rules/translate" []
+                  (resource
+                    :allowed-methods [:post]
+                    :available-media-types ["application/json"]
+                    :malformed? parse-if-body
+                    :handle-malformed handle-malformed
+                    :exists? true
+                    :new? false
+                    :respond-with-entity? true
+                    :handle-ok (fn [{data ::data}]
+                                 (rules/condition->pdb-query data))))
 
-          (POST "/classified/nodes/:node-name/explanation" [node-name]
-                (resource
-                  :allowed-methods [:post]
-                  :available-media-types ["application/json"]
-                  :malformed? parse-if-body
-                  :handle-malformed handle-malformed
-                  :exists? true
-                  :new? false
-                  :respond-with-entity? true
-                  :handle-ok (explain-classification db node-name)))
+            (ANY "/update-classes" []
+                 (resource
+                   :allowed-methods [:post]
+                   :available-media-types ["application/json"]
+                   :post! (fn [_]
+                            (class-updater/update-classes!
+                              (select-keys config [:puppet-master :ssl-context]) app))))
 
-          (POST "/rules/translate" []
-                (resource
-                  :allowed-methods [:post]
-                  :available-media-types ["application/json"]
-                  :malformed? parse-if-body
-                  :handle-malformed handle-malformed
-                  :exists? true
-                  :new? false
-                  :respond-with-entity? true
-                  :handle-ok (fn [{data ::data}]
-                               (rules/condition->pdb-query data))))
+            (GET "/last-class-update" []
+                 (resource
+                   :allowed-methods [:get]
+                   :available-media-types ["application/json"]
+                   :exists? true
+                   :handle-ok (fn [_]
+                                {:last_update (app/get-last-sync app)})))
 
-          (ANY "/update-classes" []
-               (resource
-                 :allowed-methods [:post]
-                 :available-media-types ["application/json"]
-                 :post! (fn [_]
-                          (class-updater/update-classes!
-                            (select-keys config [:puppet-master :ssl-context]) db))))
+            (POST "/validate/group" []
+                  (resource
+                    {:allowed-methods [:post]
+                     :respond-with-entity? true
+                     :available-media-types ["application/json"]
+                     :malformed? (malformed-group? nil)
+                     :handle-malformed handle-malformed-group
+                     :post-to-existing? false
+                     :handle-ok ::validated
+                     :exists? (fn [{submitted ::submitted}]
+                                (let [group (validate Group (merge group-defaults
+                                                                   {:id (UUID/randomUUID)}
+                                                                   submitted))]
+                                  {::validated (app/validate-group app group)}))})))
 
-          (GET "/last-class-update" []
-               (resource
-                 :allowed-methods [:get]
-                 :available-media-types ["application/json"]
-                 :exists? true
-                 :handle-ok (fn [_]
-                              {:last_update (storage/get-last-sync db)})))
+          (ANY "*" [:as req]
+               {:status 404
+                :headers {"Content-Type" "application/json"}
+                :body (json/encode (handle-404 {:request req}))}))
 
-          (context "/validate" []
-                   (POST "/group" [] (group-validator db))))
-
-        (ANY "*" [:as req]
-             {:status 404
-              :headers {"Content-Type" "application/json"}
-              :body (json/encode (handle-404 {:request req}))}))
-
-    middleware/wrap-errors-with-explanations
-    handler/api))
+      middleware/wrap-errors-with-explanations
+      handler/api)))

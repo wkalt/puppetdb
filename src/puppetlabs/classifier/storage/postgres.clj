@@ -15,7 +15,9 @@
                                                   GroupDelta group->classification groups->tree
                                                   HierarchyNode Node PuppetClass Rule
                                                   ValidationNode]]
-            [puppetlabs.classifier.storage :refer [root-group-uuid Storage]]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid OptimizedStorage
+                                                               PrimitiveStorage]]
+            [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.storage.sql-utils :refer [aggregate-column aggregate-submap-by
                                                              expand-seq-params ordered-group-by]]
             [puppetlabs.classifier.util :refer [dissoc-nil map-delta merge-and-clean
@@ -94,7 +96,15 @@
           (throw e)) ; seems safer to throw the original exception
         (throw-uniqueness-failure root-e entity-kind)))))
 
-;;; Storage protocol implementation
+;; Postgres Storage Record
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defrecord Postgres [db])
+
+(defn new-db [spec]
+  (Postgres. spec))
+
+;;; PrimitiveStorage & OptimizedStorage protocol implementations
 ;;;
 ;;; Functions here are referred to below when calling extend. This indirection
 ;;; lets us use pre- and post-conditions as well as schema.
@@ -223,44 +233,44 @@
 
 (defn- create-parameter
   "Create or update and undelete a parameter"
-  [db parameter default-value class-name environment-name]
+  [{db :db} parameter default-value class-name environment-name]
   (wrap-uniqueness-failure-info "class parameter"
    #(jdbc/with-db-transaction
-      [t-db db]
+      [txn-db db]
       (let [parameter (name parameter)
             where-param (sql/where {:parameter parameter
                                     :class_name class-name
                                     :environment_name environment-name})
-            [deleted] (query t-db (sql/select [:deleted] :class_parameters where-param))]
+            [deleted] (query txn-db (sql/select [:deleted] :class_parameters where-param))]
         (if (nil? deleted)
           ;; the parameter doesn't exist, so create it
-          (jdbc/insert! t-db, :class_parameters
+          (jdbc/insert! txn-db, :class_parameters
                         {:class_name class-name
                          :parameter parameter
                          :default_value (json/encode default-value)
                          :environment_name environment-name})
           ;; else the parameter exists but might be marked deleted, so update it
-          (jdbc/update! t-db, :class_parameters
+          (jdbc/update! txn-db, :class_parameters
                         {:default_value (json/encode default-value), :deleted false}
                         where-param))))))
 
 (sc/defn ^:always-validate create-class* :- PuppetClass
   "Create or update and undelete a class"
-  [{db :db}
-   {:keys [name parameters environment] :as class} :- PuppetClass]
+  [this, {:keys [name parameters environment] :as class} :- PuppetClass]
   (wrap-uniqueness-failure-info "class"
     #(jdbc/with-db-transaction
-       [t-db db]
-       (create-environment-if-missing {:db t-db} {:name environment})
-       (let [[deleted] (query t-db (select-class-where-deleted name environment))
-             where-class (sql/where {:name name, :environment_name environment})
-             new-class-row {:name name, :environment_name environment, :deleted false}]
-         (if deleted
-           (jdbc/update! t-db :classes {:deleted false} where-class)
-           (jdbc/insert! t-db :classes new-class-row)))
-       (doseq [[param value] parameters]
-         (create-parameter t-db param value name environment))
-       class)))
+       [txn-db (:db this)]
+       (let [txn-storage (Postgres. txn-db)]
+         (create-environment-if-missing txn-storage {:name environment})
+         (let [[deleted] (query txn-db (select-class-where-deleted name environment))
+               where-class (sql/where {:name name, :environment_name environment})
+               new-class-row {:name name, :environment_name environment, :deleted false}]
+           (if deleted
+             (jdbc/update! txn-db :classes {:deleted false} where-class)
+             (jdbc/insert! txn-db :classes new-class-row)))
+         (doseq [[param value] parameters]
+           (create-parameter txn-storage param value name environment))
+         class))))
 
 (sc/defn ^:always-validate get-class* :- (sc/maybe PuppetClass)
   [{db :db}, environment-name :- String, class-name :- String]
@@ -295,7 +305,7 @@
 (defn- update-class
   "This function does not create a transaction. If you are calling it, make sure
   you are doing so inside of an existing transaction!"
-  [db new-class old-class]
+  [{db :db, :as this} new-class old-class]
   (let [{:keys [environment name]} new-class
         [new-params old-params] (for [class [new-class old-class]]
                                   (->> class
@@ -317,7 +327,7 @@
                 (throw e))
               (jdbc/update! db :class_parameters {:deleted true} where-param))))))
     (doseq [[param value] to-add]
-      (create-parameter db param value name environment))
+      (create-parameter this param value name environment))
     (doseq [[[param new-value] [_ old-value]] in-both]
       (when-not (= new-value old-value)
         (jdbc/update! db :class_parameters {:default_value (json/encode new-value)}
@@ -326,16 +336,16 @@
                                   :environment_name environment}))))))
 
 (defn- mark-class-deleted
-  [db {:keys [environment parameters], class-name :name}]
+  [this {:keys [environment parameters], class-name :name}]
   (jdbc/with-db-transaction
-    [t-db db]
-    (jdbc/update! t-db :classes {:deleted true}
+    [txn-db (:db this)]
+    (jdbc/update! txn-db :classes {:deleted true}
                   (sql/where {:environment_name environment, :name class-name}))
     (doseq [[param _] parameters
             :let [where-param (sql/where {:environment_name environment
                                           :class_name class-name
                                           :parameter (name param)})]]
-      (jdbc/update! t-db :class_parameters {:deleted true} where-param))))
+      (jdbc/update! txn-db :class_parameters {:deleted true} where-param))))
 
 (defn- sort-classes
   [classes]
@@ -347,7 +357,7 @@
     (sort-by (juxt :environment :name) env-name-comp classes)))
 
 (defn set-last-sync
-  [db]
+  [{db :db}]
   (let [last-sync (query db (sql/select * :last_sync))]
     (if (empty? last-sync)
       (jdbc/execute! db ["INSERT INTO last_sync (time) VALUES (now())"])
@@ -361,49 +371,49 @@
       (coerce-time/from-sql-time (:time last-sync)))))
 
 (sc/defn ^:always-validate synchronize-classes*
-  [{db :db}
-   puppet-classes :- [PuppetClass]]
+  [this, puppet-classes :- [PuppetClass]]
   (wrap-uniqueness-failure-info "class"
     #(jdbc/with-db-transaction
-       [t-db db]
+       [txn-db (:db this)]
        ;; Nothing else should lock this table, so we can use NOWAIT
-       (jdbc/execute! t-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
-       (jdbc/execute! t-db ["SET CONSTRAINTS ALL IMMEDIATE"])
-       (let [db-classes (get-all-classes* {:db t-db})
+       (jdbc/execute! txn-db ["LOCK TABLE classes, class_parameters IN EXCLUSIVE MODE NOWAIT"])
+       (jdbc/execute! txn-db ["SET CONSTRAINTS ALL IMMEDIATE"])
+       (let [txn-storage (Postgres. txn-db)
+             db-classes (get-all-classes* txn-storage)
              [to-add to-delete in-both] (relative-complements-by-key (juxt :environment :name)
                                                                      (sort-classes puppet-classes)
                                                                      (sort-classes db-classes))]
          (doseq [{:keys [environment name] :as c} to-delete]
            (let [where-class (sql/where {:environment_name environment, :name name})
-                 [class-used?] (query t-db (sql/select ["1"]
-                                                       :group_classes
-                                                       (sql/where
-                                                         {:environment_name environment
-                                                          :class_name name})))]
+                 [class-used?] (query txn-db (sql/select ["1"]
+                                                         :group_classes
+                                                         (sql/where
+                                                           {:environment_name environment
+                                                            :class_name name})))]
              (if class-used?
-               (mark-class-deleted t-db c)
-               (try (delete-class* {:db t-db} environment name)
+               (mark-class-deleted txn-storage c)
+               (try (delete-class* txn-storage environment name)
                  (catch PSQLException e
                    (when-not (= (.getSQLState e) foreign-key-violation-code)
                      (throw e))
-                   (mark-class-deleted t-db c))))))
+                   (mark-class-deleted txn-storage c))))))
          (doseq [class to-add]
-           (create-class* {:db t-db} class))
+           (create-class* txn-storage class))
          (doseq [[new-class old-class] in-both]
            (when-not (= new-class old-class)
-             (update-class t-db new-class old-class))))
-       (set-last-sync t-db))))
+             (update-class txn-storage new-class old-class)))
+         (set-last-sync txn-storage)))))
 
 ;; Rules
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (sc/defn ^:always-validate create-rule :- Rule
-  [db {:keys [when group-id] :as rule} :- Rule]
+  [{db :db} {:keys [when group-id] :as rule} :- Rule]
   (jdbc/with-db-transaction
-    [t-db db]
+    [txn-db db]
     (let [storage-rule {:group_id group-id
                         :match (json/generate-string when)}
-          [inserted-rule] (jdbc/insert! t-db :rules storage-rule)
+          [inserted-rule] (jdbc/insert! txn-db :rules storage-rule)
           rule-id (:id inserted-rule)]
       (assoc rule :id rule-id))))
 
@@ -491,10 +501,9 @@
     (keywordize-keys)))
 
 (sc/defn ^:always-validate get-group* :- (sc/maybe Group)
-  [{db :db}
-   id :- (sc/either String UUID)]
+  [this, id :- (sc/either String UUID)]
   {:pre [(uuid? id)]}
-  (let [[group] (aggregate-fields-into-groups (query db (select-group-by-id (->uuid id))))]
+  (let [[group] (aggregate-fields-into-groups (query (:db this) (select-group-by-id (->uuid id))))]
     group))
 
 (sc/defn ^:always-validate annotate-group* :- AnnotatedGroup
@@ -537,39 +546,11 @@
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
 (sc/defn ^:always-validate get-parent :- (sc/maybe Group)
-  [db, group :- Group]
-  (get-group* {:db db} (:parent group)))
-
-(sc/defn ^:always-validate get-ancestors* :- [Group]
-  [{db :db} group :- Group]
-  (loop [current (get-parent db group), ancestors []]
-    (cond
-      ;; if current is = to last parent, it is its own parent, so it's the root
-      (= current (last ancestors))
-      ancestors
-
-      ;; if current is somewhere else in ancestors, we have as cycle
-      (some #(= (:id current) (:id %)) ancestors)
-      (throw+ {:kind :puppetlabs.classifier/inheritance-cycle
-               :cycle (drop-while #(not= (:id current) (:id %)) ancestors)})
-
-      :else
-      (recur (get-parent db current) (conj ancestors current)))))
-
-(sc/defn ^:always-validate get-group-as-inherited* :- (sc/maybe Group)
-  [{db :db, :as this}, id :- (sc/either String UUID)]
-  {:pre [(uuid? id)]}
-  (if-let [group (get-group* this id)]
-    (let [ancs (get-ancestors* this group)
-          chain (concat [group] ancs)
-          inherited (class8n/collapse-to-inherited (map group->classification chain))
-          inherited-rule (class8n/inherited-rule chain)]
-      (if (contains? group :rule)
-        (assoc (merge group inherited) :rule inherited-rule)
-        (dissoc (merge group inherited) :rule)))))
+  [this, group :- Group]
+  (get-group* this (:parent group)))
 
 (sc/defn ^:always-validate get-immediate-children :- [Group]
-  [db, group-id :- java.util.UUID]
+  [{db :db}, group-id :- java.util.UUID]
   (->> (query db (select-group-children group-id))
     aggregate-fields-into-groups))
 
@@ -578,18 +559,18 @@
   It only checks for the root node repeating. Since there is only single
   inheritance, any cycles are unreachable from the rest of the tree so there's
   no need to check for cycles that don't involve the root node."
-  [db, subtree-root-id :- java.util.UUID, group :- Group]
+  [this, subtree-root-id :- java.util.UUID, group :- Group]
   (let [children (->> (:id group)
-                   (get-immediate-children db)
+                   (get-immediate-children this)
                    (remove #(= (:id %) subtree-root-id)))]
     {:group group
      :children (->> children
-                 (map (partial get-subtree** db subtree-root-id))
+                 (map (partial get-subtree** this subtree-root-id))
                  set)}))
 
 (sc/defn ^:always-validate get-subtree* :- HierarchyNode
-  [{db :db}, group :- Group]
-  (get-subtree** db (:id group) group))
+  [this, group :- Group]
+  (get-subtree** this (:id group) group))
 
 ;; Validating Group
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -618,7 +599,7 @@
              :cycle [group]}))
 
   ;; If the group's parent is being changed, that edge is not yet in the
-  ;; database so get-ancestors* will not see it, meaning we have to check
+  ;; database so get-ancestors will not see it, meaning we have to check
   ;; ourselves for cycles involving the group.
   (when (some #(= id (:id %)) ancestors)
     (let [cycle (->> ancestors
@@ -634,33 +615,33 @@
   problem, an exception will be thrown. If it or its descendents have references
   to missing classes or class parameters, returns a ValidationNode subtree
   rooted at the group. If all validation succeeds, returns nil."
-  [{db :db} group]
-  (let [parent (get-parent db group)
+  [this group]
+  (let [parent (get-parent this group)
         _ (when (nil? parent)
             (throw+ {:kind ::missing-parent, :group group}))
-        ancestors (get-ancestors* {:db db} group)]
+        ancestors (storage/get-ancestors this group)]
     (validate-hierarchy-structure* group ancestors)
-    (let [subtree (get-subtree* {:db db} group)
-          classes (get-all-classes* {:db db})]
+    (let [subtree (get-subtree* this group)
+          classes (get-all-classes* this)]
       (validate-classes-and-parameters subtree ancestors classes))))
 
 (sc/defn ^:always-validate group-validation-failures* :- (sc/maybe ValidationNode)
-  [{db :db} group]
-  (if-let [vtree (validation-failures {:db db} group)]
+  [this group]
+  (if-let [vtree (validation-failures this group)]
     vtree))
 
 (defn- validate-group-and-throw-missing-referents
-  [db group]
-  (when-let [vtree (group-validation-failures* {:db db} group)]
+  [this group]
+  (when-let [vtree (group-validation-failures* this group)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* {:db db} group)})))
+             :ancestors (storage/get-ancestors this group)})))
 
 ;; Creating & Updating Groups
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- add-group-class-link
-  [db id environment class-name]
+  [{db :db} id environment class-name]
   (jdbc/insert! db :group_classes
                 [:group_id :environment_name :class_name]
                 [id environment (name class-name)]))
@@ -671,62 +652,63 @@
           :keys [classes description environment id parent rule variables]} group]
      (wrap-uniqueness-failure-info "group"
        #(jdbc/with-db-transaction
-          [t-db db]
-          (validate-group-and-throw-missing-referents t-db group)
-          (create-environment-if-missing {:db t-db} {:name environment})
-          (jdbc/insert! t-db :groups
-                        [:name :description :environment_name :environment_trumps :id :parent_id]
-                        (conj ((juxt :name :description :environment :environment-trumps) group)
-                              id parent))
-          (doseq [[v-key v-val] variables]
-            (jdbc/insert! t-db :group_variables
-                          [:variable :group_id :value]
-                          [(name v-key) id (json/generate-string v-val)]))
-          (doseq [class classes]
-            (let [[class-name class-params] class]
-              (add-group-class-link t-db id environment class-name)
-              (doseq [class-param class-params]
-                (let [[param value] class-param
-                      value (json/encode value)]
-                  (jdbc/insert! t-db :group_class_parameters
-                                [:parameter :class_name :environment_name :group_id :value]
-                                [(name param) (name class-name) environment id value])))))
-          (when rule
-            (create-rule t-db {:when rule, :group-id id}))
-          group))))
+          [txn-db db]
+          (let [txn-storage (Postgres. txn-db)]
+            (validate-group-and-throw-missing-referents txn-storage group)
+            (create-environment-if-missing txn-storage {:name environment})
+            (jdbc/insert! txn-db :groups
+                          [:name :description :environment_name :environment_trumps :id :parent_id]
+                          (conj ((juxt :name :description :environment :environment-trumps) group)
+                                id parent))
+            (doseq [[v-key v-val] variables]
+              (jdbc/insert! txn-db :group_variables
+                            [:variable :group_id :value]
+                            [(name v-key) id (json/generate-string v-val)]))
+            (doseq [class classes]
+              (let [[class-name class-params] class]
+                (add-group-class-link txn-storage id environment class-name)
+                (doseq [class-param class-params]
+                  (let [[param value] class-param
+                        value (json/encode value)]
+                    (jdbc/insert! txn-db :group_class_parameters
+                                  [:parameter :class_name :environment_name :group_id :value]
+                                  [(name param) (name class-name) environment id value])))))
+            (when rule
+              (create-rule txn-storage {:when rule, :group-id id}))
+            group)))))
 
 (defn- delete-group-class-link
-  [db group-id class-name]
+  [{db :db} group-id class-name]
   (jdbc/delete! db, :group_classes
                 (sql/where {"group_id" group-id
                             "class_name" class-name})))
 
 (defn- delete-group-class-parameter
-  [db group-id class-name parameter]
+  [{db :db} group-id class-name parameter]
   (jdbc/delete! db, :group_class_parameters
                 (sql/where {"group_id" group-id
                             "class_name" class-name
                             "parameter" parameter})))
 
 (defn- update-group-class-parameter
-  [db group-id class-name parameter value]
+  [{db :db} group-id class-name parameter value]
   (jdbc/update! db, :group_class_parameters, {:value (json/encode value)}
                 (sql/where {"group_id" group-id
                             "class_name" class-name
                             "parameter" parameter})))
 
 (defn- add-group-class-parameter
-  [db group-id class-name environment-name parameter value]
+  [{db :db} group-id class-name environment-name parameter value]
   (wrap-uniqueness-failure-info "group class parameter"
-    #(jdbc/with-db-transaction [t-db db]
+    #(jdbc/with-db-transaction [txn-db db]
        ;; create the group<->class link in the group_classes table if necessary
-       (jdbc/execute! t-db
+       (jdbc/execute! txn-db
                       ["INSERT INTO group_classes (group_id, class_name, environment_name)
                        SELECT ?, ?, ? WHERE NOT EXISTS
                        (SELECT 1 FROM group_classes
                        WHERE group_id = ? AND class_name = ? AND environment_name = ?)"
                        group-id class-name environment-name group-id class-name environment-name])
-       (jdbc/insert! t-db :group_class_parameters
+       (jdbc/insert! txn-db :group_class_parameters
                      {:group_id group-id
                       :class_name class-name
                       :environment_name environment-name
@@ -734,87 +716,89 @@
                       :value (json/encode value)}))))
 
 (defn- update-group-classes
-  [db extant delta]
+  [{db :db} extant delta]
   (let [group-id (:id extant)
         environment (:environment extant)]
     (wrap-uniqueness-failure-info "group-class link"
-      #(jdbc/with-db-transaction [t-db db]
-         (doseq [[class parameters] (:classes delta)
-                 :let [class-name (name class)]]
-           (cond
-             (nil? parameters)
-             (delete-group-class-link t-db group-id class-name)
+      #(jdbc/with-db-transaction [txn-db db]
+         (let [txn-storage (Postgres. txn-db)]
+           (doseq [[class parameters] (:classes delta)
+                   :let [class-name (name class)]]
+             (cond
+               (nil? parameters)
+               (delete-group-class-link txn-storage group-id class-name)
 
-             (empty? parameters) ; only if parameters defined, since if nil previous cond fires
-             (add-group-class-link t-db group-id environment class-name)
+               (empty? parameters) ; only if parameters defined, since if nil previous cond fires
+               (add-group-class-link txn-storage group-id environment class-name)
 
-             :else ; handle each parameter individually
-             (doseq [[parameter value] parameters
-                     :let [parameter-name (name parameter)]]
-               (cond
-                 (nil? value)
-                 (delete-group-class-parameter t-db group-id class-name parameter-name)
+               :else ; handle each parameter individually
+               (doseq [[parameter value] parameters
+                       :let [parameter-name (name parameter)]]
+                 (cond
+                   (nil? value)
+                   (delete-group-class-parameter txn-storage group-id class-name parameter-name)
 
-                 ;; parameter is set in extant group, so update
-                 (not= (get-in extant [:classes class parameter] ::not-found) ::not-found)
-                 (update-group-class-parameter t-db, group-id, class-name, parameter-name, value)
+                   ;; parameter is set in extant group, so update
+                   (not= (get-in extant [:classes class parameter] ::not-found) ::not-found)
+                   (update-group-class-parameter txn-storage group-id
+                                                 class-name parameter-name value)
 
-                 :otherwise ; parameter is not nil and not previously set, so insert
-                 (add-group-class-parameter t-db group-id, class-name, environment
-                                            parameter-name, value)))))))))
+                   :otherwise ; parameter is not nil and not previously set, so insert
+                   (add-group-class-parameter txn-storage group-id
+                                              class-name environment parameter-name value))))))))))
 
 (defn- update-group-variables
-  [db extant delta]
+  [{db :db} extant delta]
   (let [group-id (:id extant)]
     (wrap-uniqueness-failure-info "group variable"
-      #(jdbc/with-db-transaction [t-db db]
+      #(jdbc/with-db-transaction [txn-db db]
          (doseq [[variable value] (:variables delta)
                  :let [variable-name (name variable)
                        variable-value (json/encode value)]]
            (cond
              (nil? value)
-             (jdbc/delete! t-db, :group_variables
+             (jdbc/delete! txn-db, :group_variables
                            (sql/where {"group_id" group-id, "variable" variable-name}))
 
              (not= (get-in extant [:variables variable] ::not-found) ::not-found)
-             (jdbc/update! t-db, :group_variables, {:value variable-value}
+             (jdbc/update! txn-db, :group_variables, {:value variable-value}
                            (sql/where {"group_id" group-id, "variable" variable-name}))
 
              :otherwise ; new variable for the group
-             (jdbc/insert! t-db, :group_variables
+             (jdbc/insert! txn-db, :group_variables
                            {:group_id group-id
                             :variable variable-name
                             :value variable-value})))))))
 
 (defn- update-group-environment
-  [db extant delta]
+  [{db :db} extant delta]
   (let [old-env (:environment extant)
         new-env (:environment delta)
         group-id (:id extant)
         where-group-link (sql/where {"group_id" group-id})]
     (when (and new-env (not= new-env old-env))
       (wrap-uniqueness-failure-info "group"
-        #(jdbc/with-db-transaction [t-db db]
-          (create-environment-if-missing {:db db} {:name new-env})
-          (jdbc/update! t-db :groups {:environment_name new-env} (sql/where {"id" group-id}))
-          (jdbc/update! t-db :group_classes {:environment_name new-env} where-group-link)
-          (jdbc/update! t-db, :group_class_parameters
+        #(jdbc/with-db-transaction [txn-db db]
+          (create-environment-if-missing (Postgres. txn-db) {:name new-env})
+          (jdbc/update! txn-db :groups {:environment_name new-env} (sql/where {"id" group-id}))
+          (jdbc/update! txn-db :group_classes {:environment_name new-env} where-group-link)
+          (jdbc/update! txn-db, :group_class_parameters
                         {:environment_name new-env}
                         where-group-link))))))
 
 (defn- update-group-rule
-  [db extant {id :id, :as delta}]
+  [{db :db, :as this} extant {id :id, :as delta}]
   (let [new-rule (:rule delta)]
     (when (and new-rule (not= new-rule (:rule extant)))
       (if (:rule extant)
         (jdbc/update! db, :rules, {:match (json/generate-string new-rule)}
                       (sql/where {:group_id id}))
-        (create-rule db {:when new-rule, :group-id id})))
+        (create-rule this {:when new-rule, :group-id id})))
     (when (and (nil? new-rule) (contains? delta :rule))
       (jdbc/delete! db :rules (sql/where {:group_id id})))))
 
 (defn- update-group-field
-  [db map-field row-field extant delta]
+  [{db :db} map-field row-field extant delta]
   (let [new-value (get delta map-field)]
     (when (and (not (nil? new-value))
                (not= new-value (get extant map-field)))
@@ -830,21 +814,16 @@
   a ValidationNode for the group that the delta affects will be returned which
   describes the errors that the edit would introduce to the group's subtree.  If
   the delta passes all validation, then nil will be returned."
-  [{db :db}, delta :- GroupDelta, extant :- Group]
-  (when (and (= (:id delta) root-group-uuid)
-             (contains? delta :rule))
-    (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
-             :delta delta}))
-
+  [this, delta :- GroupDelta, extant :- Group]
   (let [group' (merge-and-clean extant delta)
-        ancestors' (get-ancestors* {:db db} group')
+        ancestors' (storage/get-ancestors this group')
         _ (validate-hierarchy-structure* group' ancestors')
-        subtree' (get-subtree* {:db db} group')
-        classes (get-all-classes* {:db db})]
+        subtree' (get-subtree* this group')
+        classes (get-all-classes* this)]
     (if-let [vtree' (validate-classes-and-parameters subtree' ancestors' classes)]
       (let [ancestors (if (= (:parent group') (:parent extant))
                         ancestors'
-                        (get-ancestors* {:db db} extant))
+                        (storage/get-ancestors this extant))
             subtree (assoc subtree' :group extant)
             vtree (validate-classes-and-parameters subtree ancestors classes)
             vtree-diff (if (nil? vtree)
@@ -854,29 +833,30 @@
           vtree-diff)))))
 
 (defn- validate-delta-and-throw-missing-referents
-  [db delta extant]
-  (when-let [vtree (delta-validation-failures* {:db db} delta extant)]
+  [this delta extant]
+  (when-let [vtree (delta-validation-failures* this delta extant)]
     (throw+ {:kind ::missing-referents
              :tree vtree
-             :ancestors (get-ancestors* {:db db} (merge-and-clean extant delta))})))
+             :ancestors (storage/get-ancestors this (merge-and-clean extant delta))})))
 
 (sc/defn ^:always-validate update-group* :- (sc/maybe Group)
-  [{db :db}
-   delta :- GroupDelta]
-  (let [update-thunk #(jdbc/with-db-transaction [t-db db :isolation :repeatable-read]
-                        (when-let [extant (get-group* {:db t-db} (:id delta))]
-                          (validate-delta-and-throw-missing-referents t-db delta extant)
-                          (update-group-classes t-db extant delta)
-                          (update-group-variables t-db extant delta)
-                          (update-group-environment t-db extant delta)
-                          (update-group-rule t-db extant delta)
-                          (update-group-field t-db :description :description extant delta)
-                          (update-group-field t-db :parent :parent_id extant delta)
-                          (update-group-field t-db :name :name extant delta)
-                          (update-group-field t-db, :environment-trumps, :environment_trumps
-                                              extant, delta)
-                          ;; still in the transaction, so will see the updated rows
-                          (get-group* {:db t-db} (:id delta))))]
+  [{db :db}, delta :- GroupDelta]
+  (let [update-thunk #(jdbc/with-db-transaction [txn-db db :isolation :repeatable-read]
+                        (let [txn-storage (Postgres. txn-db)]
+                          (when-let [extant (get-group* txn-storage (:id delta))]
+                            (validate-delta-and-throw-missing-referents txn-storage delta extant)
+                            (update-group-classes txn-storage extant delta)
+                            (update-group-variables txn-storage extant delta)
+                            (update-group-environment txn-storage extant delta)
+                            (update-group-rule txn-storage extant delta)
+                            (update-group-field txn-storage :description :description extant delta)
+                            (update-group-field txn-storage :parent :parent_id extant delta)
+                            (update-group-field txn-storage :name :name extant delta)
+                            (update-group-field txn-storage
+                                                :environment-trumps, :environment_trumps
+                                                extant, delta)
+                            ;; still in the transaction, so will see the updated rows
+                            (get-group* txn-storage (:id delta)))))]
     (loop [retries 3]
       (let [result (try (wrap-uniqueness-failure-info "group" update-thunk)
                      (catch PSQLException e
@@ -890,24 +870,23 @@
           result)))))
 
 (sc/defn ^:always-validate delete-group*
-  [{db :db}
-   id :- (sc/either String UUID)]
+  [this, id :- (sc/either String UUID)]
   {:pre [(uuid? id)]}
   (let [uuid (->uuid id)]
     (when (= uuid root-group-uuid)
       (throw (IllegalArgumentException. "It is forbidden to delete the default group.")))
-    (let [children (get-immediate-children db id)]
+    (let [children (get-immediate-children this id)]
       (when-not (empty? children)
         (throw+ {:kind ::children-present
-                 :group (get-group* {:db db} id)
+                 :group (get-group* this id)
                  :children (set children)})))
-    (jdbc/delete! db :groups (sql/where {:id (->uuid id)}))))
+    (jdbc/delete! (:db this) :groups (sql/where {:id (->uuid id)}))))
 
 ;; Batch Import
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn- insert-missing-referents
-  [db referents inherited-classification]
+  [this referents inherited-classification]
   (doseq [[class-kw params] referents
           :let [class-name (name class-kw)]]
     (if (nil? params) ;; entire class is missing
@@ -917,67 +896,58 @@
             class {:name class-name
                    :environment (:environment inherited-classification)
                    :parameters (zipmap all-params (repeat nil))}]
-        (create-class* {:db db} class))
+        (create-class* this class))
       ;; otherwise, just particular parameters are missing
       (doseq [param params]
-        (create-parameter db param nil class-name (:environment inherited-classification))))))
+        (create-parameter this param nil class-name (:environment inherited-classification))))))
 
 (defn- import-tree
-  ([db {:keys [group children] :as node}]
-   (let [only-group (assoc node :children #{})
-         ancestor-class8ns (map group->classification (get-ancestors* {:db db} group))
-         classes (get-all-classes* {:db db})]
-     (when-let [{missing-referents :errors} (validate-classes-and-parameters
-                                              only-group ancestor-class8ns classes)]
-       (let [inherited-class8n (class8n/collapse-to-inherited (group->classification group)
-                                                              ancestor-class8ns)]
-         (insert-missing-referents db missing-referents inherited-class8n)))
-     (if (not= (:id group) root-group-uuid)
-       (create-group* {:db db} group)
-       (let [old-root (get-group* {:db db} root-group-uuid)
-             delta (assoc (map-delta old-root group) :id root-group-uuid)]
-         (update-group* {:db db} delta)))
-     (doseq [child children] (import-tree db child)))))
+  [this {:keys [group children] :as node}]
+  (let [only-group (assoc node :children #{})
+        ancestor-class8ns (map group->classification (storage/get-ancestors this group))
+        classes (get-all-classes* this)]
+    (when-let [{missing-referents :errors} (validate-classes-and-parameters
+                                             only-group ancestor-class8ns classes)]
+      (let [inherited-class8n (class8n/collapse-to-inherited (group->classification group)
+                                                             ancestor-class8ns)]
+        (insert-missing-referents this missing-referents inherited-class8n)))
+    (if (not= (:id group) root-group-uuid)
+      (create-group* this group)
+      (let [old-root (get-group* this root-group-uuid)
+            delta (assoc (map-delta old-root group) :id root-group-uuid)]
+        (update-group* this delta)))
+    (doseq [child children] (import-tree this child))))
 
 (defn- delete-tree
-  [db {:keys [group children]}]
-  (doseq [child children] (delete-tree db child))
+  [this {:keys [group children]}]
+  (doseq [child children] (delete-tree this child))
   (when (not= (:id group) root-group-uuid)
-    (delete-group* {:db db} (:id group))))
+    (delete-group* this (:id group))))
 
 (sc/defn ^:always-validate import-hierarchy* :- HierarchyNode
-  [{db :db}, groups :- [Group]]
-  (jdbc/with-db-transaction [t-db db]
-    (let [root-node (groups->tree groups)
-          old-root-node (get-subtree* {:db t-db} (get-group* {:db t-db} root-group-uuid))]
-      (delete-tree t-db old-root-node)
-      (import-tree t-db root-node)
-      (get-subtree* {:db t-db} (get-group* {:db t-db} root-group-uuid)))))
+  [this, groups :- [Group]]
+  (jdbc/with-db-transaction [txn-db (:db this)]
+    (let [txn-storage (Postgres. txn-db)
+          root-node (groups->tree groups)
+          old-root-node (get-subtree* txn-storage (get-group* txn-storage root-group-uuid))]
+      (delete-tree txn-storage old-root-node)
+      (import-tree txn-storage root-node)
+      (get-subtree* txn-storage (get-group* txn-storage root-group-uuid)))))
 
-;; Record & Storage Protocol Extension
+;; Postgres Record's Storage Protocol Extension
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defrecord Postgres [db])
-
-(defn new-db [spec]
-  (Postgres. spec))
-
 (extend Postgres
-  Storage
 
+  PrimitiveStorage
   {:store-check-in store-check-in*
    :get-check-ins get-check-ins*
    :get-nodes get-nodes*
 
-   :group-validation-failures group-validation-failures*
    :create-group create-group*
    :get-group get-group*
-   :get-group-as-inherited get-group-as-inherited*
    :get-groups get-groups*
-   :annotate-group annotate-group*
-   :get-ancestors get-ancestors*
    :get-subtree get-subtree*
-   :delta-validation-failures delta-validation-failures*
    :update-group update-group*
    :delete-group delete-group*
 
@@ -986,7 +956,6 @@
    :create-class create-class*
    :get-class get-class*
    :get-classes get-classes*
-   :get-all-classes get-all-classes*
    :synchronize-classes synchronize-classes*
    :get-last-sync get-last-sync*
    :delete-class delete-class*
@@ -996,4 +965,11 @@
    :create-environment create-environment*
    :get-environment get-environment*
    :get-environments get-environments*
-   :delete-environment delete-environment*})
+   :delete-environment delete-environment*}
+
+  OptimizedStorage
+  {:get-ancestors naive/get-ancestors
+   :annotate-group annotate-group*
+   :group-validation-failures group-validation-failures*
+
+   :get-all-classes get-all-classes*})
