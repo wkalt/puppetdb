@@ -1,3 +1,6 @@
+### 0.6.0
+ * Change the namespace of the classifier service definition from `puppetlabs.classifier.application` to `puppetlabs.classifier.main`; TK dependents will have to update the name in their .cfg files.
+
 ### 0.5.6
  * Fix a bug where groups without rules and their descendents could not be viewed as-inherited.
  * Fix a bug where the `environment_trumps` flag could not be changed from false to true.
