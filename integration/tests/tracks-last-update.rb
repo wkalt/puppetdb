@@ -1,11 +1,10 @@
 require 'time'
-require 'httparty'
 
 test_name "the classifier tracks the time of the most recent update from puppet"
 
-conf = get_classifier_configuration(classifier)
-conf['classifier']['synchronization-period'] = 0 # disable class sync
-set_classifier_configuration(classifier, conf)
+# disable class sync
+conf = {'classifier' => {'synchronization-period' => 0}}
+write_conf_file(classifier, "sync.conf", conf)
 clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_last_update')
@@ -43,14 +42,6 @@ master_opts = {
     'trace' => true
   }
 }
-
-class Classifier
-  include HTTParty
-  debug_output($stdout)
-  headers({'Content-Type' => 'application/json'})
-end
-
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
 
 step "Verify that initially the last_update time is null"
 

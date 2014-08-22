@@ -1,4 +1,3 @@
-require 'httparty'
 require 'uuidtools'
 
 test_name "puppet understands parameters from classification"
@@ -40,15 +39,6 @@ master_opts = {
     'trace' => true
   }
 }
-
-class Classifier
-  include HTTParty
-  debug_output($stdout)
-  headers({'Content-Type' => 'application/json'})
-end
-
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
-
 
 step "Collect node names"
 

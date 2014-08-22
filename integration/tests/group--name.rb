@@ -1,7 +1,5 @@
 require File.expand_path(File.dirname(__FILE__) + '/../nc_service_helpers.rb')
 
-Classifier.base_uri("#{classifier.reachable_name}:#{CLASSIFIER_PORT}")
-
 test_name "Groups API endpoint validation, parameter name"
 
 step "clear and restart the classifier service"
