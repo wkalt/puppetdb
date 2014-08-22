@@ -139,8 +139,13 @@
     (testing "retrieves a group with variables"
       (is (= with-variables (get-group db (:id with-variables)))))
 
-    (testing "retrieves all groups"
-      (is (= #{simplest no-rules with-classes with-variables root} (set (get-groups db)))))
+    (let [all-groups #{simplest no-rules with-classes with-variables root}]
+
+      (testing "retrieves all groups"
+        (is (= all-groups (set (get-groups db)))))
+
+      (testing "retrieves all group ids"
+        (is (= (-> (map :id all-groups) set) (set (get-group-ids db))))))
 
     (testing "deletes a group"
       (delete-group db (:id simplest))
