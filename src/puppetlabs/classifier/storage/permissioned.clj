@@ -1,6 +1,5 @@
 (ns puppetlabs.classifier.storage.permissioned
   (:require [clojure.set :as set]
-            [clojure.walk :refer [prewalk]]
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
