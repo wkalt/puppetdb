@@ -65,7 +65,7 @@
   which takes a token and returns all the ids of groups that the subject is
   allowed to view."
   (let [Function (sc/pred fn?)]
-    {:classifier-access? Function
+    {:all-group-access? Function
      :group-edit-classification? Function
      :group-edit-environment? Function
      :group-edit-child-rules? Function
@@ -77,7 +77,7 @@
 (def permission->description
   "Human-readable descriptions for the action that each permission key in
   a Permissions map represents, mainly to embed in error messages."
-  {:classifier-access? "access the classifier"
+  {:all-group-access? "access all groups in the classifier"
    :group-modify-children? "create or delete children"
    :group-edit-classification? "edit the classes and variables"
    :group-edit-environment? "change the environment"
@@ -195,7 +195,7 @@
 
 (sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
   [storage :- (sc/protocol PrimitiveStorage), permissions :- Permissions]
-  (let [{:keys [classifier-access?
+  (let [{:keys [all-group-access?
                 group-modify-children?
                 group-edit-classification?
                 group-edit-environment?
@@ -203,11 +203,14 @@
                 group-view?
                 permitted-group-actions
                 viewable-group-ids]} permissions
-        wrap-access-permissions (fn [f]
-                                  (fn [this token & args]
-                                    (if (classifier-access? token)
-                                      (apply f storage args)
-                                      (throw+ (permission-exception :classifier-access? token)))))
+        wrap-all-group-access (fn [f]
+                                (fn [this token & args]
+                                  (if (all-group-access? token)
+                                    (apply f storage args)
+                                    (throw+ (permission-exception :all-group-access? token)))))
+        wrap-always-allow (fn [f]
+                            (fn [this _ & args]
+                              (apply f storage args)))
         get-ancestors (if (satisfies? OptimizedStorage storage)
                         storage/get-ancestors
                         naive/get-ancestors)
@@ -390,30 +393,30 @@
       ;;
 
       (store-check-in [this token check-in]
-        ((wrap-access-permissions storage/store-check-in) this token check-in))
+        ((wrap-always-allow storage/store-check-in) this token check-in))
       (get-check-ins [this token node-name]
-        ((wrap-access-permissions storage/get-check-ins) this token node-name))
+        ((wrap-all-group-access storage/get-check-ins) this token node-name))
       (get-nodes [this token]
-        ((wrap-access-permissions storage/get-nodes) this token))
+        ((wrap-all-group-access storage/get-nodes) this token))
 
       (create-class [this token class]
-        ((wrap-access-permissions storage/create-class) this token class))
+        ((wrap-always-allow storage/create-class) this token class))
       (get-class [this token environment-name class-name]
-        ((wrap-access-permissions storage/get-class) this token environment-name class-name))
+        ((wrap-always-allow storage/get-class) this token environment-name class-name))
       (get-classes [this token environment-name]
-        ((wrap-access-permissions storage/get-classes) this token environment-name))
+        ((wrap-always-allow storage/get-classes) this token environment-name))
       (synchronize-classes [this token puppet-classes]
-        ((wrap-access-permissions storage/synchronize-classes) this token puppet-classes))
+        ((wrap-always-allow storage/synchronize-classes) this token puppet-classes))
       (delete-class [this token environment-name class-name]
-        ((wrap-access-permissions storage/delete-class) this token environment-name class-name))
+        ((wrap-always-allow storage/delete-class) this token environment-name class-name))
 
-      (get-rules [this token] ((wrap-access-permissions storage/get-rules) this token))
+      (get-rules [this token] ((wrap-always-allow storage/get-rules) this token))
 
       (create-environment [this token environment]
-        ((wrap-access-permissions storage/create-environment) this token environment))
+        ((wrap-always-allow storage/create-environment) this token environment))
       (get-environment [this token environment-name]
-        ((wrap-access-permissions storage/get-environment) this token environment-name))
+        ((wrap-always-allow storage/get-environment) this token environment-name))
       (get-environments [this token]
-        ((wrap-access-permissions storage/get-environments) this token))
+        ((wrap-always-allow storage/get-environments) this token))
       (delete-environment [this token environment-name]
-        ((wrap-access-permissions storage/delete-environment) this token environment-name)))))
+        ((wrap-always-allow storage/delete-environment) this token environment-name)))))
