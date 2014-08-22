@@ -6,7 +6,6 @@ require 'test/unit/assertions'
 require 'json'
 require 'inifile'
 require 'httparty'
-require 'hocon'
 
 module ClassifierExtensions
   include Test::Unit::Assertions
