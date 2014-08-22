@@ -211,6 +211,9 @@
         get-ancestors (if (satisfies? OptimizedStorage storage)
                         storage/get-ancestors
                         naive/get-ancestors)
+        get-group-ids (if (satisfies? OptimizedStorage storage)
+                        storage/get-group-ids
+                        naive/get-group-ids)
         group-validation-failures (if (satisfies? OptimizedStorage storage)
                                     storage/group-validation-failures
                                     naive/group-validation-failures)]
@@ -268,11 +271,11 @@
               ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
-            (let [viewable-ids (viewable-group-ids token)]
+            (let [viewable-ids (viewable-group-ids token (get-group-ids storage))]
               (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
 
       (get-groups [this token]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               root (storage/get-group storage root-group-uuid)
               root-node (storage/get-subtree storage root)
               subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
@@ -280,7 +283,7 @@
             group)))
 
       (get-ancestors [this token group]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               ancs (get-ancestors storage group)
               [_ vis] (split-ancestors-by-viewability ancs viewable-ids)]
           vis))
@@ -307,8 +310,9 @@
               {:keys [tree ancestors]}
               (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                        :tree tree
-                       :ancestors (redact-invisible-ancestors ancestors
-                                                              (viewable-group-ids token))})))))
+                       :ancestors (redact-invisible-ancestors
+                                    ancestors
+                                    (viewable-group-ids token (get-group-ids storage)))})))))
 
       (delete-group [this token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
@@ -322,7 +326,7 @@
       ;;
 
       (explain-classification [_ token node]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               matching-group->ancestors (matching-groups-and-ancestors storage node)
               class8n-info (class8n/classification-steps node matching-group->ancestors)
               {:keys [conflicts classification id->leaf leaf-id->classification]} class8n-info

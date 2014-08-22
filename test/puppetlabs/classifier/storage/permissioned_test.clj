@@ -49,10 +49,10 @@
   [permissions-by-token storage]
   {:pre [(satisfies? PrimitiveStorage storage)]}
   (let [token-perm-fn (fn [perm] (fn [t] (get-in permissions-by-token [t perm])))
+        all-ids-perm-fn (fn [perm] (fn [t _] (get-in permissions-by-token [t perm])))
         group-perm-fn (group-perm-fn-for-map permissions-by-token)
-        permission-fns (merge (into {} (map (juxt identity token-perm-fn)
-                                            [:classifier-access?
-                                             :viewable-group-ids]))
+        permission-fns (merge {:classifier-access? (token-perm-fn :classifier-access?)
+                               :viewable-group-ids (all-ids-perm-fn :viewable-group-ids)}
                               (into {} (map (juxt identity group-perm-fn)
                                             [:group-edit-classification?
                                              :group-edit-environment?
