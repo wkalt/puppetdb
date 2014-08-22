@@ -121,8 +121,8 @@
                                [variable redacted-str]))))
 
 (defn- redact-invisible-ancestors
-  [ancestors viewable-group-ids]
-  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-group-ids)]
+  [ancestors viewable-ids]
+  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-ids)]
     (concat vis (map redact-inheritable-values invis))))
 
 (defn- redact-group
@@ -146,8 +146,8 @@
    :from (redact-group-if-needed from id-viewable?)})
 
 (defn- inherited-with-redaction
-  [groups viewable-group-ids]
-  (->> (redact-invisible-ancestors groups viewable-group-ids)
+  [groups viewable-ids]
+  (->> (redact-invisible-ancestors groups viewable-ids)
     (map group->classification)
     class8n/collapse-to-inherited
     (merge (first groups))))
