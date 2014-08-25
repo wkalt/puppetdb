@@ -1,3 +1,9 @@
+### 0.6.2
+ * Set the correct content-type header in the classifier's node terminus.
+
+### 0.6.1
+ * Update the `puppetlabs/http-client` dependency to 0.2.2
+
 ### 0.6.0
  * Change the namespace of the classifier service definition from `puppetlabs.classifier.application` to `puppetlabs.classifier.main`; TK dependents will have to update the name in their .cfg files.
 
