@@ -28,7 +28,7 @@
                  [migratus "0.7.0"]
                  [overtone/at-at "1.2.0"]
                  [org.postgresql/postgresql "9.3-1100-jdbc41"]
-                 [prismatic/schema "0.2.6"]
+                 [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
                  [puppetlabs/http-client "0.2.2" :exclusions [commons-io]]
                  [puppetlabs/certificate-authority "0.1.5"]
