@@ -42,7 +42,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
       request_body["transaction_uuid"] = request.options[:transaction_uuid]
     end
 
-    response = connection.post("/v1/classified/nodes/#{node_name}", request_body.to_json)
+    response = connection.post("/v1/classified/nodes/#{node_name}", request_body.to_json, 'Content-Type' => 'application/json')
 
     node = nil
     if response.is_a? Net::HTTPSuccess
