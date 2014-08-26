@@ -1,3 +1,6 @@
+### 0.6.3
+ * Fix updating classes from puppet
+
 ### 0.6.2
  * Set the correct content-type header in the classifier's node terminus.
 
