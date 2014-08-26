@@ -35,7 +35,7 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/schema-tools "0.1.0" :exclusions [prismatic/schema]]
                  [puppetlabs/trapperkeeper ~tk-version]]
-  :profiles {:dev {:dependencies [[clj-http "0.7.9"]
+  :profiles {:dev {:dependencies [[clj-http "0.7.9" :exclusions [org.apache.httpcomponents/httpclient]]
                                   [me.raynes/conch "0.5.0" :exclusions [org.clojure/tools.macro]]
                                   [ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]

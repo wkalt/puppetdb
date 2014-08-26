@@ -84,8 +84,8 @@
         (if (re-find #"not \(instance\? javax\.net\.ssl\.SSLContext" (.getMessage e))
           (log/warn "Could not synchronize classes from the Puppet Master because SSL is not"
                     "configured in the classifier's configuration file")
-          (log/error "Encountered an unexpected exception while trying to synchronize classes from"
-                     "the Puppet Master:" (.getMessage e))))
+          (log/error e "Encountered an unexpected exception while trying to synchronize classes from"
+                     "the Puppet Master:")))
       (catch Exception e
-        (log/error "Encountered an unexpected exception while trying to synchronize classes from"
-                   "the Puppet Master:" (.getMessage e))))))
+        (log/error e "Encountered an unexpected exception while trying to synchronize classes from"
+                   "the Puppet Master:")))))
