@@ -65,7 +65,7 @@
            (add-ring-handler handler api-prefix {:server-id :classifier})
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
-                          #(update-classes-and-log-errors! app-config db)
+                          #(update-classes-and-log-errors! app-config app)
                           job-pool))
            (assoc context :job-pool job-pool)))
 
