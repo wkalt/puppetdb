@@ -42,7 +42,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
       request_body["transaction_uuid"] = request.options[:transaction_uuid]
     end
 
-    response = connection.post("/v1/classified/nodes/#{node_name}", request_body.to_json, 'Content-Type' => 'application/json')
+    response = connection.post(prefix + "/v1/classified/nodes/#{node_name}", request_body.to_json, 'Content-Type' => 'application/json')
 
     node = nil
     if response.is_a? Net::HTTPSuccess
@@ -66,6 +66,10 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
     config[:port]
   end
 
+  def prefix
+    config[:prefix].chomp('/')
+  end
+
   def config
     @config ||= load_config
   end
@@ -82,6 +86,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
     {
       :server => config["server"] || 'classifier',
       :port => config["port"] || 1262,
+      :prefix => normalize_prefix(config["prefix"] || ''),
     }
   end
 end

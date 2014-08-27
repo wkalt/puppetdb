@@ -8,7 +8,8 @@ describe Puppet::Node::Classifier do
     Puppet::Node.indirection.terminus_class = :classifier
     allow(Puppet::Node.indirection.terminus).to receive(:config) {{
       :server => 'classifier',
-      :port => '9000'
+      :port => '9000',
+      :prefix => '/api',
     }}
   end
 
@@ -20,7 +21,7 @@ describe Puppet::Node::Classifier do
     allow(response).to receive(:body) { node_json }
     connection = double 'connection'
     expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
-    expect(connection).to receive(:post).with("#{NODE_BASE}/test", anything(), kind_of(Hash)) { response }
+    expect(connection).to receive(:post).with("/api#{NODE_BASE}/test", anything(), kind_of(Hash)) { response }
 
     node = Puppet::Node.indirection.find('test')
 
@@ -35,7 +36,7 @@ describe Puppet::Node::Classifier do
     allow(response).to receive(:body) { node_json }
     connection = double 'connection'
     expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
-    expect(connection).to receive(:post).with("#{NODE_BASE}/test", anything(), kind_of(Hash)) { response }
+    expect(connection).to receive(:post).with("/api#{NODE_BASE}/test", anything(), kind_of(Hash)) { response }
     allow(Puppet::Node::Facts.indirection).to receive(:find) { nil }
 
     node = Puppet::Node.indirection.find('test')
