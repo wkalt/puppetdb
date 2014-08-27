@@ -166,6 +166,14 @@ module ClassifierExtensions
     end
   end
 
+  def classifier_prefix(host)
+    if host.is_pe?
+      ""
+    else
+      ""
+    end
+  end
+
   def classifier_service_name(host)
     if host.is_pe?
       "pe-console-services"
@@ -220,11 +228,7 @@ module ClassifierExtensions
   end
 
   def sleep_until_started(host)
-    prefix = if host.is_pe?
-               "/classifier-api"
-             else
-               ""
-             end
+    prefix = classifier_prefix(host)
     curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}#{prefix}/v1/environments", 0, 120)
   end
 
@@ -294,14 +298,15 @@ module ClassifierExtensions
       raise ArgumentError, "Unsupported OS '#{os}'"
     end
 
-    install_terminus_config(host, database)
+    install_terminus_config(host, database, classifier_prefix(host))
   end
 
-  def install_terminus_config(host, database)
+  def install_terminus_config(host, database, prefix = '')
     create_remote_file(host, "#{host['puppetpath']}/classifier.yaml",
                       "---\n" +
                       "server: #{database}\n" +
-                      "port: #{CLASSIFIER_SSL_PORT}")
+                      "port: #{CLASSIFIER_SSL_PORT}\n" +
+                      "prefix: \"#{prefix}\"")
     on host, "chmod 644 #{host['puppetpath']}/classifier.yaml"
   end
 
