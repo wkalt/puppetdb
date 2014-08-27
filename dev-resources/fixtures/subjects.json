@@ -1,0 +1,21 @@
+[ {"display_name": "Franz Kafka"
+   ,"login": "franz@kafka.com"
+   ,"email": "franz@kafka.com"
+   ,"password": "foobarbaz"
+   ,"is_revoked": false
+   ,"is_group": false
+   ,"is_superuser": false
+   ,"is_remote": false
+   ,"last_login" : null
+   }
+, {"display_name": "Pat Cadigan"
+  ,"login": "pat@cadigan.co.nz"
+  ,"email": "pat@cadigan.co.nz"
+  ,"password": "abracadabra"
+  ,"is_revoked": false
+  ,"is_group": false
+  ,"is_superuser": false
+  ,"is_remote": false
+  ,"last_login" : null
+  }
+]

@@ -4,6 +4,7 @@
 
 (def tk-version "0.4.3")
 (def ks-version "0.7.2")
+(def rbac-svc-version "0.1.7")
 
 (defn deploy-info
   [url]
@@ -14,7 +15,6 @@
 
 (defproject puppetlabs/classifier "0.6.5-SNAPSHOT"
   :description "Node classifier"
-  :pedantic? :abort
   :dependencies [[org.clojure/clojure "1.6.0"]
                  [org.clojure/tools.logging "0.2.6"]
                  [org.clojure/java.jdbc "0.3.2"]
@@ -40,6 +40,10 @@
                                   [ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
+                                  [puppetlabs/pe-rbac-service ~rbac-svc-version]
+                                  [puppetlabs/pe-rbac-service ~rbac-svc-version :classifier "test"]
+                                  [puppetlabs/pe-trapperkeeper-ldap-apacheds "0.2.4"
+                                   :exclusions [bouncycastle/bcprov-jdk15 org.slf4j/slf4j-log4j12]]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
                                   [puppetlabs/trapperkeeper-webserver-jetty9 "0.7.0"]]
                    :injections [(require 'spyscope.core)]}}
