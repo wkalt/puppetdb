@@ -10,7 +10,7 @@
 
 (defn- lookup-field
   [m ks]
-  (let [get* (fn [m k] (or (get m (keyword k)) (get m k)))]
+  (let [get* (fn [m k] (or (get m (keyword k)) (get m (str k))))]
     (if (sequential? ks)
       (reduce get* m ks)
       (get* m ks))))
