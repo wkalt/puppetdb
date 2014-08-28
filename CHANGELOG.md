@@ -1,3 +1,6 @@
+### 0.6.4
+ * Make it possible to configure the api prefix in the terminus
+
 ### 0.6.3
  * Fix updating classes from puppet
 
