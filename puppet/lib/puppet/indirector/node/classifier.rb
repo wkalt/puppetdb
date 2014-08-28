@@ -86,7 +86,7 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
     {
       :server => config["server"] || 'classifier',
       :port => config["port"] || 1262,
-      :prefix => normalize_prefix(config["prefix"] || ''),
+      :prefix => config["prefix"] || '',
     }
   end
 end
