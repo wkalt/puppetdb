@@ -125,6 +125,11 @@ The response should be:
 It worked!
 As you can see, the node was classified into the `webservers` group that you created, and picked up the parameters that the group set for the `apache` class.
 
+# Running tests
+
+First, make sure you have a `classifier_test` database accessible by a `classifier_test`
+role with the password `classifier_test`. Then run `lein test`.
+
 # Using the Classifier with Puppet
 
 For most uses, you'll want to actually connect the classifier service to Puppet. There are a few steps to follow if you're doing this on your own. Note that this requires Puppet >= 3.6 (Puppet Enterprise >= 3.3).
