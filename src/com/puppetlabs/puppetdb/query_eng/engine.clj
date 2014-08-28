@@ -1,4 +1,4 @@
-(ns com.puppetlabs.puppetdb.query-eng
+(ns com.puppetlabs.puppetdb.query-eng.engine
   (:require [clojure.string :as str]
             [com.puppetlabs.puppetdb.zip :as zip]
             [com.puppetlabs.puppetdb.scf.storage-utils :as su]
@@ -817,11 +817,12 @@
         entity (:entity query-rec)
         augmented-paging-options (augment-paging-options paging-options
                                                          entity)
+        query-params (if (= entity :factsets) (concat params params) params)
         sql (plan->sql plan)
         paged-sql (if augmented-paging-options
                     (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
-        result-query {:results-query (apply vector paged-sql params)}]
+        result-query {:results-query (apply vector paged-sql query-params)}]
     (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) params))
+      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
       result-query)))
