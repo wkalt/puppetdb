@@ -30,7 +30,7 @@
                  [org.postgresql/postgresql "9.3-1100-jdbc41"]
                  [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
-                 [puppetlabs/http-client "0.2.2" :exclusions [commons-io]]
+                 [puppetlabs/http-client "0.2.6" :exclusions [commons-io]]
                  [puppetlabs/certificate-authority "0.1.5"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/schema-tools "0.1.0" :exclusions [prismatic/schema]]
