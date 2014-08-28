@@ -58,7 +58,7 @@
 (deftest numeric-rules
   (testing "numeric comparison classification"
     (let [match-node {"total_disk" (-> 1.074e11 long str)
-                      "total_ram" (-> 8.59e9 long str)
+                      "total_ram" (-> 8.59e9 long)
                       "uptime" "3600"
                       "load" "0.03"}
           miss-node {"total_disk" (-> 9e9 long str)
@@ -86,6 +86,14 @@
         (is-not-rule-match yungins-rule miss-node))
       (testing "non-numeric fact values cause numeric operators to fail"
         (is-not-rule-match slackers-rule badval-node)))))
+
+(deftest rules-and-boolean-values
+  (testing "when boolean values are present in the node"
+    (let [cylon {"is_cylon?" true}
+          cylons {:when ["=" "is_cylon?" "true"]
+                  :group-id (UUID/randomUUID)}]
+      (testing "they are coerced to match strings in rules"
+        (is-rule-match cylons cylon)))))
 
 (deftest boolean-expression-rules
   (testing "full-on boolean expression classification"
