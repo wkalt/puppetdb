@@ -10,7 +10,7 @@
 
 (defn- lookup-field
   [m ks]
-  (let [get* (fn [m k] (or (get m (keyword k)) (get m k)))]
+  (let [get* (fn [m k] (or (get m (keyword k)) (get m (str k))))]
     (if (sequential? ks)
       (reduce get* m ks)
       (get* m ks))))
@@ -25,9 +25,11 @@
       (let [[field target] args
             numeric-operator? (contains? #{"<" "<=" ">" ">="} operator)
             node-value (let [v (lookup-field node field)]
-                         (if (and numeric-operator? (string? v))
-                           (parse-number v)
-                           v))
+                         (cond
+                           (and numeric-operator? (string? v)) (parse-number v)
+                           (or (true? v) (false? v)) (str v)
+                           (and (= operator "=") (number? v)) (str v)
+                           :else v))
             target-value (if (and numeric-operator? (string? target))
                            (parse-number target)
                            target)]

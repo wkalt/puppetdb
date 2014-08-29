@@ -848,7 +848,23 @@
         (is (contains? (set (:groups classification)) (str (:id group))))
         (is (= {:riscybusiness {}}
                (:classes classification)))
-        (is (= {:riscisgood "yes"} (:parameters classification)))))))
+        (is (= {:riscisgood "yes"} (:parameters classification)))))
+
+    (testing "classify a node based on non-string fact values"
+      (let [group (assoc (blank-group-named "cylons")
+                         :rule ["and"
+                                ["=" ["fact" "is_cylon?"] "true"]
+                                ["=" ["fact" "models"] "13"]]
+                         :variables {:objective "destroy all humans"})
+            cylon-node {:fact {:is_cylon? true, :models 13}}]
+        (http/put (str base-url "/v1/groups/" (:id group))
+                  {:content-type :json, :body (json/encode group)})
+        (let [class8n (-> (http/post (str base-url "/v1/classified/nodes/leoban")
+                                     {:content-type :json, :body (json/encode cylon-node)})
+                        :body
+                        (json/decode true))]
+          (is (contains? (-> (:groups class8n) set) (-> (:id group) str)))
+          (is (= {:objective "destroy all humans"} (:parameters class8n))))))))
 
 (deftest ^:acceptance update-resources
   (let [base-url (base-url test-config)
