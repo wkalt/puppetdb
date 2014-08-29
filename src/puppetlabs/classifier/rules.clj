@@ -28,6 +28,7 @@
                          (cond
                            (and numeric-operator? (string? v)) (parse-number v)
                            (or (true? v) (false? v)) (str v)
+                           (and (= operator "=") (number? v)) (str v)
                            :else v))
             target-value (if (and numeric-operator? (string? target))
                            (parse-number target)

@@ -850,11 +850,13 @@
                (:classes classification)))
         (is (= {:riscisgood "yes"} (:parameters classification)))))
 
-    (testing "classify a node based on boolean fact values"
+    (testing "classify a node based on non-string fact values"
       (let [group (assoc (blank-group-named "cylons")
-                         :rule ["=" ["fact" "is_cylon?"] "true"]
+                         :rule ["and"
+                                ["=" ["fact" "is_cylon?"] "true"]
+                                ["=" ["fact" "models"] "13"]]
                          :variables {:objective "destroy all humans"})
-            cylon-node {:fact {:is_cylon? true}}]
+            cylon-node {:fact {:is_cylon? true, :models 13}}]
         (http/put (str base-url "/v1/groups/" (:id group))
                   {:content-type :json, :body (json/encode group)})
         (let [class8n (-> (http/post (str base-url "/v1/classified/nodes/leoban")
