@@ -56,14 +56,14 @@
       (remove nil?))))
 
 (defn update-classes!
-  [{:keys [puppet-master ssl-context]} app]
+  [{:keys [puppet-master client-ssl-context]} app]
   (let [start (time/now)
         env-name-comp (fn [[env1 name1]
                            [env2 name2]]
                         (if (not= env1 env2)
                           (compare env1 env2)
                           (compare name1 name2)))
-        puppet-classes (-> (get-classes ssl-context puppet-master)
+        puppet-classes (-> (get-classes client-ssl-context puppet-master)
                          flatten)
         _ (app/synchronize-classes app puppet-classes)
         stop (time/now)]
@@ -82,10 +82,10 @@
                    (str "\"" body "\"")))
       (catch clojure.lang.ExceptionInfo e
         (if (re-find #"not \(instance\? javax\.net\.ssl\.SSLContext" (.getMessage e))
-          (log/warn "Could not synchronize classes from the Puppet Master because SSL is not"
+          (log/warn "Could not synchronize classes from the Puppet Master because client SSL is not"
                     "configured in the classifier's configuration file")
-          (log/error e "Encountered an unexpected exception while trying to synchronize classes from"
-                     "the Puppet Master:")))
+          (log/error e "Encountered an unexpected exception while trying to synchronize classes "
+                     "from the Puppet Master:")))
       (catch Exception e
         (log/error e "Encountered an unexpected exception while trying to synchronize classes from"
                    "the Puppet Master:")))))

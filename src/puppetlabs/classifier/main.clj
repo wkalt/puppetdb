@@ -49,13 +49,12 @@
                db-spec (config->db-spec config)
                db (postgres/new-db db-spec)
                api-prefix (get-in config [:classifier :url-prefix] "")
-               webserver-config (get-in config [:webserver :classifier])
                app-config {:db db
                            :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
-                           :ssl-files (select-keys webserver-config
-                                                   [:ssl-cert :ssl-key :ssl-ca-cert])
-                           :ssl-context (init-ssl-context webserver-config)}
+                           :client-ssl-context (or (init-ssl-context (get config :classifier))
+                                                   (init-ssl-context
+                                                     (get-in config [:webserver :classifier])))}
                app (default-application app-config)
                handler (add-url-prefix api-prefix (http/api-handler app))
                sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
