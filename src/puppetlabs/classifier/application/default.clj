@@ -27,7 +27,10 @@
 (defn default-application
   [{storage :db, :as config}]
   {:pre [(satisfies? PrimitiveStorage storage)]}
-  (let [optimized? (satisfies? OptimizedStorage storage)]
+  (let [optimized? (satisfies? OptimizedStorage storage)
+        annotate (if optimized?
+                   #(storage/annotate-group storage %)
+                   #(naive/annotate-group storage %))]
 
     (reify Classifier
       (get-config [_] config)
@@ -90,14 +93,12 @@
                    (contains? delta :rule))
           (throw+ {:kind :puppetlabs.classifier.storage/root-rule-edit
                    :delta delta}))
-        (storage/update-group storage delta))
+        (-> (storage/update-group storage delta) annotate))
 
       (get-group [_ id]
         (let [g (storage/get-group storage id)]
-          (when g
-            (if optimized?
-              (storage/annotate-group storage g)
-              (naive/annotate-group storage g)))))
+          (if g
+            (annotate g))))
 
       (get-group-as-inherited [_ id]
         (if-let [group (storage/get-group storage id)]
@@ -107,18 +108,14 @@
                 chain (concat [group] ancs)
                 inherited (class8n/collapse-to-inherited (map group->classification chain))
                 inherited-rule (class8n/inherited-rule chain)
-                annotate (if optimized? storage/annotate-group naive/annotate-group)
-                w-inherited (->> (merge group inherited)
-                              (annotate storage))]
+                w-inherited (-> (merge group inherited)
+                              annotate)]
             (if (contains? group :rule)
               (assoc w-inherited :rule inherited-rule)
               (dissoc w-inherited :rule)))))
 
       (get-groups [_]
-        (let [groups (storage/get-groups storage)
-              annotate (if optimized?
-                         (partial storage/annotate-group storage)
-                         (partial naive/annotate-group storage))]
+        (let [groups (storage/get-groups storage)]
             (map annotate groups)))
 
       (create-group [_ group] (storage/create-group storage group))
