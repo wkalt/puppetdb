@@ -6,6 +6,7 @@
             [clojure.test :refer :all]
             [clj-time.core :refer [now ago days minus]]
             [clj-time.coerce :refer [to-timestamp]]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [clojure.math.combinatorics :refer [combinations]]
             [com.puppetlabs.puppetdb.fixtures :refer :all]))
 
@@ -13,7 +14,7 @@
 
 (defn- raw-retrieve-nodes
   [version filter-expr paging-options]
-  (let [sql (node/query->sql version filter-expr paging-options)]
+  (let [sql (qe/query->sql version filter-expr paging-options :nodes)]
     (node/query-nodes version sql)))
 
 (defn- retrieve-node-names

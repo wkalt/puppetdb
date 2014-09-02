@@ -15,12 +15,22 @@
             [com.puppetlabs.puppetdb.http :as http]
             [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
 
+(defn current-status
+  "Given a node's name, return the current status of the node.  Results
+  include whether it's active and the timestamp of its most recent catalog, facts,
+  and report."
+  [version node]
+  {:pre  [string? node]}
+  (let [sql     (qe/query->sql version ["=" (case version (:v2 :v3) "name" "certname") node] {} :nodes)
+        results (:result (node/query-nodes version sql))]
+    (first results)))
+
 (defn node-status
   "Produce a response body for a request to obtain status information
   for the given node."
   [version node db]
   (if-let [status (jdbc/with-transacted-connection db
-                    (node/status version node))]
+                    (current-status version node))]
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " node)} pl-http/status-not-found)))
 

@@ -7,8 +7,7 @@
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn node-columns
   "Return node columns based on version"
@@ -32,14 +31,10 @@
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (paging/validate-order-by! (node-columns version) paging-options)
-     (case version
-       (:v2 :v3)
+     
        (let [operators (query/node-operators version)
              [subselect & params] (query/node-query->sql version operators query)
-             sql (case version
-                   (:v1 :v2 :v3)
-                   (format "SELECT subquery1.name,
+             sql (format "SELECT subquery1.name,
                                    subquery1.deactivated,
                                    catalogs.timestamp AS catalog_timestamp,
                                    factsets.timestamp AS facts_timestamp,
@@ -54,16 +49,11 @@
                                 AND reports.hash
                                   IN (SELECT report FROM latest_reports)
                             ORDER BY subquery1.name ASC" subselect)
-
-                   ;; For :v4 the query now all lives in node-query->sql
-                   subselect)
              paged-select (jdbc/paged-sql sql paging-options)
              result {:results-query (apply vector paged-select params)}]
          (if (:count? paging-options)
            (assoc result :count-query (apply vector (jdbc/count-sql subselect) params))
-           result))
-       (qe/compile-user-query->sql
-        qe/nodes-query query paging-options))))
+           result))))
 
 (defn munge-result-rows
   [version]
@@ -90,13 +80,3 @@
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
-
-(defn status
-  "Given a node's name, return the current status of the node.  Results
-  include whether it's active and the timestamp of its most recent catalog, facts,
-  and report."
-  [version node]
-  {:pre  [string? node]}
-  (let [sql     (query->sql version ["=" (case version (:v2 :v3) "name" "certname") node])
-        results (:result (query-nodes version sql))]
-    (first results)))

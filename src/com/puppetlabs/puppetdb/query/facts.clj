@@ -8,8 +8,7 @@
             [com.puppetlabs.puppetdb.schema :as pls]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.facts :as facts]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.facts :as facts]))
 
 ;; SCHEMA
 
@@ -93,10 +92,6 @@
           LEFT OUTER JOIN environments as env on fs.environment_id = env.id
         WHERE depth = 0"]))
 
-(defn fact-paths-query->sql
-  [version query paging-options]
-  (qe/compile-user-query->sql qe/fact-paths-query query paging-options))
-
 (defn munge-path-result-rows
   [rows]
   (map #(update-in % [:path] facts/string-to-factpath) rows))
@@ -112,15 +107,11 @@
                   (map keyword (keys (dissoc query/fact-columns "environment")))
                   (map keyword (keys (dissoc query/fact-columns "value"))))]
     (paging/validate-order-by! columns paging-options)
-    (case version
-      (:v2 :v3)
       (let [operators (query/fact-operators version)
             [sql & params] (facts-sql operators query)]
         (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
               (when (:count? paging-options)
-                [:count-query (apply vector (jdbc/count-sql sql) params)])))
-      (qe/compile-user-query->sql
-        qe/facts-query query paging-options))))
+                [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
 (defn fact-names
   "Returns the distinct list of known fact names, ordered alphabetically

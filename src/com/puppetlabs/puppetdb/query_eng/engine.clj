@@ -6,6 +6,10 @@
             [com.puppetlabs.puppetdb.scf.storage-utils :refer [db-serialize]]
             [com.puppetlabs.puppetdb.scf.hash :as hash]
             [com.puppetlabs.puppetdb.facts :as facts]
+            [com.puppetlabs.puppetdb.query.factsets :as query-factsets]
+            [com.puppetlabs.puppetdb.query.facts :as query-facts]
+            [com.puppetlabs.puppetdb.query.nodes :as query-nodes]
+            [com.puppetlabs.puppetdb.query.resources :as query-resources]
             [clojure.core.match :as cm]
             [fast-zip.visit :as zv]
             [com.puppetlabs.puppetdb.schema :as pls]
@@ -49,6 +53,7 @@
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
+               :entity :nodes
                :source "SELECT certnames.name as certname,
                                certnames.deactivated,
                                catalogs.timestamp AS catalog_timestamp,
@@ -789,7 +794,7 @@
 
 (defn augment-paging-options
   "Specially augmented paging options to include handling the cases where name
-   and certname may be part of the ordering."
+  and certname may be part of the ordering."
   [{:keys [order-by] :as paging-options} entity]
   (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
     paging-options
@@ -797,24 +802,35 @@
                                   :factsets  [nil
                                               [[:certname :ascending]]])
           to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
-        (assoc paging-options :order-by (concat to-prepend to-append)))))
+      (assoc paging-options :order-by (concat to-prepend to-append)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
+(defn orderable-fields
+  [query-rec version]
+  (let [entity (:entity query-rec)
+        queryable-fields (map keyword (:queryable-fields query-rec))]
+    (case entity
+      :facts (if (contains? #{:v2 :v3} version)
+               [:name :value :certname]
+               [:name :environment :certname])
+      :nodes (if (contains? #{:v1 :v2 :v3} version)
+               [:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp]
+               [:certname :deactivated :catalog_timestamp :facts_timestamp :report_timestamp
+                :catalog_environment :facts_environment :report_environment])
+      queryable-fields)))
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
   user provided query to SQL and extract the parameters, to be used
   in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
-  (when paging-options
-    (paging/validate-order-by! (map keyword (:queryable-fields query-rec)) paging-options))
-  (let [{:keys [plan params]} (->> user-query
+  (let [entity (:entity query-rec)  
+        {:keys [plan params]} (->> user-query
                                    (push-down-context query-rec)
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
-        entity (:entity query-rec)
         augmented-paging-options (augment-paging-options paging-options
                                                          entity)
         query-params (if (= entity :factsets) (concat params params) params)
@@ -826,3 +842,20 @@
     (if count?
       (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
       result-query)))
+
+(defn query->sql
+  [version query options entity]
+  {:pre [((some-fn nil? sequential?) query)]
+   :post [(map? %)
+          (string? (first (:results-query %)))
+          (every? (complement coll?) (rest (:results-query %)))]}
+  (let [[fallback-sql query-rec] (case entity
+                                   :facts [query-facts/query->sql facts-query]
+                                   :resources [query-resources/query->sql resources-query]
+                                   :factsets [nil factsets-query]
+                                   :nodes [query-nodes/query->sql nodes-query])]
+
+    (paging/validate-order-by! (orderable-fields query-rec version) options)
+    (case version
+      (:v1 :v2 :v3) (fallback-sql version query options)
+      (compile-user-query->sql query-rec query options))))

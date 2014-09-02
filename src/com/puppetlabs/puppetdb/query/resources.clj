@@ -8,8 +8,7 @@
   (:require [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn query->sql
   "Compile a resource `query` and an optional `paging-options` map, using the
@@ -30,9 +29,7 @@
            (or
              (not (:count? paging-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (paging/validate-order-by! (map keyword (keys query/resource-columns)) paging-options)
-   (case version
-     (:v2 :v3)
+   
      (let [operators (query/resource-operators version)
            [subselect & params] (query/resource-query->sql operators query)
            sql (format (str "SELECT subquery1.certname, subquery1.resource, "
@@ -45,10 +42,7 @@
                        subselect)]
        (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
              (when (:count? paging-options)
-               [:count-query (apply vector (jdbc/count-sql subselect) params)])))
-
-     (qe/compile-user-query->sql
-      qe/resources-query query paging-options))))
+               [:count-query (apply vector (jdbc/count-sql subselect) params)])))))
 
 (defn deserialize-params
   [resources]
