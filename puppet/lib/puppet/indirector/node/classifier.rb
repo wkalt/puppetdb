@@ -2,6 +2,8 @@ require 'puppet/network/http_pool'
 require 'json'
 
 class Puppet::Node::Classifier < Puppet::Indirector::Code
+  AgentSpecifiedEnvironment = "agent"
+
   def new_connection
     Puppet::Network::HttpPool.http_instance(server, port)
   end
@@ -47,6 +49,9 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
     node = nil
     if response.is_a? Net::HTTPSuccess
       result = JSON.parse(response.body)
+      if (result["environment"] == AgentSpecifiedEnvironment)
+        result.delete("environment")
+      end
       node = Puppet::Node.from_data_hash(result)
       node.fact_merge
     else
