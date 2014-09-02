@@ -545,6 +545,11 @@
   [{db :db}]
   (aggregate-fields-into-groups (query db (select-all-groups))))
 
+(sc/defn ^:always-validate get-group-ids* :- [UUID]
+  [{db :db}]
+  (->> (query db ["SELECT id FROM groups"])
+    (map :id)))
+
 (sc/defn ^:always-validate get-parent :- (sc/maybe Group)
   [this, group :- Group]
   (get-group* this (:parent group)))
@@ -968,7 +973,8 @@
    :delete-environment delete-environment*}
 
   OptimizedStorage
-  {:get-ancestors naive/get-ancestors
+  {:get-group-ids get-group-ids*
+   :get-ancestors naive/get-ancestors
    :annotate-group annotate-group*
    :group-validation-failures group-validation-failures*
 

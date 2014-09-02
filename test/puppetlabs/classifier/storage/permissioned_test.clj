@@ -49,10 +49,10 @@
   [permissions-by-token storage]
   {:pre [(satisfies? PrimitiveStorage storage)]}
   (let [token-perm-fn (fn [perm] (fn [t] (get-in permissions-by-token [t perm])))
+        all-ids-perm-fn (fn [perm] (fn [t _] (get-in permissions-by-token [t perm])))
         group-perm-fn (group-perm-fn-for-map permissions-by-token)
-        permission-fns (merge (into {} (map (juxt identity token-perm-fn)
-                                            [:classifier-access?
-                                             :viewable-group-ids]))
+        permission-fns (merge {:all-group-access? (token-perm-fn :all-group-access?)
+                               :viewable-group-ids (all-ids-perm-fn :viewable-group-ids)}
                               (into {} (map (juxt identity group-perm-fn)
                                             [:group-edit-classification?
                                              :group-edit-environment?
@@ -65,7 +65,8 @@
 (def ^:private permission-denied :puppetlabs.classifier.storage.permissioned/permission-denied)
 
 (deftest basic-permissions-behavior
-  (let [rocket {:name "rocket"
+  (let [test-node {:name "testnode", :time (time/now), :explanation {}}
+        rocket {:name "rocket"
                 :environment "space"
                 :parameters {:fueled false, :stages 3, :manned true}}
         payload {:name "payload"
@@ -110,7 +111,7 @@
         group-ids (map :id [root spaceship scientific military {:id blank-id}])
         all-groups-denied (zipmap group-ids (repeat false))
         all-groups-allowed (zipmap group-ids (repeat true))
-        permissions {:joe-shmoe {:classifier-access? false
+        permissions {:joe-shmoe {:all-group-access? false
                                  :group-edit-classification? all-groups-denied
                                  :group-edit-environment? all-groups-denied
                                  :group-edit-child-rules? all-groups-denied
@@ -118,7 +119,7 @@
                                  :group-view? all-groups-denied
                                  :permitted-group-actions (zipmap group-ids (repeat #{}))
                                  :viewable-group-ids #{}}
-                     :intern-irving {:classifier-access? true
+                     :intern-irving {:all-group-access? false
                                      :group-edit-classification? {root-group-uuid false
                                                                   spaceship-id false
                                                                   scientific-id true
@@ -136,7 +137,7 @@
                                                                                :view}
                                                                military-id #{}}
                                      :viewable-group-ids #{spaceship-id scientific-id}}
-                     :admin-addie {:classifier-access? true
+                     :admin-addie {:all-group-access? true
                                    :group-edit-classification? all-groups-allowed
                                    :group-edit-environment? all-groups-allowed
                                    :group-edit-child-rules? all-groups-allowed
@@ -150,74 +151,89 @@
                                                                               :view}))
                                    :viewable-group-ids (constantly true)}}]
 
-    (testing "joe shmoe should not have permission to do anything"
+    (testing "joe shmoe should"
       (let [mem-store (in-memory-storage {:classes [rocket payload]
                                           :groups [root spaceship scientific military]})
-            perm-store (storage-with-mapped-permissions permissions mem-store)]
-        (is (thrown+? [:kind permission-denied] (store-check-in perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (get-check-ins perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (get-nodes perm-store :joe-shmoe)))
-        (is (thrown+? [:kind permission-denied] (create-class perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (get-class perm-store :joe-shmoe nil nil)))
-        (is (thrown+? [:kind permission-denied] (get-classes perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (synchronize-classes perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (delete-class perm-store :joe-shmoe nil nil)))
-        (is (thrown+? [:kind permission-denied] (get-rules perm-store :joe-shmoe)))
-        (is (thrown+? [:kind permission-denied] (create-environment perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (get-environment perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (get-environments perm-store :joe-shmoe)))
-        (is (thrown+? [:kind permission-denied] (delete-environment perm-store :joe-shmoe nil)))
-        (is (thrown+? [:kind permission-denied] (create-group perm-store :joe-shmoe spaceship)))
-        (is (thrown+? [:kind permission-denied] (get-group perm-store :joe-shmoe spaceship-id)))
-        (is (empty? (get-groups perm-store :joe-shmoe)))
-        (is (empty? (get-ancestors perm-store :joe-shmoe scientific)))
-        (is (thrown+? [:kind permission-denied] (get-subtree perm-store :joe-shmoe spaceship)))
-        (is (thrown+? [:kind permission-denied] (delete-group perm-store :joe-shmoe spaceship-id)))
-        (is (thrown+? [:kind permission-denied]
-                      (update-group perm-store :joe-shmoe {:id spaceship-id
-                                                           :environment "deep space"})))))
+            perm-store (storage-with-mapped-permissions permissions mem-store)
+            test-class {:environment "test", :name "prototype alpha", :parameters {:flammable true}}
+            tropical-env {:name "tropical"}]
 
-    (testing "intern irving can view most things, and edit the scientific group"
+        (testing "have permission to do anything not related to a group or classification history"
+          (is (store-check-in perm-store :joe-shmoe test-node))
+          (is (create-class perm-store :joe-shmoe test-class))
+          (is (get-class perm-store :joe-shmoe "test" "prototype alpha"))
+          (is (get-classes perm-store :joe-shmoe "test"))
+          (is (synchronize-classes perm-store :joe-shmoe [rocket payload]))
+          (is (nil? (delete-class perm-store :joe-shmoe "test" "prototype alpha")))
+          (is (get-rules perm-store :joe-shmoe))
+          (is (create-environment perm-store :joe-shmoe tropical-env))
+          (is (get-environment perm-store :joe-shmoe "tropical"))
+          (is (get-environments perm-store :joe-shmoe))
+          (is (nil? (delete-environment perm-store :joe-shmoe "tropical"))))
+
+        (testing "not have permission to do anything with a group or classification history"
+          (is (thrown+? [:kind permission-denied] (get-check-ins perm-store :joe-shmoe "test-node")))
+          (is (thrown+? [:kind permission-denied] (get-nodes perm-store :joe-shmoe)))
+          (is (thrown+? [:kind permission-denied] (create-group perm-store :joe-shmoe spaceship)))
+          (is (thrown+? [:kind permission-denied] (get-group perm-store :joe-shmoe spaceship-id)))
+          (is (empty? (get-groups perm-store :joe-shmoe)))
+          (is (empty? (get-ancestors perm-store :joe-shmoe scientific)))
+          (is (thrown+? [:kind permission-denied] (get-subtree perm-store :joe-shmoe spaceship)))
+          (is (thrown+? [:kind permission-denied] (delete-group perm-store :joe-shmoe spaceship-id)))
+          (is (thrown+? [:kind permission-denied]
+                        (update-group perm-store :joe-shmoe {:id spaceship-id
+                                                             :environment "deep space"}))))))
+
+    (testing "intern irving"
       (let [mem-store (in-memory-storage {:classes [rocket payload]
                                           :groups [root spaceship scientific military]})
             perm-store (storage-with-mapped-permissions permissions mem-store)]
-        (is (store-check-in perm-store, :intern-irving
-                            {:node "testnode", :time (time/now), :explanation {}}))
-        (is (get-check-ins perm-store :intern-irving "testnode"))
-        (is (get-nodes perm-store :intern-irving))
-        (is (create-class perm-store, :intern-irving
-                          {:name "testclass", :environment "test", :parameters {}}))
-        (is (get-class perm-store :intern-irving "test" "testclass"))
-        (is (get-classes perm-store :intern-irving "test"))
-        (is (synchronize-classes perm-store, :intern-irving
-                                 [rocket, payload
-                                  {:name "testclass", :environment "test", :parameters {}}]))
-        (is (nil? (delete-class perm-store :intern-irving "test" "testclass")))
-        (is (get-rules perm-store :intern-irving))
-        (is (create-environment perm-store :intern-irving {:name "staging"}))
-        (is (get-environment perm-store :intern-irving "staging"))
-        (is (get-environments perm-store :intern-irving))
-        (is (nil? (delete-environment perm-store :intern-irving "staging")))
-        (is (thrown+? [:kind permission-denied] (create-group perm-store :intern-irving spaceship)))
-        (is (= spaceship (get-group perm-store :intern-irving spaceship-id)))
-        (is (= #{spaceship scientific military} (set (get-groups perm-store :intern-irving))))
-        (is (= [spaceship] (get-ancestors perm-store :intern-irving scientific)))
-        (is (= (vec->tree [spaceship [scientific] [military]])
-               (get-subtree perm-store :intern-irving spaceship)))
-        (is (thrown+? [:kind permission-denied] (get-subtree perm-store :intern-irving root)))
-        (is (thrown+? [:kind permission-denied]
-                      (delete-group perm-store :intern-irving scientific-id)))
-        (is (update-group perm-store :intern-irving {:id scientific-id
-                                                     :classes {:payload {:weight "6000 lb"}}}))
-        (is (thrown+? [:kind permission-denied]
-                      (update-group perm-store :intern-irving {:id scientific-id
-                                                               :environment "uncharted_space"})))
-        (is (thrown+? [:kind permission-denied]
-                      (update-group perm-store :intern-irving {:id scientific-id
-                                                               :parent root-group-uuid})))
-        (is (thrown+? [:kind permission-denied]
-                      (update-group perm-store :intern-irving {:id scientific-id
-                                                               :rule ["~" "name" ".*"]})))))
+
+        (testing "can view most things, and edit the scientific group"
+          (is (store-check-in perm-store, :intern-irving
+                              {:node "testnode", :time (time/now), :explanation {}}))
+          (is (create-class perm-store, :intern-irving
+                            {:name "testclass", :environment "test", :parameters {}}))
+          (is (get-class perm-store :intern-irving "test" "testclass"))
+          (is (get-classes perm-store :intern-irving "test"))
+          (is (synchronize-classes perm-store, :intern-irving
+                                   [rocket, payload
+                                    {:name "testclass", :environment "test", :parameters {}}]))
+          (is (nil? (delete-class perm-store :intern-irving "test" "testclass")))
+          (is (get-rules perm-store :intern-irving))
+          (is (create-environment perm-store :intern-irving {:name "staging"}))
+          (is (get-environment perm-store :intern-irving "staging"))
+          (is (get-environments perm-store :intern-irving))
+          (is (nil? (delete-environment perm-store :intern-irving "staging")))
+
+          (is (= spaceship (get-group perm-store :intern-irving spaceship-id)))
+          (is (= #{spaceship scientific military} (set (get-groups perm-store :intern-irving))))
+          (is (= [spaceship] (get-ancestors perm-store :intern-irving scientific)))
+          (is (= (vec->tree [spaceship [scientific] [military]])
+                 (get-subtree perm-store :intern-irving spaceship)))
+          (is (update-group perm-store :intern-irving {:id scientific-id
+                                                       :classes {:payload {:weight "6000 lb"}}})))
+
+        (testing "cannot view classification history for any or all nodes"
+          (is (thrown+? [:kind permission-denied]
+                        (get-check-ins perm-store :intern-irving "testnode")))
+          (is (thrown+? [:kind permission-denied] (get-nodes perm-store :intern-irving))))
+
+        (testing "cannot do anything to groups besides view & edit scientific's classification"
+          (is (thrown+? [:kind permission-denied] (get-subtree perm-store :intern-irving root)))
+          (is (thrown+? [:kind permission-denied]
+                        (delete-group perm-store :intern-irving scientific-id)))
+          (is (thrown+? [:kind permission-denied]
+                        (create-group perm-store :intern-irving spaceship)))
+          (is (thrown+? [:kind permission-denied]
+                        (update-group perm-store :intern-irving {:id scientific-id
+                                                                 :environment "uncharted_space"})))
+          (is (thrown+? [:kind permission-denied]
+                        (update-group perm-store :intern-irving {:id scientific-id
+                                                                 :parent root-group-uuid})))
+          (is (thrown+? [:kind permission-denied]
+                        (update-group perm-store :intern-irving {:id scientific-id
+                                                                 :rule ["~" "name" ".*"]}))))))
 
     (testing "admin addie should have permission to do everything"
       (let [classes [rocket payload]
@@ -287,7 +303,7 @@
     (testing "permissions inherit"
       (let [only-root (zipmap ids [true false false])
             admin-permissions {:admin-addie
-                               {:classifier-access? true
+                               {:all-group-access? true
                                 :group-edit-classification? only-root
                                 :group-edit-environment? only-root
                                 :group-edit-child-rules? only-root
@@ -327,7 +343,7 @@
     (testing "when a group is viewed with inherited parameters and variables, values from groups
              that the subject does not have permission to see are redacted."
       (let [irving-permissions {:intern-irving
-                                {:classifier-access? true
+                                {:all-group-access? false
                                  :group-edit-classification? all-groups-denied
                                  :group-edit-child-rules? all-groups-denied
                                  :group-modify-children? all-groups-denied
@@ -358,7 +374,7 @@
           all-groups-denied (zipmap ids (repeat false))
           only-child (zipmap ids [false true])
           permissions {:operator-owen
-                       {:classifier-access? true
+                       {:all-group-access? false
                         :group-edit-classification? all-groups-denied
                         :group-edit-environment? all-groups-denied
                         :group-edit-child-rules? all-groups-denied

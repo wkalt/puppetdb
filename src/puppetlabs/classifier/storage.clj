@@ -55,6 +55,7 @@
     (into {} (map (juxt identity #(get-ancs % [])) groups))))
 
 (defprotocol OptimizedStorage
+  (get-group-ids [this] "Returns a sequential collection containing the id of every group.")
   (get-ancestors [this group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route.")
   (annotate-group [this group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet.")
   (group-validation-failures [this group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group. If there are validation failures, returns a ValidationNode corresponding to the group which describes the missing references. If no failures, returns nil.")

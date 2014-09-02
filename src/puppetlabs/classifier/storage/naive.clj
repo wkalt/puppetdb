@@ -5,6 +5,15 @@
             [puppetlabs.classifier.schema :refer [group->classification]]
             [puppetlabs.classifier.storage :as storage :refer [PrimitiveStorage root-group-uuid]]))
 
+(defn get-group-ids
+  "A naive implementation of get-group-ids using PrimitiveStorage's get-groups
+  method. This will be used if the application's storage instance doesn't
+  satisfy OptimizedStorage, and can also be used as a default get-group-ids
+  implementation when implementing OptimizedStorage in order to speed up other
+  methods."
+  [storage]
+  (map :id (storage/get-groups storage)))
+
 (defn get-ancestors
   "A naive implementation of get-ancestors using only PrimitiveStorage's
   get-group method. This will be used if the application's storage instance

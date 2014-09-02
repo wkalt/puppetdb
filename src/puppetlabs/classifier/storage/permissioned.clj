@@ -1,6 +1,5 @@
 (ns puppetlabs.classifier.storage.permissioned
   (:require [clojure.set :as set]
-            [clojure.walk :refer [prewalk]]
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
@@ -65,7 +64,7 @@
   which takes a token and returns all the ids of groups that the subject is
   allowed to view."
   (let [Function (sc/pred fn?)]
-    {:classifier-access? Function
+    {:all-group-access? Function
      :group-edit-classification? Function
      :group-edit-environment? Function
      :group-edit-child-rules? Function
@@ -77,7 +76,7 @@
 (def permission->description
   "Human-readable descriptions for the action that each permission key in
   a Permissions map represents, mainly to embed in error messages."
-  {:classifier-access? "access the classifier"
+  {:all-group-access? "access all groups in the classifier"
    :group-modify-children? "create or delete children"
    :group-edit-classification? "edit the classes and variables"
    :group-edit-environment? "change the environment"
@@ -121,8 +120,8 @@
                                [variable redacted-str]))))
 
 (defn- redact-invisible-ancestors
-  [ancestors viewable-group-ids]
-  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-group-ids)]
+  [ancestors viewable-ids]
+  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-ids)]
     (concat vis (map redact-inheritable-values invis))))
 
 (defn- redact-group
@@ -146,8 +145,8 @@
    :from (redact-group-if-needed from id-viewable?)})
 
 (defn- inherited-with-redaction
-  [groups viewable-group-ids]
-  (->> (redact-invisible-ancestors groups viewable-group-ids)
+  [groups viewable-ids]
+  (->> (redact-invisible-ancestors groups viewable-ids)
     (map group->classification)
     class8n/collapse-to-inherited
     (merge (first groups))))
@@ -195,7 +194,7 @@
 
 (sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
   [storage :- (sc/protocol PrimitiveStorage), permissions :- Permissions]
-  (let [{:keys [classifier-access?
+  (let [{:keys [all-group-access?
                 group-modify-children?
                 group-edit-classification?
                 group-edit-environment?
@@ -203,14 +202,20 @@
                 group-view?
                 permitted-group-actions
                 viewable-group-ids]} permissions
-        wrap-access-permissions (fn [f]
-                                  (fn [this token & args]
-                                    (if (classifier-access? token)
-                                      (apply f storage args)
-                                      (throw+ (permission-exception :classifier-access? token)))))
+        wrap-all-group-access (fn [f]
+                                (fn [this token & args]
+                                  (if (all-group-access? token)
+                                    (apply f storage args)
+                                    (throw+ (permission-exception :all-group-access? token)))))
+        wrap-always-allow (fn [f]
+                            (fn [this _ & args]
+                              (apply f storage args)))
         get-ancestors (if (satisfies? OptimizedStorage storage)
                         storage/get-ancestors
                         naive/get-ancestors)
+        get-group-ids (if (satisfies? OptimizedStorage storage)
+                        storage/get-group-ids
+                        naive/get-group-ids)
         group-validation-failures (if (satisfies? OptimizedStorage storage)
                                     storage/group-validation-failures
                                     naive/group-validation-failures)]
@@ -268,11 +273,11 @@
               ancs (get-ancestors storage group)]
           (if-not (group-view? token id ancs)
             (throw+ (permission-exception :group-view? token id))
-            (let [viewable-ids (viewable-group-ids token)]
+            (let [viewable-ids (viewable-group-ids token (get-group-ids storage))]
               (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
 
       (get-groups [this token]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               root (storage/get-group storage root-group-uuid)
               root-node (storage/get-subtree storage root)
               subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
@@ -280,7 +285,7 @@
             group)))
 
       (get-ancestors [this token group]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               ancs (get-ancestors storage group)
               [_ vis] (split-ancestors-by-viewability ancs viewable-ids)]
           vis))
@@ -307,8 +312,9 @@
               {:keys [tree ancestors]}
               (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                        :tree tree
-                       :ancestors (redact-invisible-ancestors ancestors
-                                                              (viewable-group-ids token))})))))
+                       :ancestors (redact-invisible-ancestors
+                                    ancestors
+                                    (viewable-group-ids token (get-group-ids storage)))})))))
 
       (delete-group [this token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
@@ -322,7 +328,7 @@
       ;;
 
       (explain-classification [_ token node]
-        (let [viewable-ids (viewable-group-ids token)
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
               matching-group->ancestors (matching-groups-and-ancestors storage node)
               class8n-info (class8n/classification-steps node matching-group->ancestors)
               {:keys [conflicts classification id->leaf leaf-id->classification]} class8n-info
@@ -386,30 +392,30 @@
       ;;
 
       (store-check-in [this token check-in]
-        ((wrap-access-permissions storage/store-check-in) this token check-in))
+        ((wrap-always-allow storage/store-check-in) this token check-in))
       (get-check-ins [this token node-name]
-        ((wrap-access-permissions storage/get-check-ins) this token node-name))
+        ((wrap-all-group-access storage/get-check-ins) this token node-name))
       (get-nodes [this token]
-        ((wrap-access-permissions storage/get-nodes) this token))
+        ((wrap-all-group-access storage/get-nodes) this token))
 
       (create-class [this token class]
-        ((wrap-access-permissions storage/create-class) this token class))
+        ((wrap-always-allow storage/create-class) this token class))
       (get-class [this token environment-name class-name]
-        ((wrap-access-permissions storage/get-class) this token environment-name class-name))
+        ((wrap-always-allow storage/get-class) this token environment-name class-name))
       (get-classes [this token environment-name]
-        ((wrap-access-permissions storage/get-classes) this token environment-name))
+        ((wrap-always-allow storage/get-classes) this token environment-name))
       (synchronize-classes [this token puppet-classes]
-        ((wrap-access-permissions storage/synchronize-classes) this token puppet-classes))
+        ((wrap-always-allow storage/synchronize-classes) this token puppet-classes))
       (delete-class [this token environment-name class-name]
-        ((wrap-access-permissions storage/delete-class) this token environment-name class-name))
+        ((wrap-always-allow storage/delete-class) this token environment-name class-name))
 
-      (get-rules [this token] ((wrap-access-permissions storage/get-rules) this token))
+      (get-rules [this token] ((wrap-always-allow storage/get-rules) this token))
 
       (create-environment [this token environment]
-        ((wrap-access-permissions storage/create-environment) this token environment))
+        ((wrap-always-allow storage/create-environment) this token environment))
       (get-environment [this token environment-name]
-        ((wrap-access-permissions storage/get-environment) this token environment-name))
+        ((wrap-always-allow storage/get-environment) this token environment-name))
       (get-environments [this token]
-        ((wrap-access-permissions storage/get-environments) this token))
+        ((wrap-always-allow storage/get-environments) this token))
       (delete-environment [this token environment-name]
-        ((wrap-access-permissions storage/delete-environment) this token environment-name)))))
+        ((wrap-always-allow storage/delete-environment) this token environment-name)))))
