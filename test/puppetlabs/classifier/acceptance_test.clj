@@ -41,10 +41,16 @@
          (get-in app-config [:classifier :url-prefix]))))
 
 (defn- block-until-ready
-  [server-process]
-  (let [out-lines (-> (:out server-process) io/reader line-seq)]
-    (dorun (take-while #(not (re-find #"Started o.e.j.s.h.ContextHandler" %))
-                         out-lines))))
+  [config]
+  (let [env-status (:status (try (http/get (str (base-url config) "/v1/environments")
+                                           {:throw-exceptions false})
+                              (catch java.net.ConnectException _
+                                {:status 500})))]
+    (if (= env-status 200)
+      nil
+      (do
+        (Thread/sleep 250)
+        (recur config)))))
 
 (defn start!
   [config-path]
@@ -76,8 +82,8 @@
                           "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
                           "-c" test-config-path)
           timeout-ms 90000
-          server-blocker (future (block-until-ready server-proc))]
-      ;; Block on the server starting for up to thirty seconds.
+          server-blocker (future (block-until-ready config-with-db))]
+      ;; Block on the server starting for up to ninety seconds.
       ;; If it doesn't start within that time, exit nonzero.
       (try
         (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
