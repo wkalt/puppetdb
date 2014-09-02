@@ -8,18 +8,28 @@
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [com.puppetlabs.puppetdb.http.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]  
             [com.puppetlabs.puppetdb.http.resources :as r]
+            [com.puppetlabs.puppetdb.query.environments :as environments]
             [com.puppetlabs.puppetdb.http.events :as ev]
             [com.puppetlabs.puppetdb.query-eng.handler :as pb]
             [com.puppetlabs.puppetdb.http.reports :as rp]
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
             [com.puppetlabs.cheshire :as json]))
 
+(defn current-status
+  "Given an environment's name, return the results for the single environment."
+  [version environment]
+  {:pre  [string? environment]}
+  (let [sql     (qe/query->sql version ["=" "name" environment] {} :environments)
+        results (:result (environments/query-environments version sql))]
+    (first results)))
+
 (defn environment-status
   "Produce a response body for a single environment."
   [version environment db]
   (if-let [status (with-transacted-connection db
-                    (e/status version environment))]
+                    (current-status version environment))]
     (pl-http/json-response status)
     (pl-http/json-response {:error (str "No information is known about " environment)} pl-http/status-not-found)))
 

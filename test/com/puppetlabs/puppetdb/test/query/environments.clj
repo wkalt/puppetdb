@@ -1,7 +1,8 @@
 (ns com.puppetlabs.puppetdb.test.query.environments
-  (:require [com.puppetlabs.puppetdb.query.environments :refer :all]
+  (:require [com.puppetlabs.puppetdb.query.environments :refer [query-environments]]
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.scf.storage :as storage]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]  
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.cheshire :as json]))
 
@@ -9,7 +10,7 @@
 
 (deftest test-all-environments
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (query->sql :v4 nil))))))
+    (is (empty? (:result (query-environments :v4 (qe/query->sql :v4 nil {}  :environments))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -18,19 +19,19 @@
     (is (= #{{:name "foo"}
              {:name "bar"}
              {:name "baz"}}
-           (set (:result (query-environments :v4 (query->sql :v4 nil))))))))
+           (set (:result (query-environments :v4 (qe/query->sql :v4 nil {} :environments))))))))
 
 (def jsonify (comp json/parse-strict-string json/generate-string))
 
 (deftest test-environment-queries
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (query->sql :v4 nil))))))
+    (is (empty? (:result (query-environments :v4 (qe/query->sql :v4 nil {} :environments))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (are [query result] (= result (set (:result (query-environments :v4 (query->sql :v4 (jsonify query))))))
+    (are [query result] (= result (set (:result (query-environments :v4 (qe/query->sql :v4 (jsonify query) {} :environments)))))
 
          '[= name foo]
          #{{:name "foo"}}
@@ -65,7 +66,7 @@
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException
                                  #"Query operators >,>=,<,<= are not allowed on field name"
-                                 (query-environments :v4 (query->sql :v4 (jsonify query))))
+                                 (query-environments :v4 (qe/query->sql :v4 (jsonify query) {} :environments)))
 
        '[<= name foo]
        '[>= name foo]

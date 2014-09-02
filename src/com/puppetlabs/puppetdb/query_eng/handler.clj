@@ -18,10 +18,6 @@
             [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [com.puppetlabs.puppetdb.http :as http]))
 
-(defn fact-paths-query->sql
-  [version query paging-options]
-  (qe/compile-user-query->sql qe/fact-paths-query query paging-options))
-
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query
   results.
@@ -33,11 +29,11 @@
           :event-counts [event-counts/query->sql (event-counts/munge-result-rows (first paging-options))]
           :aggregate-event-counts [aggregate-event-counts/query->sql
                                    (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first)]
-          :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
-          :fact-paths [fact-paths-query->sql facts/munge-path-result-rows]
+          :fact-contents [nil fact-contents/munge-result-rows]
+          :fact-paths [nil facts/munge-path-result-rows]
           :events [events/query->sql (events/munge-result-rows version)]
           :nodes [nodes/query->sql (nodes/munge-result-rows version)]
-          :environments [environments/query->sql identity]
+          :environments [nil identity]
           :reports [reports/query->sql (reports/munge-result-rows version)]
           :factsets [nil (factsets/munge-result-rows version)]
           :resources [resources/query->sql (resources/munge-result-rows version)])]
@@ -45,7 +41,7 @@
       (jdbc/with-transacted-connection db
         (let [parsed-query (json/parse-strict-string query true)
               {[sql & params] :results-query
-               count-query :count-query} (if (contains? #{:facts :resources :factsets :nodes} entity)
+               count-query :count-query} (if (contains? #{:environments :fact-contents :fact-paths :facts :resources :factsets :nodes} entity)
                                            (qe/query->sql version parsed-query paging-options entity)
                                            (query->sql version parsed-query paging-options))
               resp (pl-http/stream-json-response

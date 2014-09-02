@@ -149,6 +149,7 @@
                :queryable-fields ["path" "value" "certname" "environment" "name"]
                :source-table "facts"
                :subquery? false
+               :entity :fact-contents
                :source
                "SELECT fs.certname,
                        fp.path,
@@ -270,6 +271,7 @@
                :alias "environments"
                :subquery? false
                :source-table "environments"
+               :entity :environments
                :source "SELECT name
                         FROM environments"}))
 
@@ -844,18 +846,25 @@
       result-query)))
 
 (defn query->sql
-  [version query options entity]
+  [version query paging-options entity]
+  ;; TODO change to a map 'options' that comprises paging/query options
   {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
+          (or
+            (not (:count? paging-options))
+            (jdbc/valid-jdbc-query? (:count-query %)))  
           (every? (complement coll?) (rest (:results-query %)))]}
   (let [[fallback-sql query-rec] (case entity
                                    :facts [query-facts/query->sql facts-query]
                                    :resources [query-resources/query->sql resources-query]
                                    :factsets [nil factsets-query]
-                                   :nodes [query-nodes/query->sql nodes-query])]
+                                   :nodes [query-nodes/query->sql nodes-query]
+                                   :fact-paths [nil fact-paths-query]
+                                   :fact-contents [nil fact-contents-query]
+                                   :environments [nil environments-query])]
 
-    (paging/validate-order-by! (orderable-fields query-rec version) options)
+    (paging/validate-order-by! (orderable-fields query-rec version) paging-options)
     (case version
-      (:v1 :v2 :v3) (fallback-sql version query options)
-      (compile-user-query->sql query-rec query options))))
+      (:v1 :v2 :v3) (fallback-sql version query paging-options)
+      (compile-user-query->sql query-rec query paging-options))))
