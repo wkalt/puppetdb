@@ -2,7 +2,7 @@ require 'puppet/network/http_pool'
 require 'json'
 
 class Puppet::Node::Classifier < Puppet::Indirector::Code
-  AgentSpecifiedEnvironment = "agent"
+  AgentSpecifiedEnvironment = "agent-specified"
 
   def new_connection
     Puppet::Network::HttpPool.http_instance(server, port)

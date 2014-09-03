@@ -33,7 +33,7 @@ master_opts = {
 step "Create class"
 
 class_response = Classifier.put(
-  "/v1/environments/agent/classes/echo_environment",
+  "/v1/environments/agent-specified/classes/echo_environment",
   :body => {"parameters" => {}}.to_json)
 assert(class_response.response.is_a?(Net::HTTPSuccess),
        "Received failure response when trying to create the class: " +
@@ -57,7 +57,7 @@ RootUUID = "00000000-0000-4000-8000-000000000000"
 group_uuid = UUIDTools::UUID.random_create()
 group = {
   "name" => "echo environment",
-  "environment" => "agent",
+  "environment" => "agent-specified",
   "classes" => {"echo_environment" => {}},
   "parent" => RootUUID.to_str,
   "rule" => match_nodes
