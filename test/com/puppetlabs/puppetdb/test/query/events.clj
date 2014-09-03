@@ -452,7 +452,8 @@
         select-values #(reverse (kitchensink/select-values (get-events-map (:basic4 reports)) %))]
     (doseq [version [:v3 :v4]]
       (testing "include total results count"
-        (let [actual (:count (raw-resource-events-query-result version [">" "timestamp" 0] {:count? true}))]
+        (println version)
+        (let [actual (:count #spy/d (raw-resource-events-query-result version [">" "timestamp" 0] {:count? true}))]
           (is (= actual event-count))))
 
       (testing "limit results"

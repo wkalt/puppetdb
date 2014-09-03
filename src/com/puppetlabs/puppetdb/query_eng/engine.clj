@@ -831,7 +831,6 @@
       :reports [:hash :certname :puppet-version :report-format
                 :configuration-version :start-time :end-time :receive-time
                 :transaction-uuid :environment :status] 
-      :event-counts 
       queryable-fields)))
 
 (defn compile-user-query->sql
@@ -839,6 +838,7 @@
   user provided query to SQL and extract the parameters, to be used
   in a prepared statement"
   [query-rec user-query & [{:keys [count?] :as paging-options}]]
+  (println "PAGINGIOPTIONS ARE " paging-options "COUNT IS" count?)
   (let [entity (:entity query-rec)  
         {:keys [plan params]} (->> user-query
                                    (push-down-context query-rec)

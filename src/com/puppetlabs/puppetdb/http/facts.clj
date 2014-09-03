@@ -21,7 +21,7 @@
                     :facts
                     version
                     (params "query")
-                    paging-options
+                    {:paging-options paging-options}
                     (:scf-read-db globals)))
                 http-q/restrict-query-to-active-nodes)}))
 
