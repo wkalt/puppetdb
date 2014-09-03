@@ -54,7 +54,7 @@ Here is an example of group object:
       "name": "Webservers",
       "id": "fc500c43-5065-469b-91fc-37ed0e500e81",
       "environment": "production",
-      "description": "This group captures configuration relevant to all web-facing production webservers, regardless of location."
+      "description": "This group captures configuration relevant to all web-facing production webservers, regardless of location.",
       "parent": "00000000-0000-4000-8000-000000000000",
       "rule": ["and", ["~", ["trusted", "certname"], "www"],
                       [">=", ["fact", "total_ram"], "512"]],
@@ -288,7 +288,7 @@ then the value of the group after the update will be:
       "rule": ["~", ["trusted", "certname"], "www"],
       "classes": {
         "apache": {
-          "serveradmin": "roy@reynholm.co.uk",
+          "serveradmin": "roy@reynholm.co.uk"
         }
       },
       "variables": {
