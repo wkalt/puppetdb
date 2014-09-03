@@ -6,8 +6,7 @@
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
-            [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (def report-columns
   [:hash
@@ -34,19 +33,13 @@
              (or
               (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-     (paging/validate-order-by! report-columns paging-options)
-     (case version
-       :v3
        (let [operators (query/report-ops version)
              [sql & params] (query/report-query->sql version operators query)
              paged-select (jdbc/paged-sql sql paging-options)
              result {:results-query (apply vector paged-select params)}]
          (if (:count? paging-options)
            (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
-           result))
-
-       (qe/compile-user-query->sql
-        qe/reports-query query paging-options))))
+           result))))
 
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the version

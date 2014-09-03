@@ -8,7 +8,9 @@
             [com.puppetlabs.puppetdb.facts :as facts]
             [com.puppetlabs.puppetdb.query.factsets :as query-factsets]
             [com.puppetlabs.puppetdb.query.facts :as query-facts]
+            [com.puppetlabs.puppetdb.query.reports :as query-reports]
             [com.puppetlabs.puppetdb.query.nodes :as query-nodes]
+            [com.puppetlabs.puppetdb.query.events :as query-events]
             [com.puppetlabs.puppetdb.query.resources :as query-resources]
             [clojure.core.match :as cm]
             [fast-zip.visit :as zv]
@@ -820,6 +822,10 @@
                [:name :deactivated :catalog_timestamp :facts_timestamp :report_timestamp]
                [:certname :deactivated :catalog_timestamp :facts_timestamp :report_timestamp
                 :catalog_environment :facts_environment :report_environment])
+      :events [:certname :configuration_version :start_time :end_time
+               :receive_time :report :status :timestamp :resource_type
+               :resource_title :property :new_value :old_value :message
+               :file :line :containment_path :containing_class :name] 
       queryable-fields)))
 
 (defn compile-user-query->sql
@@ -862,9 +868,13 @@
                                    :nodes [query-nodes/query->sql nodes-query]
                                    :fact-paths [nil fact-paths-query]
                                    :fact-contents [nil fact-contents-query]
-                                   :environments [nil environments-query])]
+                                   :environments [nil environments-query]
+                                   :reports [query-reports/query->sql reports-query]
+                                   :events [query-events/query->sql report-events-query])]
 
     (paging/validate-order-by! (orderable-fields query-rec version) paging-options)
+    (if (and (= version :v4) (= entity :events) (:distinct-resources? (first paging-options)))
+      (fallback-sql version query paging-options)
     (case version
       (:v1 :v2 :v3) (fallback-sql version query paging-options)
-      (compile-user-query->sql query-rec query paging-options))))
+      (compile-user-query->sql query-rec query paging-options)))))

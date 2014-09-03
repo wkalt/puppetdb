@@ -6,8 +6,7 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn default-select
   "Build the default SELECT statement that we use in the common case.  Returns
@@ -70,9 +69,9 @@
      where)
    (concat [distinct-start-time distinct-end-time] params)])
 
-(defn legacy-query->sql
+(defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query-options query paging-options]
+  [version query [query-options paging-options]]
   {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
             (or (not-any? #(contains? query-options %) distinct-options)
@@ -82,6 +81,7 @@
           (or
            (not (:count? paging-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
+  (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
   (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
                                    (map
@@ -99,29 +99,6 @@
     (if (:count? paging-options)
       (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
       result)))
-
-
-(defn query->sql
-  "Compile a resource event `query` into an SQL expression."
-  [version query [query-options paging-options]]
-  {:pre  [(or (sequential? query) (nil? query))
-          (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
-            (or (not-any? #(contains? query-options %) distinct-options)
-                (every? #(contains? query-options %) distinct-options)))]
-   :post [(map? %)
-          (jdbc/valid-jdbc-query? (:results-query %))
-          (or
-           (not (:count? paging-options))
-           (jdbc/valid-jdbc-query? (:count-query %)))]}
-  (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
-  (case version
-    (:v2 :v3) (legacy-query->sql version query-options query paging-options)
-
-    (if (:distinct-resources? query-options)
-      ;; The new query engine does not support distinct-resources yet, so we
-      ;; fall back to the old
-      (legacy-query->sql version query-options query paging-options)
-      (qe/compile-user-query->sql qe/report-events-query query paging-options))))
 
 ;; Below this line the code is more about turning a query into results,
 ;; above is the SQL engine code (as it stands).

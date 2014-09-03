@@ -41,7 +41,7 @@
       (jdbc/with-transacted-connection db
         (let [parsed-query (json/parse-strict-string query true)
               {[sql & params] :results-query
-               count-query :count-query} (if (contains? #{:environments :fact-contents :fact-paths :facts :resources :factsets :nodes} entity)
+               count-query :count-query} (if (contains? #{:reports :environments :fact-contents :fact-paths :facts :resources :factsets :nodes :events} entity)
                                            (qe/query->sql version parsed-query paging-options entity)
                                            (query->sql version parsed-query paging-options))
               resp (pl-http/stream-json-response
