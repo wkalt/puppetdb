@@ -120,7 +120,7 @@
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"
                            :environment "PROD") (now))
-  (are [result query] (response-equal? (get-response endpoint
+  (are [result query] (response-equal? #spy/d (get-response endpoint
                                                      query
                                                      "resource"
                                                      {"distinct-resources" false

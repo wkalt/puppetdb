@@ -23,8 +23,10 @@
           (string? summarize-by)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
-  (let [[count-sql & params] (:results-query
-                               (event-counts/query->sql version query options))
+  (let [query-options (if (nil? query-options) {} query-options)
+        [count-sql & params] (:results-query
+                               (event-counts/query->sql version query {:summarize-by summarize-by
+                                                                       :query-options {}}))
         aggregate-sql        (get-aggregate-sql count-sql)]
     {:results-query (apply vector aggregate-sql params)}))
 

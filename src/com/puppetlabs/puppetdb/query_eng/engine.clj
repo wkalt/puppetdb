@@ -897,7 +897,6 @@
 
 (defn query->sql
   [entity version query {:keys [query-options paging-options summarize-by] :as options}]
-  ;; TODO change to a map 'options' that comprises paging/query options
   {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (string? (first (:results-query %)))
@@ -914,9 +913,9 @@
       (and (= version :v4) (= entity :events) (:distinct-resources? query-options))
       (fallback-sql version query options)
       (= entity :event-counts)
-      (fallback-sql version query {:query-options (select-keys query-options [:distinct-resource
-                                                              :distinct-start-time
-                                                              :distinct-end-time])})
+      (fallback-sql version query {:query-options (select-keys query-options [:distinct-resources?
+                                                                              :distinct-start-time
+                                                                              :distinct-end-time])})
       (or (= entity :event-counts) (= entity :aggregate-event-counts))
       (fallback-sql version query options)
       :else

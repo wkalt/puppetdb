@@ -55,6 +55,7 @@
     {:get (fn [{:keys [params globals paging-options]}]
             (try
               (let [query-options (validate-distinct-options! params)]
+                (println "ROUTES PAGING OPTIONS" paging-options "QUERY OPTIONS " query-options)
                 (pb/produce-streaming-body
                   :events
                   version

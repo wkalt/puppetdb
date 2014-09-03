@@ -151,7 +151,8 @@
          sql                             (get-filtered-sql event-count-sql counts-filter-where)
          params                          (concat event-params counts-filter-params)
          paged-select                    (jdbc/paged-sql sql paging-options)]
-     (conj {:results-query (apply vector paged-select params)}
+     (println "IN EC/query->SQL event-sql" event-sql "event-params" event-params)
+     #spy/d (conj {:results-query (apply vector paged-select params)}
            (when (:count? paging-options)
              [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
