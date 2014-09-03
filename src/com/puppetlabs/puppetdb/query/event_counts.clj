@@ -6,7 +6,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
-(defn- get-group-by
+(defn get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
   Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
   IllegalArgumentException is thrown."
@@ -45,7 +45,7 @@
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
     (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
 
-(defn- event-counts-columns
+(defn event-counts-columns
   [group-by]
   {:pre [(vector? group-by)]}
   (concat
@@ -124,17 +124,18 @@
   "Convert an event-counts `query` and a value to `summarize-by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count-by` may also be specified (defaults to `resource`)."
-  ([version query [summarize-by {:keys [counts-filter count-by] :as query-options} paging-options]]
+  ([version query {:keys [summarize-by query-options paging-options]}]
    {:pre  [(sequential? query)
            (string? summarize-by)
-           ((some-fn nil? sequential?) counts-filter)
-           ((some-fn nil? string?) count-by)]
+           ((some-fn nil? sequential?) (:counts-filter query-options))
+           ((some-fn nil? string?) (:count-by query-options))]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
            (or
              (not (:count? paging-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (let [count-by                        (or count-by "resource")
+   (let [count-by                        (or (:count-by query-options) "resource")
+         counts-filter                   (:counts-filter query-options)
          group-by                        (get-group-by summarize-by)
          _                               (paging/validate-order-by!
                                            (map keyword (event-counts-columns group-by))
@@ -144,7 +145,7 @@
          distinct-opts                   (select-keys query-options
                                                       [:distinct-resources? :distinct-start-time :distinct-end-time])
          [event-sql & event-params]      (:results-query
-                                            (events/query->sql version query [distinct-opts nil]))
+                                            (events/query->sql version query {:query-options distinct-opts}))
          count-by-sql                    (get-count-by-sql event-sql count-by group-by)
          event-count-sql                 (get-event-count-sql count-by-sql group-by)
          sql                             (get-filtered-sql event-count-sql counts-filter-where)

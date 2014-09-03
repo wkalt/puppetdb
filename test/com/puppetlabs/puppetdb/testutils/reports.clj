@@ -115,7 +115,7 @@
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
-    (update-in (query/query-reports version (qe/query->sql version query paging-options :reports))
+    (update-in (query/query-reports version (qe/query->sql :reports version query {:paging-options paging-options}))
                [:result]
                munge-fn)))
 

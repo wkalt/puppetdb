@@ -8,6 +8,7 @@
             [com.puppetlabs.puppetdb.facts :as facts]
             [com.puppetlabs.puppetdb.query.factsets :as query-factsets]
             [com.puppetlabs.puppetdb.query.facts :as query-facts]
+            [com.puppetlabs.puppetdb.query.aggregate-event-counts :as query-aggregate-event-counts]
             [com.puppetlabs.puppetdb.query.reports :as query-reports]
             [com.puppetlabs.puppetdb.query.fact-contents :as query-fact-contents]
             [com.puppetlabs.puppetdb.query.nodes :as query-nodes]
@@ -813,7 +814,7 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 (defn orderable-fields
-  [query-rec version]
+  [query-rec version options]
   (let [entity (:entity query-rec)
         queryable-fields (map keyword (:queryable-fields query-rec))]
     (case entity
@@ -831,36 +832,17 @@
       :reports [:hash :certname :puppet-version :report-format
                 :configuration-version :start-time :end-time :receive-time
                 :transaction-uuid :environment :status] 
+      :event-counts (query-event-counts/event-counts-columns
+                      (query-event-counts/get-group-by (:summarize-by options)))
       queryable-fields)))
-
-(defn compile-user-query->sql
-  "Given a user provided query and a Query instance, convert the
-  user provided query to SQL and extract the parameters, to be used
-  in a prepared statement"
-  [query-rec user-query & [{:keys [count?] :as paging-options}]]
-  (println "PAGINGIOPTIONS ARE " paging-options "COUNT IS" count?)
-  (let [entity (:entity query-rec)  
-        {:keys [plan params]} (->> user-query
-                                   (push-down-context query-rec)
-                                   expand-user-query
-                                   (convert-to-plan query-rec)
-                                   extract-all-params)
-        augmented-paging-options (augment-paging-options paging-options
-                                                         entity)
-        query-params (if (= entity :factsets) (concat params params) params)
-        sql (plan->sql plan)
-        paged-sql (if augmented-paging-options
-                    (jdbc/paged-sql sql augmented-paging-options entity)
-                    sql)
-        result-query {:results-query (apply vector paged-sql query-params)}]
-    (if count?
-      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
-      result-query)))
 
 (def entity-attributes
   {:facts {:fallback-sql query-facts/query->sql
            :query-rec facts-query
            :munge-fn query-facts/munge-result-rows}
+   :aggregate-event-counts {:fallback-sql query-aggregate-event-counts/query->sql
+                            :query-rec facts-query
+                            :munge-fn query-facts/munge-result-rows}
    :resources {:fallback-sql query-resources/query->sql
                :query-rec resources-query
                :munge-fn query-resources/munge-result-rows}
@@ -889,8 +871,32 @@
                   :query-rec report-events-query
                   :munge-fn identity}})
 
+(defn compile-user-query->sql
+  "Given a user provided query and a Query instance, convert the
+  user provided query to SQL and extract the parameters, to be used
+  in a prepared statement"
+  [query-rec user-query {:keys [paging-options query-options summarize-by] :as options}]
+  (let [entity (:entity query-rec)
+        count? (:count? paging-options)
+        {:keys [plan params]} (->> user-query
+                                   (push-down-context query-rec)
+                                   expand-user-query
+                                   (convert-to-plan query-rec)
+                                   extract-all-params)
+        augmented-paging-options (augment-paging-options paging-options
+                                                         entity)
+        query-params (if (= entity :factsets) (concat params params) params)
+        sql (plan->sql plan)
+        paged-sql (if augmented-paging-options
+                    (jdbc/paged-sql sql augmented-paging-options entity)
+                    sql)
+        result-query {:results-query (apply vector paged-sql query-params)}]
+    (if count?
+      (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
+      result-query)))
+
 (defn query->sql
-  [version query paging-options entity]
+  [entity version query {:keys [query-options paging-options summarize-by] :as options}]
   ;; TODO change to a map 'options' that comprises paging/query options
   {:pre [((some-fn nil? sequential?) query)]
    :post [(map? %)
@@ -899,17 +905,21 @@
             (not (:count? paging-options))
             (jdbc/valid-jdbc-query? (:count-query %)))  
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [{:keys [fallback-sql query-rec]} (entity entity-attributes)]
+  (let [{:keys [fallback-sql query-rec]} (entity entity-attributes)
+        {:keys [count-by counts-filter]} query-options]
     (paging/validate-order-by!
-      (orderable-fields query-rec version)
-      (if (vector? paging-options) (last paging-options) paging-options))
-
+      (orderable-fields query-rec version options)
+      paging-options)
     (cond
-      (and (= version :v4) (= entity :events) (:distinct-resources? (first paging-options)))
-      (fallback-sql version query paging-options)
+      (and (= version :v4) (= entity :events) (:distinct-resources? query-options))
+      (fallback-sql version query options)
       (= entity :event-counts)
-      (fallback-sql version query paging-options)
+      (fallback-sql version query {:query-options (select-keys query-options [:distinct-resource
+                                                              :distinct-start-time
+                                                              :distinct-end-time])})
+      (or (= entity :event-counts) (= entity :aggregate-event-counts))
+      (fallback-sql version query options)
       :else
       (case version
-        (:v1 :v2 :v3) (fallback-sql version query paging-options)
-        (compile-user-query->sql query-rec query paging-options)))))
+        (:v1 :v2 :v3) (fallback-sql version query options)
+        (compile-user-query->sql query-rec query options)))))

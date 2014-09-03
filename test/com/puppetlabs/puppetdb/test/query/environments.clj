@@ -10,7 +10,7 @@
 
 (deftest test-all-environments
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (qe/query->sql :v4 nil {}  :environments))))))
+    (is (empty? (:result (query-environments :v4 (qe/query->sql :environments :v4 nil {}))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
@@ -19,19 +19,19 @@
     (is (= #{{:name "foo"}
              {:name "bar"}
              {:name "baz"}}
-           (set (:result (query-environments :v4 (qe/query->sql :v4 nil {} :environments))))))))
+           (set (:result (query-environments :v4 (qe/query->sql :environments :v4 nil {}))))))))
 
 (def jsonify (comp json/parse-strict-string json/generate-string))
 
 (deftest test-environment-queries
   (testing "without environments"
-    (is (empty? (:result (query-environments :v4 (qe/query->sql :v4 nil {} :environments))))))
+    (is (empty? (:result (query-environments :v4 (qe/query->sql :environments :v4 nil {}))))))
 
   (testing "with environments"
     (doseq [env ["foo" "bar" "baz"]]
       (storage/ensure-environment env))
 
-    (are [query result] (= result (set (:result (query-environments :v4 (qe/query->sql :v4 (jsonify query) {} :environments)))))
+    (are [query result] (= result (set (:result (query-environments :v4 (qe/query->sql :environments :v4 (jsonify query) {})))))
 
          '[= name foo]
          #{{:name "foo"}}
@@ -66,7 +66,7 @@
 (deftest test-failed-comparison
   (are [query] (thrown-with-msg? IllegalArgumentException
                                  #"Query operators >,>=,<,<= are not allowed on field name"
-                                 (query-environments :v4 (qe/query->sql :v4 (jsonify query) {} :environments)))
+                                 (query-environments :v4 (qe/query->sql :environments :v4 (jsonify query) {})))
 
        '[<= name foo]
        '[>= name foo]

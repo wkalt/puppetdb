@@ -59,7 +59,7 @@
                   :events
                   version
                   (params "query")
-                  {:query-options query-options :paging-results paging-results}
+                  {:query-options query-options :paging-options paging-options}
                   (:scf-read-db globals)))
               (catch IllegalArgumentException e
                 (pl-http/error-response e))))}))

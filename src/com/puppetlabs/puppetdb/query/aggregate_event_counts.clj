@@ -18,14 +18,13 @@
 (defn query->sql
   "Convert an aggregate-event-counts `query` and a value to `summarize-by` into a SQL string.
   Since all inputs are forwarded to `event-counts/query->sql`, look there for proper documentation."
-  [version query [summarize-by query-options]]
+  [version query {:keys [summarize-by query-options] :as options}]
   {:pre  [(sequential? query)
           (string? summarize-by)
           ((some-fn map? nil?) query-options)]
    :post [(jdbc/valid-jdbc-query? (:results-query %))]}
-  (let [query-options (if (nil? query-options) {} query-options)
-        [count-sql & params] (:results-query
-                               (event-counts/query->sql version query [summarize-by query-options {}]))
+  (let [[count-sql & params] (:results-query
+                               (event-counts/query->sql version query options))
         aggregate-sql        (get-aggregate-sql count-sql)]
     {:results-query (apply vector aggregate-sql params)}))
 

@@ -15,7 +15,7 @@
 
 (defn- raw-query-resources
   [version query paging-options]
-  (->> (qe/query->sql version query paging-options :resources)
+  (->> (qe/query->sql :resources version query {:paging-options paging-options})
        (s/query-resources version)))
 
 (defn query-resources

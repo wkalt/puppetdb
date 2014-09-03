@@ -21,7 +21,7 @@
   "Given an environment's name, return the results for the single environment."
   [version environment]
   {:pre  [string? environment]}
-  (let [sql     (qe/query->sql version ["=" "name" environment] {} :environments)
+  (let [sql     (qe/query->sql :environments version ["=" "name" environment] {})
         results (:result (environments/query-environments version sql))]
     (first results)))
 

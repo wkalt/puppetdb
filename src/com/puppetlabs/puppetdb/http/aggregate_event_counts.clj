@@ -21,7 +21,7 @@
               :aggregate-event-counts
               version
               query
-              [summarize-by query-options]
+              {:summarize-by summarize-by :query-options query-options}
               (:scf-read-db globals))))}))
 
 (defn aggregate-event-counts-app

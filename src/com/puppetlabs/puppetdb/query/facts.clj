@@ -98,7 +98,7 @@
 
 (defn query->sql
   "Compile a query into an SQL expression."
-  [version query paging-options]
+  [version query {:keys [paging-options]}]
   {:pre [((some-fn nil? sequential?) query) ]
    :post [(map? %)
           (string? (first (:results-query %)))

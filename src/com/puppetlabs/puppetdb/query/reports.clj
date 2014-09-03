@@ -25,7 +25,7 @@
   return nodes matching the `query`."
   ([version query]
      (query->sql version query {}))
-  ([version query paging-options]
+  ([version query {:keys [paging-options]}]
      {:pre  [((some-fn nil? sequential?) query)]
       :post [(map? %)
              (jdbc/valid-jdbc-query? (:results-query %))

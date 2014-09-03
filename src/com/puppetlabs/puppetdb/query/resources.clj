@@ -22,7 +22,7 @@
   contains the SQL necessary to retrieve the count data."
   ([version query]
     (query->sql version query {}))
-  ([version query paging-options]
+  ([version query {:keys [paging-options]}]
    {:pre  [(sequential? query)]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))

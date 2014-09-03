@@ -100,6 +100,7 @@
                               :limit   1
                               :total   2
                               :include-total  count?})]
+          (println "RESULTS ARE" results)
           (is (= 2 (count results)))
           (is (= (reports-response version
                                    [(assoc basic1 :hash basic1-hash)

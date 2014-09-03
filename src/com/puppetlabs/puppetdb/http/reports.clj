@@ -21,7 +21,7 @@
              :reports
             version
             (params "query")
-            paging-options
+            {:paging-options paging-options}
             (:scf-read-db globals)))}))
 
 (defn reports-app

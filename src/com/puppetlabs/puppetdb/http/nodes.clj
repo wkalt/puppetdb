@@ -21,7 +21,7 @@
   and report."
   [version node]
   {:pre  [string? node]}
-  (let [sql     (qe/query->sql version ["=" (case version (:v2 :v3) "name" "certname") node] {} :nodes)
+  (let [sql     (qe/query->sql :nodes version ["=" (case version (:v2 :v3) "name" "certname") node] {})
         results (:result (node/query-nodes version sql))]
     (first results)))
 

@@ -71,7 +71,7 @@
 
 (defn query->sql
   "Compile a resource event `query` into an SQL expression."
-  [version query [query-options paging-options]]
+  [version query { :keys [query-options paging-options] :as options}]
   {:pre  [(or (sequential? query) (nil? query))
           (let [distinct-options [:distinct-resources? :distinct-start-time :distinct-end-time]]
             (or (not-any? #(contains? query-options %) distinct-options)

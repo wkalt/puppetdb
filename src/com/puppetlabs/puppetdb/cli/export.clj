@@ -243,7 +243,7 @@
    :post [(or (nil? %)
               (map? %))]}
   (let [query ["=" "hash" hash]]
-    (->> (qe/query->sql version query nil :reports)
+    (->> (qe/query->sql :reports version query nil)
          (reports/query-reports version)
          ;; We don't support paging in this code path, so we
          ;; can just pull the results out of the return value
@@ -259,7 +259,7 @@
   (let [query          ["=" "report" report-hash]
         ;; we aren't actually supporting paging through this code path for now
         paging-options {}]
-    (->> (qe/query->sql version query [nil paging-options] :events)
+    (->> (qe/query->sql :events version query {:paging-options paging-options})
          (events/query-resource-events version)
          :result
          (mapv #(dissoc %
@@ -275,7 +275,7 @@
    :post [(or (nil? %)
               (seq? %))]}
   (let [query ["=" "certname" node]
-        reports (->> (qe/query->sql version query nil :reports)
+        reports (->> (qe/query->sql :reports version query nil)
                      (reports/query-reports version)
                      ;; We don't support paging in this code path, so we
                      ;; can just pull the results out of the return value

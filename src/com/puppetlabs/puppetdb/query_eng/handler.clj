@@ -22,11 +22,11 @@
   "Given a query, and database connection, return a Ring response with the query
   results.
   If the query can't be parsed, a 400 is returned."
-  [entity version query paging-options db]
+  [entity version query {:keys [paging-options query-options summarize-by] :as options} db]
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql (facts/munge-result-rows version)]
-          :event-counts [event-counts/query->sql (event-counts/munge-result-rows (first paging-options))]
+          :event-counts [event-counts/query->sql (event-counts/munge-result-rows query-options)]
           :aggregate-event-counts [aggregate-event-counts/query->sql
                                    (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first)]
           :fact-contents [nil fact-contents/munge-result-rows]
@@ -41,9 +41,12 @@
       (jdbc/with-transacted-connection db
         (let [parsed-query (json/parse-strict-string query true)
               {[sql & params] :results-query
-               count-query :count-query} (if (contains? #{:reports :environments :fact-contents :fact-paths :facts :resources :factsets :nodes :events} entity)
-                                           (qe/query->sql version parsed-query paging-options entity)
-                                           (query->sql version parsed-query paging-options))
+               count-query :count-query} (if (contains? #{:reports :environments
+                                                          :fact-contents :fact-paths :facts
+                                                          :resources :factsets :nodes :events
+                                                          :event-counts :aggregate-event-counts} entity)
+                                           (qe/query->sql entity version parsed-query options)
+                                           (query->sql version parsed-query options))
               resp (pl-http/stream-json-response
                      (fn [f]
                        (jdbc/with-transacted-connection db

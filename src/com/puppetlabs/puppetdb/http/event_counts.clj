@@ -25,7 +25,7 @@
                 :event-counts
                 version
                 query
-                [summarize-by query-options paging-options]
+                {:summarize-by summarize-by :query-options query-options :paging-options paging-options}
                 (:scf-read-db globals))))}))
 
 (defn event-counts-app

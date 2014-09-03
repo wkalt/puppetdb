@@ -101,7 +101,8 @@
   ([version query paging-options]
     (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (qe/query->sql version query [query-options paging-options] :events)
+     (->> (qe/query->sql :events version query {:query-options query-options
+                                                :paging-options paging-options})
           (query/query-resource-events version)
           :result
           set)))
@@ -113,5 +114,5 @@
   ([version query paging-options]
     (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (qe/query->sql version query [query-options paging-options] :events)
+     (->> (qe/query->sql :events version query {:query-options query-options :paging-options paging-options})
           (query/query-resource-events version))))
