@@ -5,7 +5,6 @@
             [clojure.core.match :refer [match]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
-            [com.puppetlabs.puppetdb.query.events :refer [events-for-report-hash]]
             [com.puppetlabs.puppetdb.query.paging :as paging]))
 
 (def report-columns
@@ -68,37 +67,6 @@
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
 
-
-(defn reports-for-node
-  "Return reports for a particular node."
-  [version node]
-  {:pre  [(string? node)]
-   :post [(or (nil? %)
-              (seq? %))]}
-  (let [query ["=" "certname" node]
-        reports (->> (query->sql version query)
-                     (query-reports version)
-                     ;; We don't support paging in this code path, so we
-                     ;; can just pull the results out of the return value
-                     :result)]
-    (map
-     #(merge % {:resource-events (events-for-report-hash version (get % :hash))})
-     reports)))
-
-(defn report-for-hash
-  "Convenience function; given a report hash, return the corresponding report object
-  (without events)."
-  [version hash]
-  {:pre  [(string? hash)]
-   :post [(or (nil? %)
-              (map? %))]}
-  (let [query ["=" "hash" hash]]
-    (->> (query->sql version query)
-         (query-reports version)
-         ;; We don't support paging in this code path, so we
-         ;; can just pull the results out of the return value
-         (:result)
-         (first))))
 
 (defn is-latest-report?
   "Given a node and a report hash, return `true` if the report is the most recent one for the node,

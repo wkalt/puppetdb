@@ -136,21 +136,3 @@
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query))
       result)))
-
-(defn events-for-report-hash
-  "Given a particular report hash, this function returns all events for that
-   given hash."
-  [version report-hash]
-  {:pre [(string? report-hash)]
-   :post [(vector? %)]}
-  (let [query          ["=" "report" report-hash]
-        ;; we aren't actually supporting paging through this code path for now
-        paging-options {}]
-    (->> (query->sql version query [nil paging-options])
-         (query-resource-events version)
-         :result
-         (mapv #(dissoc %
-                        :run-start-time
-                        :run-end-time
-                        :report-receive-time
-                        :environment)))))

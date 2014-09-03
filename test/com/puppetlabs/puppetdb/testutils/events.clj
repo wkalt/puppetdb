@@ -4,6 +4,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [clojure.walk :as walk]
             [com.puppetlabs.puppetdb.utils :refer [assoc-when]]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [clj-time.coerce :refer [to-timestamp to-string]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,7 +101,7 @@
   ([version query paging-options]
     (resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (query/query->sql version query [query-options paging-options])
+     (->> (qe/query->sql version query [query-options paging-options] :events)
           (query/query-resource-events version)
           :result
           set)))
@@ -112,5 +113,5 @@
   ([version query paging-options]
     (raw-resource-events-query-result version query paging-options nil))
   ([version query paging-options query-options]
-     (->> (query/query->sql version query [query-options paging-options])
+     (->> (qe/query->sql version query [query-options paging-options] :events)
           (query/query-resource-events version))))

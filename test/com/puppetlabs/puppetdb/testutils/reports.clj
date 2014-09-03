@@ -2,7 +2,9 @@
   (:require [com.puppetlabs.puppetdb.scf.storage :as scf-store]
             [com.puppetlabs.puppetdb.scf.hash :as shash]
             [com.puppetlabs.puppetdb.reports :as report]
+            [com.puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [com.puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
             [com.puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage
@@ -75,7 +77,7 @@
     (validate-fn)
     (scf-store/maybe-activate-node! (:certname example-report) timestamp)
     (scf-store/add-report!* example-report timestamp update-latest-report?)
-    (query/report-for-hash :v4 report-hash)))
+    (export/report-for-hash-db :v4 report-hash)))
 
 (defn store-example-report!
   "See store-example-reports*! calls that, passing in a version 3 validation function"
@@ -113,7 +115,7 @@
     ;; the example reports don't have a receive time (because this is
     ;; calculated by the server), so we remove this field from the response
     ;; for test comparison
-    (update-in (query/query-reports version (query/query->sql version query paging-options))
+    (update-in (query/query-reports version (qe/query->sql version query paging-options :reports))
                [:result]
                munge-fn)))
 

@@ -16,9 +16,12 @@
             [fs.core :as fs]
             [clojure.java.io :as io]
             [clj-http.client :as client]
+            [com.puppetlabs.puppetdb.query.events :as events]
+            [com.puppetlabs.puppetdb.query.reports :as reports]
             [com.puppetlabs.archive :as archive]
             [slingshot.slingshot :refer [try+]]
             [com.puppetlabs.puppetdb.schema :as pls]
+            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
             [schema.core :as s]
             [clojure.string :as str]
             [com.puppetlabs.puppetdb.utils :as utils]))
@@ -229,6 +232,57 @@
         (case (:type m)
           :puppetlabs.kitchensink.core/cli-error (System/exit 1)
           :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+
+;; functions for querying the database directly
+
+(defn report-for-hash-db
+  "Convenience function; given a report hash, return the corresponding report object
+  (without events)."
+  [version hash]
+  {:pre  [(string? hash)]
+   :post [(or (nil? %)
+              (map? %))]}
+  (let [query ["=" "hash" hash]]
+    (->> (qe/query->sql version query nil :reports)
+         (reports/query-reports version)
+         ;; We don't support paging in this code path, so we
+         ;; can just pull the results out of the return value
+         (:result)
+         (first))))
+
+(defn events-for-report-hash-db
+  "Given a particular report hash, this function returns all events for that
+   given hash."
+  [version report-hash]
+  {:pre [(string? report-hash)]
+   :post [(vector? %)]}
+  (let [query          ["=" "report" report-hash]
+        ;; we aren't actually supporting paging through this code path for now
+        paging-options {}]
+    (->> (qe/query->sql version query [nil paging-options] :events)
+         (events/query-resource-events version)
+         :result
+         (mapv #(dissoc %
+                        :run-start-time
+                        :run-end-time
+                        :report-receive-time
+                        :environment)))))
+
+(defn reports-for-node-db
+  "Return reports for a particular node."
+  [version node]
+  {:pre  [(string? node)]
+   :post [(or (nil? %)
+              (seq? %))]}
+  (let [query ["=" "certname" node]
+        reports (->> (qe/query->sql version query nil :reports)
+                     (reports/query-reports version)
+                     ;; We don't support paging in this code path, so we
+                     ;; can just pull the results out of the return value
+                     :result)]
+    (map
+     #(merge % {:resource-events (events-for-report-hash-db version (get % :hash))})
+     reports)))
 
 (defn -main
   [& args]

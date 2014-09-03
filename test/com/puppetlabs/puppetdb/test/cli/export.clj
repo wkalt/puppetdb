@@ -30,7 +30,7 @@
             original-report      (clojure.walk/keywordize-keys (json/parse-string original-report-str))]
         (testrep/store-example-report! original-report "2012-10-09T22:15:17-07:00")
 
-        (let [exported-report (first (r/reports-for-node :v4 "myhost.localdomain"))]
+        (let [exported-report (first (export/reports-for-node-db :v4 "myhost.localdomain"))]
           (is (= (testrep/munge-report-for-comparison original-report)
                  (testrep/munge-report-for-comparison exported-report)))))))
 
