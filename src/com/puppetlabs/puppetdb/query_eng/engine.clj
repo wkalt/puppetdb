@@ -9,8 +9,10 @@
             [com.puppetlabs.puppetdb.query.factsets :as query-factsets]
             [com.puppetlabs.puppetdb.query.facts :as query-facts]
             [com.puppetlabs.puppetdb.query.reports :as query-reports]
+            [com.puppetlabs.puppetdb.query.fact-contents :as query-fact-contents]
             [com.puppetlabs.puppetdb.query.nodes :as query-nodes]
             [com.puppetlabs.puppetdb.query.events :as query-events]
+            [com.puppetlabs.puppetdb.query.event-counts :as query-event-counts]
             [com.puppetlabs.puppetdb.query.resources :as query-resources]
             [clojure.core.match :as cm]
             [fast-zip.visit :as zv]
@@ -829,6 +831,7 @@
       :reports [:hash :certname :puppet-version :report-format
                 :configuration-version :start-time :end-time :receive-time
                 :transaction-uuid :environment :status] 
+      :event-counts 
       queryable-fields)))
 
 (defn compile-user-query->sql
@@ -854,6 +857,38 @@
       (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
       result-query)))
 
+(def entity-attributes
+  {:facts {:fallback-sql query-facts/query->sql
+           :query-rec facts-query
+           :munge-fn query-facts/munge-result-rows}
+   :resources {:fallback-sql query-resources/query->sql
+               :query-rec resources-query
+               :munge-fn query-resources/munge-result-rows}
+   :factsets {:fallback-sql nil
+              :query-rec factsets-query
+              :munge-fn query-factsets/munge-result-rows}
+   :nodes {:fallback-sql query-nodes/query->sql
+           :query-rec nodes-query
+           :munge-fn query-nodes/munge-result-rows}
+   :fact-paths {:fallback-sql nil
+                :query-rec fact-paths-query
+                :munge-fn query-facts/munge-path-result-rows}
+   :fact-contents {:fallback-sql nil
+                   :query-rec fact-contents-query
+                   :munge-fn query-fact-contents/munge-result-rows}
+   :environments {:fallback-sql nil
+                  :query-rec environments-query
+                  :munge-fn identity}
+   :reports {:fallback-sql query-reports/query->sql
+             :query-rec reports-query
+             :munge-fn query-reports/munge-result-rows}
+   :events {:fallback-sql query-events/query->sql
+            :query-rec report-events-query
+            :munge-fn query-events/munge-result-rows}
+   :event-counts {:fallback-sql query-events/query->sql
+                  :query-rec report-events-query
+                  :munge-fn identity}})
+
 (defn query->sql
   [version query paging-options entity]
   ;; TODO change to a map 'options' that comprises paging/query options
@@ -864,25 +899,16 @@
             (not (:count? paging-options))
             (jdbc/valid-jdbc-query? (:count-query %)))  
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [[fallback-sql query-rec] (case entity
-                                   :facts [query-facts/query->sql facts-query]
-                                   :resources [query-resources/query->sql resources-query]
-                                   :factsets [nil factsets-query]
-                                   :nodes [query-nodes/query->sql nodes-query]
-                                   :fact-paths [nil fact-paths-query]
-                                   :fact-contents [nil fact-contents-query]
-                                   :environments [nil environments-query]
-                                   :reports [query-reports/query->sql reports-query]
-                                   :events [query-events/query->sql report-events-query])]
-
-    (paging/validate-order-by! (orderable-fields query-rec version) (if (vector? paging-options)
-                                                                      (last paging-options) paging-options))
+  (let [{:keys [fallback-sql query-rec]} (entity entity-attributes)]
+    (paging/validate-order-by!
+      (orderable-fields query-rec version)
+      (if (vector? paging-options) (last paging-options) paging-options))
 
     (cond
       (and (= version :v4) (= entity :events) (:distinct-resources? (first paging-options)))
       (fallback-sql version query paging-options)
-      (and )
-
+      (= entity :event-counts)
+      (fallback-sql version query paging-options)
       :else
       (case version
         (:v1 :v2 :v3) (fallback-sql version query paging-options)

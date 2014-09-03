@@ -4,8 +4,7 @@
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.query :as query]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [puppetlabs.kitchensink.core :as kitchensink]))
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
@@ -145,7 +144,7 @@
          distinct-opts                   (select-keys query-options
                                                       [:distinct-resources? :distinct-start-time :distinct-end-time])
          [event-sql & event-params]      (:results-query
-                                             (events/query->sql version query [distinct-opts nil]))
+                                            (events/query->sql version query [distinct-opts nil]))
          count-by-sql                    (get-count-by-sql event-sql count-by group-by)
          event-count-sql                 (get-event-count-sql count-by-sql group-by)
          sql                             (get-filtered-sql event-count-sql counts-filter-where)
