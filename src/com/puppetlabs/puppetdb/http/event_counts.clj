@@ -21,7 +21,6 @@
                   query-options (merge {:counts-filter (if counts-filter (json/parse-strict-string counts-filter true))
                                         :count-by count-by}
                                        (events-http/validate-distinct-options! query-params))]
-              (println "ROUTES VALIDATE DISTINCT" query-options "PAGING" paging-options)
               (pb/produce-streaming-body
                 :event-counts
                 version

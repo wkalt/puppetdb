@@ -118,9 +118,9 @@
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
-                           :certname "bar.local"
-                           :environment "PROD") (now))
-  (are [result query] (response-equal? #spy/d (get-response endpoint
+                                :certname "bar.local"
+                                :environment "PROD") (now))
+  (are [result query] (response-equal? (get-response endpoint
                                                      query
                                                      "resource"
                                                      {"distinct-resources" false

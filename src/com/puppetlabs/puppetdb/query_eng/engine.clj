@@ -915,7 +915,8 @@
       (= entity :event-counts)
       (fallback-sql version query {:query-options (select-keys query-options [:distinct-resources?
                                                                               :distinct-start-time
-                                                                              :distinct-end-time])})
+                                                                              :distinct-end-time])
+                                   :paging-options paging-options})
       (or (= entity :event-counts) (= entity :aggregate-event-counts))
       (fallback-sql version query options)
       :else

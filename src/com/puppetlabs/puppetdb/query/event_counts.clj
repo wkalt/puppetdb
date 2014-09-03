@@ -145,14 +145,13 @@
          distinct-opts                   (select-keys query-options
                                                       [:distinct-resources? :distinct-start-time :distinct-end-time])
          [event-sql & event-params]      (:results-query
-                                            (events/query->sql version query {:query-options distinct-opts}))
+                                           (events/query->sql version query {:query-options distinct-opts}))
          count-by-sql                    (get-count-by-sql event-sql count-by group-by)
          event-count-sql                 (get-event-count-sql count-by-sql group-by)
          sql                             (get-filtered-sql event-count-sql counts-filter-where)
          params                          (concat event-params counts-filter-params)
          paged-select                    (jdbc/paged-sql sql paging-options)]
-     (println "IN EC/query->SQL event-sql" event-sql "event-params" event-params)
-     #spy/d (conj {:results-query (apply vector paged-select params)}
+     (conj {:results-query (apply vector paged-select params)}
            (when (:count? paging-options)
              [:count-query (apply vector (jdbc/count-sql sql) params)])))))
 
