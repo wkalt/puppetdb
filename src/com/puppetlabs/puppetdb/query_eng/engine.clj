@@ -836,40 +836,42 @@
                       (query-event-counts/get-group-by (:summarize-by options)))
       queryable-fields)))
 
-(def entity-attributes
-  {:facts {:fallback-sql query-facts/query->sql
-           :query-rec facts-query
-           :munge-fn query-facts/munge-result-rows}
-   :aggregate-event-counts {:fallback-sql query-aggregate-event-counts/query->sql
-                            :query-rec facts-query
-                            :munge-fn query-facts/munge-result-rows}
-   :resources {:fallback-sql query-resources/query->sql
-               :query-rec resources-query
-               :munge-fn query-resources/munge-result-rows}
-   :factsets {:fallback-sql nil
-              :query-rec factsets-query
-              :munge-fn query-factsets/munge-result-rows}
-   :nodes {:fallback-sql query-nodes/query->sql
-           :query-rec nodes-query
-           :munge-fn query-nodes/munge-result-rows}
-   :fact-paths {:fallback-sql nil
-                :query-rec fact-paths-query
-                :munge-fn query-facts/munge-path-result-rows}
-   :fact-contents {:fallback-sql nil
-                   :query-rec fact-contents-query
-                   :munge-fn query-fact-contents/munge-result-rows}
-   :environments {:fallback-sql nil
-                  :query-rec environments-query
-                  :munge-fn identity}
-   :reports {:fallback-sql query-reports/query->sql
-             :query-rec reports-query
-             :munge-fn query-reports/munge-result-rows}
-   :events {:fallback-sql query-events/query->sql
-            :query-rec report-events-query
-            :munge-fn query-events/munge-result-rows}
-   :event-counts {:fallback-sql query-event-counts/query->sql
-                  :query-rec report-events-query
-                  :munge-fn identity}})
+(defn entity-attributes
+  [entity version options]
+  (case entity
+    :facts {:fallback-sql query-facts/query->sql
+            :query-rec facts-query
+            :munge-fn query-facts/munge-result-rows}
+    :aggregate-event-counts {:fallback-sql query-aggregate-event-counts/query->sql
+                             :query-rec facts-query
+                             :munge-fn (query-facts/munge-result-rows version)}
+    :resources {:fallback-sql query-resources/query->sql
+                :query-rec resources-query
+                :munge-fn (query-resources/munge-result-rows version)}
+    :factsets {:fallback-sql nil
+               :query-rec factsets-query
+               :munge-fn (query-factsets/munge-result-rows version)}
+    :nodes {:fallback-sql query-nodes/query->sql
+            :query-rec nodes-query
+            :munge-fn (query-nodes/munge-result-rows version)}
+    :fact-paths {:fallback-sql nil
+                 :query-rec fact-paths-query
+                 :munge-fn query-facts/munge-path-result-rows}
+    :fact-contents {:fallback-sql nil
+                    :query-rec fact-contents-query
+                    :munge-fn query-fact-contents/munge-result-rows}
+    :environments {:fallback-sql nil
+                   :query-rec environments-query
+                   :munge-fn identity}
+    :reports {:fallback-sql query-reports/query->sql
+              :query-rec reports-query
+              :munge-fn (query-reports/munge-result-rows version)}
+    :events {:fallback-sql query-events/query->sql
+             :query-rec report-events-query
+             :munge-fn (query-events/munge-result-rows version)}
+    :event-counts {:fallback-sql query-event-counts/query->sql
+                   :query-rec report-events-query
+                   :munge-fn identity}))
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
@@ -904,7 +906,7 @@
             (not (:count? paging-options))
             (jdbc/valid-jdbc-query? (:count-query %)))  
           (every? (complement coll?) (rest (:results-query %)))]}
-  (let [{:keys [fallback-sql query-rec]} (entity entity-attributes)
+  (let [{:keys [fallback-sql query-rec]} (entity-attributes entity version options)
         {:keys [count-by counts-filter]} query-options]
     (paging/validate-order-by!
       (orderable-fields query-rec version options)
