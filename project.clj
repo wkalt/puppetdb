@@ -2,9 +2,9 @@
 (require '[clojure.java.io :refer [file]])
 (require '[clojure.java.shell :refer [sh]])
 
-(def tk-version "0.4.3")
+(def tk-version "0.5.1")
 (def ks-version "0.7.2")
-(def rbac-svc-version "0.1.7")
+(def rbac-svc-version "0.1.11")
 
 (defn deploy-info
   [url]
@@ -31,7 +31,7 @@
                  [prismatic/schema "0.2.2"]
                  [slingshot "0.10.3"]
                  [puppetlabs/http-client "0.2.6" :exclusions [commons-io]]
-                 [puppetlabs/certificate-authority "0.1.5"]
+                 [puppetlabs/certificate-authority "0.5.0"]
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/schema-tools "0.1.0" :exclusions [prismatic/schema]]
                  [puppetlabs/trapperkeeper ~tk-version]]
@@ -42,10 +42,10 @@
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version :classifier "test"]
-                                  [puppetlabs/pe-trapperkeeper-ldap-apacheds "0.2.4"
+                                  [puppetlabs/pe-trapperkeeper-ldap-apacheds "0.2.9"
                                    :exclusions [bouncycastle/bcprov-jdk15 org.slf4j/slf4j-log4j12]]
                                   [puppetlabs/trapperkeeper ~tk-version :classifier "test"]
-                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.7.0"]]
+                                  [puppetlabs/trapperkeeper-webserver-jetty9 "0.7.2"]]
                    :injections [(require 'spyscope.core)]}}
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots" "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
