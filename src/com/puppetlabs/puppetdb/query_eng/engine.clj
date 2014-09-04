@@ -915,8 +915,6 @@
     (cond
       (and (= version :v4) (= entity :events) (:distinct-resources? query-options))
       (fallback-sql version query options)
-      (= entity :event-counts)
-      (fallback-sql version query options)
       (or (= entity :event-counts) (= entity :aggregate-event-counts))
       (fallback-sql version query options)
       :else
