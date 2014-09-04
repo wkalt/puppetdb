@@ -30,7 +30,7 @@
           (get-in [:check-ins (:node check-in)])
           last))
       (get-check-ins [_ node-name]
-        (get-in @!storage [:check-ins node-name]))
+        (get-in @!storage [:check-ins node-name] []))
       (get-nodes [_]
         (for [[node-name check-ins] (get @!storage :check-ins)]
           {:name node-name
