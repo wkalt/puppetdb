@@ -1,4 +1,4 @@
-(ns puppetlabs.classifier.storage.permissioned.rbac
+(ns puppetlabs.classifier.application.permissioned.rbac
   (:require [schema.core :as sc]
             [puppetlabs.rbac.services.authz :as authz]
             [puppetlabs.classifier.application.permissioned :refer [Permissions]]))

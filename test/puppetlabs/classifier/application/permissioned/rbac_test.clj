@@ -1,4 +1,4 @@
-(ns puppetlabs.classifier.storage.permissioned.rbac-test
+(ns puppetlabs.classifier.application.permissioned.rbac-test
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clj-http.client :as http]
@@ -20,7 +20,7 @@
                                                                                 jetty9-service]]
             [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :refer [with-app-with-config]]
-            [puppetlabs.classifier.storage.permissioned.rbac :refer :all])
+            [puppetlabs.classifier.application.permissioned.rbac :refer :all])
   (:import java.util.UUID))
 
 (def test-config-path "./dev-resources/test-conf.d")
@@ -355,4 +355,3 @@
               (add-servlet-handler ws-svc (handler->authd-servlet handler mw-svc) prefix
                                    {:server-id :classifier-rbac-authz-test})
               (http/get (str test-base-url prefix)))))))))
-
