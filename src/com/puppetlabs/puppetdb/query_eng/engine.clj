@@ -867,7 +867,7 @@
    :events {:fallback-sql query-events/query->sql
             :query-rec report-events-query
             :munge-fn query-events/munge-result-rows}
-   :event-counts {:fallback-sql query-events/query->sql
+   :event-counts {:fallback-sql query-event-counts/query->sql
                   :query-rec report-events-query
                   :munge-fn identity}})
 
@@ -913,10 +913,7 @@
       (and (= version :v4) (= entity :events) (:distinct-resources? query-options))
       (fallback-sql version query options)
       (= entity :event-counts)
-      (fallback-sql version query {:query-options (select-keys query-options [:distinct-resources?
-                                                                              :distinct-start-time
-                                                                              :distinct-end-time])
-                                   :paging-options paging-options})
+      (fallback-sql version query options)
       (or (= entity :event-counts) (= entity :aggregate-event-counts))
       (fallback-sql version query options)
       :else
