@@ -23,30 +23,12 @@
   results.
   If the query can't be parsed, a 400 is returned."
   [entity version query {:keys [paging-options query-options summarize-by] :as options} db]
-  (let [[query->sql munge-fn]
-        (case entity
-          :facts [facts/query->sql (facts/munge-result-rows version)]
-          :event-counts [event-counts/query->sql (event-counts/munge-result-rows query-options)]
-          :aggregate-event-counts [aggregate-event-counts/query->sql
-                                   (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first)]
-          :fact-contents [nil fact-contents/munge-result-rows]
-          :fact-paths [nil facts/munge-path-result-rows]
-          :events [events/query->sql (events/munge-result-rows version)]
-          :nodes [nodes/query->sql (nodes/munge-result-rows version)]
-          :environments [nil identity]
-          :reports [reports/query->sql (reports/munge-result-rows version)]
-          :factsets [nil (factsets/munge-result-rows version)]
-          :resources [resources/query->sql (resources/munge-result-rows version)])]
+  (let [munge-fn (:munge-fn (qe/entity-attributes entity version options))]
     (try
       (jdbc/with-transacted-connection db
         (let [parsed-query (json/parse-strict-string query true)
               {[sql & params] :results-query
-               count-query :count-query} (if (contains? #{:reports :environments
-                                                          :fact-contents :fact-paths :facts
-                                                          :resources :factsets :nodes :events
-                                                          :event-counts :aggregate-event-counts} entity)
-                                           (qe/query->sql entity version parsed-query options)
-                                           (query->sql version parsed-query options))
+               count-query :count-query} (qe/query->sql entity version parsed-query options)
               resp (pl-http/stream-json-response
                      (fn [f]
                        (jdbc/with-transacted-connection db

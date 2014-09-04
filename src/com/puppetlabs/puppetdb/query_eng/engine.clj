@@ -841,10 +841,10 @@
   (case entity
     :facts {:fallback-sql query-facts/query->sql
             :query-rec facts-query
-            :munge-fn query-facts/munge-result-rows}
+            :munge-fn (query-facts/munge-result-rows version)}
     :aggregate-event-counts {:fallback-sql query-aggregate-event-counts/query->sql
                              :query-rec facts-query
-                             :munge-fn (query-facts/munge-result-rows version)}
+                             :munge-fn (comp (partial ks/mapvals #(if (nil? %) 0 %)) first)} 
     :resources {:fallback-sql query-resources/query->sql
                 :query-rec resources-query
                 :munge-fn (query-resources/munge-result-rows version)}
@@ -871,7 +871,8 @@
              :munge-fn (query-events/munge-result-rows version)}
     :event-counts {:fallback-sql query-event-counts/query->sql
                    :query-rec report-events-query
-                   :munge-fn identity}))
+                   :munge-fn (query-event-counts/munge-result-rows
+                               (:query-options options))}))
 
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
