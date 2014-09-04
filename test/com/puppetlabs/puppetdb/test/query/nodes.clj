@@ -6,7 +6,7 @@
             [clojure.test :refer :all]
             [clj-time.core :refer [now ago days minus]]
             [clj-time.coerce :refer [to-timestamp]]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [clojure.math.combinatorics :refer [combinations]]
             [com.puppetlabs.puppetdb.fixtures :refer :all]))
 

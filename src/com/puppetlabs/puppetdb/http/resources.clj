@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.resources :as r]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
             [net.cgrand.moustache :refer [app]]
@@ -17,7 +17,7 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options]}]
-                  (pb/produce-streaming-body
+                  (qe/produce-streaming-body
                     :resources
                     version
                     (params "query")

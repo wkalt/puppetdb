@@ -3,7 +3,7 @@
             [com.puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.http.events :as events-http]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.jdbc :refer [with-transacted-connection]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params]]
             [net.cgrand.moustache :refer [app]]))
@@ -17,7 +17,7 @@
                   counts-filter (if counts-filter (json/parse-string counts-filter true))
                   distinct-options (events-http/validate-distinct-options! query-params)
                   query-options (merge {:counts-filter counts-filter :count-by count-by} distinct-options)]
-            (pb/produce-streaming-body
+            (qe/produce-streaming-body
               :aggregate-event-counts
               version
               query

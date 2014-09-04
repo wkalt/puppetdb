@@ -1,5 +1,5 @@
 (ns com.puppetlabs.puppetdb.http.fact-paths
-  (:require [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+  (:require [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [net.cgrand.moustache :refer [app]]
             [com.puppetlabs.middleware :refer [verify-accepts-json
@@ -12,7 +12,7 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (pb/produce-streaming-body
+                  (qe/produce-streaming-body
                     :fact-paths
                     version
                     (params "query")

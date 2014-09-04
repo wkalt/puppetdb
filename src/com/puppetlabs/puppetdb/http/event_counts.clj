@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.http :as pl-http]
             [com.puppetlabs.puppetdb.query.event-counts :as event-counts]
             [com.puppetlabs.cheshire :as json]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.http.events :as events-http]
             [com.puppetlabs.puppetdb.query.paging :as paging]
             [com.puppetlabs.jdbc :as jdbc]
@@ -21,7 +21,7 @@
                   query-options (merge {:counts-filter (if counts-filter (json/parse-strict-string counts-filter true))
                                         :count-by count-by}
                                        (events-http/validate-distinct-options! query-params))]
-              (pb/produce-streaming-body
+              (qe/produce-streaming-body
                 :event-counts
                 version
                 query

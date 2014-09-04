@@ -21,7 +21,7 @@
             [com.puppetlabs.archive :as archive]
             [slingshot.slingshot :refer [try+]]
             [com.puppetlabs.puppetdb.schema :as pls]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [schema.core :as s]
             [clojure.string :as str]
             [com.puppetlabs.puppetdb.utils :as utils]))

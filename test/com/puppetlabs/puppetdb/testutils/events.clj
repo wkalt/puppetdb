@@ -4,7 +4,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [clojure.walk :as walk]
             [com.puppetlabs.puppetdb.utils :refer [assoc-when]]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [clj-time.coerce :refer [to-timestamp to-string]]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

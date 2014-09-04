@@ -2,7 +2,7 @@
   (:require [com.puppetlabs.puppetdb.query.environments :refer [query-environments]]
             [clojure.test :refer :all]
             [com.puppetlabs.puppetdb.scf.storage :as storage]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]  
+            [com.puppetlabs.puppetdb.query-eng :as qe]  
             [com.puppetlabs.puppetdb.fixtures :as fixt]
             [com.puppetlabs.cheshire :as json]))
 

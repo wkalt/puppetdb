@@ -6,7 +6,7 @@
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query :as query]
             [net.cgrand.moustache :refer [app]]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
                                                wrap-with-paging-options]]
             [com.puppetlabs.jdbc :as jdbc]
@@ -17,7 +17,7 @@
   (app
     [&]
     {:get (comp (fn [{:keys [params globals paging-options] :as request}]
-                  (pb/produce-streaming-body
+                  (qe/produce-streaming-body
                    :fact-contents
                    version
                    (params "query")

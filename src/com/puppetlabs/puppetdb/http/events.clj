@@ -5,7 +5,7 @@
             [com.puppetlabs.puppetdb.query.events :as events]
             [com.puppetlabs.cheshire :as json]
             [com.puppetlabs.puppetdb.query.paging :as paging]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.query :as query]
             [clj-time.coerce :refer [to-timestamp]]
             [com.puppetlabs.middleware :as middleware]
@@ -55,7 +55,7 @@
     {:get (fn [{:keys [params globals paging-options]}]
             (try
               (let [query-options (validate-distinct-options! params)]
-                (pb/produce-streaming-body
+                (qe/produce-streaming-body
                   :events
                   version
                   (params "query")

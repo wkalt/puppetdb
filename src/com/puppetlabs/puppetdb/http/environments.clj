@@ -8,11 +8,11 @@
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params wrap-with-paging-options]]
             [com.puppetlabs.puppetdb.http.facts :as f]
             [com.puppetlabs.puppetdb.http.query :as http-q]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]  
+            [com.puppetlabs.puppetdb.query-eng :as qe]  
             [com.puppetlabs.puppetdb.http.resources :as r]
             [com.puppetlabs.puppetdb.query.environments :as environments]
             [com.puppetlabs.puppetdb.http.events :as ev]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.http.reports :as rp]
             [com.puppetlabs.jdbc :refer [with-transacted-connection get-result-count]]
             [com.puppetlabs.cheshire :as json]))
@@ -39,7 +39,7 @@
     []
     {:get
      (-> (fn [{:keys [params globals paging-options]}]
-           (pb/produce-streaming-body
+           (qe/produce-streaming-body
              :environments
              version
              (params "query")

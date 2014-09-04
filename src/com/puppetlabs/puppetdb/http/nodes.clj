@@ -6,14 +6,14 @@
             [com.puppetlabs.puppetdb.http.facts :as f]
             [com.puppetlabs.puppetdb.http.resources :as r]
             [com.puppetlabs.puppetdb.http.query :as http-q]
-            [com.puppetlabs.puppetdb.query-eng.handler :as pb]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.http :as pl-http]
             [net.cgrand.moustache :refer [app]]
             [com.puppetlabs.middleware :refer [verify-accepts-json validate-query-params
                                                wrap-with-paging-options]]
             [com.puppetlabs.jdbc :as jdbc]
             [com.puppetlabs.puppetdb.http :as http]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]))
+            [com.puppetlabs.puppetdb.query-eng :as qe]))
 
 (defn current-status
   "Given a node's name, return the current status of the node.  Results
@@ -40,7 +40,7 @@
     []
     {:get (comp
             (fn [{:keys [params globals paging-options]}]
-              (pb/produce-streaming-body
+              (qe/produce-streaming-body
                 :nodes
                 version
                 (params "query")

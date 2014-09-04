@@ -4,7 +4,7 @@
             [com.puppetlabs.puppetdb.reports :as report]
             [com.puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.kitchensink.core :as kitchensink]
-            [com.puppetlabs.puppetdb.query-eng.engine :as qe]
+            [com.puppetlabs.puppetdb.query-eng :as qe]
             [com.puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
             [com.puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage
