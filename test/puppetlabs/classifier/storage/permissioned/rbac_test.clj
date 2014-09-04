@@ -18,6 +18,7 @@
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services.webserver.jetty9-service :refer [add-servlet-handler
                                                                                 jetty9-service]]
+            [puppetlabs.trapperkeeper.services.webrouting.webrouting-service :refer [webrouting-service]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :refer [with-app-with-config]]
             [puppetlabs.classifier.storage.permissioned.rbac :refer :all])
   (:import java.util.UUID))
@@ -70,7 +71,7 @@
 (defmacro with-app-with-config-with-service-bindings
   [app config service-bindings & body]
   `(with-app-with-config ~app
-     [jetty9-service rbac-service rbac-authn-service rbac-authz-service rbac-authn-middleware
+     [jetty9-service webrouting-service rbac-service rbac-authn-service rbac-authz-service rbac-authn-middleware
       dev-login-service]
      ~config
      (let [~@service-bindings]

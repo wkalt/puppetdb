@@ -42,13 +42,13 @@
 
 (defservice classifier-service
   [[:ConfigService get-config]
-   [:WebserverService add-ring-handler]]
+   [:WebroutingService add-ring-handler get-route]]
 
-  (start [_ context]
+  (start [this context]
          (let [config (get-config)
                db-spec (config->db-spec config)
                db (postgres/new-db db-spec)
-               api-prefix (get-in config [:classifier :url-prefix] "")
+               api-prefix (get-route this)
                app-config {:db db
                            :api-prefix api-prefix
                            :puppet-master (get-in config [:classifier :puppet-master])
@@ -61,7 +61,7 @@
                job-pool (at-at/mk-pool)]
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
-           (add-ring-handler handler api-prefix {:server-id :classifier})
+           (add-ring-handler this handler)
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
                           #(update-classes-and-log-errors! app-config app)

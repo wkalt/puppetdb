@@ -29,12 +29,15 @@ step "Configure SSL on classifier" do
   }
 
   conf['classifier'] = {
-    'url-prefix' => '',
     'puppet-master' => "https://#{master}:8140",
 
     'ssl-cert' => "#{ssldir}/cert.pem",
     'ssl-key' => "#{ssldir}/key.pem",
     'ssl-ca-cert' => "#{ssldir}/ca.pem"
+  }
+
+  conf['web-router-service'] = {
+    'puppetlabs.classifier.main/classifier-service' => ''
   }
 
   set_classifier_configuration(classifier, conf)
