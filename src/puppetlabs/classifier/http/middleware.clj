@@ -349,7 +349,7 @@
   [handler]
   (fn [request]
     (try+ (handler request)
-      (catch [:kind :puppetlabs.classifier.storage.permissioned/permission-denied]
+      (catch [:kind :puppetlabs.classifier.application.permissioned/permission-denied]
         {:keys [group-id description]}
         {:status 403
          :headers {"Content-Type" "application/json"}

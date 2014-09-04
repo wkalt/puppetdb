@@ -1,8 +1,7 @@
 (ns puppetlabs.classifier.storage.permissioned.rbac
   (:require [schema.core :as sc]
             [puppetlabs.rbac.services.authz :as authz]
-            [puppetlabs.classifier.storage.permissioned :refer [Permissions
-                                                                storage-with-permissions]]))
+            [puppetlabs.classifier.application.permissioned :refer [Permissions]]))
 (def rbac-object-type "node_groups")
 
 (def rbac-actions {:edit-classification "edit_classification"
