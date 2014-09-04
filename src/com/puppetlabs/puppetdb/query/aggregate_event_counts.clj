@@ -3,7 +3,7 @@
             [com.puppetlabs.jdbc :as jdbc]
             [puppetlabs.kitchensink.core :as kitchensink]))
 
-(defn- get-aggregate-sql
+(defn get-aggregate-sql
   "Given the `event-count-sql`, return a SQL string that will aggregate the results."
   [event-count-sql]
   {:pre  [(string? event-count-sql)]

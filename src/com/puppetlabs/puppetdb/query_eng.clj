@@ -836,8 +836,9 @@
       :reports [:hash :certname :puppet-version :report-format
                 :configuration-version :start-time :end-time :receive-time
                 :transaction-uuid :environment :status] 
-      :event-counts (query-event-counts/event-counts-columns
-                      (query-event-counts/get-group-by (:summarize-by options)))
+      (:aggregate-event-counts :event-counts) (query-event-counts/event-counts-columns
+                                                (query-event-counts/get-group-by
+                                                  (:summarize-by options)))
       queryable-fields)))
 
 (defn entity-attributes
@@ -847,7 +848,7 @@
             :query-rec facts-query
             :munge-fn (query-facts/munge-result-rows version)}
     :aggregate-event-counts {:fallback-sql query-aggregate-event-counts/query->sql
-                             :query-rec facts-query
+                             :query-rec report-events-query
                              :munge-fn (comp (partial ks/mapvals #(if (nil? %) 0 %)) first)} 
     :resources {:fallback-sql query-resources/query->sql
                 :query-rec resources-query
@@ -878,26 +879,37 @@
                    :munge-fn (query-event-counts/munge-result-rows
                                (:query-options options))}))
 
+(declare query->sql)
+
 (defn compile-user-query->sql
   "Given a user provided query and a Query instance, convert the
   user provided query to SQL and extract the parameters, to be used
   in a prepared statement"
-  [query-rec user-query {:keys [paging-options query-options summarize-by] :as options}]
-  (let [entity (:entity query-rec)
+  [query-rec query {:keys [paging-options query-options
+                                summarize-by version entity] :as options}]
+  (let [aec? (= entity :aggregate-event-counts)
         count? (:count? paging-options)
-        {:keys [plan params]} (->> user-query
+        {:keys [plan params]} (->> query
                                    (push-down-context query-rec)
                                    expand-user-query
                                    (convert-to-plan query-rec)
                                    extract-all-params)
-        augmented-paging-options (augment-paging-options paging-options
-                                                         entity)
+        augmented-paging-options (augment-paging-options paging-options entity)
         query-params (if (= entity :factsets) (concat params params) params)
         sql (plan->sql plan)
         paged-sql (if augmented-paging-options
                     (jdbc/paged-sql sql augmented-paging-options entity)
                     sql)
-        result-query {:results-query (apply vector paged-sql query-params)}]
+        [count-sql & count-params] (when aec?
+                                     (:results-query
+                                       (query->sql
+                                         :event-counts version query {:summarize-by summarize-by
+                                                        :query-options query-options})))
+        count-sql (when aec? (query-aggregate-event-counts/get-aggregate-sql count-sql))
+        [target-sql query-params] (cond
+                                    aec? [count-sql count-params]
+                                    :else [paged-sql query-params])
+        result-query {:results-query (apply vector target-sql query-params)}]
     (if count?
       (assoc result-query :count-query (apply vector (jdbc/count-sql entity sql) query-params))
       result-query)))
@@ -919,12 +931,12 @@
     (cond
       (and (= version :v4) (= entity :events) (:distinct-resources? query-options))
       (fallback-sql version query options)
-      (or (= entity :event-counts) (= entity :aggregate-event-counts))
+      (= entity :event-counts)
       (fallback-sql version query options)
       :else
       (case version
         (:v1 :v2 :v3) (fallback-sql version query options)
-        (compile-user-query->sql query-rec query options)))))
+        (compile-user-query->sql query-rec query (assoc options :version version :entity entity))))))
 
 (defn produce-streaming-body
   "Given a query, and database connection, return a Ring response with the query

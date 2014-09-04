@@ -16,6 +16,7 @@
 
 (deftestseq query-aggregate-event-counts
   [[version endpoint] endpoints]
+  (println "testing" version endpoint)
 
   (store-example-report! (:basic reports) (now))
 
