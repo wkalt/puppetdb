@@ -25,9 +25,10 @@
 (def test-config
   "Classifier base configuration used for tests in this namespace"
   {:webserver {:classifier {:host "0.0.0.0"
-                            :port 1261}}
-   :classifier {:url-prefix "/classifier"
-                :puppet-master "https://localhost:8140"}})
+                            :port 1261
+                            :default-server true}}
+   :classifier {:puppet-master "https://localhost:8140"}
+   :web-router-service {:puppetlabs.classifier.main/classifier-service "/classifier"}})
 
 (defn- origin-url
   [app-config]
@@ -38,19 +39,23 @@
   [app-config]
   (let [{{:keys [url-prefix]} :webserver} app-config]
     (str (origin-url app-config)
-         (get-in app-config [:classifier :url-prefix]))))
+         (get-in app-config [:web-router-service :puppetlabs.classifier.main/classifier-service]))))
 
 (defn- block-until-ready
-  [config]
-  (let [env-status (:status (try (http/get (str (base-url config) "/v1/environments")
+  [proc config]
+  (let [exit-code (try (.exitValue (:process proc))
+                    (catch IllegalThreadStateException _
+                      nil))
+        env-status (:status (try (http/get (str (base-url config) "/v1/environments")
                                            {:throw-exceptions false})
                               (catch java.net.ConnectException _
                                 {:status 500})))]
-    (if (= env-status 200)
-      nil
-      (do
-        (Thread/sleep 250)
-        (recur config)))))
+    (cond
+      exit-code exit-code
+      (= env-status 200) nil
+      :else (do
+              (Thread/sleep 250)
+              (recur proc config)))))
 
 (defn start!
   [config-path]
@@ -82,13 +87,15 @@
                           "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
                           "-c" test-config-path)
           timeout-ms 90000
-          server-blocker (future (block-until-ready config-with-db))]
+          server-blocker (future (block-until-ready server-proc config-with-db))]
       ;; Block on the server starting for up to ninety seconds.
       ;; If it doesn't start within that time, exit nonzero.
       (try
-        (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)
         (future (stream-to server-proc :out System/err))
         (future (stream-to server-proc :err System/err))
+        (when-let [exit-code (.get server-blocker timeout-ms TimeUnit/MILLISECONDS)]
+          (println "Server exited prematurely with exit code" exit-code)
+          (System/exit 2))
         (catch TimeoutException e
           (future-cancel server-blocker)
           (destroy server-proc)
