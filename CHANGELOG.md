@@ -1,3 +1,9 @@
+### 0.6.5
+ * Separate config for client ssl certificates
+ * Fix a bug with groups not being annotated
+ * Coerce booleans and numbers to strings in equality tests
+ * Use webrouting service to configure jetty
+
 ### 0.6.4
  * Make it possible to configure the api prefix in the terminus
 
