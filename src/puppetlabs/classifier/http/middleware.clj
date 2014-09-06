@@ -6,6 +6,7 @@
             [clj-stacktrace.repl]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as sc]
+            [puppetlabs.rbac.services.http.middleware :refer [ssl?]]
             [puppetlabs.schema-tools :refer [explain-and-simplify-exception-data]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [group->classification]]
@@ -378,3 +379,27 @@
     wrap-unexpected-response-explanations
     wrap-permission-denied-explanations
     wrap-error-catchall))
+
+(defn wrap-authn-errors
+  "Middlware to handle authentication errors. This has to be wrapped around the
+  handler *after* wrap-authenticated."
+  [handler]
+  (fn [request]
+    (try+ (handler request)
+      (catch [:kind :puppetlabs.rbac/user-unauthenticated] {:keys [redirect]}
+        (let [ssl-request? (ssl? request)]
+          {:status (if ssl-request? 403 401)
+           :headers {"Content-Type" "application/json"}
+           :body (encode-and-translate-keys
+                   (cond-> {:kind "user-unauthenticated"}
+                     ssl-request?
+                     (assoc :msg "The provided client ssl certificates are not trusted.")
+
+                     (not ssl-request?)
+                     (assoc :msg "No client ssl certificates were provided.")))}))
+      (catch [:kind :puppetlabs.rbac/user-revoked] _
+        {:status 403
+         :headers {"Content-Type" "application/json"}
+         :body (encode-and-translate-keys
+                 {:kind "user-revoked"
+                  :msg "This account has been revoked."})}))))

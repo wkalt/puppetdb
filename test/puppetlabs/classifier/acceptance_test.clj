@@ -9,6 +9,7 @@
             [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
+            [puppetlabs.http.client.sync :as phttp]
             [puppetlabs.kitchensink.core :refer [deep-merge ini-to-map mapkeys mapvals spit-ini]]
             [puppetlabs.trapperkeeper.config :refer [load-config]]
             [puppetlabs.classifier.classification :as class8n]
@@ -28,22 +29,27 @@
 
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  (load-config config-path))
+  (deep-merge (load-config config-path)
+              {:classifier {:access-control false}}))
 
 (defn- origin-url
   [app-config]
   (let [{{{host :host port :port} :classifier} :webserver} app-config]
     (str "http://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
 
-(defn base-url
+(defn- base-url
   [app-config]
   (str (origin-url app-config)
-       (get-in app-config
-               [:web-router-service :puppetlabs.classifier.main/classifier-service :route])))
+       (or (get-in app-config
+                   [:web-router-service :puppetlabs.classifier.main/classifier-service :route])
+           (get-in app-config
+                   [:web-router-service :puppetlabs.classifier.main/classifier-service]))))
 
 (defn- block-until-ready
   [proc config]
-  (let [exit-code (try (.exitValue (:process proc))
+  (let [ssl-context (if-let [context (get-in config [:test :ssl-context])]
+                      context)
+        exit-code (try (.exitValue (:process proc))
                     (catch IllegalThreadStateException _
                       nil))
         env-status (:status (try (http/get (str (base-url config) "/v1/environments")
@@ -53,6 +59,7 @@
     (cond
       exit-code exit-code
       (= env-status 200) nil
+      (= env-status 401) nil
       :else (do
               (Thread/sleep 250)
               (recur proc config)))))

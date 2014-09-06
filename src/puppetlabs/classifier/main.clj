@@ -4,8 +4,8 @@
             [compojure.core :refer [context]]
             [overtone.at-at :as at-at]
             [ring.util.servlet :refer [servlet]]
-            [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.certificate-authority.core :as ssl]
+            [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.classifier.application.default :refer [default-application]]
@@ -13,6 +13,7 @@
             [puppetlabs.classifier.application.permissioned.rbac :refer [rbac-service-permissions]]
             [puppetlabs.classifier.class-updater :refer [update-classes-and-log-errors!]]
             [puppetlabs.classifier.http :as http]
+            [puppetlabs.classifier.http.middleware :refer [wrap-authn-errors]]
             [puppetlabs.classifier.storage.postgres :as postgres]))
 
 (def default-db-spec {:subprotocol "postgresql"
@@ -77,7 +78,8 @@
                    permd-app (app-with-permissions default-app perm-fns)
                    permd-handler (->> (http/api-handler permd-app)
                                    (add-url-prefix api-prefix)
-                                   wrap-authenticated)]
+                                   wrap-authenticated
+                                   wrap-authn-errors)]
                (add-servlet-handler this (servlet permd-handler))
                (log/info "Access-control enabled")))
            (assoc context :job-pool job-pool)))
