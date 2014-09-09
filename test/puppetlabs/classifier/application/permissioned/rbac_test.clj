@@ -25,12 +25,16 @@
 
 (def test-config-path "./dev-resources/test-conf.d")
 
-(def test-config
+(defn config-with-rbac-db-from-env
+  [config]
   (let [env-rbac-config {:subname (System/getenv "RBAC_DBSUBNAME")
                          :user (System/getenv "RBAC_DBUSER")
                          :password (System/getenv "RBAC_DBPASS")}]
-    (update-in (get-app-config test-config-path) [:rbac-database]
+    (update-in config [:rbac-database]
                merge (into {} (remove (comp nil? second) env-rbac-config)))))
+
+(def test-config
+  (config-with-rbac-db-from-env (get-app-config test-config-path)))
 
 (def test-base-url (let [{:keys [host port]} (get-in test-config
                                                      [:webserver :classifier-rbac-authz-test])]
