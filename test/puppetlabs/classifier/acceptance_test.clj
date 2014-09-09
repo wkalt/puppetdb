@@ -129,8 +129,8 @@
   [config]
   (fn [f]
     (let [app-process (start! config)]
-      (f)
-      (stop! app-process))))
+      (try (f)
+        (finally (stop! app-process))))))
 
 (use-fixtures :once (with-classifier-instance-fixture test-config) schema.test/validate-schemas)
 
