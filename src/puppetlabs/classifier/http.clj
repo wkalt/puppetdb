@@ -13,7 +13,8 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge]]
             [puppetlabs.kitchensink.json :refer [with-datetime-encoder]]
-            [puppetlabs.classifier.application :as app]
+            [puppetlabs.classifier.application :refer [Classifier]]
+            [puppetlabs.classifier.application.polymorphic :as app]
             [puppetlabs.classifier.class-updater :as class-updater]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http.middleware :as middleware]
@@ -102,7 +103,8 @@
 (sc/defn crd-resource
   "Create a basic CRD endpoint for a resource, given an application instance and
   a map of functions to create/retrieve/delete the resource."
-  [app :- (sc/protocol app/Classifier)
+  [app :- (sc/protocol Classifier)
+   token
    schema :- (sc/protocol sc/Schema)
    resource-path :- [String]
    attributes :- {sc/Keyword sc/Any}
@@ -110,13 +112,13 @@
                                    :create (sc/pred fn?)
                                    :delete (sc/pred fn?)}]
   (let [exists? (fn [_]
-                  (if-let [resource (apply get app resource-path)]
+                  (if-let [resource (apply get app token resource-path)]
                     {::retrieved resource}))
         put! (fn [ctx]
                (let [resource (merge (::data ctx {}) attributes)
-                     inserted-resource (create app (validate schema resource))]
+                     inserted-resource (create app token (validate schema resource))]
                  {::created inserted-resource}))
-        delete! (fn [_] (apply delete app resource-path))
+        delete! (fn [_] (apply delete app token resource-path))
         ;; We override put-to-existing? to return false if the resource being put to already exists.
         ;; This causes liberator to just return 200 when this happens, rather than going down a part
         ;; of its decision graph that involves either a 409 response or another `put!` happening.
@@ -142,12 +144,13 @@
          :handle-malformed handle-malformed}))))
 
 (sc/defn listing-resource
-  [app :- (sc/protocol app/Classifier)
+  [app :- (sc/protocol Classifier)
+   token
    get-all :- (sc/pred fn?)]
   (resource
     :allowed-methods [:get]
     :available-media-types ["application/json"]
-    :exists? (fn [_] {::retrieved (get-all app)})
+    :exists? (fn [_] {::retrieved (get-all app token)})
     :handle-ok ::retrieved))
 
 ;; Liberator Group Resource Decisions & Actions
@@ -261,34 +264,34 @@
   {:environment "production", :environment-trumps false, :variables {}})
 
 (defn group-resource
-  [app prefix uuid-str]
+  [app prefix token uuid-str]
   (let [uuid (if (uuid? uuid-str) (UUID/fromString uuid-str) uuid-str)
         malformed? (if (and uuid (not (uuid? uuid)))
                      (err-with-rep {::malformed-uuid uuid})
                      (malformed-group? uuid))
         exists? (fn [_]
-                  (if-let [g (and uuid (app/get-group app uuid))]
+                  (if-let [g (and uuid (app/get-group app token uuid))]
                     {::retrieved g}))
-        delete! (fn [_] (app/delete-group app uuid))
+        delete! (fn [_] (app/delete-group app token uuid))
         post! (fn [{:as ctx, submitted ::submitted, retrieved ::retrieved}]
                 (let [group (merge group-defaults submitted)]
                   (cond
                     (post-new-group? ctx)
                     (let [with-id (assoc group :id (UUID/randomUUID))]
-                      {::created (app/create-group app (validate Group with-id))})
+                      {::created (app/create-group app token (validate Group with-id))})
 
                     (post-delta-update? ctx)
-                    {::updated (app/update-group app (validate GroupDelta submitted))}
+                    {::updated (app/update-group app token (validate GroupDelta submitted))}
 
                     (and (put-group? ctx) (not retrieved))
-                    {::created (app/create-group app (validate Group group))}
+                    {::created (app/create-group app token (validate Group group))}
 
                     (and (put-group? ctx) retrieved (not= group retrieved))
                     (let [delta (group-delta retrieved (validate Group group))]
-                      {::created (app/update-group app (validate GroupDelta delta))}))))
+                      {::created (app/update-group app token (validate GroupDelta delta))}))))
         put! (fn [{submitted ::submitted}]
                (let [group (merge group-defaults submitted)]
-                 {::created (app/create-group app (validate Group group))}))
+                 {::created (app/create-group app token (validate Group group))}))
         redirect? (fn [{:as ctx, created ::created}]
                     (if (post-new-group? ctx)
                       {:location (str prefix "/v1/groups/" (:id created))}))]
@@ -323,28 +326,29 @@
           (context
             "/v1" []
 
-            (GET "/nodes" []
-                 (listing-resource app (fn [app]
-                                         (->> (app/get-nodes app)
-                                           (map #(rename-keys % {:check-ins :check_ins}))))))
+            (GET "/nodes" [:as {token :shiro-subject}]
+                 (listing-resource app token (fn [app token]
+                                               (->> (app/get-nodes app token)
+                                                 (map #(rename-keys % {:check-ins :check_ins}))))))
 
-            (GET "/nodes/:node-name" [node-name]
+            (GET "/nodes/:node-name" [node-name :as {token :shiro-subject}]
                  (listing-resource
-                   app
-                   (fn [app]
-                     (let [check-ins (app/get-check-ins app node-name)]
+                   app, token
+                   (fn [app token]
+                     (let [check-ins (app/get-check-ins app token node-name)]
                        {:name node-name
                         :check_ins (map #(dissoc % :node) check-ins)}))))
 
-            (GET "/classes" []
-                 (listing-resource app app/get-all-classes))
+            (GET "/classes" [:as {token :shiro-subject}]
+                 (listing-resource app token app/get-all-classes))
 
-            (GET "/environments" []
-                 (listing-resource app app/get-environments))
+            (GET "/environments" [:as {token :shiro-subject}]
+                 (listing-resource app token app/get-environments))
 
             (context "/environments/:environment-name" [environment-name]
-                     (ANY "/" []
+                     (ANY "/" [:as {token :shiro-subject}]
                           (crd-resource app
+                                        token
                                         Environment
                                         [environment-name]
                                         {:name environment-name}
@@ -352,11 +356,14 @@
                                          :create app/create-environment
                                          :delete app/delete-environment}))
 
-                     (GET "/classes" []
-                          (listing-resource app #(app/get-classes % environment-name)))
+                     (GET "/classes" [:as {token :shiro-subject}]
+                          (listing-resource app, token
+                                            (fn [app token]
+                                              (app/get-classes app token environment-name))))
 
-                     (ANY "/classes/:class-name" [class-name]
+                     (ANY "/classes/:class-name" [class-name :as {token :shiro-subject}]
                           (crd-resource app
+                                        token
                                         PuppetClass
                                         [environment-name class-name]
                                         {:name class-name
@@ -365,32 +372,32 @@
                                          :create app/create-class
                                          :delete app/delete-class})))
 
-            (GET "/groups" []
-                 (listing-resource app app/get-groups))
+            (GET "/groups" [:as {token :shiro-subject}]
+                 (listing-resource app token app/get-groups))
 
-            (POST "/groups" []
-                  (group-resource app api-prefix nil))
+            (POST "/groups" [:as {token :shiro-subject}]
+                  (group-resource app api-prefix token nil))
 
-            (ANY "/groups/:uuid" [uuid inherited]
+            (ANY "/groups/:uuid" [uuid inherited :as {token :shiro-subject}]
                  (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
-                   (group-resource app api-prefix uuid)
+                   (group-resource app token api-prefix uuid)
                    (resource
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]
                      :exists? (fn [_]
                                 (if-let [g (and uuid
                                                 (app/get-group-as-inherited
-                                                  app (UUID/fromString uuid)))]
+                                                  app token (UUID/fromString uuid)))]
                                   {::retrieved g}))
                      :handle-ok ::retrieved
                      :handle-not-found handle-404)))
 
-            (POST "/import-hierarchy" []
+            (POST "/import-hierarchy" [:as {token :shiro-subject}]
                   (let [import! (fn [{raw-groups ::data}]
                                   (let [groups (->> raw-groups
                                                  (map convert-uuids)
                                                  (map hyphenate-group-keys))]
-                                    (app/import-hierarchy app (validate [Group] groups))))]
+                                    (app/import-hierarchy app token (validate [Group] groups))))]
                     (resource
                       :allowed-methods [:post]
                       :available-media-types ["application/json"]
@@ -402,7 +409,7 @@
                       :new? false
                       :respond-with-entity? false)))
 
-            (ANY "/classified/nodes/:node-name" [node-name]
+            (ANY "/classified/nodes/:node-name" [node-name :as {token :shiro-subject}]
                  (resource
                    :allowed-methods [:get :post]
                    :available-media-types ["application/json"]
@@ -423,9 +430,9 @@
                                                        (update-in [:trusted] (fnil identity {}))
                                                        (assoc :name node-name)
                                                        (dissoc :transaction-uuid)))]
-                                  (app/classify-node app node transaction-uuid)))))
+                                  (app/classify-node app token node transaction-uuid)))))
 
-            (POST "/classified/nodes/:node-name/explanation" [node-name]
+            (POST "/classified/nodes/:node-name/explanation" [node-name :as {token :shiro-subject}]
                   (resource
                     :allowed-methods [:post]
                     :available-media-types ["application/json"]
@@ -440,9 +447,9 @@
                                                         (update-in [:fact] (fnil identity {}))
                                                         (update-in [:trusted] (fnil identity {}))
                                                         (assoc :name node-name)))]
-                                   (app/explain-classification app node)))))
+                                   (app/explain-classification app token node)))))
 
-            (POST "/rules/translate" []
+            (POST "/rules/translate" [:as {token :shiro-subject}]
                   (resource
                     :allowed-methods [:post]
                     :available-media-types ["application/json"]
@@ -454,7 +461,7 @@
                     :handle-ok (fn [{data ::data}]
                                  (rules/condition->pdb-query data))))
 
-            (ANY "/update-classes" []
+            (ANY "/update-classes" [:as {token :shiro-subject}]
                  (resource
                    :allowed-methods [:post]
                    :available-media-types ["application/json"]
@@ -462,15 +469,15 @@
                             (class-updater/update-classes!
                               (select-keys config [:puppet-master :client-ssl-context]) app))))
 
-            (GET "/last-class-update" []
+            (GET "/last-class-update" [:as {token :shiro-subject}]
                  (resource
                    :allowed-methods [:get]
                    :available-media-types ["application/json"]
                    :exists? true
                    :handle-ok (fn [_]
-                                {:last_update (app/get-last-sync app)})))
+                                {:last_update (app/get-last-sync app token)})))
 
-            (POST "/validate/group" []
+            (POST "/validate/group" [:as {token :shiro-subject}]
                   (resource
                     {:allowed-methods [:post]
                      :respond-with-entity? true
@@ -483,7 +490,7 @@
                                 (let [group (validate Group (merge group-defaults
                                                                    {:id (UUID/randomUUID)}
                                                                    submitted))]
-                                  {::validated (app/validate-group app group)}))})))
+                                  {::validated (app/validate-group app token group)}))})))
 
           (ANY "*" [:as req]
                {:status 404
