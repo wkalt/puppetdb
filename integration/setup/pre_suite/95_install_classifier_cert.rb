@@ -33,7 +33,8 @@ step "Configure SSL on classifier" do
 
     'ssl-cert' => "#{ssldir}/cert.pem",
     'ssl-key' => "#{ssldir}/key.pem",
-    'ssl-ca-cert' => "#{ssldir}/ca.pem"
+    'ssl-ca-cert' => "#{ssldir}/ca.pem",
+    'access-control' => false
   }
 
   conf['web-router-service'] = {
