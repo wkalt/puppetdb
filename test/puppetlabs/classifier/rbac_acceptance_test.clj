@@ -7,13 +7,16 @@
             [puppetlabs.http.client.sync :as phttp]
             [puppetlabs.kitchensink.core :refer [deep-merge]]
             [puppetlabs.trapperkeeper.config :refer [load-config]]
+            [puppetlabs.classifier.application.permissioned.rbac-test
+             :refer [config-with-rbac-db-from-env]]
             [puppetlabs.classifier.acceptance-test :refer [config-path
                                                            with-classifier-instance-fixture]]))
 
 (def pos-test-config
-  (deep-merge (load-config config-path)
-              {:classifier {:access-control true}
-               :global {:certificate-whitelist "./dev-resources/ssl/certs.txt"}}))
+  (-> (load-config config-path)
+    config-with-rbac-db-from-env
+    (deep-merge {:classifier {:access-control true}
+                 :global {:certificate-whitelist "./dev-resources/ssl/certs.txt"}})))
 
 (def neg-test-config
   (assoc-in pos-test-config [:global :certificate-whitelist] "./dev-resources/ssl/bogus-certs.txt"))

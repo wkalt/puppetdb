@@ -12,6 +12,8 @@
             [puppetlabs.http.client.sync :as phttp]
             [puppetlabs.kitchensink.core :refer [deep-merge ini-to-map mapkeys mapvals spit-ini]]
             [puppetlabs.trapperkeeper.config :refer [load-config]]
+            [puppetlabs.classifier.application.permissioned.rbac-test
+             :refer [config-with-rbac-db-from-env]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
@@ -29,8 +31,9 @@
 
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  (deep-merge (load-config config-path)
-              {:classifier {:access-control false}}))
+  (-> (load-config config-path)
+    (deep-merge {:classifier {:access-control false}})
+    config-with-rbac-db-from-env))
 
 (defn- origin-url
   [app-config]
