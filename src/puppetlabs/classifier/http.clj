@@ -380,7 +380,7 @@
 
             (ANY "/groups/:uuid" [uuid inherited :as {token :shiro-subject}]
                  (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
-                   (group-resource app token api-prefix uuid)
+                   (group-resource app api-prefix token uuid)
                    (resource
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]

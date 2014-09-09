@@ -360,7 +360,7 @@
                             (if (and group-id (not (re-find #"^create this group" description)))
                               (str " for group " group-id " or any of its ancestors"))
                             ".")
-                  :details nil})}))))
+                  :details ""})}))))
 
 (defn wrap-errors-with-explanations
   [handler]
