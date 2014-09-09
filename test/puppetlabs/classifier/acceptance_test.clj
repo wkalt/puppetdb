@@ -10,6 +10,7 @@
             [schema.core :as sc]
             [schema.test]
             [puppetlabs.kitchensink.core :refer [deep-merge ini-to-map mapkeys mapvals spit-ini]]
+            [puppetlabs.trapperkeeper.config :refer [load-config]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
@@ -22,13 +23,12 @@
            java.util.regex.Pattern
            java.util.UUID))
 
+(def config-path (or (System/getenv "CLASSIFIER_CONFIG_PATH")
+                     "./dev-resources/test-conf.d"))
+
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  {:webserver {:classifier {:host "0.0.0.0"
-                            :port 1261
-                            :default-server true}}
-   :classifier {:puppet-master "https://localhost:8140"}
-   :web-router-service {:puppetlabs.classifier.main/classifier-service "/classifier"}})
+  (load-config config-path))
 
 (defn- origin-url
   [app-config]
@@ -37,9 +37,9 @@
 
 (defn- base-url
   [app-config]
-  (let [{{:keys [url-prefix]} :webserver} app-config]
-    (str (origin-url app-config)
-         (get-in app-config [:web-router-service :puppetlabs.classifier.main/classifier-service]))))
+  (str (origin-url app-config)
+       (get-in app-config
+               [:web-router-service :puppetlabs.classifier.main/classifier-service :route])))
 
 (defn- block-until-ready
   [proc config]

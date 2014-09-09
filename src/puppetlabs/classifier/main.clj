@@ -3,11 +3,14 @@
             [clojure.tools.logging :as log]
             [compojure.core :refer [context]]
             [overtone.at-at :as at-at]
+            [ring.util.servlet :refer [servlet]]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
             [puppetlabs.certificate-authority.core :as ssl]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
-            [puppetlabs.trapperkeeper.services :refer [service-context]]
+            [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.classifier.application.default :refer [default-application]]
+            [puppetlabs.classifier.application.permissioned :refer [app-with-permissions]]
+            [puppetlabs.classifier.application.permissioned.rbac :refer [rbac-service-permissions]]
             [puppetlabs.classifier.class-updater :refer [update-classes-and-log-errors!]]
             [puppetlabs.classifier.http :as http]
             [puppetlabs.classifier.storage.postgres :as postgres]))
@@ -42,8 +45,9 @@
 
 (defservice classifier-service
   [[:ConfigService get-config]
-   [:WebroutingService add-ring-handler get-route]]
-
+   RbacAuthzService
+   [:RbacAuthnMiddleware wrap-authenticated]
+   [:WebroutingService add-ring-handler add-servlet-handler get-route]]
   (start [this context]
          (let [config (get-config)
                db-spec (config->db-spec config)
@@ -55,17 +59,27 @@
                            :client-ssl-context (or (init-ssl-context (get config :classifier))
                                                    (init-ssl-context
                                                      (get-in config [:webserver :classifier])))}
-               app (default-application app-config)
-               handler (add-url-prefix api-prefix (http/api-handler app))
+               default-app (default-application app-config)
                sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
                job-pool (at-at/mk-pool)]
            (postgres/migrate db-spec)
            (add-common-json-encoders!)
-           (add-ring-handler this handler)
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
-                          #(update-classes-and-log-errors! app-config app)
+                          #(update-classes-and-log-errors! app-config default-app)
                           job-pool))
+           (if (= (get-in config [:classifier :access-control]) false)
+             (let [handler (add-url-prefix api-prefix (http/api-handler default-app))]
+               (add-ring-handler this handler)
+               (log/warn "Access-control explicitly disabled in configuration, running without it"))
+             (let [authz-service (get-service this :RbacAuthzService)
+                   perm-fns (rbac-service-permissions authz-service)
+                   permd-app (app-with-permissions default-app perm-fns)
+                   permd-handler (->> (http/api-handler permd-app)
+                                   (add-url-prefix api-prefix)
+                                   wrap-authenticated)]
+               (add-servlet-handler this (servlet permd-handler))
+               (log/info "Access-control enabled")))
            (assoc context :job-pool job-pool)))
 
   (stop [this _]
