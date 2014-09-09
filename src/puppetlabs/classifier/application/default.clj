@@ -34,6 +34,7 @@
 
     (reify Classifier
       (get-config [_] config)
+      (get-storage [_] storage)
 
       (classify-node [_ node transaction-uuid]
         (let [check-in-time (time/now)

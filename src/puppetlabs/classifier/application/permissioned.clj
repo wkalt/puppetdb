@@ -1,12 +1,12 @@
-(ns puppetlabs.classifier.storage.permissioned
+(ns puppetlabs.classifier.application.permissioned
   (:require [clojure.set :as set]
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
             [puppetlabs.kitchensink.core :refer [mapvals]]
+            [puppetlabs.classifier.application :as app :refer [Classifier]]
             [puppetlabs.classifier.application.default :refer [matching-groups-and-ancestors]]
             [puppetlabs.classifier.classification :as class8n]
-            [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification hierarchy-zipper
                                                   tree->groups]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid OptimizedStorage
@@ -14,43 +14,42 @@
             [puppetlabs.classifier.storage.naive :as naive]
             [puppetlabs.classifier.util :refer [map-delta merge-and-clean]]))
 
-(def redacted-str "puppetlabs.classifier/redacted")
+;;
+;; Permission-related Protocols & Schemas
+;;
 
-(defprotocol PermissionedStorage
-  "This \"wraps\" the Storage protocol with permissions. It has all the same
-  methods as the Storage protocol, but they all take the authentication token
-  for the user as their first argument (the rest are the same as for the plain
-  Storage methods)."
+(defprotocol PermissionedClassifier
+  (get-config [this] "Returns a map of the configuration settings for the application.")
+  (get-storage [this] "Returns the storage implementation used by the application.")
 
-  (store-check-in [this token check-in] "Store a node check-in.")
-  (get-check-ins [this token node-name] "Retrieve all check-ins for a node by name.")
-  (get-nodes [this token] "Retrieve check-ins for all nodes.")
+  (classify-node [this token node transaction-uuid] "Returns the node's classification as a map conforming to the Classification schema, provided that there are no conflicts encountered during classification-time. If conflicts are encountered, an exception is thrown.")
+  (explain-classification [this token node] "Returns an explanation of the node's classification as returned by the `puppetlabs.classifier.classification/classification-step` function.")
 
-  (explain-classification [this token node])
+  (get-check-ins [this token node-name] "Returns the check-in history (with classification) for the node with the given name.")
+  (get-nodes [this token] "Returns all nodes, each of which contains its own check-in history.")
 
-  (group-validation-failures [this token group] "Performs validation of references and inherited values for the subtree of the hierarchy rooted at the group, redacting inherited values from the returned errors if the token's subject is not permitted to view the group that the values were inherited from.")
-  (create-group [this token group] "Creates a new group if permitted.")
-  (get-group [this token id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID if permitted.")
-  (get-group-as-inherited [this token id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID. Values inherited from groups that the subject is not permitted to view will be replaced with `puppetlabs.classifier/redacted`.")
-  (annotate-group [this token group] "Returns an annotated version of the group that shows which classes and parameters are no longer present in Puppet, if permitted to access the original group.")
-  (get-groups [this token] "Retrieves all groups if permitted.")
-  (get-ancestors [this token group] "Retrieves the ancestors of the group, up to & including the root group, as a vector starting at the immediate parent and ending with the route, if permitted to view all of said groups.")
-  (get-subtree [this token group] "Returns the subtree of the group hierarchy rooted at the passed group, if the token's subject is permitted to view the group.")
-  (update-group [this token delta] "Updates fields of a group if permitted.")
-  (delete-group [this token id] "Deletes a group given its ID if permitted.")
+  (validate-group [this token group] "Validates the parent link, references, and inherited references for the given group and all of its descendents (if any). If the group would invalidate the group hierarchy's structure or introduce missing referents, a slingshot exception is thrown.")
+  (create-group [this token group] "Creates a new group")
+  (get-group [this token id] "Retrieves a group given its ID, a type-4 (i.e. random) UUID")
+  (get-group-as-inherited [this token id] "Retrieves a group with all its inherited classes, class parameters, and variables, given its ID")
+  (get-groups [this token] "Retrieves all groups")
+  (update-group [this token delta] "Edits any attribute of a group besides ID, subject to validation for illegal edits, malformed hierarchy structure, and missing references.")
+  (delete-group [this token id] "Deletes a group given its ID")
 
-  (create-class [this token class] "Creates a class specification if permitted.")
-  (get-class [this token environment-name class-name] "Retrieves a class specification if permitted.")
-  (get-classes [this token environment-name] "Retrieves all class specifications in an environment, if permitted.")
-  (synchronize-classes [this token puppet-classes] "Synchronize database class definitions if permitted.")
-  (delete-class [this token environment-name class-name] "Deletes a class specification if permitted.")
+  (import-hierarchy [this token groups] "Batch import a hierarchy given a flat collection of its groups. Any missing classes & class parameters will be created as needed.")
 
-  (get-rules [this token] "Retrieve all rules if permitted.")
+  (create-class [this token class] "Creates a class specification")
+  (get-class [this token environment-name class-name] "Retrieves a class specification")
+  (get-classes [this token environment-name] "Retrieves all class specifications in an environment")
+  (get-all-classes [this token] "Retrieves all class specifications across all environments")
+  (synchronize-classes [this token puppet-classes] "Synchronize database class definitions")
+  (get-last-sync [this token] "Retrieve the time that classes were last synchronized with puppet")
+  (delete-class [this token environment-name class-name] "Deletes a class specification")
 
-  (create-environment [this token environment] "Creates an environment if permitted.")
-  (get-environment [this token environment-name] "Retrieves an environment if permitted.")
-  (get-environments [this token] "Retrieves all environments if permitted.")
-  (delete-environment [this token environment-name] "Deletes an environment if permitted."))
+  (create-environment [this token environment] "Creates an environment")
+  (get-environment [this token environment-name] "Retrieves an environment")
+  (get-environments [this token] "Retrieves all environments")
+  (delete-environment [this token environment-name] "Deletes an environment"))
 
 (def Permissions
   "A map that provides the requisite functions for creating
@@ -76,12 +75,24 @@
 (def permission->description
   "Human-readable descriptions for the action that each permission key in
   a Permissions map represents, mainly to embed in error messages."
-  {:all-group-access? "access all groups in the classifier"
+  {:all-group-access? "access all groups"
    :group-modify-children? "create or delete children"
    :group-edit-classification? "edit the classes and variables"
    :group-edit-environment? "change the environment"
    :group-edit-child-rules? "change the rules"
    :group-view? "view"})
+
+(def Actions
+  "These are the actions used by the default PermissionedClassifier
+  implementation. The output of the :permitted-group-actions Permission
+  function must be a subset of these values."
+  #{:edit-classification :edit-environment :edit-child-rules :modify-children :view})
+
+;;
+;; Utilities for `app-with-permissions`
+;;
+
+(def redacted-str "puppetlabs.classifier/redacted")
 
 (defn- permission-exception
   "Returns a slingshot exception for a permission denial. `permission` must be
@@ -120,8 +131,8 @@
                                [variable redacted-str]))))
 
 (defn- redact-invisible-ancestors
-  [ancestors viewable-ids]
-  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-ids)]
+  [ancestors viewable-group-ids]
+  (let [[invis vis] (split-ancestors-by-viewability ancestors viewable-group-ids)]
     (concat vis (map redact-inheritable-values invis))))
 
 (defn- redact-group
@@ -145,8 +156,8 @@
    :from (redact-group-if-needed from id-viewable?)})
 
 (defn- inherited-with-redaction
-  [groups viewable-ids]
-  (->> (redact-invisible-ancestors groups viewable-ids)
+  [groups viewable-group-ids]
+  (->> (redact-invisible-ancestors groups viewable-group-ids)
     (map group->classification)
     class8n/collapse-to-inherited
     (merge (first groups))))
@@ -192,8 +203,12 @@
                         (parent'-permitted-actions :modify-children))))
       (throw+ (permission-exception :group-edit-classification? token id)))))
 
-(sc/defn storage-with-permissions :- (sc/protocol PermissionedStorage)
-  [storage :- (sc/protocol PrimitiveStorage), permissions :- Permissions]
+;;
+;; Permissions Wrapper
+;;
+
+(sc/defn app-with-permissions :- (sc/protocol PermissionedClassifier)
+  [app :- (sc/protocol Classifier), permissions :- Permissions]
   (let [{:keys [all-group-access?
                 group-modify-children?
                 group-edit-classification?
@@ -203,13 +218,11 @@
                 permitted-group-actions
                 viewable-group-ids]} permissions
         wrap-all-group-access (fn [f]
-                                (fn [this token & args]
-                                  (if (all-group-access? token)
-                                    (apply f storage args)
-                                    (throw+ (permission-exception :all-group-access? token)))))
-        wrap-always-allow (fn [f]
-                            (fn [this _ & args]
-                              (apply f storage args)))
+                                  (fn [token & args]
+                                    (if (all-group-access? token)
+                                      (apply f app args)
+                                      (throw+ (permission-exception :all-group-access? token)))))
+        storage (app/get-storage app)
         get-ancestors (if (satisfies? OptimizedStorage storage)
                         storage/get-ancestors
                         naive/get-ancestors)
@@ -220,28 +233,51 @@
                                     storage/group-validation-failures
                                     naive/group-validation-failures)]
 
-    (reify PermissionedStorage
+    (reify PermissionedClassifier
+      (get-config [_] (app/get-config app))
+      (get-storage [_] storage)
 
       ;;
-      ;; Group Storage methods
-      ;;
-      ;; The group methods & explain-classification are the only interesting
-      ;; ones; the rest just depend on whether the token's subject has
-      ;; classifier access at all.
+      ;; Group Methods
       ;;
 
-      (group-validation-failures [this token {:keys [id parent] :as group}]
+      (validate-group [_ token {:keys [id parent] :as group}]
         (let [ancs (get-ancestors storage group)]
-          (if-let [group (storage/get-group storage id)]
+          (if (storage/get-group storage id)
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
-              (group-validation-failures storage group))
+              (app/validate-group app group))
             ;; else (group doesn't exist)
             (if-not (group-modify-children? token parent (rest ancs))
               (throw+ (permission-exception :group-modify-children? token parent))
-              (group-validation-failures storage group)))))
+              (app/validate-group app group)))))
 
-      (create-group [this token {id :id, parent-id :parent, :as group}]
+
+
+      (get-group [_ token id]
+        (let [group (storage/get-group storage id)
+              ancs (get-ancestors storage group)]
+          (if-not (group-view? token id ancs)
+            (throw+ (permission-exception :group-view? token id))
+            group)))
+
+      (get-group-as-inherited [_ token id]
+        (let [group (storage/get-group storage id)
+              ancs (get-ancestors storage group)]
+          (if-not (group-view? token id ancs)
+            (throw+ (permission-exception :group-view? token id))
+            (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))]
+              (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
+
+      (get-groups [_ token]
+        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
+              root (storage/get-group storage root-group-uuid)
+              root-node (storage/get-subtree storage root)
+              subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
+          (for [subtree subtrees, group (tree->groups subtree)]
+            group)))
+
+      (create-group [_ token {id :id, parent-id :parent, :as group}]
         (let [ancs (get-ancestors storage group)
               actions (permitted-group-actions token id ancs)
               parent-actions (permitted-group-actions token parent-id (rest ancs))
@@ -251,7 +287,8 @@
           (when-let [vtree (group-validation-failures storage group)]
             (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
                      :tree vtree
-                     :ancestors ancs}))
+                     :ancestors (let [viewable-ids (viewable-group-ids token (map :id ancs))]
+                                  (redact-invisible-ancestors ancs viewable-ids))}))
           (when (and (not (contains? actions :edit-environment))
                      (not= (:environment group) (:environment parent)))
             (throw+ (assoc (permission-exception :group-edit-environment? token id)
@@ -261,42 +298,7 @@
                                              " can't edit the parent's environment"))))
           (storage/create-group storage group)))
 
-      (get-group [this token id]
-        (let [group (storage/get-group storage id)
-              ancs (get-ancestors storage group)]
-          (if-not (group-view? token id ancs)
-            (throw+ (permission-exception :group-view? token id))
-            group)))
-
-      (get-group-as-inherited [this token id]
-        (let [group (storage/get-group storage id)
-              ancs (get-ancestors storage group)]
-          (if-not (group-view? token id ancs)
-            (throw+ (permission-exception :group-view? token id))
-            (let [viewable-ids (viewable-group-ids token (get-group-ids storage))]
-              (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
-
-      (get-groups [this token]
-        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
-              root (storage/get-group storage root-group-uuid)
-              root-node (storage/get-subtree storage root)
-              subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
-          (for [subtree subtrees, group (tree->groups subtree)]
-            group)))
-
-      (get-ancestors [this token group]
-        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
-              ancs (get-ancestors storage group)
-              [_ vis] (split-ancestors-by-viewability ancs viewable-ids)]
-          vis))
-
-      (get-subtree [this token {id :id :as group}]
-        (let [ancs (get-ancestors storage group)]
-          (if-not (group-view? token id ancs)
-            (throw+ (permission-exception :group-view? token id))
-            (storage/get-subtree storage group))))
-
-      (update-group [this token {id :id :as delta}]
+      (update-group [_ token {id :id :as delta}]
         (let [group (storage/get-group storage id)
               group' (merge-and-clean group delta)
               only-changes (map-delta group group')
@@ -316,20 +318,55 @@
                                     ancestors
                                     (viewable-group-ids token (get-group-ids storage)))})))))
 
-      (delete-group [this token id]
+      (delete-group [_ token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
           (let [ancs (get-ancestors storage group)]
             (if (group-modify-children? token parent (rest ancs))
               (storage/delete-group storage id)
               (throw+ (permission-exception :group-modify-children? token parent))))))
 
+      (import-hierarchy [_ token groups]
+        ;; in order to import a new hierarchy, the subject needs to have
+        ;;   1) edit-classification & edit-environment on the root group
+        ;;   2) modify-children on the root group
+        ;;   3) edit-child-rules on the root group
+        (let [root-actions (permitted-group-actions token root-group-uuid [])
+              required-actions #{:edit-classification :edit-environment :edit-child-rules
+                                 :modify-children}]
+          (when-not (= (set/intersection required-actions root-actions) required-actions)
+            (let [missing-actions (set/difference required-actions root-actions)]
+              (throw+ (permission-exception (first missing-actions)))))
+          (storage/import-hierarchy storage groups)))
+
+      ;;
+      ;; Node Check-In methods
+      ;;
+      ;; Node check-ins contain the node's classification, which could contain
+      ;; values from any group, so we only allow users that can view all groups
+      ;; to see the check-ins.
+      ;;
+
+      (get-check-ins [_ token node-name]
+        ((wrap-all-group-access app/get-check-ins) token node-name))
+      (get-nodes [_ token]
+        ((wrap-all-group-access app/get-nodes) token))
+
+      ;;
+      ;; Classification
+      ;;
+
+      (classify-node [_ token node transaction-uuid]
+        ((wrap-all-group-access app/classify-node) token node transaction-uuid))
+
       ;;
       ;; Classification Explanation Scrubbing
       ;;
 
       (explain-classification [_ token node]
-        (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
-              matching-group->ancestors (matching-groups-and-ancestors storage node)
+        (let [matching-group->ancestors (matching-groups-and-ancestors storage node)
+              relevant-ids (into #{} (mapcat (fn [[group ancs]] (conj (map :id ancs) (:id group)))
+                                             matching-group->ancestors))
+              viewable-ids (viewable-group-ids token relevant-ids)
               class8n-info (class8n/classification-steps node matching-group->ancestors)
               {:keys [conflicts classification id->leaf leaf-id->classification]} class8n-info
               id->ancestor-ids (fn [id]
@@ -383,39 +420,30 @@
             (assoc partial-resp
                    :final-classification (class8n/merge-classifications
                                            (vals leaf-id->redacted-class8n))))))
-
       ;;
-      ;; Non-Group Storage methods
+      ;; Other Methods
       ;;
-      ;; These all just depend on whether the token's owner has any permissions
-      ;; in RBAC for NC at all.
+      ;; These methods don't have any permissions associated with them.
       ;;
 
-      (store-check-in [this token check-in]
-        ((wrap-always-allow storage/store-check-in) this token check-in))
-      (get-check-ins [this token node-name]
-        ((wrap-all-group-access storage/get-check-ins) this token node-name))
-      (get-nodes [this token]
-        ((wrap-all-group-access storage/get-nodes) this token))
+      (create-class [_ _ class]
+        (app/create-class app class))
+      (get-class [_ _ environment-name class-name]
+        (app/get-class app environment-name class-name))
+      (get-classes [_ _ environment-name]
+        (app/get-classes app environment-name))
+      (synchronize-classes [_ _ puppet-classes]
+        (app/synchronize-classes app puppet-classes))
+      (get-last-sync [_ _]
+        (app/get-last-sync app))
+      (delete-class [_ _ environment-name class-name]
+        (app/delete-class app environment-name class-name))
 
-      (create-class [this token class]
-        ((wrap-always-allow storage/create-class) this token class))
-      (get-class [this token environment-name class-name]
-        ((wrap-always-allow storage/get-class) this token environment-name class-name))
-      (get-classes [this token environment-name]
-        ((wrap-always-allow storage/get-classes) this token environment-name))
-      (synchronize-classes [this token puppet-classes]
-        ((wrap-always-allow storage/synchronize-classes) this token puppet-classes))
-      (delete-class [this token environment-name class-name]
-        ((wrap-always-allow storage/delete-class) this token environment-name class-name))
-
-      (get-rules [this token] ((wrap-always-allow storage/get-rules) this token))
-
-      (create-environment [this token environment]
-        ((wrap-always-allow storage/create-environment) this token environment))
-      (get-environment [this token environment-name]
-        ((wrap-always-allow storage/get-environment) this token environment-name))
-      (get-environments [this token]
-        ((wrap-always-allow storage/get-environments) this token))
-      (delete-environment [this token environment-name]
-        ((wrap-always-allow storage/delete-environment) this token environment-name)))))
+      (create-environment [_ _ environment]
+        (app/create-environment app environment))
+      (get-environment [_ _ environment-name]
+        (app/get-environment app environment-name))
+      (get-environments [_ _]
+        (app/get-environments app))
+      (delete-environment [_ _ environment-name]
+        (app/delete-environment app environment-name)))))

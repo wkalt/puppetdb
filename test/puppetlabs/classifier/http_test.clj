@@ -43,16 +43,16 @@
         mem-store (in-memory-storage {})
         app (default-application {:db mem-store})
         !created? (atom false)
-        storage-fns {:get (fn [_ obj-name]
+        storage-fns {:get (fn [_ _ obj-name]
                             (if (and (= obj-name test-obj-name) @!created?)
                               test-obj))
-                     :create (fn [_ obj]
+                     :create (fn [_ _ obj]
                                (reset! !created? true)
                                obj)
-                     :delete (fn [_ obj-name])}
+                     :delete (fn [_ _ obj-name])}
         handler (compojure/routes
                   (compojure/ANY "/objs/:obj-name" [obj-name]
-                                 (crd-resource app, schema, [obj-name]
+                                 (crd-resource app, nil, schema, [obj-name]
                                                {:name obj-name}, storage-fns)))]
 
     (testing "returns 404 when storage returns nil"

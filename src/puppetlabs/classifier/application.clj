@@ -2,6 +2,7 @@
 
 (defprotocol Classifier
   (get-config [this] "Returns a map of the configuration settings for the application.")
+  (get-storage [this] "Returns the storage used by the application.")
 
   (classify-node [this node transaction-uuid] "Returns the node's classification as a map conforming to the Classification schema, provided that there are no conflicts encountered during classification-time. If conflicts are encountered, an exception is thrown.")
   (explain-classification [this node] "Returns an explanation of the node's classification as returned by the `puppetlabs.classifier.classification/classification-step` function.")

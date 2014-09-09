@@ -1,4 +1,4 @@
-(ns puppetlabs.classifier.storage.permissioned-test
+(ns puppetlabs.classifier.application.permissioned-test
   (:require [clojure.set :refer [union]]
             [clojure.test :refer :all]
             [clojure.walk :refer [prewalk postwalk]]
@@ -6,12 +6,14 @@
             schema.test
             [slingshot.test]
             [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
+            [puppetlabs.classifier.application :refer [Classifier]]
+            [puppetlabs.classifier.application.default :refer [default-application]]
             [puppetlabs.classifier.classification :refer [collapse-to-inherited]]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.storage :refer [root-group-uuid PrimitiveStorage] :as storage]
+            [puppetlabs.classifier.storage :as storage :refer [root-group-uuid PrimitiveStorage]]
             [puppetlabs.classifier.storage.memory :refer [in-memory-storage]]
-            [puppetlabs.classifier.storage.permissioned :as perm :refer :all]
+            [puppetlabs.classifier.application.permissioned :as perm :refer :all]
             [puppetlabs.classifier.test-util :refer [blank-group blank-group-named extract-classes
                                                      vec->tree]]
             [puppetlabs.classifier.util :refer [merge-and-clean]])
@@ -40,14 +42,14 @@
               (recur (next ids)))
             false))))))
 
-(defn- storage-with-mapped-permissions
+(defn- app-with-mapped-permissions
   "Given both a map of the permissions by rbac token, permission name, and then (if
   the permission is for a particular group) by group id that maps to a boolean
   value indicating whether the permission is granted with, and also an instance
-  of PrimitiveStorage, return an instance of PermissionedStorage that wraps the
-  PrimitiveStorage instance and enforces the given permissions"
-  [permissions-by-token storage]
-  {:pre [(satisfies? PrimitiveStorage storage)]}
+  of Classifier, return an instance of PermissionedClassifier that wraps the
+  Classifier instance and enforces the given permissions"
+  [permissions-by-token mem-store]
+  {:pre [(satisfies? PrimitiveStorage mem-store)]}
   (let [token-perm-fn (fn [perm] (fn [t] (get-in permissions-by-token [t perm])))
         all-ids-perm-fn (fn [perm] (fn [t _] (get-in permissions-by-token [t perm])))
         group-perm-fn (group-perm-fn-for-map permissions-by-token)
@@ -60,10 +62,11 @@
                                              :group-modify-children?
                                              :group-view?
                                              :permitted-group-actions])))]
-    (storage-with-permissions storage permission-fns)))
+    (app-with-permissions (default-application {:db mem-store}) permission-fns)))
 
-(def ^:private permission-denied :puppetlabs.classifier.storage.permissioned/permission-denied)
+(def ^:private permission-denied :puppetlabs.classifier.application.permissioned/permission-denied)
 
+;; TODO: add tests for classify-node app method, validate-group
 (deftest basic-permissions-behavior
   (let [test-node {:name "testnode", :time (time/now), :explanation {}}
         rocket {:name "rocket"
@@ -154,85 +157,74 @@
     (testing "joe shmoe should"
       (let [mem-store (in-memory-storage {:classes [rocket payload]
                                           :groups [root spaceship scientific military]})
-            perm-store (storage-with-mapped-permissions permissions mem-store)
+            perm-app (app-with-mapped-permissions permissions mem-store)
             test-class {:environment "test", :name "prototype alpha", :parameters {:flammable true}}
             tropical-env {:name "tropical"}]
 
         (testing "have permission to do anything not related to a group or classification history"
-          (is (store-check-in perm-store :joe-shmoe test-node))
-          (is (create-class perm-store :joe-shmoe test-class))
-          (is (get-class perm-store :joe-shmoe "test" "prototype alpha"))
-          (is (get-classes perm-store :joe-shmoe "test"))
-          (is (synchronize-classes perm-store :joe-shmoe [rocket payload]))
-          (is (nil? (delete-class perm-store :joe-shmoe "test" "prototype alpha")))
-          (is (get-rules perm-store :joe-shmoe))
-          (is (create-environment perm-store :joe-shmoe tropical-env))
-          (is (get-environment perm-store :joe-shmoe "tropical"))
-          (is (get-environments perm-store :joe-shmoe))
-          (is (nil? (delete-environment perm-store :joe-shmoe "tropical"))))
+          (is (create-class perm-app :joe-shmoe test-class))
+          (is (get-class perm-app :joe-shmoe "test" "prototype alpha"))
+          (is (get-classes perm-app :joe-shmoe "test"))
+          (is (synchronize-classes perm-app :joe-shmoe [rocket payload]))
+          (is (nil? (delete-class perm-app :joe-shmoe "test" "prototype alpha")))
+          (is (create-environment perm-app :joe-shmoe tropical-env))
+          (is (get-environment perm-app :joe-shmoe "tropical"))
+          (is (get-environments perm-app :joe-shmoe))
+          (is (nil? (delete-environment perm-app :joe-shmoe "tropical"))))
 
         (testing "not have permission to do anything with a group or classification history"
-          (is (thrown+? [:kind permission-denied] (get-check-ins perm-store :joe-shmoe "test-node")))
-          (is (thrown+? [:kind permission-denied] (get-nodes perm-store :joe-shmoe)))
-          (is (thrown+? [:kind permission-denied] (create-group perm-store :joe-shmoe spaceship)))
-          (is (thrown+? [:kind permission-denied] (get-group perm-store :joe-shmoe spaceship-id)))
-          (is (empty? (get-groups perm-store :joe-shmoe)))
-          (is (empty? (get-ancestors perm-store :joe-shmoe scientific)))
-          (is (thrown+? [:kind permission-denied] (get-subtree perm-store :joe-shmoe spaceship)))
-          (is (thrown+? [:kind permission-denied] (delete-group perm-store :joe-shmoe spaceship-id)))
+          (is (thrown+? [:kind permission-denied] (get-check-ins perm-app :joe-shmoe "test-node")))
+          (is (thrown+? [:kind permission-denied] (get-nodes perm-app :joe-shmoe)))
+          (is (thrown+? [:kind permission-denied] (create-group perm-app :joe-shmoe spaceship)))
+          (is (thrown+? [:kind permission-denied] (get-group perm-app :joe-shmoe spaceship-id)))
+          (is (empty? (get-groups perm-app :joe-shmoe)))
+          (is (thrown+? [:kind permission-denied] (delete-group perm-app :joe-shmoe spaceship-id)))
           (is (thrown+? [:kind permission-denied]
-                        (update-group perm-store :joe-shmoe {:id spaceship-id
-                                                             :environment "deep space"}))))))
+                        (update-group perm-app :joe-shmoe {:id spaceship-id
+                                                           :environment "deep space"}))))))
 
     (testing "intern irving"
       (let [mem-store (in-memory-storage {:classes [rocket payload]
                                           :groups [root spaceship scientific military]})
-            perm-store (storage-with-mapped-permissions permissions mem-store)]
+            perm-app (app-with-mapped-permissions permissions mem-store)]
 
         (testing "can view most things, and edit the scientific group"
-          (is (store-check-in perm-store, :intern-irving
-                              {:node "testnode", :time (time/now), :explanation {}}))
-          (is (create-class perm-store, :intern-irving
+          (is (create-class perm-app, :intern-irving
                             {:name "testclass", :environment "test", :parameters {}}))
-          (is (get-class perm-store :intern-irving "test" "testclass"))
-          (is (get-classes perm-store :intern-irving "test"))
-          (is (synchronize-classes perm-store, :intern-irving
+          (is (get-class perm-app :intern-irving "test" "testclass"))
+          (is (get-classes perm-app :intern-irving "test"))
+          (is (synchronize-classes perm-app, :intern-irving
                                    [rocket, payload
                                     {:name "testclass", :environment "test", :parameters {}}]))
-          (is (nil? (delete-class perm-store :intern-irving "test" "testclass")))
-          (is (get-rules perm-store :intern-irving))
-          (is (create-environment perm-store :intern-irving {:name "staging"}))
-          (is (get-environment perm-store :intern-irving "staging"))
-          (is (get-environments perm-store :intern-irving))
-          (is (nil? (delete-environment perm-store :intern-irving "staging")))
+          (is (nil? (delete-class perm-app :intern-irving "test" "testclass")))
+          (is (create-environment perm-app :intern-irving {:name "staging"}))
+          (is (get-environment perm-app :intern-irving "staging"))
+          (is (get-environments perm-app :intern-irving))
+          (is (nil? (delete-environment perm-app :intern-irving "staging")))
 
-          (is (= spaceship (get-group perm-store :intern-irving spaceship-id)))
-          (is (= #{spaceship scientific military} (set (get-groups perm-store :intern-irving))))
-          (is (= [spaceship] (get-ancestors perm-store :intern-irving scientific)))
-          (is (= (vec->tree [spaceship [scientific] [military]])
-                 (get-subtree perm-store :intern-irving spaceship)))
-          (is (update-group perm-store :intern-irving {:id scientific-id
+          (is (= spaceship (get-group perm-app :intern-irving spaceship-id)))
+          (is (= #{spaceship scientific military} (set (get-groups perm-app :intern-irving))))
+          (is (update-group perm-app :intern-irving {:id scientific-id
                                                        :classes {:payload {:weight "6000 lb"}}})))
 
         (testing "cannot view classification history for any or all nodes"
           (is (thrown+? [:kind permission-denied]
-                        (get-check-ins perm-store :intern-irving "testnode")))
-          (is (thrown+? [:kind permission-denied] (get-nodes perm-store :intern-irving))))
+                        (get-check-ins perm-app :intern-irving "testnode")))
+          (is (thrown+? [:kind permission-denied] (get-nodes perm-app :intern-irving))))
 
         (testing "cannot do anything to groups besides view & edit scientific's classification"
-          (is (thrown+? [:kind permission-denied] (get-subtree perm-store :intern-irving root)))
           (is (thrown+? [:kind permission-denied]
-                        (delete-group perm-store :intern-irving scientific-id)))
+                        (delete-group perm-app :intern-irving scientific-id)))
           (is (thrown+? [:kind permission-denied]
-                        (create-group perm-store :intern-irving spaceship)))
+                        (create-group perm-app :intern-irving spaceship)))
           (is (thrown+? [:kind permission-denied]
-                        (update-group perm-store :intern-irving {:id scientific-id
+                        (update-group perm-app :intern-irving {:id scientific-id
                                                                  :environment "uncharted_space"})))
           (is (thrown+? [:kind permission-denied]
-                        (update-group perm-store :intern-irving {:id scientific-id
+                        (update-group perm-app :intern-irving {:id scientific-id
                                                                  :parent root-group-uuid})))
           (is (thrown+? [:kind permission-denied]
-                        (update-group perm-store :intern-irving {:id scientific-id
+                        (update-group perm-app :intern-irving {:id scientific-id
                                                                  :rule ["~" "name" ".*"]}))))))
 
     (testing "admin addie should have permission to do everything"
@@ -242,38 +234,32 @@
             temp-class {:name "testclass", :environment "test", :parameters {}}
             mem-store (in-memory-storage {:groups [root spaceship scientific military]
                                           :classes all-classes})
-            perm-store (storage-with-mapped-permissions permissions mem-store)]
-        (is (store-check-in perm-store, :admin-addie
-                            {:node "testnode", :time (time/now), :explanation {}}))
-        (is (get-check-ins perm-store :admin-addie "testnode"))
-        (is (get-nodes perm-store :admin-addie))
-        (is (create-class perm-store, :admin-addie temp-class))
-        (is (= temp-class (get-class perm-store :admin-addie "test" "testclass")))
-        (is (some #{temp-class} (get-classes perm-store :admin-addie "test")))
-        (is (synchronize-classes perm-store, :admin-addie
+            perm-app (app-with-mapped-permissions permissions mem-store)]
+        (is (get-check-ins perm-app :admin-addie "testnode"))
+        (is (get-nodes perm-app :admin-addie))
+        (is (create-class perm-app, :admin-addie temp-class))
+        (is (= temp-class (get-class perm-app :admin-addie "test" "testclass")))
+        (is (some #{temp-class} (get-classes perm-app :admin-addie "test")))
+        (is (synchronize-classes perm-app, :admin-addie
                                  (conj all-classes temp-class)))
-        (is (nil? (delete-class perm-store :admin-addie "test" "testclass")))
-        (is (get-rules perm-store :admin-addie))
-        (is (create-environment perm-store :admin-addie {:name "staging"}))
-        (is (get-environment perm-store :admin-addie "staging"))
-        (is (get-environments perm-store :admin-addie))
-        (is (nil? (delete-environment perm-store :admin-addie "staging")))
-        (is (= root (get-group perm-store :admin-addie root-group-uuid)))
-        (is (= #{root spaceship scientific military} (set (get-groups perm-store :admin-addie))))
-        (is (= [spaceship root] (get-ancestors perm-store :admin-addie scientific)))
-        (is (= (vec->tree [root [spaceship [scientific] [military]]])
-               (get-subtree perm-store :admin-addie root)))
+        (is (nil? (delete-class perm-app :admin-addie "test" "testclass")))
+        (is (create-environment perm-app :admin-addie {:name "staging"}))
+        (is (get-environment perm-app :admin-addie "staging"))
+        (is (get-environments perm-app :admin-addie))
+        (is (nil? (delete-environment perm-app :admin-addie "staging")))
+        (is (= root (get-group perm-app :admin-addie root-group-uuid)))
+        (is (= #{root spaceship scientific military} (set (get-groups perm-app :admin-addie))))
         (let [blank (merge (blank-group) {:id blank-id})]
-          (is (create-group perm-store :admin-addie blank))
-          (is (nil? (delete-group perm-store :admin-addie blank-id)))
-          (is (nil? (get-group perm-store :admin-addie blank-id))))
-        (is (update-group perm-store :admin-addie {:id scientific-id
+          (is (create-group perm-app :admin-addie blank))
+          (is (nil? (delete-group perm-app :admin-addie blank-id)))
+          (is (nil? (get-group perm-app :admin-addie blank-id))))
+        (is (update-group perm-app :admin-addie {:id scientific-id
                                                    :classes {:payload {:weight "6000 lb"}}}))
-        (is (update-group perm-store :admin-addie {:id scientific-id
+        (is (update-group perm-app :admin-addie {:id scientific-id
                                                    :environment "uncharted_space"}))
-        (is (update-group perm-store :admin-addie {:id scientific-id
+        (is (update-group perm-app :admin-addie {:id scientific-id
                                                    :parent root-group-uuid}))
-        (is (update-group perm-store :admin-addie {:id scientific-id
+        (is (update-group perm-app :admin-addie {:id scientific-id
                                                    :rule ["~" "name" ".*"]}))))))
 
 (deftest inheritance-and-permissions
@@ -319,25 +305,21 @@
             sterile-env-classes (map #(assoc % :environment "sterile") classes)
             mem-store (in-memory-storage {:groups [root child grandchild]
                                           :classes (concat classes sterile-env-classes)})
-            perm-store (storage-with-mapped-permissions admin-permissions mem-store)]
-        (is (= 3 (count (get-rules perm-store :admin-addie))))
-        (is (= child (get-group perm-store :admin-addie (:id child))))
-        (is (= grandchild (get-group perm-store :admin-addie (:id grandchild))))
-        (is (= #{root child grandchild} (set (get-groups perm-store :admin-addie))))
-        (is (= [child root] (get-ancestors perm-store :admin-addie grandchild)))
-        (is (= (vec->tree [child [grandchild]])
-               (get-subtree perm-store :admin-addie child)))
+            perm-app (app-with-mapped-permissions admin-permissions mem-store)]
+        (is (= child (get-group perm-app :admin-addie (:id child))))
+        (is (= grandchild (get-group perm-app :admin-addie (:id grandchild))))
+        (is (= #{root child grandchild} (set (get-groups perm-app :admin-addie))))
         (let [other-grandchild (merge (blank-group-named "new grandchild")
                                       {:parent (:id child)})]
-          (is (create-group perm-store :admin-addie other-grandchild))
-          (is (nil? (delete-group perm-store :admin-addie (:id other-grandchild)))))
-        (is (update-group perm-store :admin-addie {:id (:id grandchild)
+          (is (create-group perm-app :admin-addie other-grandchild))
+          (is (nil? (delete-group perm-app :admin-addie (:id other-grandchild)))))
+        (is (update-group perm-app :admin-addie {:id (:id grandchild)
                                                    :classes {:cafeteria {:lunch "casserole"}}}))
-        (is (update-group perm-store :admin-addie {:id (:id grandchild)
+        (is (update-group perm-app :admin-addie {:id (:id grandchild)
                                                    :environment "sterile"}))
-        (is (update-group perm-store :admin-addie {:id (:id grandchild)
+        (is (update-group perm-app :admin-addie {:id (:id grandchild)
                                                    :parent root-group-uuid}))
-        (is (update-group perm-store :admin-addie {:id (:id grandchild)
+        (is (update-group perm-app :admin-addie {:id (:id grandchild)
                                                    :rule ["~" "name" ".*"]}))))
 
     (testing "when a group is viewed with inherited parameters and variables, values from groups
@@ -355,7 +337,7 @@
                                                            (:id grandchild) #{:view}}
                                  :viewable-group-ids #{(:id grandchild)}}}
             mem-store (in-memory-storage {:groups [root child grandchild], :classes classes})
-            perm-store (storage-with-mapped-permissions irving-permissions mem-store)
+            perm-app (app-with-mapped-permissions irving-permissions mem-store)
             redacted-ancestor-class8ns (map (comp group->classification redact-classification)
                                             [root child])
             grandchild-class8n (group->classification grandchild)
@@ -364,7 +346,7 @@
                                                      grandchild-class8n
                                                      redacted-ancestor-class8ns))]
         (is (= grandchild-with-redacted-values
-               (get-group-as-inherited perm-store :intern-irving (:id grandchild))))))))
+               (get-group-as-inherited perm-app :intern-irving (:id grandchild))))))))
 
 (deftest child-creation-constraints
   (testing "creating a child group"
@@ -385,7 +367,7 @@
                                                                 :view}}
                         :viewable-group-ids #{(:id child)}}}
           mem-store (in-memory-storage {:groups [root child]})
-          perm-store (storage-with-mapped-permissions permissions mem-store)]
+          perm-app (app-with-mapped-permissions permissions mem-store)]
 
       (testing "is denied if it has a different environment than its parent but the user does not
                have permission to edit the created group's environment"
@@ -395,8 +377,8 @@
                                :rule always-matches})
               same-env (assoc diff-env :environment (:environment child))]
           (is (thrown+? [:kind permission-denied]
-                        (create-group perm-store :operator-owen diff-env)))
-          (is (= same-env (create-group perm-store :operator-owen same-env)))))
+                        (create-group perm-app :operator-owen diff-env)))
+          (is (= same-env (create-group perm-app :operator-owen same-env)))))
 
       (testing "is allowed if it has a rule that doesn't match all nodes but the user does not have
                permission to edit the rules of the children of the to-be-created group's parent"
@@ -404,7 +386,7 @@
                                  {:parent (:id child)
                                   :rule [">" "'tude" "3.65"]
                                   :environment (:environment child)})]
-          (is (= custom-rule (create-group perm-store :operator-owen custom-rule)))))
+          (is (= custom-rule (create-group perm-app :operator-owen custom-rule)))))
 
       (testing "is allowed if it has classification values but the user does not have permission
                to edit the created group's classification"
@@ -414,7 +396,7 @@
                                 :environment (:environment child)
                                 :rule always-matches})
               wout-class8n (assoc w-class8n :variables {})]
-          (is (= w-class8n (create-group perm-store :operator-owen w-class8n))))))))
+          (is (= w-class8n (create-group perm-app :operator-owen w-class8n))))))))
 
 (deftest implicit-permissions
   (testing "if you have modify-children permissions for the ancestor of a group"
@@ -437,21 +419,21 @@
                                                                 :view}
                                                   (:id grandchild) #{}}
                         :viewable-group-ids #{(:id child)}}}
-          new-perm-store #(storage-with-mapped-permissions
-                            permissions
-                            (in-memory-storage {:groups [root child grandchild]}))]
+          new-perm-app #(app-with-mapped-permissions
+                          permissions
+                          (in-memory-storage {:groups [root child grandchild]}))]
 
       (testing "editing the group's rule is allowed"
         (let [rule-delta {:id (:id grandchild)
                           :rule [">" "'tude" "35"]}
               grandchild' (merge-and-clean grandchild rule-delta)]
-          (is (= grandchild' (update-group (new-perm-store) :operator-owen rule-delta)))))
+          (is (= grandchild' (update-group (new-perm-app) :operator-owen rule-delta)))))
 
       (testing "editing the group's classification is allowed"
         (let [class8n-delta {:id (:id grandchild)
                              :variables {:too_cool_for_school true}}
               grandchild' (merge-and-clean grandchild class8n-delta)]
-          (is (= grandchild' (update-group (new-perm-store) :operator-owen class8n-delta))))))))
+          (is (= grandchild' (update-group (new-perm-app) :operator-owen class8n-delta))))))))
 
 (deftest spurious-update-errors
   (let [root (merge (blank-group-named "default") {:id root-group-uuid})
@@ -470,7 +452,7 @@
                                                 (:id child) #{:edit-classification :view}}
                       :viewable-group-ids #{(:id child)}}}
         mem-store (in-memory-storage {:groups [root child]})
-        perm-store (storage-with-mapped-permissions permissions mem-store)]
+        perm-app (app-with-mapped-permissions permissions mem-store)]
 
     (testing "Updates that don't actually change a value don't throw a spurious permissions error"
       (let [spurious-environment-delta {:id (:id child)
@@ -483,11 +465,11 @@
                                  :rule (:rule child)
                                  :variables {:foo "qux"}}]
         (is (= (merge child spurious-environment-delta)
-               (update-group perm-store :operator-owen spurious-environment-delta)))
+               (update-group perm-app :operator-owen spurious-environment-delta)))
         (is (= (merge child spurious-parent-delta)
-               (update-group perm-store :operator-owen spurious-parent-delta)))
+               (update-group perm-app :operator-owen spurious-parent-delta)))
         (is (= (merge child spurious-rule-delta)
-               (update-group perm-store :operator-owen spurious-rule-delta)))))))
+               (update-group perm-app :operator-owen spurious-rule-delta)))))))
 
 (deftest explanation-scrubbing
   (let [node {:name "test-node", :fact {}, :trusted {}}
@@ -534,12 +516,12 @@
                                    (:id vis-child) true
                                    (:id invis-leaf) false}
                       :viewable-group-ids #{(:id vis-parent) (:id vis-child)}}}
-        perm-store-w-groups #(storage-with-mapped-permissions
-                               permissions
-                               (in-memory-storage {:groups % :classes (extract-classes %)}))]
+        perm-app-w-groups #(app-with-mapped-permissions
+                             permissions
+                             (in-memory-storage {:groups % :classes (extract-classes %)}))]
 
-    (let [perm-store (perm-store-w-groups groups)
-          exp (explain-classification perm-store :operator-owen node)
+    (let [perm-app (perm-app-w-groups groups)
+          exp (explain-classification perm-app :operator-owen node)
           {:keys [leaf-groups inherited-classifications final-classification]} exp]
 
       (testing "leaf groups token can't see are redacted"
@@ -579,8 +561,8 @@
                             :variables {:volume 10
                                         :jokes "chuckle-worthy"})
           groups' [root invis-gp vis-parent vis-child conflictor]
-          perm-store (perm-store-w-groups groups')
-          {:keys [conflicts]} (explain-classification perm-store :operator-owen node)]
+          perm-app (perm-app-w-groups groups')
+          {:keys [conflicts]} (explain-classification perm-app :operator-owen node)]
 
       (testing "conflicting values defined by invisible groups are redacted"
         (is (= {:classes

@@ -9,7 +9,9 @@
             [me.raynes.conch.low-level :refer [destroy proc stream-to] :rename {proc sh}]
             [schema.core :as sc]
             [schema.test]
+            [puppetlabs.http.client.sync :as phttp]
             [puppetlabs.kitchensink.core :refer [deep-merge ini-to-map mapkeys mapvals spit-ini]]
+            [puppetlabs.trapperkeeper.config :refer [load-config]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.http :refer [convert-uuids]]
             [puppetlabs.classifier.rules :as rules]
@@ -22,13 +24,13 @@
            java.util.regex.Pattern
            java.util.UUID))
 
+(def config-path (or (System/getenv "CLASSIFIER_CONFIG_PATH")
+                     "./dev-resources/test-conf.d"))
+
 (def test-config
   "Classifier base configuration used for tests in this namespace"
-  {:webserver {:classifier {:host "0.0.0.0"
-                            :port 1261
-                            :default-server true}}
-   :classifier {:puppet-master "https://localhost:8140"}
-   :web-router-service {:puppetlabs.classifier.main/classifier-service "/classifier"}})
+  (deep-merge (load-config config-path)
+              {:classifier {:access-control false}}))
 
 (defn- origin-url
   [app-config]
@@ -37,13 +39,17 @@
 
 (defn- base-url
   [app-config]
-  (let [{{:keys [url-prefix]} :webserver} app-config]
-    (str (origin-url app-config)
-         (get-in app-config [:web-router-service :puppetlabs.classifier.main/classifier-service]))))
+  (str (origin-url app-config)
+       (or (get-in app-config
+                   [:web-router-service :puppetlabs.classifier.main/classifier-service :route])
+           (get-in app-config
+                   [:web-router-service :puppetlabs.classifier.main/classifier-service]))))
 
 (defn- block-until-ready
   [proc config]
-  (let [exit-code (try (.exitValue (:process proc))
+  (let [ssl-context (if-let [context (get-in config [:test :ssl-context])]
+                      context)
+        exit-code (try (.exitValue (:process proc))
                     (catch IllegalThreadStateException _
                       nil))
         env-status (:status (try (http/get (str (base-url config) "/v1/environments")
@@ -53,12 +59,13 @@
     (cond
       exit-code exit-code
       (= env-status 200) nil
+      (= env-status 401) nil
       :else (do
               (Thread/sleep 250)
               (recur proc config)))))
 
 (defn start!
-  [config-path]
+  [config]
   "Initialize the database and then start a classifier server using the given
   config file, returning a conch process map describing the server instance
   process."
@@ -69,15 +76,15 @@
                            "classifier_test")
                  :password (or (System/getenv "CLASSIFIER_DBPASS")
                                "classifier_test")}
-        config-with-db (assoc-in test-config [:classifier :database] test-db)
-        test-config-file (java.io.File/createTempFile "classifier-test-" ".conf")
-        test-config-path (.getAbsolutePath test-config-file)
-        _ (spit test-config-file (json/encode config-with-db))
+        config-with-db (assoc-in config [:classifier :database] test-db)
+        config-file (java.io.File/createTempFile "classifier-test-" ".conf")
+        config-path (.getAbsolutePath config-file)
+        _ (spit config-file (json/encode config-with-db))
         {initdb-stat :exit
          initdb-err :err
          initdb-out :out} (blocking-sh "lein" "run"
                                        "-b" "resources/puppetlabs/classifier/initdb.cfg"
-                                       "-c" test-config-path)]
+                                       "-c" config-path)]
     (when-not (= initdb-stat 0)
       (binding [*out* *err*]
         (println "Could not initialize database! initdb service says:"
@@ -85,7 +92,7 @@
         (System/exit 1)))
     (let [server-proc (sh "lein" "trampoline" "run"
                           "-b" "resources/puppetlabs/classifier/bootstrap.cfg"
-                          "-c" test-config-path)
+                          "-c" config-path)
           timeout-ms 90000
           server-blocker (future (block-until-ready server-proc config-with-db))]
       ;; Block on the server starting for up to ninety seconds.
@@ -105,7 +112,7 @@
           (System/exit 2)))
       ;; The config file has already been read by the test instance, so we can
       ;; delete it.
-      (.delete test-config-file)
+      (.delete config-file)
       server-proc)))
 
 (defn stop!
@@ -116,15 +123,16 @@
     (.waitFor proc)
     (.exitValue proc)))
 
-(defn with-classifier-instance
+(defn with-classifier-instance-fixture
   "Fixture that re-initializes the database using the initdb service, then spins
   up a classifier server instance in a subprocess (killing it afterwards)."
-  [f]
-  (let [app-process (start! test-config)]
-    (f)
-    (stop! app-process)))
+  [config]
+  (fn [f]
+    (let [app-process (start! config)]
+      (try (f)
+        (finally (stop! app-process))))))
 
-(use-fixtures :once with-classifier-instance schema.test/validate-schemas)
+(use-fixtures :once (with-classifier-instance-fixture test-config) schema.test/validate-schemas)
 
 (deftest ^:acceptance smoke
   (let [base-url (base-url test-config)]
