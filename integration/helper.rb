@@ -219,17 +219,23 @@ module ClassifierExtensions
       if host.is_pe?
         on host, "service pe-console-services stop"
         on host, "service pe-console-services start"
+        sleep_until_started_ssl(host)
       else
         on host, "service classifier stop"
         on host, "service classifier start"
+        sleep_until_started(host)
       end
-      sleep_until_started(host)
     end
   end
 
   def sleep_until_started(host)
     prefix = classifier_prefix(host)
     curl_with_retries("start classifier", host, "http://localhost:#{CLASSIFIER_PORT}#{prefix}/v1/environments", 0, 120)
+  end
+
+  def sleep_until_started_ssl(host)
+    prefix = classifier_prefix(host)
+    curl_with_retries_ssl("start classifier", host, "https://localhost:#{CLASSIFIER_SSL_PORT}#{prefix}/v1/environments", 0, 120)
   end
 
   def get_package_version(host, version = nil)
@@ -480,14 +486,19 @@ module ClassifierExtensions
   def stop_classifier(host)
     if host.is_pe?
       on host, "service pe-console-services stop"
+      sleep_until_stopped_ssl(host)
     else
       on host, "service classifier stop"
+      sleep_until_stopped(host)
     end
-    sleep_until_stopped(host)
   end
 
   def sleep_until_stopped(host)
     curl_with_retries("stop classifier", host, "http://localhost:#{CLASSIFIER_PORT}", 7)
+  end
+
+  def sleep_until_stopped_ssl(host)
+    curl_with_retries_ssl("stop classifier", host, "http://localhost:#{CLASSIFIER_PORT}", 7)
   end
 
   def restart_classifier(host)
@@ -508,13 +519,14 @@ module ClassifierExtensions
     on host, puppet_apply("--detailed-exitcodes #{manifest_path}"), :acceptable_exit_codes => [0,2]
   end
 
-  def curl_with_retries(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
+  def curl_with_retries_ssl(desc, host, url, desired_exit_codes, max_retries = 60, retry_interval = 1)
+    curl_command = "curl --cacert `puppet agent --configprint localcacert` --cert `puppet agent --configprint hostcert` --key `puppet agent --configprint hostprivkey` --insecure -f "
     desired_exit_codes = [desired_exit_codes].flatten
-    on host, "curl -f #{url}", :acceptable_exit_codes => (0...127)
+    on(host, curl_command + url, :acceptable_exit_codes => (0...127))
     num_retries = 0
     until desired_exit_codes.include?(exit_code)
       sleep retry_interval
-      on host, "curl -f #{url}", :acceptable_exit_codes => (0...127)
+      on(host, curl_command + url, :acceptable_exit_codes => (0...127))
       num_retries += 1
       if (num_retries > max_retries)
         fail("Unable to #{desc}")
