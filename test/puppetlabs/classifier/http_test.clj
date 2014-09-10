@@ -623,7 +623,7 @@
 
     (testing "returns node check-ins"
       (let [{:keys [body status]} (handler (request :get (str "/v1/nodes/" (:name eris))))
-            fmt-dt (fn [dt] (fmt-time/unparse (fmt-time/formatters :date-time-no-ms) dt))
+            fmt-dt (fn [dt] (fmt-time/unparse (fmt-time/formatters :date-time) dt))
             check-ins (storage/get-check-ins mem-db (:name eris))
             expected-response {:name (:name eris)
                                :check_ins (->> check-ins

@@ -1,4 +1,5 @@
 [ {"display_name": "Franz Kafka"
+   ,"id": "c84bae61-f668-4a18-9a4a-5e33a97b716c"
    ,"login": "franz@kafka.com"
    ,"email": "franz@kafka.com"
    ,"password": "foobarbaz"
@@ -9,6 +10,7 @@
    ,"last_login" : null
    }
 , {"display_name": "Pat Cadigan"
+  ,"id": "33137ab4-a10f-48c9-9d40-5a3d88711520"
   ,"login": "pat@cadigan.co.nz"
   ,"email": "pat@cadigan.co.nz"
   ,"password": "abracadabra"

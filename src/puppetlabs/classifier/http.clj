@@ -31,7 +31,7 @@
 
 (defn- encode-json-with-iso-formatter
   [data]
-  (let [iso8601-formatter (fmt-time/formatters :date-time-no-ms)]
+  (let [iso8601-formatter (fmt-time/formatters :date-time)]
     (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
       (json/encode data {:key-fn clj-key->json-key}))))
 
