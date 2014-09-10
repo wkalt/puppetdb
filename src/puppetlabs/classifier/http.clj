@@ -31,7 +31,7 @@
 
 (defn- encode-json-with-iso-formatter
   [data]
-  (let [iso8601-formatter (fmt-time/formatters :date-time-no-ms)]
+  (let [iso8601-formatter (fmt-time/formatters :date-time)]
     (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
       (json/encode data {:key-fn clj-key->json-key}))))
 
@@ -380,7 +380,7 @@
 
             (ANY "/groups/:uuid" [uuid inherited :as {token :shiro-subject}]
                  (if (or (nil? inherited) (= inherited "false") (= inherited "0"))
-                   (group-resource app token api-prefix uuid)
+                   (group-resource app api-prefix token uuid)
                    (resource
                      :allowed-methods [:get]
                      :available-media-types ["application/json"]
