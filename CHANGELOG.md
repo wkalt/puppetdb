@@ -1,3 +1,6 @@
+### 0.7.0
+ * RBAC integration. Authentication uses whitelisted client certs, authorization is handled by RBAC service.
+
 ### 0.6.5
  * Separate config for client ssl certificates
  * Fix a bug with groups not being annotated
