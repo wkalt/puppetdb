@@ -17,11 +17,18 @@ step "Configure SSL on classifier" do
   conf = {}
   conf['webserver'] = {
     'classifier' => {
-      'default-server' => true,
       'host' => '0.0.0.0',
       'port' => CLASSIFIER_PORT,
       'ssl-host' => '0.0.0.0',
       'ssl-port' => CLASSIFIER_SSL_PORT,
+      'ssl-cert' => "#{ssldir}/cert.pem",
+      'ssl-key' => "#{ssldir}/key.pem",
+      'ssl-ca-cert' => "#{ssldir}/ca.pem"
+    },
+    'rbac' => {
+      'default-server' => true,
+      'host' => '0.0.0.0',
+      'port' => 8888,
       'ssl-cert' => "#{ssldir}/cert.pem",
       'ssl-key' => "#{ssldir}/key.pem",
       'ssl-ca-cert' => "#{ssldir}/ca.pem"
@@ -38,7 +45,20 @@ step "Configure SSL on classifier" do
   }
 
   conf['web-router-service'] = {
-    'puppetlabs.classifier.main/classifier-service' => ''
+    "puppetlabs.rbac.services.http.api/rbac-http-api-service" => "/rbac-api",
+    "puppetlabs.rbac.testutils.services.dev-login/dev-login-service" => "/auth",
+    'puppetlabs.classifier.main/classifier-service' => {
+      'route' => '',
+      'server' => 'classifier'
+    }
+  }
+
+  conf['rbac-database'] = {
+    'classname' => 'org.postgresql.Driver',
+    'subprotocol' => 'postgresql',
+    'subname' => 'perbac',
+    'user' => 'perbac',
+    'password' => 'perbac'
   }
 
   set_classifier_configuration(classifier, conf)

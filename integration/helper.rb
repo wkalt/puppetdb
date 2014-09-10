@@ -417,6 +417,13 @@ module ClassifierExtensions
     postgresql::server::db { '#{classifier_service_name(host)}':
       user => '#{classifier_service_name(host)}',
       password => 'classifier',
+      require => Class['::postgresql::server'],
+    }
+
+    postgresql::server::db { 'perbac':
+      user => 'perbac',
+      password => 'perbac',
+      require => Class['::postgresql::server'],
     }
     EOS
     apply_manifest_on(host, manifest)
