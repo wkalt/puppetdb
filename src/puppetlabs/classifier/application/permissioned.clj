@@ -252,22 +252,20 @@
               (throw+ (permission-exception :group-modify-children? token parent))
               (app/validate-group app group)))))
 
-
-
       (get-group [_ token id]
-        (let [group (storage/get-group storage id)
-              ancs (get-ancestors storage group)]
-          (if-not (group-view? token id ancs)
-            (throw+ (permission-exception :group-view? token id))
-            group)))
+        (if-let [group (storage/get-group storage id)]
+          (let [ancs (get-ancestors storage group)]
+            (if-not (group-view? token id ancs)
+              (throw+ (permission-exception :group-view? token id))
+              group))))
 
       (get-group-as-inherited [_ token id]
-        (let [group (storage/get-group storage id)
-              ancs (get-ancestors storage group)]
-          (if-not (group-view? token id ancs)
-            (throw+ (permission-exception :group-view? token id))
-            (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))]
-              (inherited-with-redaction (concat [group] ancs) viewable-ids)))))
+        (if-let [group (storage/get-group storage id)]
+          (let [ancs (get-ancestors storage group)]
+            (if-not (group-view? token id ancs)
+              (throw+ (permission-exception :group-view? token id))
+              (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))]
+                (inherited-with-redaction (concat [group] ancs) viewable-ids))))))
 
       (get-groups [_ token]
         (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
