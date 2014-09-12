@@ -87,7 +87,7 @@
                    :ancestors (if optimized?
                                 (storage/get-ancestors storage group)
                                 (naive/get-ancestors storage group))})
-          group))
+          (annotate group)))
 
       (update-group [_ delta]
         (when (and (= (:id delta) root-group-uuid)

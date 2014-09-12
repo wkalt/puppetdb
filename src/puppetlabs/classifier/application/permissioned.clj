@@ -223,6 +223,9 @@
                                       (apply f app args)
                                       (throw+ (permission-exception :all-group-access? token)))))
         storage (app/get-storage app)
+        annotate (if (satisfies? OptimizedStorage storage)
+                   #(storage/annotate-group storage %)
+                   #(naive/annotate-group storage %))
         get-ancestors (if (satisfies? OptimizedStorage storage)
                         storage/get-ancestors
                         naive/get-ancestors)
@@ -253,7 +256,7 @@
               (app/validate-group app group)))))
 
       (get-group [_ token id]
-        (if-let [group (storage/get-group storage id)]
+        (if-let [group (app/get-group app id)]
           (let [ancs (get-ancestors storage group)]
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
@@ -265,7 +268,7 @@
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
               (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))]
-                (inherited-with-redaction (concat [group] ancs) viewable-ids))))))
+                (annotate (inherited-with-redaction (concat [group] ancs) viewable-ids)))))))
 
       (get-groups [_ token]
         (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
@@ -273,7 +276,7 @@
               root-node (storage/get-subtree storage root)
               subtrees (viewable-subtrees (storage/get-subtree storage root) viewable-ids)]
           (for [subtree subtrees, group (tree->groups subtree)]
-            group)))
+            (annotate group))))
 
       (create-group [_ token {id :id, parent-id :parent, :as group}]
         (let [ancs (get-ancestors storage group)
@@ -307,7 +310,7 @@
           (check-update-permissions
             only-changes token id (:parent group') (:parent group) ancs' ancs permissions)
           (try+
-            (storage/update-group storage delta)
+            (app/update-group app delta)
             (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
               {:keys [tree ancestors]}
               (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
