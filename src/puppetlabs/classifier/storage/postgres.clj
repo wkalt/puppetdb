@@ -909,10 +909,11 @@
 (defn- import-tree
   [this {:keys [group children] :as node}]
   (let [only-group (assoc node :children #{})
-        ancestor-class8ns (map group->classification (storage/get-ancestors this group))
+        ancestors (storage/get-ancestors this group)
+        ancestor-class8ns (map group->classification ancestors)
         classes (get-all-classes* this)]
     (when-let [{missing-referents :errors} (validate-classes-and-parameters
-                                             only-group ancestor-class8ns classes)]
+                                             only-group ancestors classes)]
       (let [inherited-class8n (class8n/collapse-to-inherited (group->classification group)
                                                              ancestor-class8ns)]
         (insert-missing-referents this missing-referents inherited-class8n)))
