@@ -65,7 +65,7 @@
                           (compare name1 name2)))
         puppet-classes (-> (get-classes client-ssl-context puppet-master)
                          flatten)
-        _ (app/synchronize-classes app puppet-classes token)
+        _ (app/synchronize-classes app token puppet-classes)
         stop (time/now)]
     (log/info "Synchronized" (count puppet-classes) "classes from the Puppet Master in"
               (-> (time/interval start stop) time/in-seconds) "seconds")))
