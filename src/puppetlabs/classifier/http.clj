@@ -450,7 +450,8 @@
                    :available-media-types ["application/json"]
                    :post! (fn [_]
                             (class-updater/update-classes!
-                              (select-keys config [:puppet-master :client-ssl-context]) app))))
+                              (select-keys config [:puppet-master :client-ssl-context])
+                              app, token))))
 
             (GET "/last-class-update" [:as {token :shiro-subject}]
                  (resource
