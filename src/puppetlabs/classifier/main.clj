@@ -92,7 +92,7 @@
            (lib-rep-util/install-seq-representation-dispatcher! "application/json" json/encode)
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
-                          #(update-classes-and-log-errors! app-config default-app)
+                          #(update-classes-and-log-errors! app-config default-app nil)
                           job-pool))
            context))
 
