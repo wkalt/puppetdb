@@ -51,42 +51,50 @@
    RbacAuthzService
    [:RbacAuthnMiddleware wrap-authenticated]
    [:WebroutingService add-ring-handler add-servlet-handler get-route]]
+  (init [this context]
+        (let [config (get-config)
+              db-spec (config->db-spec config)
+              db (postgres/new-db db-spec)
+              api-prefix (get-route this)
+              app-config {:db db
+                          :api-prefix api-prefix
+                          :puppet-master (get-in config [:classifier :puppet-master])
+                          :client-ssl-context (or (init-ssl-context (get config :classifier))
+                                                  (init-ssl-context
+                                                    (get-in config [:webserver :classifier])))}
+              default-app (default-application app-config)
+              job-pool (at-at/mk-pool)]
+          (postgres/migrate db-spec)
+          (if (= (get-in config [:classifier :access-control]) false)
+            (let [handler (add-url-prefix api-prefix (http/api-handler default-app))]
+              (add-ring-handler this handler)
+              (log/warn "Access-control explicitly disabled in configuration, running without it"))
+            (let [authz-service (get-service this :RbacAuthzService)
+                  perm-fns (rbac-service-permissions authz-service)
+                  permd-app (app-with-permissions default-app perm-fns)
+                  permd-handler (->> (http/api-handler permd-app)
+                                  (add-url-prefix api-prefix)
+                                  wrap-authenticated
+                                  wrap-authn-errors)]
+              (add-servlet-handler this (servlet permd-handler))
+              (log/info "Access-control enabled")))
+          (assoc context
+                 :job-pool job-pool
+                 :app-config app-config
+                 :default-app default-app)))
+
   (start [this context]
-         (let [config (get-config)
-               db-spec (config->db-spec config)
-               db (postgres/new-db db-spec)
-               api-prefix (get-route this)
-               app-config {:db db
-                           :api-prefix api-prefix
-                           :puppet-master (get-in config [:classifier :puppet-master])
-                           :client-ssl-context (or (init-ssl-context (get config :classifier))
-                                                   (init-ssl-context
-                                                     (get-in config [:webserver :classifier])))}
-               default-app (default-application app-config)
-               sync-period (get-in config [:classifier :synchronization-period] default-sync-period)
-               job-pool (at-at/mk-pool)]
-           (postgres/migrate db-spec)
+         (let [{:keys [app-config default-app job-pool]} (service-context this)
+               config (get-config)
+               sync-period (get-in config [:classifier :synchronization-period] default-sync-period)]
            (add-common-json-encoders!)
+           (lib-rep-util/install-map-representation-dispatcher! "application/json" json/encode)
+           (lib-rep-util/install-seq-representation-dispatcher! "application/json" json/encode)
            (when (pos? sync-period)
              (at-at/every (* sync-period 1000)
                           #(update-classes-and-log-errors! app-config default-app)
                           job-pool))
-           (lib-rep-util/install-map-representation-dispatcher! "application/json" json/encode)
-           (lib-rep-util/install-seq-representation-dispatcher! "application/json" json/encode)
-           (if (= (get-in config [:classifier :access-control]) false)
-             (let [handler (add-url-prefix api-prefix (http/api-handler default-app))]
-               (add-ring-handler this handler)
-               (log/warn "Access-control explicitly disabled in configuration, running without it"))
-             (let [authz-service (get-service this :RbacAuthzService)
-                   perm-fns (rbac-service-permissions authz-service)
-                   permd-app (app-with-permissions default-app perm-fns)
-                   permd-handler (->> (http/api-handler permd-app)
-                                   (add-url-prefix api-prefix)
-                                   wrap-authenticated
-                                   wrap-authn-errors)]
-               (add-servlet-handler this (servlet permd-handler))
-               (log/info "Access-control enabled")))
-           (assoc context :job-pool job-pool)))
+           context))
 
   (stop [this _]
         (let [{:keys [job-pool]} (service-context this)]
