@@ -1,11 +1,13 @@
 (ns puppetlabs.classifier.main
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
+            [cheshire.core :as json]
             [compojure.core :refer [context]]
             [overtone.at-at :as at-at]
             [ring.util.servlet :refer [servlet]]
             [puppetlabs.certificate-authority.core :as ssl]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
+            [puppetlabs.liberator-util.representation :as lib-rep-util]
             [puppetlabs.trapperkeeper.core :refer [defservice]]
             [puppetlabs.trapperkeeper.services :refer [get-service service-context]]
             [puppetlabs.classifier.application.default :refer [default-application]]
@@ -69,6 +71,8 @@
              (at-at/every (* sync-period 1000)
                           #(update-classes-and-log-errors! app-config default-app)
                           job-pool))
+           (lib-rep-util/install-map-representation-dispatcher! "application/json" json/encode)
+           (lib-rep-util/install-seq-representation-dispatcher! "application/json" json/encode)
            (if (= (get-in config [:classifier :access-control]) false)
              (let [handler (add-url-prefix api-prefix (http/api-handler default-app))]
                (add-ring-handler this handler)

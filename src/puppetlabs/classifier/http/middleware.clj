@@ -2,15 +2,20 @@
   (:require [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.walk :refer [postwalk]]
+            [clj-time.format :as fmt-time]
+            [cheshire.core :as json]
             [cheshire.generate :as gen]
             [clj-stacktrace.repl]
             [slingshot.slingshot :refer [try+]]
             [schema.core :as sc]
+            [puppetlabs.kitchensink.json :refer [with-datetime-encoder]]
+            [puppetlabs.liberator-util.representation :refer [map-encoder-wrapper
+                                                              seq-encoder-wrapper]]
             [puppetlabs.rbac.services.http.middleware :refer [ssl?]]
             [puppetlabs.schema-tools :refer [explain-and-simplify-exception-data]]
             [puppetlabs.classifier.classification :as class8n]
             [puppetlabs.classifier.schema :refer [group->classification]]
-            [puppetlabs.classifier.util :refer [encode to-sentence uuid?]
+            [puppetlabs.classifier.util :refer [clj-key->json-key encode to-sentence uuid?]
                                         :rename {encode encode-and-translate-keys}]))
 
 (defn- log-exception
@@ -362,6 +367,15 @@
                             ".")
                   :details ""})}))))
 
+(defn encode-json-with-iso-formatter
+  [data]
+  (let [iso8601-formatter (fmt-time/formatters :date-time)]
+    (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
+      (json/encode data {:key-fn clj-key->json-key}))))
+
+(def wrap-json-map-encoder (map-encoder-wrapper "application/json" encode-json-with-iso-formatter))
+(def wrap-json-seq-encoder (seq-encoder-wrapper "application/json" encode-json-with-iso-formatter))
+
 (defn wrap-errors-with-explanations
   [handler]
   "The standard set of middleware wrappers to use"
@@ -378,6 +392,8 @@
     wrap-children-present-explanations
     wrap-unexpected-response-explanations
     wrap-permission-denied-explanations
+    wrap-json-map-encoder
+    wrap-json-seq-encoder
     wrap-error-catchall))
 
 (defn wrap-authn-errors
