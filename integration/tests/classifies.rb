@@ -9,7 +9,8 @@ clear_and_restart_classifier(classifier)
 
 testdir = master.tmpdir('test_classifies')
 
-create_remote_file(master, "#{testdir}/site.pp", <<-PP)
+on master, "mkdir -p #{testdir}/environments/production/manifests"
+create_remote_file(master, "#{testdir}/environments/production/manifests/site.pp", <<-PP)
 class foo {
   notify { "classified as foo": }
 }
@@ -21,7 +22,7 @@ on master, "chmod -R ug+rwX,o+rX #{testdir}"
 master_opts = {
   'master' => {
     'node_terminus' => 'classifier',
-    'manifest' => "#{testdir}/site.pp",
+    'environmentpath' => "#{testdir}/environments",
     'basemodulepath' => "#{testdir}/modules",
     'modulepath' => "#{testdir}/modules",
     'verbose' => true,
