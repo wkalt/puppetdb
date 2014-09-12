@@ -68,7 +68,7 @@
 
 (defn migrate [db]
   (migratus/migrate {:store :database
-                     :migration-dir "migrations"
+                     :migration-dir "puppetlabs/classifier/migrations"
                      :db db}))
 
 (defn- throw-uniqueness-failure
