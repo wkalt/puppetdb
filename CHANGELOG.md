@@ -1,3 +1,11 @@
+### 0.7.2
+ * Fix bug when triggering class updates
+
+### 0.7.1
+ * Fix bug when creating groups with RBAC
+ * Fix bug where liberator representation clashed with other services
+ * Fix bug in /group/:id
+
 ### 0.7.0
  * RBAC integration. Authentication uses whitelisted client certs, authorization is handled by RBAC service.
 
