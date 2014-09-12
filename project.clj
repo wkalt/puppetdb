@@ -33,6 +33,7 @@
                  [puppetlabs/http-client "0.2.6" :exclusions [commons-io]]
                  [puppetlabs/certificate-authority "0.5.0"]
                  [puppetlabs/kitchensink ~ks-version]
+                 [puppetlabs/liberator-util "0.2.0"]
                  [puppetlabs/schema-tools "0.1.0" :exclusions [prismatic/schema]]
                  [puppetlabs/trapperkeeper ~tk-version]]
   :profiles {:dev {:dependencies [[clj-http "0.7.9" :exclusions [org.apache.httpcomponents/httpclient]]

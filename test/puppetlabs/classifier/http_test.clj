@@ -9,6 +9,7 @@
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge mapkeys mapvals]]
             [puppetlabs.kitchensink.json :refer [add-common-json-encoders!]]
+            [puppetlabs.liberator-util.representation :as lib-rep-util]
             [puppetlabs.classifier.application :refer [Classifier]]
             [puppetlabs.classifier.application.default :refer [default-application]]
             [puppetlabs.classifier.http :refer :all]
@@ -32,7 +33,16 @@
   (add-common-json-encoders!)
   (f))
 
-(use-fixtures :once json-encoders-fixture schema.test/validate-schemas)
+(defn liberator-representation-dispatchers-fixture
+  [f]
+  (lib-rep-util/install-map-representation-dispatcher! "application/json" encode)
+  (lib-rep-util/install-seq-representation-dispatcher! "application/json" encode)
+  (f))
+
+(use-fixtures :once
+              json-encoders-fixture
+              liberator-representation-dispatchers-fixture
+              schema.test/validate-schemas)
 
 (deftest crud
   (let [test-obj-name "test-obj"

@@ -3,16 +3,13 @@
             [clojure.string :as str]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [clj-time.format :as fmt-time]
             [compojure.core :refer [routes context GET POST PUT ANY]]
             [compojure.route :as route]
             [compojure.handler :as handler]
             [liberator.core :refer [resource run-resource]]
-            [liberator.representation :as liberator-representation]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+]]
             [puppetlabs.kitchensink.core :refer [deep-merge]]
-            [puppetlabs.kitchensink.json :refer [with-datetime-encoder]]
             [puppetlabs.classifier.application :refer [Classifier]]
             [puppetlabs.classifier.application.polymorphic :as app]
             [puppetlabs.classifier.class-updater :as class-updater]
@@ -22,26 +19,12 @@
             [puppetlabs.classifier.schema :refer [Environment Group GroupDelta group-delta
                                                   group->classification Node PuppetClass
                                                   SubmittedNode]]
-            [puppetlabs.classifier.util :refer [clj-key->json-key json-key->clj-key uuid?]])
+            [puppetlabs.classifier.util :refer [uuid?]])
   (:import com.fasterxml.jackson.core.JsonParseException
            java.util.UUID))
 
 ;; Liberator Resources
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-(defn- encode-json-with-iso-formatter
-  [data]
-  (let [iso8601-formatter (fmt-time/formatters :date-time)]
-    (with-datetime-encoder (fn [dt gen] (.writeString gen (fmt-time/unparse iso8601-formatter dt)))
-      (json/encode data {:key-fn clj-key->json-key}))))
-
-(defmethod liberator-representation/render-map-generic "application/json"
-  [data _]
-  (encode-json-with-iso-formatter data))
-
-(defmethod liberator-representation/render-seq-generic "application/json"
-  [data _]
-  (encode-json-with-iso-formatter data))
 
 (defn handle-404
   [ctx]
