@@ -434,7 +434,7 @@
       (get-classes [_ _ environment-name]
         (app/get-classes app environment-name))
       (get-all-classes [_ _]
-        (app/get-all-classes app)
+        (app/get-all-classes app))
       (synchronize-classes [_ _ puppet-classes]
         (app/synchronize-classes app puppet-classes))
       (get-last-sync [_ _]
