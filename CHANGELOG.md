@@ -1,3 +1,7 @@
+### 0.7.3
+ * Fix bug causing a 500 in the /v1/classes endpoint when access-control was enabled.
+ * Fix bug where groups were not annotated when access-control was enabled.
+
 ### 0.7.2
  * Fix bug when triggering class updates
 
