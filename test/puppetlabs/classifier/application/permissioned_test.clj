@@ -270,7 +270,8 @@
                                                            [class-kw (mapvals redact params)]))
                                        :variables (mapvals redact variables)))
         classes [{:name "oval-office-tapes", :environment "test", :parameters {:transcript ""}}
-                 {:name "ze-missiles", :environment "test", :parameters {:launch-code "00000"}}]
+                 {:name "ze-missiles", :environment "test", :parameters {:launch-code "00000"}}
+                 {:name "cafeteria", :environment "test", :parameters {:lunch "pink slime"}}]
         root (merge (blank-group-named "default")
                     {:id root-group-uuid
                      :classes {:oval-office-tapes

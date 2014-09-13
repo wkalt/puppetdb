@@ -168,9 +168,9 @@
 ;; Utilities for creating & converting maps conforming to the Schemas
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(defn group->classification
-  [group]
-  (dissoc group :name :id :description :parent :rule))
+(sc/defn group->classification :- Classification
+  [group :- Group]
+  (select-keys group (keys Classification)))
 
 (defn group->rule
   [group]
