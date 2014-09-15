@@ -41,6 +41,7 @@
                                   [ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
+                                  [puppetlabs/pe-activity-service "0.1.7"]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version :classifier "test"]
                                   [puppetlabs/pe-trapperkeeper-ldap-apacheds "0.2.9"

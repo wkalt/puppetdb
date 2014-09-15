@@ -3,10 +3,12 @@
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
+            [puppetlabs.activity.application :refer [report-activity!]]
             [puppetlabs.kitchensink.core :refer [mapvals]]
             [puppetlabs.classifier.application :as app :refer [Classifier]]
             [puppetlabs.classifier.application.default :refer [matching-groups-and-ancestors]]
             [puppetlabs.classifier.classification :as class8n]
+            [puppetlabs.classifier.reporting :refer [creation-report delta-report deletion-report]]
             [puppetlabs.classifier.schema :refer [group->classification hierarchy-zipper
                                                   tree->groups]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid OptimizedStorage
@@ -234,7 +236,8 @@
                         naive/get-group-ids)
         group-validation-failures (if (satisfies? OptimizedStorage storage)
                                     storage/group-validation-failures
-                                    naive/group-validation-failures)]
+                                    naive/group-validation-failures)
+        {:keys [activity-service]} (app/get-config app)]
 
     (reify PermissionedClassifier
       (get-config [_] (app/get-config app))
@@ -299,7 +302,10 @@
                                              " than its parent's environment of "
                                              (pr-str (:environment parent)) " because you"
                                              " can't edit the parent's environment"))))
-          (storage/create-group storage group)))
+          (let [storage-result (storage/create-group storage group)]
+            (when (not= activity-service :disabled)
+              (report-activity! activity-service (creation-report token group)))
+            storage-result)))
 
       (update-group [_ token {id :id :as delta}]
         (let [group (storage/get-group storage id)
@@ -312,7 +318,10 @@
           (check-update-permissions
             only-changes token id (:parent group') (:parent group) ancs' ancs permissions)
           (try+
-            (app/update-group app delta)
+            (let [storage-result (app/update-group app delta)]
+              (when (not= activity-service :disabled)
+                (report-activity! activity-service (delta-report token only-changes group')))
+              storage-result)
             (catch [:kind :puppetlabs.classifier.storage.postgres/missing-referents]
               {:keys [tree ancestors]}
               (throw+ {:kind :puppetlabs.classifier.storage.postgres/missing-referents
@@ -324,9 +333,12 @@
       (delete-group [_ token id]
         (if-let [{:keys [parent] :as group} (storage/get-group storage id)]
           (let [ancs (get-ancestors storage group)]
-            (if (group-modify-children? token parent (rest ancs))
-              (storage/delete-group storage id)
-              (throw+ (permission-exception :group-modify-children? token parent))))))
+            (if-not (group-modify-children? token parent (rest ancs))
+              (throw+ (permission-exception :group-modify-children? token parent))
+              (let [storage-result (storage/delete-group storage id)]
+                (when (not= activity-service :disabled)
+                  (report-activity! activity-service (deletion-report token group)))
+                storage-result)))))
 
       (import-hierarchy [_ token groups]
         ;; in order to import a new hierarchy, the subject needs to have
@@ -339,7 +351,11 @@
           (when-not (= (set/intersection required-actions root-actions) required-actions)
             (let [missing-actions (set/difference required-actions root-actions)]
               (throw+ (permission-exception (first missing-actions)))))
-          (storage/import-hierarchy storage groups)))
+          (let [storage-result (storage/import-hierarchy storage groups)]
+            (doseq [group groups]
+              (when (not= activity-service :disabled)
+                (report-activity! activity-service (creation-report token group))))
+            storage-result)))
 
       ;;
       ;; Node Check-In methods

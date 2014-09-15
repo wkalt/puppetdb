@@ -62,7 +62,8 @@
                                              :group-modify-children?
                                              :group-view?
                                              :permitted-group-actions])))]
-    (app-with-permissions (default-application {:db mem-store}) permission-fns)))
+    (app-with-permissions (default-application {:db mem-store, :activity-service :disabled})
+                          permission-fns)))
 
 (def ^:private permission-denied :puppetlabs.classifier.application.permissioned/permission-denied)
 

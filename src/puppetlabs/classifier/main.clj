@@ -48,7 +48,8 @@
       (ssl/pems->ssl-context ssl-cert ssl-key ssl-ca-cert)))
 
 (defservice classifier-service
-  [[:ConfigService get-config]
+  [ActivityReportingService
+   [:ConfigService get-config]
    RbacAuthzService
    [:RbacAuthnMiddleware wrap-authenticated]
    [:WebroutingService add-ring-handler add-servlet-handler get-route]]
@@ -60,6 +61,7 @@
               app-config {:db db
                           :api-prefix api-prefix
                           :puppet-master (get-in config [:classifier :puppet-master])
+                          :activity-service (get-service this :ActivityReportingService)
                           :client-ssl-context (or (init-ssl-context (get config :classifier))
                                                   (init-ssl-context
                                                     (get-in config [:webserver :classifier])))}
