@@ -27,7 +27,7 @@
                       (some identity)
                       boolean))
         action-for-any-id? (fn [subj action ids]
-                             (any-perm? subj (map (partial perm-str action) ids)))]
+                             (any-perm? subj (map (partial perm-str action) (conj ids "*"))))]
     {:all-group-access? (fn [subj]
                           (authz/is-permitted? svc subj (perm-str :view "*")))
      :group-edit-classification? (fn [subj id ancs]
