@@ -65,7 +65,18 @@
        (testing "gets a 200 if the action is permitted"
          (let [resp (phttp/get (str test-base-url "/v1/groups/" root-group-uuid)
                                {:ssl-context test-ssl-context})]
-           (is (= 200 (:status resp)))))
+           (is (= 200 (:status resp))))
+
+         (let [resp (phttp/post (str test-base-url "/v1/groups")
+                                {:ssl-context test-ssl-context
+                                 :headers {"Content-Type" "application/json"}
+                                 :body (json/encode {:name "test"
+                                                     :parent root-group-uuid
+                                                     :rule ["=" "name" "foo"]
+                                                     :classes {}})})]
+           (is (= 200 (:status resp)))
+           (println (-> resp :body io/reader line-seq str/join))))
+
 
        (testing "gets a 403 if the action is not permitted"
          (let [test-role {:display_name "NC RBAC acceptance test"
