@@ -14,11 +14,19 @@
 (defn get-environments
   [ssl-context puppet-origin]
   (let [search-url (str puppet-origin "/v2.0/environments")
+        _ (log/info "Requesting environment list from" (pr-str search-url))
         {:keys [status] :as response} (http/get search-url
                                                 {:ssl-context ssl-context
                                                  :as :stream
                                                  :headers {"Accept" "application/json"}})
         body (slurp (:body response) :encoding "UTF-8")]
+
+    (let [log-msg (fn [status]
+                    (str status " response received for request for environments from "
+                         (pr-str search-url)))]
+      (if (= status 200)
+        (log/info (log-msg 200))
+        (log/error (log-msg status))))
 
     (when-not (= 200 status)
       (throw-unexpected-response response body search-url))
@@ -32,11 +40,21 @@
   [ssl-context puppet-origin environment]
   (let [environment (name environment)
         search-url (str puppet-origin "/" environment "/resource_types/*")
+        _ (log/info "Requesting classes in" environment "from" (pr-str search-url))
         {:keys [status] :as response} (http/get search-url
                                                 {:ssl-context ssl-context
                                                  :as :stream
                                                  :headers {"Accept" "text/pson"}})
         body (slurp (:body response) :encoding "ISO-8859-1")]
+
+    (let [log-msg (fn [status]
+                    (str status " response received for request for classes in " environment
+                         " from " (pr-str search-url)))]
+      (condp = status
+        200 (log/info (log-msg 200))
+        404 (log/warn (log-msg 404))
+        (log/error (log-msg status))))
+
     (condp = status
       200 (for [class (json/decode body true)]
             (-> class
