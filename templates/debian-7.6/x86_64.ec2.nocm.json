@@ -1,0 +1,50 @@
+{
+
+    "variables":
+    {
+        "template_name": "debian-7.6-x86_64",
+
+            "aws_access_key": "",
+            "aws_secret_key": "",
+            "url": "",
+            "provisioner": "ec2"
+    },
+
+        "builders": [
+        {
+            "name": "amazon-ebs-us-west-2",
+            "access_key": "{{user `aws_access_key`}}",
+            "secret_key": "{{user `aws_secret_key`}}",
+            "type": "amazon-ebs",
+            "region": "us-west-2",
+            "source_ami": "ami-f1c5bcc1",
+            "instance_type": "c1.medium",
+            "ssh_username": "admin",
+            "region": "us-west-2",
+            "ami_regions": ["us-west-2"],
+            "ami_description": "puppetlabs-debian-7.6-x64_64 {{timestamp}}",
+            "ami_name": "puppetlabs-debian-7.6-x64_64 {{timestamp}}",
+            "ssh_timeout": "10000s"
+        }
+    ],
+
+        "provisioners": [
+
+        {"type":"shell",
+         "inline": ["echo {{user `url`}}"]
+         },
+
+        {   "type": "shell",
+            "inline": ["mkdir /tmp/manifests"]
+        },
+
+        {   "type": "file",
+            "source": "../../manifests/",
+            "destination": "/tmp/manifests"
+        },
+        {
+            "type": "shell",
+            "execute_command": "sh {{.Path}} {{user `url`}}",
+            "scripts": ["../../scripts/bootstrap-ec2.sh"]
+        }]
+}

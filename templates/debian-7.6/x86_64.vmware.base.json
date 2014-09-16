@@ -14,7 +14,7 @@
 
       "provisioner": "vmware",
       "required_modules": "puppetlabs-stdlib saz-ssh",
-      "puppet_nfs": "{{env `PUPPET_NFS`}}"
+            "puppet_nfs": "kalki.delivery.puppetlabs.net:/srv/puppet"
     },
 
   "builders": [
