@@ -65,4 +65,4 @@
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
   ;; Put our puppet plugin code in the jar because that's where packaging
   ;; expects it
-  :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/classifier"])
+  :resource-paths ["resources" "puppet/lib" "resources/puppetlabs/classifier" "resources/ext/docs"])
