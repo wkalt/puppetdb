@@ -27,7 +27,8 @@
 
 (defn- config->db-spec
   [{{:keys [database]} :classifier}]
-  (merge default-db-spec database))
+  (-> (merge default-db-spec database)
+    (update-in [:subname] str "?characterEncoding=UTF-8")))
 
 (defn on-shutdown
   []
