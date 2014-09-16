@@ -1,7 +1,11 @@
 source ENV['GEM_SOURCE'] || 'https://rubygems.org'
 
 group :test do
-  gem 'beaker', :git => "git://github.com/puppetlabs/beaker.git"
+  if ENV['GEM_SOURCE']
+    gem 'pe-beaker'
+  else
+    gem 'beaker'
+  end
   gem 'httparty'
   gem 'uuidtools'
 end
