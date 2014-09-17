@@ -4,7 +4,7 @@
 
 (def tk-version "0.5.1")
 (def ks-version "0.7.2")
-(def rbac-svc-version "0.1.12")
+(def rbac-svc-version "0.1.13")
 
 (defn deploy-info
   [url]

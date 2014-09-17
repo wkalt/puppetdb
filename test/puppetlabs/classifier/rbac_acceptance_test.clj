@@ -24,10 +24,10 @@
   (-> (load-config config-path)
     config-with-rbac-db-from-env
     (deep-merge {:classifier {:access-control true}
-                 :global {:certificate-whitelist "./dev-resources/ssl/certs.txt"}})))
+                 :rbac {:certificate-whitelist "./dev-resources/ssl/certs.txt"}})))
 
 (def neg-test-config
-  (assoc-in pos-test-config [:global :certificate-whitelist] "./dev-resources/ssl/bogus-certs.txt"))
+  (assoc-in pos-test-config [:rbac :certificate-whitelist] "./dev-resources/ssl/bogus-certs.txt"))
 
 (defn- origin-url
   [app-config]
