@@ -4,7 +4,7 @@
             [puppetlabs.classifier.util :refer :all])
   (:import java.util.UUID))
 
-(deftest map-deltas
+(deftest ^:unit map-deltas
   (testing "a map delta"
     (let [m1 {:same "same", :rm'd "gone", :changed "old-val"
               :nested {:also-rm'd nil, :also-same "same", :also-changed "old-val"}}
@@ -23,7 +23,7 @@
       (testing "yields the second map when applied to first using merge-and-clean"
         (is (= m2 (merge-and-clean m1 delta)))))))
 
-(deftest merge-and-clean-maps
+(deftest ^:unit merge-and-clean-maps
   (let [group {:name "agroup"
                :environment "production"
                :classes {:aclass {:verbose true, :log "info"}}
@@ -41,7 +41,7 @@
     (testing "remove nested keys without disturbing siblings"
       (is (= {:aclass {:verbose true}} (:classes (merge-and-clean group rm-log-param)))))))
 
-(deftest relative-complement
+(deftest ^:unit relative-complement
   (let [seq-a '({:a "one" :b "ha"}
                 {:a "two" :b "sdf"}
                 {:a "three" :b "kjher"})
@@ -55,7 +55,7 @@
               [[{:a "two" :b "sdf"} {:a "two" :b "234"}]
                [{:a "three" :b "kjher"} {:a "three" :b "123"}]]])))))
 
-(deftest uuid-handling
+(deftest ^:unit uuid-handling
   (testing "nil is not a uuid" (is (false? (uuid? nil))))
   (testing "numbers are not UUIDs" (is (false? (uuid? 42))))
   (testing "strings that don't have UUIDS are not UUIDs" (is (false? (uuid? (str "not-uuid")))))
