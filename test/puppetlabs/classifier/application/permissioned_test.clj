@@ -8,7 +8,7 @@
             [puppetlabs.kitchensink.core :refer [deep-merge mapvals]]
             [puppetlabs.classifier.application :refer [Classifier]]
             [puppetlabs.classifier.application.default :refer [default-application]]
-            [puppetlabs.classifier.classification :refer [collapse-to-inherited]]
+            [puppetlabs.classifier.classification :refer [collapse-to-inherited inherited-rule]]
             [puppetlabs.classifier.rules :refer [always-matches]]
             [puppetlabs.classifier.schema :refer [group->classification]]
             [puppetlabs.classifier.storage :as storage :refer [root-group-uuid PrimitiveStorage]]
@@ -342,10 +342,12 @@
             redacted-ancestor-class8ns (map (comp group->classification redact-classification)
                                             [root child])
             grandchild-class8n (group->classification grandchild)
+            chain (concat [grandchild child root])
             grandchild-with-redacted-values (merge grandchild
                                                    (collapse-to-inherited
                                                      grandchild-class8n
-                                                     redacted-ancestor-class8ns))]
+                                                     redacted-ancestor-class8ns)
+                                                   {:rule (inherited-rule chain)})]
         (is (= grandchild-with-redacted-values
                (get-group-as-inherited perm-app :intern-irving (:id grandchild))))))))
 

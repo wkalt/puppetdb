@@ -14,7 +14,8 @@
   node matched to that group's ancestors."
   [storage node]
   (let [maybe-matching-ids (set (class8n/matching-groups node (storage/get-rules storage)))
-        maybe-matching-groups (map (partial storage/get-group storage) maybe-matching-ids)
+        maybe-matching-groups (->> (map (partial storage/get-group storage) maybe-matching-ids)
+                                (remove (comp nil? :rule))) ;; may be redundant
         mmg->ancs (get-groups-ancestors storage maybe-matching-groups)
         w-full-rules (for [[mmg ancs] mmg->ancs]
                        (assoc mmg :full-rule (class8n/inherited-rule (concat [mmg] ancs))))
@@ -111,9 +112,7 @@
                 inherited-rule (class8n/inherited-rule chain)
                 w-inherited (-> (merge group inherited)
                               annotate)]
-            (if (contains? group :rule)
-              (assoc w-inherited :rule inherited-rule)
-              (dissoc w-inherited :rule)))))
+            (assoc w-inherited :rule inherited-rule))))
 
       (get-groups [_]
         (let [groups (storage/get-groups storage)]

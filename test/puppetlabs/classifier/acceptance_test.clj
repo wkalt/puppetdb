@@ -545,6 +545,9 @@
 (deftest ^:acceptance inherited-group-view
   (testing "retrieving an inherited view of a group"
     (let [base-url (base-url test-config)
+          root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
+                 :body
+                 (json/decode true))
           crotchety-ancestor {:name "Hubert"
                               :id (UUID/randomUUID)
                               :environment "production"
@@ -589,10 +592,7 @@
                   {:content-type :json, :body (json/encode group)}))
 
       (testing "works as expected"
-        (let [root (-> (http/get (str base-url "/v1/groups/" root-group-uuid))
-                     :body
-                     (json/decode true))
-              as-inherited (assoc (deep-merge crotchety-ancestor child)
+        (let [as-inherited (assoc (deep-merge crotchety-ancestor child)
                                   :rule (concat ["and"] (map :rule [child crotchety-ancestor root])))
               child-path (str "/v1/groups/" (:id child))
               {:keys [body status]} (http/get (str base-url child-path)
@@ -609,7 +609,8 @@
                            (dissoc :rule))
               grandchild-url (str base-url "/v1/groups/" (:id grandchild))
               as-inherited (-> (deep-merge crotchety-ancestor child grandchild)
-                             (dissoc :rule))
+                             (assoc :rule (concat '("and") (map :rule
+                                                                [child crotchety-ancestor root]))))
               _ (http/put grandchild-url {:throw-entire-message? true, :content-type :json, :body (json/encode grandchild)})
               {:keys [body status]} (http/get grandchild-url {:query-params {"inherited" "true"}})
               retrieved (-> body

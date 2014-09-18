@@ -267,8 +267,10 @@
           (let [ancs (get-ancestors storage group)]
             (if-not (group-view? token id ancs)
               (throw+ (permission-exception :group-view? token id))
-              (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))]
-                (annotate (inherited-with-redaction (concat [group] ancs) viewable-ids)))))))
+              (let [viewable-ids (viewable-group-ids token (map :id (conj ancs group)))
+                    inheritance-chain (concat [group] ancs)]
+                (annotate (-> (inherited-with-redaction inheritance-chain viewable-ids)
+                            (assoc :rule (class8n/inherited-rule inheritance-chain)))))))))
 
       (get-groups [_ token]
         (let [viewable-ids (viewable-group-ids token (get-group-ids storage))
