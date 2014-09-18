@@ -34,7 +34,7 @@
   (let [{{{host :ssl-host port :ssl-port} :classifier} :webserver} app-config]
     (str "https://" (if (= host "0.0.0.0") "localhost" host) ":" port)))
 
-(defn- base-url
+(defn base-url
   [app-config]
   (str (origin-url app-config)
        (or (get-in app-config

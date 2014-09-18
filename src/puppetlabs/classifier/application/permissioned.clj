@@ -3,7 +3,7 @@
             [fast-zip.visit :as zv]
             [schema.core :as sc]
             [slingshot.slingshot :refer [throw+ try+]]
-            [puppetlabs.activity.application :refer [report-activity!]]
+            [puppetlabs.activity.services :refer [report-activity!]]
             [puppetlabs.kitchensink.core :refer [mapvals]]
             [puppetlabs.classifier.application :as app :refer [Classifier]]
             [puppetlabs.classifier.application.default :refer [matching-groups-and-ancestors]]
@@ -19,7 +19,6 @@
 ;;
 ;; Permission-related Protocols & Schemas
 ;;
-
 (defprotocol PermissionedClassifier
   (get-config [this] "Returns a map of the configuration settings for the application.")
   (get-storage [this] "Returns the storage implementation used by the application.")

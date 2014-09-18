@@ -5,6 +5,7 @@
 (def tk-version "0.5.1")
 (def ks-version "0.7.2")
 (def rbac-svc-version "0.1.13")
+(def activity-svc-version "0.1.8")
 
 (defn deploy-info
   [url]
@@ -41,7 +42,7 @@
                                   [ring-mock "0.1.5"]
                                   [spyscope "0.1.3" :exclusions [[clj-time]]]
                                   [puppetlabs/kitchensink ~ks-version :classifier "test"]
-                                  [puppetlabs/pe-activity-service "0.1.7"]
+                                  [puppetlabs/pe-activity-service ~activity-svc-version]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version]
                                   [puppetlabs/pe-rbac-service ~rbac-svc-version :classifier "test"]
                                   [puppetlabs/pe-trapperkeeper-ldap-apacheds "0.2.9"
