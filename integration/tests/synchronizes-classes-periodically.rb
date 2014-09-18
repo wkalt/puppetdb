@@ -51,7 +51,7 @@ master_opts = {
 step "Configure and restart the classifier"
 
 ClassifierSyncPeriod = 20
-SyncDurationUpperBound = 15
+SyncDurationUpperBound = 30
 conf = {'classifier' => {'synchronization-period' => ClassifierSyncPeriod}}
 write_conf_file(classifier, "sync.conf", conf)
 
