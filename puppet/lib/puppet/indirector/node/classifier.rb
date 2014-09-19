@@ -49,10 +49,10 @@ class Puppet::Node::Classifier < Puppet::Indirector::Code
     node = nil
     if response.is_a? Net::HTTPSuccess
       result = JSON.parse(response.body)
-      if (result["environment"] == AgentSpecifiedEnvironment)
-        result.delete("environment")
-      end
+      is_agent_specified = (result["environment"] == AgentSpecifiedEnvironment)
+      result.delete("environment") if is_agent_specified
       node = Puppet::Node.from_data_hash(result)
+      node.environment = request.environment if is_agent_specified
       node.fact_merge
     else
       response.error!

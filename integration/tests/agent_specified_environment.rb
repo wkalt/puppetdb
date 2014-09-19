@@ -15,6 +15,12 @@ class echo_environment {
   notify { "environment is ${environment}": }
 }
 PP
+on master, "mkdir -p #{testdir}/environments/testing/manifests"
+create_remote_file(master, "#{testdir}/environments/testing/manifests/site.pp", <<-PP)
+class echo_environment {
+  notify { "environment is ${environment}": }
+}
+PP
 
 on master, "chown -R #{master['user']}:#{master['group']} #{testdir}"
 on master, "chmod -R ug+rwX,o+rX #{testdir}"
@@ -24,7 +30,6 @@ master_opts = {
     'node_terminus' => 'classifier',
     'environmentpath' => "#{testdir}/environments",
     'basemodulepath' => "#{testdir}/modules",
-    'modulepath' => "#{testdir}/modules",
     'verbose' => true,
     'debug' => true,
     'trace' => true
@@ -79,5 +84,11 @@ with_puppet_running_on(master, master_opts, testdir) do
     OPTS
 
     assert_match("environment is production", stdout)
+
+    run_agent_on(agent, <<-OPTS)
+      --no-daemonize --onetime --verbose --server #{master} --environment testing
+    OPTS
+
+    assert_match("environment is testing", stdout)
   end
 end

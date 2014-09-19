@@ -30,6 +30,21 @@ describe Puppet::Node::Classifier do
     expect(node.classes).to eq(['main'])
   end
 
+  it "sets the request environment when classifier environment is agent-specified" do
+    node_json = {:name => 'test', :classes => ['main'], :parameters => {}, :environment => 'agent-specified'}.to_json
+    response = Net::HTTPOK.new('1.1', 200, 'OK')
+    allow(response).to receive(:body) { node_json }
+    connection = double 'connection'
+    expect(Puppet::Network::HttpPool).to receive(:http_instance) { connection }
+    expect(connection).to receive(:post).with("/api#{NODE_BASE}/test", anything(), kind_of(Hash)) { response }
+
+    node = Puppet::Node.indirection.find('test', :environment => 'testing')
+
+    expect(node.name).to eq('test')
+    expect(node.environment.name).to eq(:testing)
+    expect(node.classes).to eq(['main'])
+  end
+
   it "works when no facts are available" do
     node_json = {:name => 'test', :classes => ['main'], :parameters => {}, :environment => :dev}.to_json
     response = Net::HTTPOK.new('1.1', 200, 'OK')
