@@ -1,3 +1,9 @@
+### 0.7.4
+ * Always check for all-instance RBAC permission ('*') in addition to specific ID checks.
+ * Log requests made to Puppet and their response codes.
+ * Explicitly set the database connection's character encoding to UTF-8.
+ * When viewing an inherited group, always add the rules inherited from ancestors, even if the group has no rule itself.
+
 ### 0.7.3
  * Fix bug causing a 500 in the /v1/classes endpoint when access-control was enabled.
  * Fix bug where groups were not annotated when access-control was enabled.
