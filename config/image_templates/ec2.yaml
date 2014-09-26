@@ -64,6 +64,11 @@ AMI:
       :pe: ami-4eea627e
     :region: us-west-2
 
+  debian-7-amd64-west:
+    :image:
+      :pe: ami-8fb5f6bf 
+    :region: us-west-2
+
   debian-6-i386-west:
     :image:
       :pe: ami-fcf27fcc
