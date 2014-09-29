@@ -19,7 +19,7 @@
             "region": "us-west-2",
             "source_ami": "ami-f1c5bcc1",
             "instance_type": "c1.medium",
-            "ssh_username": "root",
+            "ssh_username": "admin",
             "region": "us-west-2",
             "ami_regions": ["us-west-2"],
             "ami_description": "puppetlabs-debian-7.6-x64_64 {{timestamp}}",
