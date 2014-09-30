@@ -1,17 +1,20 @@
-class packer::sshd {
+class ec2::sshd {
 
-   class { 'ssh::server':
-     storeconfigs_enabled => false,
-     options => {
-       'PermitRootLogin'      => 'yes',
-       'UseDNS'               => 'no',
-       'GSSAPIAuthentication' => 'no',
-       'User'                 => 'admin',
-     },
-   }
+  class { 'ssh::server':
+    storeconfigs_enabled => false,
+    options => {
+      'PermitRootLogin'      => 'yes',
+      'UseDNS'               => 'no',
+      'GSSAPIAuthentication' => 'no',
+    },
+  }
 
-  file {'/etc/ssh/config'
-    ensure => file,
-    source => '/tmp/manifests/modules/ec2/manifests/files/ssh_config',
+  class { 'ssh::client':
+    storeconfigs_enabled => false,
+    options => {
+      'Host *' => {
+        'User' => 'root',
+      },
+    },
   }
 }

@@ -4,13 +4,14 @@
     {
         "template_name": "debian-7.6-x86_64",
 
-            "aws_access_key": "",
-            "aws_secret_key": "",
-            "url": "",
-            "provisioner": "ec2"
+        "aws_access_key": "",
+        "aws_secret_key": "",
+        "url": "",
+        "provisioner": "ec2",
+        "required_modules": "puppetlabs-stdlib saz-ssh"
     },
 
-        "builders": [
+    "builders": [
         {
             "name": "amazon-ebs-us-west-2",
             "access_key": "{{user `aws_access_key`}}",
@@ -28,7 +29,7 @@
         }
     ],
 
-        "provisioners": [
+    "provisioners": [
 
         {   "type": "shell",
             "inline": ["mkdir /tmp/manifests"]
@@ -40,7 +41,13 @@
         },
         {
             "type": "shell",
-            "execute_command": "sh {{.Path}} {{user `url`}}",
+            "inline": ["wget --no-check-certificate {{user `url`}} -O pe.tar.gz",
+                       "tar -xzvf pe.tar.gz"]
+        },
+        {
+            "type": "shell",
+            "execute_command": "sudo sh {{.Path}} {{user `required_modules`}}",
             "scripts": ["../../scripts/bootstrap-ec2.sh"]
-        }]
+        }
+    ]
 }

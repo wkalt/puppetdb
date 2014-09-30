@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-wget $1 --no-check-certificate -O pe.tar.gz
-tar -xzvf pe.tar.gz
-ls
 cd `ls -d puppet*`
 yes | sudo ./puppet-enterprise-installer -A ./answers/all-in-one.answers.txt
 
 # Install required modules
-sudo puppet apply /tmp/manifests/modules/packer/manifests/sshd.pp
-sudo puppet apply /tmp/manifests/modules/packer/manifests/networking.pp
-sudo puppet apply /tmp/manifests/modules/packer/manifests/git.pp
+
+for i in "$@"
+do
+  puppet module install $i --modulepath=/tmp/manifests/modules >/dev/null 2>&1
+done
+
+puppet apply /tmp/manifests/ec2.pp --modulepath=/tmp/manifests/modules
 
 sudo ./puppet-enterprise-uninstaller -y
 cd ..
