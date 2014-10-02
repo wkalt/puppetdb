@@ -52,7 +52,7 @@
                                   (format
                                    "http://%s:%s/%s/catalogs/%s"
                                    host port (name version) node)
-                                  { :accept :json})]
+                                  {:accept :json})]
        (when (= status 200) body))))
 
 (pls/defn-validated catalog->tar :- utils/tar-item

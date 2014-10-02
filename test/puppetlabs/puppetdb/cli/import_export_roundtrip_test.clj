@@ -104,7 +104,7 @@
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
              (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
 
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
@@ -122,7 +122,7 @@
 
       (block-on-node (:name facts))
 
-      (is (= (tuc/munge-catalog-for-comparison :v5 (dissoc catalog :producer-timestamp))
+      (is (= (tuc/munge-catalog-for-comparison :v5 catalog)
              (tuc/munge-catalog-for-comparison :v5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog))))))
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
