@@ -768,7 +768,6 @@
   [endpoint paging-options]
   (:results (raw-query-endpoint endpoint nil paging-options)))
 
-
 (deftestseq paging-results
   [[version endpoint] facts-endpoints
    :when (not= version :v2)]
