@@ -757,10 +757,10 @@ EOS
   #   Temp copy of Justins new Puppet Master Methods
   ############################################################################
 
-  def puppet_conf_for host
-    puppetconf = on( host, "cat #{host['puppetpath']}/puppet.conf" ).stdout
-    IniFile.new( puppetconf )
-  end
+#  def puppet_conf_for host
+#    puppetconf = on( host, "cat #{host['puppetpath']}/puppet.conf" ).stdout
+#    IniFile.new( puppetconf )
+#  end
 
   # Restore puppet.conf from backup, if puppet.conf.bak exists.
   #
