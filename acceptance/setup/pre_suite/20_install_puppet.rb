@@ -15,7 +15,7 @@ test_name "Install Puppet" do
     master,
     :master => {:dns_alt_names => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
                 :trace => 'true'},
-    :commandline_args => '--debug') do
+    :__commandline_args__ => '--debug') do
     # PID file exists?
     step "PID file created?" do
       on master, "[ -f #{pidfile} ]"
