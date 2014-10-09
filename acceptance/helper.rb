@@ -1,6 +1,5 @@
 require 'cgi'
 require 'beaker/dsl/install_utils'
-require 'beaker/dsl/helpers'
 require 'pp'
 require 'set'
 require 'test/unit/assertions'
