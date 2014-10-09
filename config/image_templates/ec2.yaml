@@ -1,8 +1,8 @@
 AMI:
   debian-7-amd64-west:
     :image:
-      :pe: ami-03e6ab33
-      :foss: ami-03e6ab33
+      :pe: ami-99e0ada9
+      :foss: ami-99e0ada9
     :region: us-west-2
 
   el-6-x86_64-west:
