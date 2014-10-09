@@ -11,7 +11,7 @@ test_name "Install Puppet" do
 
   master_facts = facts(master.name)
 
-  Beaker::DSL::Helper.with_puppet_running_on(
+  with_puppet_running_on(
     master,
     :master => {:dns_alt_names => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
                 :trace => 'true'}) do
