@@ -8,8 +8,6 @@ test_name "Install Puppet" do
   end
 
   pidfile = '/var/run/puppet/master.pid'
-  pp 'before install'
-  pp Dir['/var/run/puppet/*']
 
   master_facts = facts(master.name)
 
@@ -24,6 +22,6 @@ test_name "Install Puppet" do
       on master, "[ -f #{pidfile} ]"
     end
   end
-  pp 'after install'
-  pp Dir['/var/run/puppet/*']
+      pp "Sleeping 20 for luck."
+      sleep(20)
 end
