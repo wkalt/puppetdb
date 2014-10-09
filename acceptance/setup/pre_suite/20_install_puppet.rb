@@ -8,13 +8,15 @@ test_name "Install Puppet" do
   end
 
   pidfile = '/var/run/puppet/master.pid'
+  pp 'before install'
+  pp Dir['/var/run/puppet/*']
 
   master_facts = facts(master.name)
 
   with_puppet_running_on(master, {
     'master' => {
       'dns_alt_names' => "puppet,#{master_facts['hostname']},#{master_facts['fqdn']}",
-      'verbose' => 'true',
+      'trace' => 'true',
     },
   }) do
     # PID file exists?
@@ -22,4 +24,6 @@ test_name "Install Puppet" do
       on master, "[ -f #{pidfile} ]"
     end
   end
+  pp 'after install'
+  pp Dir['/var/run/puppet/*']
 end
