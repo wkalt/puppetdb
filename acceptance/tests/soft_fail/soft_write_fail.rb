@@ -1,5 +1,4 @@
 test_name "soft write failure" do
-  databases.each {|db| stop_puppetdb(db)}
   on master, "puppet master --configprint confdir"
   confdir = stdout.chomp
   puppetdb_conf = "#{confdir}/puppetdb.conf"
