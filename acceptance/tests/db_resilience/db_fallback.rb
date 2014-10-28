@@ -113,4 +113,7 @@ if databases.count > 1
       apply_manifest_on(master, manifest)
     end
   end
+  databases.each do |db|
+    stop_puppetdb(db)
+  end
 end

@@ -54,4 +54,10 @@ step "Install development build of PuppetDB on the PuppetDB server" do
 
     end
   end
+  first, *rest = databases
+  if !rest.empty?
+    rest.each do |db|
+      stop_puppetdb(db)
+    end
+  end
 end
