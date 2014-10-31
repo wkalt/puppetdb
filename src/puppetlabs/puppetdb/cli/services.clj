@@ -237,15 +237,10 @@
          (ifn? shutdown-on-error)]
    :post [(map? %)
           (every? (partial contains? %) [:broker :updater])]}
-  (let [product-name              (:product-name global)
-        update-server             (:update-server global)
-        url-prefix                (:url-prefix global)
+  (let [{:keys [product-name update-server url-prefix]} global
+        {:keys [gc-interval node-ttl node-purge-ttl report-ttl]} database
         write-db                  (pl-jdbc/pooled-datasource database)
-        read-db                   (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-        gc-interval               (:gc-interval database)
-        node-ttl                  (:node-ttl database)
-        node-purge-ttl            (:node-purge-ttl database)
-        report-ttl                (:report-ttl database)
+        read-db                   (pl-jdbc/pooled-datasource read-database)
         dlo-compression-threshold (:dlo-compression-threshold command-processing)
         mq-dir                    (str (file (:vardir global) "mq"))
         discard-dir               (file mq-dir "discarded")
@@ -289,12 +284,10 @@
                        "might be due to KahaDB corruption. Consult the "
                        "PuppetDB troubleshooting guide.")
                      (throw e)))
-          context (assoc context :broker broker)
           updater (future (shutdown-on-error
                             service-id
                             #(maybe-check-for-updates product-name update-server read-db)
                             error-shutdown!))
-          context (assoc context :updater updater)
           _       (let [authorized? (if-let [wl (puppetdb :certificate-whitelist)]
                                       (build-whitelist-authorizer wl)
                                       (constantly true))
@@ -326,7 +319,7 @@
         (when (kitchensink/true-str? enabled)
           (log/warn (format "Starting %s server on port %d" type port))
           (start-repl type host port)))
-      (assoc context :shared-globals globals))))
+      (assoc context :broker broker :updater updater :shared-globals globals))))
 
 (defprotocol PuppetDBServer
   (shared-globals [this]))
