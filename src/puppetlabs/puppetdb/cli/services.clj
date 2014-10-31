@@ -227,39 +227,40 @@
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
 
 (defn start-puppetdb
-  [context config service-id add-ring-handler shutdown-on-error]
+  [context
+   service-id
+   add-ring-handler
+   shutdown-on-error
+   {:keys [jetty database read-database global command-processing puppetdb] :as config}]
   {:pre [(map? context)
-         (map? config)
          (ifn? add-ring-handler)
          (ifn? shutdown-on-error)]
    :post [(map? %)
           (every? (partial contains? %) [:broker :updater])]}
-  (let [{:keys [jetty database read-database global command-processing puppetdb]
-         :as config}                            (conf/process-config! config)
-         product-name                               (:product-name global)
-         update-server                              (:update-server global)
-         url-prefix                                 (:url-prefix global)
-         write-db                                   (pl-jdbc/pooled-datasource database)
-         read-db                                    (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
-         gc-interval                                (get database :gc-interval)
-         node-ttl                                   (get database :node-ttl)
-         node-purge-ttl                             (get database :node-purge-ttl)
-         report-ttl                                 (get database :report-ttl)
-         dlo-compression-threshold                  (get command-processing :dlo-compression-threshold)
-         mq-dir                                     (str (file (:vardir global) "mq"))
-         discard-dir                                (file mq-dir "discarded")
-         globals                                    {:scf-read-db          read-db
-                                                     :scf-write-db         write-db
-                                                     :command-mq           {:connection-string (add-max-framesize command-processing mq-addr)
-                                                                            :endpoint          mq-endpoint}
-                                                     :update-server        update-server
-                                                     :product-name         product-name
-                                                     :url-prefix           url-prefix
-                                                     :discard-dir          (.getAbsolutePath discard-dir)
-                                                     :mq-addr              mq-addr
-                                                     :mq-dest              mq-endpoint
-                                                     :mq-threads           (:threads command-processing)
-                                                     :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}]
+  (let [product-name              (:product-name global)
+        update-server             (:update-server global)
+        url-prefix                (:url-prefix global)
+        write-db                  (pl-jdbc/pooled-datasource database)
+        read-db                   (pl-jdbc/pooled-datasource (assoc read-database :read-only? true))
+        gc-interval               (:gc-interval database)
+        node-ttl                  (:node-ttl database)
+        node-purge-ttl            (:node-purge-ttl database)
+        report-ttl                (:report-ttl database)
+        dlo-compression-threshold (:dlo-compression-threshold command-processing)
+        mq-dir                    (str (file (:vardir global) "mq"))
+        discard-dir               (file mq-dir "discarded")
+        globals                   {:scf-read-db read-db
+                                   :scf-write-db write-db
+                                   :command-mq {:connection-string (add-max-framesize command-processing mq-addr)
+                                                :endpoint mq-endpoint}
+                                   :update-server update-server
+                                   :product-name product-name
+                                   :url-prefix url-prefix
+                                   :discard-dir (.getAbsolutePath discard-dir)
+                                   :mq-addr mq-addr
+                                   :mq-dest mq-endpoint
+                                   :mq-threads (:threads command-processing)
+                                   :catalog-hash-debug-dir (:catalog-hash-debug-dir global)}]
 
     (when (version)
       (log/info (format "PuppetDB version %s" (version))))
@@ -284,15 +285,15 @@
                    (mq/build-and-start-broker! "localhost" mq-dir command-processing)
                    (catch java.io.EOFException e
                      (log/error
-                      "EOF Exception caught during broker start, this "
-                      "might be due to KahaDB corruption. Consult the "
-                      "PuppetDB troubleshooting guide.")
+                       "EOF Exception caught during broker start, this "
+                       "might be due to KahaDB corruption. Consult the "
+                       "PuppetDB troubleshooting guide.")
                      (throw e)))
           context (assoc context :broker broker)
           updater (future (shutdown-on-error
-                           service-id
-                           #(maybe-check-for-updates product-name update-server read-db)
-                           error-shutdown!))
+                            service-id
+                            #(maybe-check-for-updates product-name update-server read-db)
+                            error-shutdown!))
           context (assoc context :updater updater)
           _       (let [authorized? (if-let [wl (puppetdb :certificate-whitelist)]
                                       (build-whitelist-authorizer wl)
@@ -330,6 +331,9 @@
 (defprotocol PuppetDBServer
   (shared-globals [this]))
 
+(defn start-query-servers
+  [])
+
 (defservice puppetdb-service
   "Defines a trapperkeeper service for PuppetDB; this service is responsible
   for initializing all of the PuppetDB subsystems and registering shutdown hooks
@@ -340,7 +344,9 @@
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
-         (start-puppetdb context (get-config) (service-id this) add-ring-handler shutdown-on-error))
+         (->> (get-config)
+              conf/process-config!
+              (start-puppetdb context (service-id this) add-ring-handler shutdown-on-error)))
   (stop [this context]
         (stop-puppetdb context))
   (shared-globals [this]

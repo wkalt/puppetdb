@@ -383,6 +383,7 @@
   "Accepts a map containing all of the user-provided configuration values
   and configures the various PuppetDB subsystems."
   [config]
+  {:pre [(map? config)]}
   (-> config
       configure-globals
       validate-vardir
