@@ -63,11 +63,12 @@
             [clojure.java.io :refer [file]]
             [clj-time.core :refer [ago]]
             [overtone.at-at :refer [mk-pool interspaced]]
-            [puppetlabs.puppetdb.time :refer [to-secs to-millis parse-period format-period period?]]
+            [puppetlabs.puppetdb.time :as t]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.repl :refer [start-repl]]
             [puppetlabs.puppetdb.scf.migrate :refer [migrate! indexes!]]
             [puppetlabs.puppetdb.version :refer [version update-info]]
+            [puppetlabs.puppetdb.cli.routing :refer [app2]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]))
 
 (def cli-description "Main PuppetDB daemon")
@@ -86,14 +87,14 @@
   for more than `node-ttl`."
   [node-ttl db]
   {:pre [(map? db)
-         (period? node-ttl)]}
+         (t/period? node-ttl)]}
   (try
     (kitchensink/demarcate
-     (format "sweep of stale nodes (threshold: %s)"
-             (format-period node-ttl))
+     (format "sweep of stale nodes (threshold: %s)" (t/format-period node-ttl))
      (with-transacted-connection db
        (doseq [node (scf-store/stale-nodes (ago node-ttl))]
-         (send-command! (command-names :deactivate-node) 1 (json/generate-string node)))))
+         (send-command!
+           (command-names :deactivate-node) 1 (json/generate-string node)))))
     (catch Exception e
       (log/error e "Error while deactivating stale nodes"))))
 
@@ -101,11 +102,11 @@
   "Delete nodes which have been *deactivated* longer than `node-purge-ttl`."
   [node-purge-ttl db]
   {:pre [(map? db)
-         (period? node-purge-ttl)]}
+         (t/period? node-purge-ttl)]}
   (try
     (kitchensink/demarcate
      (format "purge deactivated nodes (threshold: %s)"
-             (format-period node-purge-ttl))
+             (t/format-period node-purge-ttl))
      (with-transacted-connection db
        (scf-store/purge-deactivated-nodes! (ago node-purge-ttl))))
     (catch Exception e
@@ -115,11 +116,11 @@
   "Delete reports which are older than than `report-ttl`."
   [report-ttl db]
   {:pre [(map? db)
-         (period? report-ttl)]}
+         (t/period? report-ttl)]}
   (try
     (kitchensink/demarcate
      (format "sweep of stale reports (threshold: %s)"
-             (format-period report-ttl))
+             (t/format-period report-ttl))
      (with-transacted-connection db
        (scf-store/delete-reports-older-than! (ago report-ttl))))
     (catch Exception e
@@ -131,7 +132,7 @@
   (try
     (kitchensink/demarcate
      (format "compression of discarded messages (threshold: %s)"
-             (format-period dlo-compression-threshold))
+             (t/format-period dlo-compression-threshold))
      (dlo/compress! dlo dlo-compression-threshold))
     (catch Exception e
       (log/error e "Error while compressing discarded messages"))))
@@ -163,15 +164,9 @@
 (defn check-for-updates
   "This will fetch the latest version number of PuppetDB and log if the system
   is out of date."
-  [update-server db]
-  (let [{:keys [version newer link]} (try
-                                       (update-info update-server db)
-                                       (catch Throwable e
-                                         (log/debug e (format "Could not retrieve update information (%s)" update-server))))
-        link-str                     (if link
-                                       (format " Visit %s for details." link)
-                                       "")
-        update-msg                   (format "Newer version %s is available!%s" version link-str)]
+  [{:keys [version newer link]}]
+  (let [link-str (if link (format " Visit %s for details." link) "")
+        update-msg (format "Newer version %s is available!%s" version link-str)]
     (when newer
       (log/info update-msg))))
 
@@ -180,7 +175,10 @@
   check otherwise."
   [product-name update-server db]
   (if (= product-name "puppetdb")
-    (check-for-updates update-server db)
+    (try
+      (check-for-updates (update-info update-server db))
+      (catch Throwable e
+        (log/debug e (format "Could not retrieve update information (%s)" update-server))))
     (log/debug "Skipping update check on Puppet Enterprise")))
 
 (defn build-whitelist-authorizer
@@ -301,17 +299,18 @@
                                       (constantly true))
                         app (server/build-app :globals globals :authorized? authorized?)]
                     (log/info "Starting query server")
-                    (add-ring-handler (compojure/context url-prefix [] app) url-prefix))
+                    (add-ring-handler (compojure/context url-prefix [] app) url-prefix)
+                    (add-ring-handler (compojure/context "/ha" [] app) "/ha")) 
           job-pool (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
-      (let [gc-interval-millis (to-millis gc-interval)
+      (let [gc-interval-millis (t/to-millis gc-interval)
             gc-task #(interspaced gc-interval-millis % job-pool)
-            db-maintenance-tasks [(when (pos? (to-secs node-ttl))
+            db-maintenance-tasks [(when (pos? (t/to-secs node-ttl))
                                     (partial auto-deactivate-nodes! node-ttl))
-                                  (when (pos? (to-secs node-purge-ttl))
+                                  (when (pos? (t/to-secs node-purge-ttl))
                                     (partial purge-nodes! node-purge-ttl))
-                                  (when (pos? (to-secs report-ttl))
+                                  (when (pos? (t/to-secs report-ttl))
                                     (partial sweep-reports! report-ttl))
                                   ;; Order is important here to ensure
                                   ;; anything referencing an env or resource
