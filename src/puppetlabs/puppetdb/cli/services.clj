@@ -80,6 +80,7 @@
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
 (def mq-endpoint "com.puppetlabs.puppetdb.commands")
 (def send-command! (partial command/enqueue-command! mq-addr mq-endpoint))
+(def private-config "./resources/private_config.conf")
 
 (defn auto-deactivate-nodes!
   "Deactivate nodes which haven't had any activity (catalog/fact submission)
@@ -229,7 +230,7 @@
   (format "%s&wireFormat.maxFrameSize=%s&marshal=true" url (:max-frame-size config)))
 
 (defn start-puppetdb
-  [context config service-id add-ring-handler shutdown-on-error]
+  [context config service add-ring-handler shutdown-on-error]
   {:pre [(map? context)
          (map? config)
          (ifn? add-ring-handler)
@@ -292,7 +293,7 @@
                      (throw e)))
           context (assoc context :broker broker)
           updater (future (shutdown-on-error
-                           service-id
+                           (service-id service)
                            #(maybe-check-for-updates product-name update-server read-db)
                            error-shutdown!))
           context (assoc context :updater updater)
@@ -301,7 +302,7 @@
                                       (constantly true))
                         app (server/build-app :globals globals :authorized? authorized?)]
                     (log/info "Starting query server")
-                    (add-ring-handler (compojure/context url-prefix [] app) url-prefix))
+                    (add-ring-handler service (compojure/context url-prefix [] app)))
           job-pool (mk-pool)]
 
       ;; Pretty much this helper just knows our job-pool and gc-interval
@@ -337,15 +338,23 @@
   that trapperkeeper will call on exit."
   PuppetDBServer
   [[:ConfigService get-config]
-   [:WebserverService add-ring-handler]
+   [:WebroutingService add-ring-handler]
    [:ShutdownService shutdown-on-error]]
 
   (start [this context]
-         (start-puppetdb context (get-config) (service-id this) add-ring-handler shutdown-on-error))
+         (start-puppetdb context (get-config) this add-ring-handler shutdown-on-error))
+
   (stop [this context]
         (stop-puppetdb context))
   (shared-globals [this]
                   (:shared-globals (service-context this))))
+
+(defn munge-cli-options
+  [args]
+  (-> (string/join " " args)
+      (string/replace #"--config (\w+.\S+)" (format "--config $1,%s" private-config))
+      (string/replace #"-c (\w+.\S+)" (format "-c $1,%s" private-config))
+      (string/split #" ")))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
@@ -354,4 +363,4 @@
    within TK."
   [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
-  (apply main args))
+  (apply main (munge-cli-options args)))

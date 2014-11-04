@@ -53,3 +53,12 @@
          (is (= 404 (:status response))))
        (let [response (client/get (jutils/current-url "/puppetdb/v4/version"))]
          (is (= 200 (:status response))))))))
+
+(deftest test-cli-munge
+  (testing "cli munge function should behave appropriately"
+    (let [cases [[["-c" "postgres.ini"]
+                  ["-c" (format "postgres.ini,%s" private-config)]]
+                 [["--config" "postgres.ini,config.conf"]
+                  ["--config" (format "postgres.ini,config.conf,%s" private-config)]]]]
+      (doseq [[opts resp] cases]
+        (is (= resp (munge-cli-options opts)))))))
