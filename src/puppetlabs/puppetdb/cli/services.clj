@@ -366,7 +366,7 @@
   For configuration customization, we intercept the call to parse-config-data
   within TK."
   [& args]
-  (log/warn "ARGS ARE %s" args)
-  (log/warn "MUNGED ARGS ARE %s" (munge-cli-options args))
+  (println "ARGS ARE %s" args)
+  (println "MUNGED ARGS ARE %s" (munge-cli-options args))
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
   (apply main (munge-cli-options args)))
