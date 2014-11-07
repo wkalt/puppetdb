@@ -351,16 +351,20 @@
 
 (defn munge-cli-options
   [args]
-  (-> (string/join " " args)
-      (string/replace #"--config (\w+.\S+)" (format "--config $1,%s" private-config))
-      (string/replace #"-c (\w+.\S+)" (format "-c $1,%s" private-config))
-      (string/split #" ")))
+  (let [cli-args (-> (string/join " " args)
+                     (string/replace #"--config (\w+.\S+)" (format "--config $1,%s" private-config))
+                     (string/replace #"-c (\w+.\S+)" (format "-c $1,%s" private-config))
+                     (string/split #" "))]
+
+    (if (some #(or (= "--config" %) (= "-c" %)) cli-args)
+      cli-args
+      (concat cli-args ["--config" private-config]))))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
 
-   For configuration customization, we intercept the call to parse-config-data
-   within TK."
+  For configuration customization, we intercept the call to parse-config-data
+  within TK."
   [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
-  (apply main (munge-cli-options args)))
+  (apply main (munge-cli-options (munge-cli-options args))))
