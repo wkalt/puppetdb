@@ -367,4 +367,4 @@
   within TK."
   [& args]
   (rh/add-hook #'puppetlabs.trapperkeeper.config/parse-config-data #'conf/hook-tk-parse-config-data)
-  (apply main (munge-cli-options (munge-cli-options args))))
+  (apply main (munge-cli-options args)))
