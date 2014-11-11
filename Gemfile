@@ -34,6 +34,7 @@ group :test do
     # No activerecord or sqlite for you
   else
     gem 'activerecord', '2.3.14'
+    rem 'ruby-dev'
     gem 'sqlite3'
   end
 end
