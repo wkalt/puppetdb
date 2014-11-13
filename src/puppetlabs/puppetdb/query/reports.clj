@@ -43,10 +43,8 @@
          (if (:count? paging-options)
            (assoc result :count-query (apply vector (jdbc/count-sql sql) params))
            result))
-       (do
-         (println "failing now")
        (qe/compile-user-query->sql
-        qe/reports-query query paging-options)))))
+        qe/reports-query query paging-options))))
 
 (defn munge-result-rows
   "Munge the result rows so that they will be compatible with the version

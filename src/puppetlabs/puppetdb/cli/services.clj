@@ -354,7 +354,7 @@
           query-obj
           version
           query-expr
-          {:count? false}
+          {:count? false :offset nil :limit nil}
           (get-in (service-context this) [:shared-globals :scf-read-db])
           query-row-callback-fn)))
 

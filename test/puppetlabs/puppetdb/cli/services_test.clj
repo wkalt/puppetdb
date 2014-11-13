@@ -5,9 +5,11 @@
             [clj-http.client :as client]
             [puppetlabs.puppetdb.version]
             [cheshire.core :as json]
+            [puppetlabs.puppetdb.http :as pl-http]
             [puppetlabs.puppetdb.testutils.reports :as tur]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.testutils :as testutils]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output logs-matching]]
             [puppetlabs.trapperkeeper.testutils.bootstrap :as tk]
@@ -18,7 +20,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.core :refer [days hours minutes secs]]
             [clj-http.util :refer [url-encode]]  
-            [clojure.java.io :refer [resource]]
+            [clojure.java.io :refer [resource reader]]
             [puppetlabs.puppetdb.time :refer [to-secs to-minutes to-hours to-days period?]]
             [puppetlabs.puppetdb.testutils.jetty :as jutils]
             [puppetlabs.trapperkeeper.app :refer [get-service]]
@@ -78,7 +80,8 @@
       (update-in resp [:body] slurp)))) 
 
 (def queries
-  [[:reports ["=" "certname" "foo.local"] #{{"blah" "blah"}}]])
+  [[:reports nil #{{"blah" "blah"}}]
+   [:factsets nil #{{"blah" "blah"}}]]) 
 
 (defn parse-response
   "The parsed JSON response body"
@@ -96,11 +99,11 @@
           results (atom nil)
           before-slurp? (atom nil)
           after-slurp? (atom nil)]
-
       (doseq [[endpoint q result] queries]
         (query pdb-service endpoint :v4 q (fn [f]
                                             (f
                                              (fn [result-set]
+                                               (println "RESULT SET IS" result-set)
                                                (reset! before-slurp? (realized? result-set))
                                                (reset! results result-set)
                                                (reset! after-slurp? (realized? result-set))))))

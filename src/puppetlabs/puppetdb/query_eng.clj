@@ -22,6 +22,7 @@
   results.
   If the query can't be parsed, a 400 is returned."
   [entity version query paging-options db output-fn]
+  (println "PARAMS ARE" [entity version query paging-options db output-fn])
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql (facts/munge-result-rows version)]
