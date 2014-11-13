@@ -9,7 +9,6 @@
             [puppetlabs.puppetdb.query.environments :as environments]
             [puppetlabs.puppetdb.query.reports :as reports]
             [puppetlabs.puppetdb.query.factsets :as factsets]
-            [clojure.java.io :as io]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
@@ -23,7 +22,6 @@
   results.
   If the query can't be parsed, a 400 is returned."
   [entity version query paging-options db output-fn]
-  (println entity)
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql (facts/munge-result-rows version)]

@@ -29,7 +29,7 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.cli.export :as export]))
 
-;(use-fixtures :each fixt/with-test-db fixt/with-http-app)
+(use-fixtures :each fixt/with-test-db)
 
 (deftest update-checking
   (testing "should check for updates if running as puppetdb"
@@ -78,8 +78,7 @@
       (update-in resp [:body] slurp)))) 
 
 (def queries
-  [[:reports ["=" "certname" "foo.local"] #{{"blah" "blah"}}]
-   [:facts ["=" "name" "bar"] #{{:value "the bar" :environment "DEV" :certname "foo.local" :name "bar"}}]])
+  [[:reports ["=" "certname" "foo.local"] #{{"blah" "blah"}}]])
 
 (defn parse-response
   "The parsed JSON response body"
@@ -87,20 +86,11 @@
   (when (= status 200)
     (seq (json/parse-string body true))))
 
-#_ (query-via-puppdbserver-service)
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
     (submit-command :store-report 3 (tur/munge-example-report-for-storage (:basic reports)))
-    (submit-command :replace-facts 3 {:name "foo.local"
-                                      :environment "DEV"
-                                      :values {:foo "the foo"
-                                               :bar "the bar"
-                                               :baz "the baz"}
-                                      :producer-timestamp (to-string (now))})
 
-    @(block-until-results 100 (export/facts-for-node "localhost" jutils/*port* "foo.local"))
     @(block-until-results 100 (export/reports-for-node "localhost" jutils/*port* "foo.local"))
-
 
     (let [pdb-service (get-service jutils/*server* :PuppetDBServer)
           results (atom nil)
@@ -108,10 +98,6 @@
           after-slurp? (atom nil)]
 
       (doseq [[endpoint q result] queries]
-        (println "DEBUG")
-        (println (parse-response (client/get (format "http://%s:%s/%s/reports?query=%s"
-                                                     "localhost" jutils/*port* "v4" (url-encode (json/generate-string q)))
-                                             {:accept :json})))
         (query pdb-service endpoint :v4 q (fn [f]
                                             (f
                                              (fn [result-set]
