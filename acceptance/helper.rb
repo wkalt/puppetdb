@@ -810,7 +810,7 @@ EOS
     munged_resources = meta["resources"].map { |resource| munge_resource_for_comparison(resource) }
     meta["resources"] = Set.new(munged_resources)
     meta["edges"] = Set.new(meta["edges"])
-    meta
+    meta.tap {|h| h.delete("hash")}
   end
 
   def munge_report_for_comparison(cat_path)

@@ -7,8 +7,160 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.catalogs :as cats]
             [schema.core :as s]
+            [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.query.paging :as paging]
+            [clj-time.core :refer [now]]
+            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.kitchensink.core :as kitchensink]))
+
+;; v4+ functions
+
+(def catalog-columns
+  [:name
+   :version
+   :transaction-uuid
+   :producer-timestamp
+   :environment
+   :hash
+   :edges
+   :resources])
+
+(def row-schema
+  {:version String
+   :hash String
+   :transaction_uuid (s/maybe String)
+   :environment (s/maybe String)
+   :name String
+   :producer_timestamp (s/maybe pls/Timestamp)
+   :resource String
+   :type String
+   :title String
+   :tags [String]
+   :exported s/Bool
+   :file (s/maybe String)
+   :line (s/maybe s/Int)
+   :parameters String
+   :source_type String
+   :source_title String
+   :target_type String
+   :target_title String
+   :relationship String})
+
+(def resource-schema
+  {:tags [String]
+   :type String
+   :title String
+   (s/optional-key :line) (s/maybe s/Int)
+   (s/optional-key :file) (s/maybe String)
+   :parameters {s/Any s/Any}
+   :exported s/Bool})
+
+(def edge-schema
+  {:source {:type String :title String}
+   :target {:type String :title String}
+   :relationship String})
+
+(def catalog-schema
+  {:name String
+   :hash String
+   :version String
+   :environment (s/maybe String)
+   :transaction-uuid (s/maybe String)
+   :producer-timestamp (s/maybe pls/Timestamp)
+   :resources [resource-schema]
+   :edges [edge-schema]})
+
+(defn catalog-response-schema
+  "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
+  [api-version]
+  (case api-version
+    :v4 (assoc (cats/catalog-wireformat :v5) :hash String)
+    (cats/catalog-wireformat api-version)))
+
+(defn create-catalog-pred
+  [rows]
+  (let [catalog-hash (:hash (first rows))]
+    (fn [row]
+      (= catalog-hash (:hash row)))))
+
+(pls/defn-validated collapse-resources :- #{resource-schema}
+  [acc row]
+  (let [{:keys [tags type title line parameters exported file]} row
+        resource {:tags tags :type type :title title
+                  :line line :parameters (json/parse-strict-string parameters true)
+                  :exported exported :file file}]
+    (into acc
+            (-> resource
+                (kitchensink/dissoc-if-nil :line :file)
+                vector))))
+
+(pls/defn-validated collapse-edges :- #{edge-schema}
+  [acc row]
+  (let [{:keys [source_type target_type source_title target_title relationship]} row
+        edge {:source {:type source_type :title source_title}
+              :target {:type target_type :title target_title}
+              :relationship relationship}]
+    (into acc [edge])))
+
+(pls/defn-validated collapse-catalog :- catalog-schema
+  [version :- s/Keyword
+   catalog-rows :- [row-schema]]
+  (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first catalog-rows))
+        resources (into [] (reduce collapse-resources #{} catalog-rows))
+        edges (into [] (reduce collapse-edges #{} catalog-rows))]
+    (assoc (select-keys first-row [:name :version :environment :hash
+                                   :transaction-uuid :producer-timestamp])
+           :edges edges :resources resources)))
+
+(pls/defn-validated structured-data-seq
+  "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
+  [version :- s/Keyword
+   rows]
+  (when (seq rows)
+    (let [[catalog-rows more-rows] (split-with (create-catalog-pred rows) rows)]
+      (cons (collapse-catalog version catalog-rows)
+            (lazy-seq (structured-data-seq version more-rows))))))
+
+(pls/defn-validated munge-result-rows
+  "Reassemble rows from the database into the final expected format."
+  [version :- s/Keyword
+   projections]
+  (fn [rows]
+    (if (empty? rows)
+      []
+      (map (qe/basic-project projections) (structured-data-seq version rows)))))
+
+(defn munge-result-rows-for-node
+  "Reassemble rows from the database into the final expected format."
+  [node]
+  (fn [version projections]
+    (fn [rows]
+      (if (empty? rows)
+        {:error (str "Could not find catalog for " node)}
+        (first (map (qe/basic-project projections) (structured-data-seq version rows)))))))
+
+(defn query->sql
+  "Converts a vector-structured `query` to a corresponding SQL query which will
+  return nodes matching the `query`."
+  ([version query]
+   (query->sql version query {}))
+  ([version query paging-options]
+   {:pre  [((some-fn nil? sequential?) query)]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or
+             (not (:count? paging-options))
+             (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (paging/validate-order-by! catalog-columns paging-options)
+   (qe/compile-user-query->sql
+     qe/catalog-query query paging-options)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; v2-v3 catalog query functions
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defn get-catalog-info
   "Given a node name, return a map of Puppet catalog information
@@ -21,7 +173,7 @@
   {:pre  [(string? node)]
    :post [((some-fn nil? map?) %)]}
   (let [query (str "SELECT catalog_version as version, transaction_uuid as \"transaction-uuid\", "
-                   "e.name as environment, COALESCE(c.api_version, 1) as api_version,"
+                   "e.name as environment, COALESCE(c.api_version, 1) as api_version, hash,"
                    "producer_timestamp as \"producer-timestamp\""
                    "FROM catalogs c left outer join environments e on c.environment_id = e.id "
                    "WHERE certname = ?")]
@@ -86,7 +238,7 @@
        :relationship relationship})))
 
 (defn get-full-catalog [catalog-version node]
-  (let [{:keys [version transaction-uuid environment api_version producer-timestamp] :as catalog}
+  (let [{:keys [hash version transaction-uuid environment api_version producer-timestamp] :as catalog}
         (get-catalog-info node)]
     (when (and catalog-version catalog)
       {:name             node
@@ -95,21 +247,9 @@
        :version          version
        :transaction-uuid transaction-uuid
        :environment environment
+       :hash hash
        :api_version api_version
        :producer-timestamp producer-timestamp})))
-
-(defn catalog-response-schema
-  "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
-  [api-version]
-  (case api-version
-    :v4 (cats/catalog-wireformat :v5)
-    (cats/catalog-wireformat api-version)))
-
-(defn validate-api-catalog
-  [api-version catalog]
-  (case api-version
-    :v4 (cats/canonical-catalog :v5 catalog)
-   (cats/canonical-catalog api-version catalog)))
 
 (pls/defn-validated validate-api-catalog
   "Converts `catalog` to `version` in the canonical format, adding
@@ -120,14 +260,14 @@
     (s/validate target-schema
                 (case api-version
                   :v1 (-> catalog
-                          (dissoc :transaction-uuid :environment :producer-timestamp)
+                          (dissoc :transaction-uuid :environment :producer-timestamp :hash)
                           cats/old-wire-format-schema)
                   :v2 (-> catalog
-                          (dissoc :transaction-uuid :environment :producer-timestamp)
+                          (dissoc :transaction-uuid :environment :producer-timestamp :hash)
                           cats/old-wire-format-schema
                           strip-keys)
                   :v3 (-> catalog
-                          (dissoc :environment :producer-timestamp)
+                          (dissoc :environment :producer-timestamp :hash)
                           cats/old-wire-format-schema
                           strip-keys)
                   :v4 (strip-keys (dissoc catalog :api_version))

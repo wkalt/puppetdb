@@ -44,8 +44,10 @@
                          "facts_timestamp" :timestamp
                          "report_timestamp" :timestamp
                          "catalog_timestamp" :timestamp}
-               :queryable-fields ["certname" "deactivated" "facts-environment" "report-environment" "catalog-environment" "facts-timestamp"
-                                  "report-timestamp" "catalog-timestamp"]
+               :queryable-fields ["certname" "deactivated" "facts-environment"
+                                  "report-environment" "catalog-environment"
+                                  "facts-timestamp" "report-timestamp"
+                                  "catalog-timestamp"]
                :source-table "certnames"
                :alias "nodes"
                :subquery? false
@@ -169,6 +171,65 @@
                   LEFT OUTER JOIN environments as env on fs.environment_id = env.id
                 WHERE fp.value_type_id != 5"}))
 
+(def catalog-query
+  "Query for the top level reports entity"
+  (map->Query {:project {"version" :string
+                         "environment" :string
+                         "transaction_uuid" :string
+                         "hash" :string
+                         "name" :string
+                         "producer_timestamp" :timestamp
+                         "resource" :string
+                         "type" :string
+                         "title" :string
+                         "tags" :string
+                         "exported" :string
+                         "file" :string
+                         "line" :string
+                         "parameters" :string
+                         "source_type" :string
+                         "source_title" :string
+                         "target_type" :string
+                         "target_title" :string
+                         "relationship" :string}
+
+               :queryable-fields ["version" "environment" "transaction-uuid"
+                                  "producer-timestamp" "hash" "name"]
+               :alias "catalogs"
+               :subquery? false
+               :source-table "catalogs"
+               :source "SELECT catalog_version as version,
+                       c.hash,
+                       transaction_uuid,
+                       e.name as environment,
+                       c.certname as name,
+                       producer_timestamp,
+                       cr.resource,
+                       cr.type,
+                       cr.title,
+                       cr.tags,
+                       cr.exported,
+                       cr.file,
+                       cr.line,
+                       rpc.parameters,
+                       sources.type AS source_type,
+                       sources.title AS source_title,
+                       targets.type AS target_type,
+                       targets.title AS target_title,
+                       edges.type AS relationship
+
+                       FROM catalogs c left outer join
+                       environments e on c.environment_id = e.id
+                       INNER JOIN catalog_resources cr ON c.id=cr.catalog_id
+                       INNER JOIN resource_params_cache rpc on rpc.resource=cr.resource
+                       INNER JOIN edges ON c.certname=edges.certname
+                       INNER JOIN catalog_resources sources
+                       ON edges.source = sources.resource AND sources.catalog_id=c.id
+                       INNER JOIN catalog_resources targets
+                       ON edges.target = targets.resource AND targets.catalog_id=c.id
+                       AND edges.certname=c.certname
+                       ORDER BY hash,resource"}))
+
 (def resources-query
   "Query for the top level resource entity"
   (map->Query {:project {"certname" :string
@@ -288,7 +349,7 @@
                          "value_float" :number
                          "value_integer" :number
                          "environment" :string
-                         "\"producer-timestamp\"" :timestamp
+                         "producer_timestamp" :timestamp
                          "type" :string}
                :alias "factsets"
                :queryable-fields ["certname" "environment" "timestamp" "producer-timestamp" "hash"]
@@ -304,7 +365,7 @@
                                fact_values.value_float as value_float,
                                factsets.certname,
                                factsets.hash,
-                               factsets.producer_timestamp as \"producer-timestamp\",
+                               factsets.producer_timestamp,
                                environments.name as environment,
                                value_types.type
                         FROM factsets
@@ -803,10 +864,6 @@
   "Convert field names with dashes to underscores"
   [node state]
   (cm/match [node]
-            [[(op :guard binary-operators) (field :guard #(contains?
-                                                           #{"producer-timestamp"
-                                                             :producer-timestamp} %)) value]]
-            {:node (with-meta [op (str \" (name field) \") value] (meta node)) :state state}
             [[(op :guard binary-operators) (field :guard string?) value]]
             {:node (with-meta [op (jdbc/dashes->underscores field) value]
                      (meta node))
@@ -849,6 +906,13 @@
                                               [[:certname :ascending]]])
           to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
       (assoc paging-options :order-by (concat to-prepend to-append)))))
+
+(defn basic-project
+  "Returns a function will remove non-projected columns if projections is specified."
+  [projections]
+  (if (seq projections)
+    #(select-keys % projections)
+    identity))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public

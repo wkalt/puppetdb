@@ -3,11 +3,13 @@
             [puppetlabs.puppetdb.query.facts :as facts]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
+            [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.environments :as environments]
             [puppetlabs.puppetdb.query.reports :as reports]
+            [puppetlabs.puppetdb.query.catalogs :as catalogs]
             [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -32,7 +34,7 @@
   If the query can't be parsed, a 400 is returned."
   [entity version query paging-options db output-fn]
   (let [[query->sql munge-fn]
-        (case entity
+        (cm/match entity
           :facts [facts/query->sql facts/munge-result-rows]
           :event-counts [event-counts/query->sql (ignore-engine-params (event-counts/munge-result-rows (first paging-options)))]
           :aggregate-event-counts [aggregate-event-counts/query->sql (ignore-engine-params (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))]
@@ -43,7 +45,9 @@
           :environments [environments/query->sql (fn [_ _] identity)]
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
-          :resources [resources/query->sql resources/munge-result-rows])]
+          :resources [resources/query->sql resources/munge-result-rows]
+          :catalogs [catalogs/query->sql catalogs/munge-result-rows]
+          [:catalog-for-node (node :guard #(string? %))] [catalogs/query->sql (catalogs/munge-result-rows-for-node node)])]
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query
