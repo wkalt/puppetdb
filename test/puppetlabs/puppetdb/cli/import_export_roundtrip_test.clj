@@ -106,7 +106,10 @@
 
       (block-on-node (:name facts))
 
-      (is (= (map (partial tuc/munge-catalog-for-comparison :v5) (utils/vector-maybe catalog))
+      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> catalog
+                      (dissoc :hash)
+                      utils/vector-maybe))
              (map (partial tuc/munge-catalog-for-comparison :v5)
                   (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
                       (json/parse-string true)
@@ -128,9 +131,15 @@
 
       (block-on-node (:name facts))
 
-      (is (= (map (partial tuc/munge-catalog-for-comparison :v5) (utils/vector-maybe catalog))
+      (is (= (map (partial tuc/munge-catalog-for-comparison :v5)
+                  (-> catalog
+                      (dissoc :hash)
+                      utils/vector-maybe))
              (map (partial tuc/munge-catalog-for-comparison :v5)
-                  (utils/vector-maybe (json/parse-string (export/catalog-for-node "localhost" jutils/*port* (:name catalog)))))))
+                  (-> (export/catalog-for-node "localhost" jutils/*port* (:name catalog))
+                      (json/parse-string true)
+                      (dissoc :hash)
+                      utils/vector-maybe))))
       (is (= (tur/munge-report-for-comparison (tur/munge-example-report-for-storage report))
              (tur/munge-report-for-comparison (-> (export/reports-for-node "localhost" jutils/*port* (:certname report))
                                                   first
@@ -204,4 +213,4 @@
        (is (empty? (export/get-nodes "localhost" jutils/*port*)))
        (submit-command :replace-catalog 5 catalog)
        (is (thrown-with-msg? java.util.concurrent.ExecutionException #"Results not found"
-                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port* :v3 "foo.local")))))))))
+                             @(block-until-results 5 (json/parse-string (export/catalog-for-node "localhost" jutils/*port*  "foo.local")))))))))

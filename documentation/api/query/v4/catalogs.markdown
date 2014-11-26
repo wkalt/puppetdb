@@ -76,7 +76,7 @@ This query will return the complete list of catalogs:
       "edges" : [...],
       "resources" : [...]
     },
-   {
+    {
       "name" : "foo.delivery.puppetlabs.net",
       "hash" : "e1a4610ecbb3483fa5e637f42374b2cc46d06474",
       "version" : "449720",

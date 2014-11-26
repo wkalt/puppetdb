@@ -8,6 +8,8 @@
             [puppetlabs.puppetdb.catalogs :as cats]
             [schema.core :as s]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.utils :as utils]
+            [puppetlabs.puppetdb.query :as query]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query.paging :as paging]
@@ -28,25 +30,25 @@
    :resources])
 
 (def row-schema
-  {:version String
-   :hash String
+  {:version (s/maybe String)
+   :hash (s/maybe String)
    :transaction_uuid (s/maybe String)
    :environment (s/maybe String)
-   :name String
+   :name (s/maybe String)
    :producer_timestamp (s/maybe pls/Timestamp)
-   :resource String
-   :type String
-   :title String
-   :tags [String]
-   :exported s/Bool
+   :resource (s/maybe String)
+   :type (s/maybe String)
+   :title (s/maybe String)
+   :tags (s/maybe [String])
+   :exported (s/maybe s/Bool)
    :file (s/maybe String)
    :line (s/maybe s/Int)
-   :parameters String
-   :source_type String
-   :source_title String
-   :target_type String
-   :target_title String
-   :relationship String})
+   :parameters (s/maybe String)
+   :source_type (s/maybe String)
+   :source_title (s/maybe String)
+   :target_type (s/maybe String)
+   :target_title (s/maybe String)
+   :relationship (s/maybe String)})
 
 (def resource-schema
   {:tags [String]
@@ -54,7 +56,7 @@
    :title String
    (s/optional-key :line) (s/maybe s/Int)
    (s/optional-key :file) (s/maybe String)
-   :parameters {s/Any s/Any}
+   :parameters (s/maybe {s/Any s/Any})
    :exported s/Bool})
 
 (def edge-schema
@@ -88,8 +90,8 @@
 (pls/defn-validated collapse-resources :- #{resource-schema}
   [acc row]
   (let [{:keys [tags type title line parameters exported file]} row
-        resource {:tags tags :type type :title title
-                  :line line :parameters (json/parse-strict-string parameters true)
+        resource {:tags tags :type type :title title :line line
+                  :parameters (json/parse-strict-string parameters true)
                   :exported exported :file file}]
     (into acc
             (-> resource
@@ -108,8 +110,14 @@
   [version :- s/Keyword
    catalog-rows :- [row-schema]]
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first catalog-rows))
-        resources (into [] (reduce collapse-resources #{} catalog-rows))
-        edges (into [] (reduce collapse-edges #{} catalog-rows))]
+        resources (->> catalog-rows
+                       (filter #(not (nil? (:resource %))))
+                       (reduce collapse-resources #{})
+                       (into []))
+        edges (->> catalog-rows
+                   (filter #(not (nil? (:source_type %))))
+                   (reduce collapse-edges #{})
+                   (into []))]
     (assoc (select-keys first-row [:name :version :environment :hash
                                    :transaction-uuid :producer-timestamp])
            :edges edges :resources resources)))
@@ -123,23 +131,88 @@
       (cons (collapse-catalog version catalog-rows)
             (lazy-seq (structured-data-seq version more-rows))))))
 
-(pls/defn-validated munge-result-rows
-  "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
-  (fn [rows]
-    (if (empty? rows)
-      []
-      (map (qe/basic-project projections) (structured-data-seq version rows)))))
+(defn catalogs-sql
+  "Return a vector with the catalogs SQL query string as the first element,
+  parameters needed for that query as the rest."
+  [operators query]
+  (if query
+    (let [[subselect & params] (query/catalog-query->sql operators query)
+          sql (format "SELECT catalogs.version,
+                      catalogs.transaction_uuid,
+                      catalogs.environment,
+                      catalogs.name,
+                      catalogs.hash,
+                      catalogs.producer_timestamp,
+                      catalogs.resource,
+                      catalogs.type,
+                      catalogs.title,
+                      catalogs.tags,
+                      catalogs.exported,
+                      catalogs.file,
+                      catalogs.line,
+                      catalogs.parameters,
+                      catalogs.source_type,
+                      catalogs.source_title,
+                      catalogs.target_type,
+                      catalogs.target_title,
+                      catalogs.relationship
+                      FROM (%s) catalogs" subselect)]
+      (apply vector sql params))
+    ["select c.catalog_version as version,
+     c.certname,
+     c.hash,
+     transaction_uuid,
+     e.name as environment,
+     c.certname as name,
+     c.producer_timestamp,
+     cr.resource,
+     cr.type,
+     cr.title,
+     cr.tags,
+     cr.exported,
+     cr.file,
+     cr.line,
+     cr.parameters,
+     null as source_type,
+     null as source_title,
+     null as target_type,
+     null as target_title,
+     null as relationship
+     from catalogs c
+     left outer join environments e on c.environment_id = e.id
+     left outer join catalog_resources cr ON c.id=cr.catalog_id
+     inner join resource_params_cache rpc on rpc.resource=cr.resource
 
-(defn munge-result-rows-for-node
-  "Reassemble rows from the database into the final expected format."
-  [node]
-  (fn [version projections]
-    (fn [rows]
-      (if (empty? rows)
-        {:error (str "Could not find catalog for " node)}
-        (first (map (qe/basic-project projections) (structured-data-seq version rows)))))))
+     UNION ALL
+
+     select c.catalog_version as version,
+     c.certname,
+     c.hash,
+     transaction_uuid,
+     e.name as environment,
+     c.certname as name,
+     c.producer_timestamp,
+     null as resource,
+     null as type,
+     null as title,
+     null as tags,
+     null as exported,
+     null as file,
+     null as line,
+     null as parameters,
+     sources.type as source_type,
+     sources.title as source_title,
+     targets.type as target_type,
+     targets.title as target_title,
+     edges.type as relationship
+     FROM catalogs c
+     left outer join environments e on c.environment_id = e.id
+     INNER JOIN edges ON c.certname = edges.certname
+     INNER JOIN catalog_resources sources
+     ON edges.source = sources.resource AND sources.catalog_id=c.id
+     INNER JOIN catalog_resources targets
+     ON edges.target = targets.resource AND targets.catalog_id=c.id
+     order by certname" ]))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -150,12 +223,21 @@
    {:pre  [((some-fn nil? sequential?) query)]
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
-           (or
-             (not (:count? paging-options))
-             (jdbc/valid-jdbc-query? (:count-query %)))]}
+           (or (not (:count? paging-options))
+               (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! catalog-columns paging-options)
-   (qe/compile-user-query->sql
-     qe/catalog-query query paging-options)))
+   (let [columns (case version
+                   :v3 (map keyword (keys (dissoc query/catalog-columns "hash")))
+                   query/catalog-columns)]
+     (case version
+       :v3
+       (let [operators (query/catalog-operators version)
+             [sql & params] (catalogs-sql operators query)]
+         (conj {:results-query (apply vector (jdbc/paged-sql sql paging-options) params)}
+               (when (:count? paging-options)
+                 [:count-query (apply vector (jdbc/paged-sql sql paging-options) params)])))
+       (qe/compile-user-query->sql
+         qe/catalog-query query paging-options)))))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,3 +361,41 @@
   {:pre  [(string? node)]}
   (when-let [catalog (get-full-catalog version node)]
     (validate-api-catalog version catalog)))
+
+(pls/defn-validated munge-result-rows
+  "Reassemble rows from the database into the final expected format."
+  [version :- s/Keyword
+   projections]
+  (let [post-extract (case version
+                       :v3 (comp (partial validate-api-catalog :v3)
+                                 #(utils/assoc-when % :api_version 1))
+                       (qe/basic-project projections))]
+    (fn [rows]
+      (if (empty? rows)
+        []
+        (map post-extract (structured-data-seq version rows))))))
+
+(defn query-catalogs
+  "Search for nodes satisfying the given SQL filter."
+  [version query-sql]
+  {:pre  [(map? query-sql)
+          (jdbc/valid-jdbc-query? (:results-query query-sql))]
+   :post [(map? %)
+          (sequential? (:result %))]}
+  (let [{[sql & params] :results-query
+         count-query    :count-query
+         projections    :projections} query-sql
+         result {:result (query/streamed-query-result
+                          version sql params
+                          (comp doall (munge-result-rows version projections))
+                          false)}]
+    (if count-query
+      (assoc result :count (jdbc/get-result-count count-query))
+      result)))
+
+(defn status
+  [version node]
+  {:pre [string? node]}
+  (let [sql (query->sql version ["=" "name" node])
+        results (:result (query-catalogs version sql))]
+    (first results)))

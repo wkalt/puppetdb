@@ -202,6 +202,27 @@
                    "path"             "facts"
                    "environment"      "facts"})
 
+(def catalog-columns
+  {"name" "catalogs"
+   "version" "catalogs"
+   "transaction_uuid" "catalogs"
+   "producer_timestamp" "catalogs"
+   "environment" "catalogs"
+   "resource" "catalogs"
+   "title" "catalogs"
+   "type" "catalogs"
+   "tags" "catalogs"
+   "exported" "catalogs"
+   "file" "catalogs"
+   "line" "catalogs"
+   "parameters" "catalogs"
+   "source_type" "catalogs"
+   "source_title" "catalogs"
+   "target_title" "catalogs"
+   "target_type" "catalogs"
+   "relationship" "catalogs"
+   "hash" "catalogs"})
+
 ;; This map's keys are the queryable fields for factsets, and the values are the
 ;;  corresponding table names where the fields reside
 (def factset-columns {"certname" "factsets"
@@ -334,6 +355,10 @@
   [_ _]
   (keyset report-columns))
 
+(defmethod queryable-fields :catalog
+  [_ _]
+  (keyset catalog-columns))
+
 (def subquery->type
   {"select-resources" :resource
    "select-facts"     :fact})
@@ -367,11 +392,16 @@
    :post [(map? %)
           (string? (:where %))]}
   (when (vector? field)
-    (throw (IllegalArgumentException. (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields." field))))
+    (throw (IllegalArgumentException.
+             (format "Can't match on fields '%s'. The v2-v3 query API does not permit vector-valued fields."
+                     field))))
   (when-not (get (queryable-fields kind query-api-version) field)
-    (throw (IllegalArgumentException. (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s" (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
+    (throw (IllegalArgumentException.
+             (format "Can't match on unknown %s field '%s' for 'in'. Acceptable fields are: %s"
+                     (name kind) field (str/join ", " (sort (queryable-fields kind query-api-version)))))))
   (when-not (= (first subquery) "extract")
-    (throw (IllegalArgumentException. (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
+    (throw (IllegalArgumentException.
+             (format "The subquery argument of 'in' must be an 'extract', not '%s'" (first subquery)))))
   (let [{:keys [where] :as compiled-subquery} (compile-term ops subquery)]
     (assoc compiled-subquery :where (format "%s IN (%s)" field where))))
 
@@ -421,6 +451,72 @@
                       WHERE depth = 0) AS facts
                     WHERE %s" (column-map->sql fact-columns) where)]
     (apply vector sql params)))
+
+(defn catalog-query->sql
+  "Compile a catalog query, returning a vector containing the SQL and parameters
+  for the query. All catalog columns are selected, and no order is applied."
+  [ops query]
+  {:post [(valid-jdbc-query? %)]}
+  (let [{:keys [where params]} (compile-term ops query)
+        sql (format "SELECT %s FROM
+                    (select c.catalog_version as version,
+                       c.certname,
+                       c.hash,
+                       transaction_uuid,
+                       e.name as environment,
+                       c.certname as name,
+                       c.producer_timestamp,
+                       cr.resource,
+                       cr.type,
+                       cr.title,
+                       cr.tags,
+                       cr.exported,
+                       cr.file,
+                       cr.line,
+                       rpc.parameters,
+                       null as source_type,
+                       null as source_title,
+                       null as target_type,
+                       null as target_title,
+                       null as relationship
+                       from catalogs c
+                       left outer join environments e on c.environment_id = e.id
+                       left outer join catalog_resources cr ON c.id=cr.catalog_id
+                       inner join resource_params_cache rpc on rpc.resource=cr.resource
+
+                       UNION ALL
+
+                       select c.catalog_version as version,
+                       c.certname,
+                       c.hash,
+                       transaction_uuid,
+                       e.name as environment,
+                       c.certname as name,
+                       c.producer_timestamp,
+                       null as resource,
+                       null as type,
+                       null as title,
+                       null as tags,
+                       null as exported,
+                       null as file,
+                       null as line,
+                       null as parameters,
+                       sources.type as source_type,
+                       sources.title as source_title,
+                       targets.type as target_type,
+                       targets.title as target_title,
+                       edges.type as relationship
+                       FROM catalogs c
+                       left outer join environments e on c.environment_id = e.id
+                       INNER JOIN edges ON c.certname = edges.certname
+                       INNER JOIN catalog_resources sources
+                       ON edges.source = sources.resource AND sources.catalog_id=c.id
+                       INNER JOIN catalog_resources targets
+                       ON edges.target = targets.resource AND targets.catalog_id=c.id
+                       order by certname) catalogs WHERE %s"
+                    (column-map->sql catalog-columns) where)]
+    (apply vector sql params)))
+
 
 (defn node-query->sql
   "Compile a node query, returning a vector containing the SQL and parameters
@@ -1021,6 +1117,90 @@
          (= op "select-resources") (partial resource-query->sql (resource-operators version))
          (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
 
+(defn compile-catalog-equality
+  "Compile an = predicate for a catalogs query. `path` represents the field
+  to query against, and `value` is the value."
+  [version]
+  (fn [path value]
+    {:post [(map? %)
+            (:where %)]}
+    (match [path]
+           ["name"]
+           {:where "catalogs.name = ?"
+            :params [value] }
+
+           ["version"]
+           {:where "catalogs.version = ?"}
+
+           ["producer-timestamp"]
+           {:where "catalogs.producer_timestamp = ?"
+            :params [value]}
+
+           ["environment"]
+           {:where "catalogs.environment = ?"
+            :params [value]}
+
+           ["hash"]
+           {:where "catalogs.hash = ?"
+            :params [value]}
+
+           :else
+           (throw (IllegalArgumentException.
+                    (format "%s is not a queryable object for version %s of the catalogs query api"
+                            path (last (name version)))))))) 
+
+(defn compile-catalog-regexp
+  "Compile an '~' predicate for a catalog query, which does regexp matching.  This
+  is done by leveraging the correct database-specific regexp syntax to return
+  only rows where the supplied `path` match the given `pattern`."
+  [version]
+  (fn [path pattern]
+    {:pre [(string? path)
+           (string? pattern)]
+     :post [(map? %)
+            (string? (:where %))]}
+    (let [query (fn [col] {:where (sql-regexp-match col) :params [pattern]})]
+      (match [path]
+             ["name"]
+             (query "catalog.name")
+
+             ["hash" :guard (http/v4-or-newer? version)]
+             (query "catalogs.hash")
+
+             ["environment"]
+             (query "catalogs.environment")
+
+             ["version"]
+             (query "catalogs.version")
+
+             ["transaction-uuid"]
+             (query "catalogs.transaction_uuid")
+
+             :else (throw (IllegalArgumentException.
+                           (format "%s is not a valid version %s operand for regexp comparison"
+                                   path (last (name version)))))))))
+
+(defn catalog-operators
+  "Maps fact query operators to the functions implementing them. Returns nil
+  if the operator isn't known."
+  [version]
+  (case version
+    :v1 (throw (IllegalArgumentException. "api v1 is retired"))
+    (fn [op]
+      (let [op (str/lower-case op)]
+        (cond
+         (= op "=") (compile-catalog-equality version)
+         (= op "~") (compile-catalog-regexp version)
+         ;; We pass this function along so the recursive calls know which set of
+         ;; operators/functions to use, depending on the API version.
+         (= op "and") (partial compile-and (catalog-operators version))
+         (= op "or") (partial compile-or (catalog-operators version))
+         (= op "not") (partial compile-not version (catalog-operators version))
+         (= op "extract") (partial compile-extract version (catalog-operators version))
+         (= op "in") (partial compile-in :catalog version (catalog-operators version))
+         (= op "select-resources") (partial resource-query->sql (resource-operators version))
+         (= op "select-facts") (partial fact-query->sql (fact-operators version)))))))
+
 (defn node-operators
   "Maps node query operators to the functions implementing them. Returns nil
   if the operator isn't known."
@@ -1136,6 +1316,9 @@
    If all you want is an unstreamed Seq, pass the function `doall` as `f` to
    convert the LazySeq to a Seq by full traversing it. This is useful for tests,
    that cannot analyze results easily in a streamed way."
-  [version sql params f]
-  (jdbc/with-query-results-cursor sql params rs
-    (f (remove-all-environments version rs))))
+  ([version sql params f]
+   (streamed-query-result version sql params f true))
+  ([version sql params f remove-environments?]
+   (jdbc/with-query-results-cursor sql params rs
+     (f (if remove-environments? (remove-all-environments version rs)
+          rs)))))

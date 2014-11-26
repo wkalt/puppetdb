@@ -46,8 +46,7 @@
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
           :resources [resources/query->sql resources/munge-result-rows]
-          :catalogs [catalogs/query->sql catalogs/munge-result-rows]
-          [:catalog-for-node (node :guard #(string? %))] [catalogs/query->sql (catalogs/munge-result-rows-for-node node)])]
+          :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query

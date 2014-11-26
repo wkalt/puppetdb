@@ -117,7 +117,7 @@
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get queries q)]
         (is (= (count expected) (count response-body)))
-        (is (= (map :name expected) (map :name response-body)))
+        (is (= (sort (map :name expected)) (sort (map :name response-body))))
         (is (= (extract-tags expected) (extract-tags response-body))))))
 
   (testing "top-level extract works with catalogs"
@@ -126,15 +126,16 @@
           response-body (strip-hash (json/parse-stream (reader body) true))
           expected [{:name "myhost.localdomain"}
                     {:name "host2.localdomain"}]]
-      (is (= expected response-body))))
+      (is (= (sort-by :name expected) (sort-by :name response-body)))))
+
 
   (testing "v3 and v4 catalogs should have the same essential content"
     (doseq [certname ["myhost.localdomain" "host2.localdomain"]]
       (let [query ["=" "name" certname]
             {:keys [body]} (get-response "/v4/catalogs" nil query)
-            v4-response-body (first (strip-hash (json/parse-stream (reader body) true)))
+            v4-response-body  (strip-hash (json/parse-stream (reader body) true))
             {:keys [body]} (get-response "/v3/catalogs" certname)
-            v3-response-body (-> (json/parse-string body)
+            v3-response-body (-> body
                                  (keywordize-keys)
                                  :data)]
         (testing "contain the same resources"
@@ -154,5 +155,5 @@
 
   (testing "/v4 endpoint is still responsive to old-style node queries"
     (let [{:keys [body]} (get-response "/v4/catalogs" "myhost.localdomain")
-          response-body  (json/parse-stream (reader body) true)]
+          response-body  (json/parse-string body true)]
       (is (= "myhost.localdomain" (:name response-body))))))

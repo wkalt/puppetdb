@@ -23,7 +23,10 @@
         (is (= environment (:environment (c/get-catalog-info name)))))
       (testing "catalog-for-node"
         (is (= (testcat/munged-canonical->wire-format api-version (json/parse-string catalog-str true))
-               (testcat/munged-canonical->wire-format api-version (c/catalog-for-node api-version name))))))))
+               (testcat/munged-canonical->wire-format api-version (c/catalog-for-node api-version name)))))
+      (testing "status"
+        (is (= (testcat/munged-canonical->wire-format api-version (json/parse-string catalog-str true))
+               (testcat/munged-canonical->wire-format api-version (c/status api-version name))))))))
 
 (def data-seq (-> (slurp "./test-resources/puppetlabs/puppetdb/cli/export/catalog-query-rows.json")
                       (json/parse-string)

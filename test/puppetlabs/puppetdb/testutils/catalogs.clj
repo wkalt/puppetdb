@@ -90,7 +90,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
-  (dissoc (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)) "hash"))
+   (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

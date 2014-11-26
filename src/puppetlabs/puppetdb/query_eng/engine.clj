@@ -198,12 +198,13 @@
                :alias "catalogs"
                :subquery? false
                :source-table "catalogs"
-               :source "SELECT catalog_version as version,
+               :source "select c.catalog_version as version,
+                       c.certname,
                        c.hash,
                        transaction_uuid,
                        e.name as environment,
                        c.certname as name,
-                       producer_timestamp,
+                       c.producer_timestamp,
                        cr.resource,
                        cr.type,
                        cr.title,
@@ -212,24 +213,46 @@
                        cr.file,
                        cr.line,
                        rpc.parameters,
-                       sources.type AS source_type,
-                       sources.title AS source_title,
-                       targets.type AS target_type,
-                       targets.title AS target_title,
-                       edges.type AS relationship
+                       null as source_type,
+                       null as source_title,
+                       null as target_type,
+                       null as target_title,
+                       null as relationship
+                       from catalogs c
+                       left outer join environments e on c.environment_id = e.id
+                       left outer join catalog_resources cr ON c.id=cr.catalog_id
+                       inner join resource_params_cache rpc on rpc.resource=cr.resource
 
-                       FROM catalogs c left outer join
-                       environments e on c.environment_id = e.id
-                       INNER JOIN catalog_resources cr ON c.id=cr.catalog_id
-                       INNER JOIN resource_params_cache rpc on rpc.resource=cr.resource
-                       INNER JOIN edges ON c.certname=edges.certname
+                       UNION ALL
+
+                       select c.catalog_version as version,
+                       c.certname,
+                       c.hash,
+                       transaction_uuid,
+                       e.name as environment,
+                       c.certname as name,
+                       c.producer_timestamp,
+                       null as resource,
+                       null as type,
+                       null as title,
+                       null as tags,
+                       null as exported,
+                       null as file,
+                       null as line,
+                       null as parameters,
+                       sources.type as source_type,
+                       sources.title as source_title,
+                       targets.type as target_type,
+                       targets.title as target_title,
+                       edges.type as relationship
+                       FROM catalogs c
+                       left outer join environments e on c.environment_id = e.id
+                       INNER JOIN edges ON c.certname = edges.certname
                        INNER JOIN catalog_resources sources
                        ON edges.source = sources.resource AND sources.catalog_id=c.id
                        INNER JOIN catalog_resources targets
                        ON edges.target = targets.resource AND targets.catalog_id=c.id
-                       AND edges.certname=c.certname
-                       ORDER BY hash,resource"}))
-
+                       order by certname"}))
 (def resources-query
   "Query for the top level resource entity"
   (map->Query {:project {"certname" :string

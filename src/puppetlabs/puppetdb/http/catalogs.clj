@@ -13,11 +13,11 @@
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [net.cgrand.moustache :refer [app]]))
 
-(defn produce-body
+(defn catalog-status
   "Produce a response body for a request to retrieve the catalog for `node`."
   [api-version node db]
   (if-let [catalog (with-transacted-connection db
-                     (c/catalog-for-node api-version node))]
+                     (c/status api-version node))]
     (http/json-response (s/validate (c/catalog-response-schema api-version) catalog))
     (http/json-response {:error (str "Could not find catalog for " node)} http/status-not-found)))
 
@@ -38,14 +38,14 @@
     (app
       [node]
       (fn [{:keys [globals]}]
-        (produce-body version node (:scf-read-db globals))))
+        (catalog-status version node (:scf-read-db globals))))
     (app
       [""]
       {:get (build-catalog-app version :catalogs)}
 
       [node]
-      {:get (comp (build-catalog-app version [:catalog-for-node node])
-                  (partial http-q/restrict-catalog-query-to-node node))})))
+      (fn [{:keys [globals]}]
+        (catalog-status version node (:scf-read-db globals))))))
 
 (defn catalog-app
   [version]
