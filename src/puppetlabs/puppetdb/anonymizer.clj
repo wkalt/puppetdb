@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [clojure.string :as str]
             [puppetlabs.kitchensink.core :refer [regexp? boolean? uuid string-contains?]]
+            [puppetlabs.puppetdb.scf.hash :as shash]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.random :refer :all]))
 
@@ -374,13 +375,14 @@
   [config catalog]
   {:pre  [(catalog? catalog)]
    :post [(catalog? %)]}
-  (let [context {"node" (get catalog ["name"])}]
-    (-> catalog
-        (update-in ["resources"]        anonymize-resources context config)
-        (update-in ["edges"]            anonymize-edges context config)
-        (update-in ["name"]             anonymize-leaf :node context config)
-        (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
-        (update-in ["environment"] anonymize-leaf :environment context config))))
+  (let [context {"node" (get catalog ["name"])}
+        anonymized (-> catalog
+                       (update-in ["resources"]        anonymize-resources context config)
+                       (update-in ["edges"]            anonymize-edges context config)
+                       (update-in ["name"]             anonymize-leaf :node context config)
+                       (update-in ["transaction-uuid"] anonymize-leaf :transaction-uuid context config)
+                       (update-in ["environment"] anonymize-leaf :environment context config))]
+    (assoc anonymized ["hash"] (shash/catalog-similarity-hash anonymized))))
 
 (defn anonymize-report
   "Anonymize a report"

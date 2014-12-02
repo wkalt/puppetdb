@@ -90,6 +90,7 @@
             [clojure.set :as set]
             [puppetlabs.puppetdb.cheshire :as json]
             [digest]
+            [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.kitchensink.core :as kitchensink]
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls]
@@ -190,11 +191,11 @@
                 (case version
                   :v1 (strip-keys
                         (old-wire-format-schema
-                          (dissoc catalog :transaction-uuid :environment :producer-timestamp :hash)))
+                          (dissoc catalog :transaction-uuid :environment :producer-timestamp)))
                   :v2 (strip-keys (old-wire-format-schema (dissoc catalog :transaction-uuid
-                                            :environment :producer-timestamp :hash)))
-                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp :hash)))
-                  :v4 (strip-keys (dissoc (collapse-if catalog) :api_version :producer-timestamp :hash))
+                                            :environment :producer-timestamp)))
+                  :v3 (strip-keys (old-wire-format-schema (dissoc catalog :environment :producer-timestamp)))
+                  :v4 (strip-keys (dissoc (collapse-if catalog) :api_version :producer-timestamp))
                   :all (strip-keys (default-missing-keys (collapse-if catalog)))
                   (strip-keys (dissoc (collapse-if catalog) :api_version))))))
 

@@ -1147,7 +1147,7 @@
            :else
            (throw (IllegalArgumentException.
                     (format "%s is not a queryable object for version %s of the catalogs query api"
-                            path (last (name version)))))))) 
+                            path (last (name version))))))))
 
 (defn compile-catalog-regexp
   "Compile an '~' predicate for a catalog query, which does regexp matching.  This

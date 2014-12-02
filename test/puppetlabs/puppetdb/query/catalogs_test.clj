@@ -17,13 +17,6 @@
                                                                           catalog-str)]
     (testcat/replace-catalog catalog-str)
     (doseq [api-version [:v3 :v4]]
-      (testing "get-catalog-info"
-        (is (= (str version)  (:version (c/get-catalog-info name))))
-        (is (= transaction-uuid (:transaction-uuid (c/get-catalog-info name))))
-        (is (= environment (:environment (c/get-catalog-info name)))))
-      (testing "catalog-for-node"
-        (is (= (testcat/munged-canonical->wire-format api-version (json/parse-string catalog-str true))
-               (testcat/munged-canonical->wire-format api-version (c/catalog-for-node api-version name)))))
       (testing "status"
         (is (= (testcat/munged-canonical->wire-format api-version (json/parse-string catalog-str true))
                (testcat/munged-canonical->wire-format api-version (c/status api-version name))))))))
