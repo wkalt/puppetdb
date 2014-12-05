@@ -17,15 +17,15 @@ test_name "validate matching transaction UUIDs in agent report and catalog" do
 
   agents.each do |agent|
     # Query for all of the reports for this node, but we only care about the most recent one
-    result = on database, %Q|curl -G http://localhost:8080/v3/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
+    result = on database, %Q|curl -G http://localhost:8080/v4/reports --data 'query=["=",%20"certname",%20"#{agent.node_name}"]'|
     report = JSON.parse(result.stdout)[0]
 
     # Query for the most recent catalog for this node
-    result = on database, %Q|curl -G http://localhost:8080/v3/catalogs/#{agent.node_name}|
+    result = on database, %Q|curl -G http://localhost:8080/v4/catalogs/#{agent.node_name}|
     catalog = JSON.parse(result.stdout)
 
     report_uuid = report['transaction-uuid']
-    catalog_uuid = catalog['data']['transaction-uuid']
+    catalog_uuid = catalog['transaction-uuid']
     report_format = report['report-format']
 
     if report_format < 4
