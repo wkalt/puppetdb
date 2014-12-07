@@ -24,4 +24,6 @@
   :deploy-repositories [["releases" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/releases/")]
                         ["snapshots" ~(deploy-info "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/")]]
 
-  :lein-release {:scm :git, :deploy-via :lein-deploy})
+  :lein-release {:scm :git, :deploy-via :lein-deploy}
+  
+  :main ^:skip-aot puppetdb-sync.core)
