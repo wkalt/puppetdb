@@ -10,7 +10,7 @@
 (def ks-version "0.7.2")
 
 
-(defproject puppetdb-sync "0.1.0-SNAPSHOT"
+(defproject puppetlabs/puppetdb-sync "0.1.0-SNAPSHOT"
   :description "Library for replicating PuppetDB instances"
   :repositories [["releases" "http://nexus.delivery.puppetlabs.net/content/repositories/releases/"]
                  ["snapshots"  "http://nexus.delivery.puppetlabs.net/content/repositories/snapshots/"]]
@@ -26,4 +26,4 @@
 
   :lein-release {:scm :git, :deploy-via :lein-deploy}
   
-  :main ^:skip-aot puppetdb-sync.core)
+  :main ^:skip-aot puppetlabs.puppetdb-sync.core)

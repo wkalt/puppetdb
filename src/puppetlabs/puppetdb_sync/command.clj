@@ -1,4 +1,4 @@
-(ns puppetdb-sync.command
+(ns puppetlabs.puppetdb-sync.command
   (:require [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.cli.export :as export]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -10,16 +10,13 @@
 (def catalogs-endpoint "/v4/catalogs")
 (def reports-endpoint "/v4/reports")
 (def factsets-endpoint "/v4/factsets")
-(def sync-endpoint "/ha/v4/sync")
-(def local "wheezy.dev")
-(def remote "wheezy.prime")
-(def sender "wheezy.prime")
 
 (defn query-db 
   [host endpoint query]
-  (let [{:keys [status body]}  (client/get (format "http://%s:8080%s?query=%s" host endpoint (url-encode (json/generate-string query))))]
+  (let [{:keys [status body]}
+        (client/get (format "http://%s:8080%s?query=%s"
+                            host endpoint (url-encode (json/generate-string query))))]
     (if (= status 200) (json/parse-string body) [])))
-
 
 (defn fetch-hashes
   [host entity]
@@ -29,7 +26,6 @@
                         :reports reports-endpoint
                         :catalogs catalogs-endpoint)]
     (into #{} (map #(get % "hash") (query-db host endpoint ["extract" ["hash"] ["~" operator ".*"]])))))
-
 
 (defn transform-factset
   [response]
@@ -57,8 +53,7 @@
 
 (defn transfer-response
   [local port payload]
-  (let [checksum (kitchensink/utf8-string->sha1 payload)
-        url (format "http://%s:%s/v4/commands" local port)]
+  (let [url (format "http://%s:%s/v4/commands" local port)]
     (client/post url {:body               payload
                       :throw-exceptions   false
                       :content-type       :json

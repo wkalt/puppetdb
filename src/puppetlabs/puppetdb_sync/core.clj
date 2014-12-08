@@ -1,6 +1,6 @@
-(ns puppetdb-sync.core)
+(ns puppetlabs.puppetdb-sync.core)
 
-(def ns-prefix "puppetdb-sync.")
+(def ns-prefix "puppetlabs.puppetdb-sync.")
 
 (defn run-command
   "Does the real work of invoking a command by attempting to result it and
