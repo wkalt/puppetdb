@@ -1,29 +1,11 @@
 (ns puppetdb-sync.command
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.scf.storage :as scf-storage]
-            [puppetlabs.puppetdb.catalogs :as cat]
-            [puppetlabs.puppetdb.reports :as report]
-            [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.cli.export :as export]
-            [puppetlabs.puppetdb.command.dlo :as dlo]
-            [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.set :as set]
             [clj-http.util :refer [url-encode]]
             [clj-http.client :as client]
-            [clj-time.coerce :refer [to-timestamp]]
-            [clj-time.core :refer [now]]
-            [puppetlabs.puppetdb.config :as conf]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.random :refer [random-string]]
-            [clojure.walk :as walk]
-            [puppetlabs.puppetdb.utils :as utils]
-            [slingshot.slingshot :refer [try+ throw+]]
-            [cheshire.custom :refer [JSONable]]
-            [puppetlabs.puppetdb.command.constants :refer [command-names]]
-            [puppetlabs.trapperkeeper.services :refer [defservice]]
-            [schema.core :as s]))
+            [puppetlabs.puppetdb.cheshire :as json]))
 
 (def catalogs-endpoint "/v4/catalogs")
 (def reports-endpoint "/v4/reports")

@@ -9,7 +9,6 @@
    or a failure executing a command."
   [success-fn fail-fn args]
   (let [subcommand (first args)]
-
     (let [module (str ns-prefix subcommand)
           args   (rest args)]
       (try

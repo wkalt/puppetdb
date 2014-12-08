@@ -1,11 +1,13 @@
 (ns puppetdb-sync.services
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.trapperkeeper.core :refer [defservice main]]
-            [puppetlabs.trapperkeeper.services :refer [get-services]]
-            [puppetdb-sync.command :as command]
-            [robert.hooke :as rh]
             [compojure.core :as compojure]
-            [compojure.route :as route]))
+            [puppetlabs.trapperkeeper.core :refer [defservice main]]))
+
+(defn app
+  [req]
+  {:status 200
+   :headers {"Content-Type" "text/plain"}
+   :body "hello world"})   
 
 (defservice puppetdb-sync-service
   [[:ConfigService get-in-config]
@@ -15,11 +17,8 @@
       ; Since we're using the -to versions of the below functions and are specifying
       ; server-id :foo, these will be added to the :foo server specified in the
       ; config file.
-      (add-ring-handler
-        (fn [req]
-          {:status 200
-           :headers {"Content-Type" "text/plain"}
-           :body "hello world"}))))
+      (add-ring-handler this (compojure/context "/sync" [] app))
+      context))
 
 (defn -main
   "Calls the trapperkeeper main argument to initialize tk.
