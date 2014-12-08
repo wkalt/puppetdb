@@ -973,7 +973,7 @@
                     :timestamp (to-timestamp timestamp)
                     :environment_id (ensure-environment environment)
                     :producer_timestamp (to-timestamp producer-timestamp)}
-           fact-data-hash (shash/generic-identity-hash (dissoc fact-data "producer-timestamp"))]
+           fact-data-hash (shash/generic-identity-hash (dissoc fact-data "producer-timestamp" "timestamp"))]
        (sql/insert-record :factsets
                           (if include-hash?
                             (assoc factset :hash fact-data-hash) factset))
@@ -1046,7 +1046,7 @@
         factset {:timestamp (to-timestamp timestamp)
                  :environment_id (ensure-environment environment)
                  :producer_timestamp (to-timestamp producer-timestamp)
-                 :hash (shash/generic-identity-hash (dissoc fact-data "producer-timestamp"))}]
+                 :hash (shash/generic-identity-hash (dissoc fact-data "producer-timestamp" "timestamp"))}]
     (sql/update-values :factsets ["id=?" factset-id] factset)
     (utils/diff-fn (zipmap new-facts (repeat nil))
                    (zipmap old-facts (repeat nil))
