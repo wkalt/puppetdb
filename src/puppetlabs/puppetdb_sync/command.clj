@@ -4,34 +4,37 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [clojure.set :as set]
             [clj-http.util :refer [url-encode]]
+            [fs.core :as fs]
             [clj-http.client :as client]
             [puppetlabs.puppetdb.schema :as pls]
             [clj-time.core :refer [now]]
             [schema.core :as s]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.mq-listener :as mql]))
 
 (def catalogs-endpoint "/v4/catalogs")
 (def reports-endpoint "/v4/reports")
 (def factsets-endpoint "/v4/factsets")
-(def sync-url "http://localhost:8080/sync")
-(def local "wheezy.dev")
-(def remote "wheezy.prime")
 
 (defn query-db 
-  [host endpoint query]
+  [host host-port endpoint query]
   (let [{:keys [status body]}
-        (client/get (format "http://%s:8080%s?query=%s"
-                            host endpoint (url-encode (json/generate-string query))))]
+        (->> (url-encode (json/generate-string query))
+             (format "http://%s:%s%s?query=%s" host host-port endpoint)
+             (client/get))]
     (if (= status 200) (json/parse-string body) [])))
 
 (pls/defn-validated fetch-hashes :- #{String}
-  [host entity]
+  [host host-port entity]
   (let [certname-field (if (= entity :catalogs) "name" "certname")
         endpoint (case entity
-                        :factsets factsets-endpoint
-                        :reports reports-endpoint
-                        :catalogs catalogs-endpoint)]
-    (into #{} (map #(get % "hash") (query-db host endpoint ["extract" ["hash"] ["~" certname-field ".*"]])))))
+                   :factsets factsets-endpoint
+                   :reports reports-endpoint
+                   :catalogs catalogs-endpoint)]
+    (->> ["extract" "hash" ["~" certname-field ".*"]]
+         (query-db host host-port endpoint)
+         (map #(get % "hash"))
+         (into #{}))))
 
 (defn transform-factset
   [response]
@@ -49,13 +52,15 @@
    "payload" (dissoc response "hash")})
 
 (defn transform-report
-  [remote hash]
+  [remote remote-port hash]
   (fn [response]
     {"command" "store report"
      "version" 4
      "payload" (-> response
                    (dissoc "hash" "receive-time")
-                   (assoc "resource-events" (export/events-for-report-hash remote 8080 hash)))}))
+                   (assoc "resource-events"
+                          (export/events-for-report-hash
+                            remote remote-port hash)))}))
 
 (defn transfer-response
   [local port payload]
@@ -67,41 +72,41 @@
                       :accept             :json})))
 
 (defn query-hash-and-transfer!
-  [remote local entity hash]
-  (let [[transform endpoint] (case entity
-                               :factsets [transform-factset factsets-endpoint]
-                               :reports [(transform-report remote hash) reports-endpoint]
-                               :catalogs [transform-catalog catalogs-endpoint]) 
-        response (first (query-db remote endpoint ["=" "hash" hash]))]
+  [remote remote-port local entity hash]
+  (let [[transform endpoint]
+        (case entity
+          :factsets [transform-factset factsets-endpoint]
+          :reports [(transform-report remote remote-port hash)
+                    reports-endpoint]
+          :catalogs [transform-catalog catalogs-endpoint]) 
+        response (first (query-db remote remote-port endpoint ["=" "hash" hash]))]
     (transfer-response local 8080 (json/generate-string (transform response)))))
 
-(def doc
-  {"catalog-hashes" (fetch-hashes remote :catalogs)
-   "report-hashes" (fetch-hashes remote :reports)
-   "factset-hashes" (fetch-hashes remote :factsets)
-   "sender" remote
-   "timestamp" (now)})
 
-(def pack
-  {:body (json/generate-string {"payload" doc "version" 1 "command" "sync"})
-   :throw-exceptions false
-   :content-type :json
-   :character-encoding "utf-8"
-   :accept :json})
+(pls/defn-validated puppetdb-sync*
+  [local local-port
+   {:keys [timestamp sender sender-port
+           catalog-hashes report-hashes factset-hashes]}]
+  (doseq [[entity hashes] [[:catalogs catalog-hashes]
+                           [:factsets factset-hashes]
+                           [:reports report-hashes]]]
+    (->> (into #{} hashes)
+         (remove (fetch-hashes local local-port entity))
+         (map (partial query-hash-and-transfer! sender local sender-port entity)))))
 
-#_ (client/post sync-url pack)
-
-(defn puppetdb-sync*
-  [{:keys [timestamp sender catalog-hashes report-hashes factset-hashes]}]
-  (let [catalog-targets (remove (fetch-hashes local :catalogs) (into #{} catalog-hashes))
-        factset-targets (remove (fetch-hashes local :factsets) (into #{} factset-hashes))
-        report-targets (remove (fetch-hashes local :reports) (into #{} report-hashes))]
-
-    (doseq [h catalog-targets]
-      (query-hash-and-transfer! sender local :catalogs h))
-
-    (doseq [h report-targets]
-      (query-hash-and-transfer! sender local :reports h))
-
-    (doseq [h factset-targets]
-      (query-hash-and-transfer! sender local :factsets h))))
+(defn test-pdb-sync
+  "syncs remote to local. remote must be running pdb-sync"
+  [local local-port remote remote-port]
+  (client/post url {:body (json/generate-string
+                            {:command "sync"
+                             :version 1
+                             :payload {:timestamp (now)
+                                       :catalog-hashes (fetch-hashes local local-port :catalogs)
+                                       :factset-hashes (fetch-hashes local local-port :factsets)
+                                       :report-hashes (fetch-hashes local local-port :reports)
+                                       :sender local
+                                       :sender-port local-port}})
+                    :throw-exceptions   false
+                    :content-type       :json
+                    :character-encoding "utf-8"
+                    :accept             :json}))

@@ -19,10 +19,3 @@
    "factset-hashes" (fetch-hashes remote :factsets)
    "sender" remote
    "timestamp" (now)})
-
-(deftest puppetdb-sync
-  
-  (testing "transform factset"
-    )
-  )
-

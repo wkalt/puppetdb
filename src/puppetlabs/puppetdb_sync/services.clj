@@ -1,31 +1,24 @@
 (ns puppetlabs.puppetdb-sync.services
   (:require [clojure.tools.logging :as log]
             [puppetlabs.trapperkeeper.services :refer [get-services]]
-            [compojure.core :as compojure]
-            [ring.util.request :as request]
-            [puppetlabs.puppetdb-sync.command :as command]
             [puppetlabs.puppetdb.cheshire :as json]  
+            [puppetlabs.puppetdb-sync.command :as command]
             [puppetlabs.trapperkeeper.core :refer [defservice main]]))
 
-(defn app
-  [req]
-  (let [request-string (slurp (:body req))
-        request-map (json/parse-string request-string true)]
-    (command/puppetdb-sync* (:payload request-map))
-    {:status 200
-     :headers {"Content-Type" "text/plain"}
-     :body (format "hello worlds")}))
+(defn foo-pred
+  [x]
+  (= (:command x) "sync"))
 
-(defservice puppetdb-sync-service
-  [[:ConfigService get-in-config]
-   [:WebroutingService add-ring-handler]]
+(defn foo-listener
+  [{:keys [payload version]}]
+  (command/puppetdb-sync* "localhost" 8080 payload)
+  (log/info "hit the endpoint"))
+
+(defservice foo-service
+  [[:PuppetDBServer shared-globals]
+   [:MessageListenerService register-listener]]
   (start [this context]
-         (let [port (get-in-config [ :webserver :default :port])]
-         (log/info "Initializing hello webservice")
-         (add-ring-handler this app)
-         context)))
-
-(defn -main
-  "Calls the trapperkeeper main argument to initialize tk."
-  [& args]
-  (apply main args))
+         (let [{:keys [scf-write-db catalog-hash-debug-dir]} (shared-globals)]
+           (register-listener foo-pred
+                              foo-listener)
+                              context)))
