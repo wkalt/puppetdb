@@ -8,6 +8,7 @@
   (:require [fs.core :as fs]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.archive :as archive]
+            [clj-time.core :refer [now ago days]]
             [puppetlabs.puppetdb.cheshire :as json]
             [clojure.java.io :as io]
             [slingshot.slingshot :refer [try+]]
@@ -90,6 +91,19 @@
        (case (:type m)
          :puppetlabs.kitchensink.core/cli-error (System/exit 1)
          :puppetlabs.kitchensink.core/cli-help  (System/exit 0))))))
+
+(def current-time (now))
+
+(def facts {:name "foo.com"
+            :environment "DEV"
+            :values {"a" {"b" {"c" "abc"
+                               "d" {"0" {"e" {"f" [1]}}
+                                    "1" {"e" {"f" [2]}}}
+                               "e" "abe"
+                               "f" "abf"
+                               "j" nil}}}
+            :timestamp current-time
+            :producer-timestamp nil})
 
 (defn -main
   [& args]

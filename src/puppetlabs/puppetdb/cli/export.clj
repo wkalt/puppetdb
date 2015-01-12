@@ -82,7 +82,7 @@
      (facts-for-node host port :v4 node))
   ([host :- String
     port :- s/Int
-    version :- s/Keyword
+    version
     node :- String]
      (when-let [facts (first (parse-response
                               (client/get
