@@ -27,8 +27,8 @@
 
 (deftest paging-results
   (let [_           (store-example-report! (:basic reports) (now))
-        count1      {:subject-type "containing-class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
-        count2      {:subject-type "containing-class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
+        count1      {:subject_type "containing_class" :subject {:title nil}   :failures 0 :successes 2 :noops 0 :skips 0}
+        count2      {:subject_type "containing_class" :subject {:title "Foo"} :failures 0 :successes 0 :noops 0 :skips 1}]
 
     (let [version :v4]
 
@@ -60,7 +60,7 @@
               (let [actual (:result (raw-event-counts-query-result
                                      version
                                      ["=" "certname" "foo.local"]
-                                     "containing-class"
+                                     "containing_class"
                                      {}
                                      {:order-by [[:successes order]]}))]
                 (is (= actual expected)))))))
@@ -77,7 +77,7 @@
               (let [actual (:result (raw-event-counts-query-result
                                      version
                                      ["=" "certname" "foo.local"]
-                                     "containing-class"
+                                     "containing_class"
                                      {}
                                      {:order-by [[:successes order]] :offset offset}))]
                 (is (= actual expected))))))))))
@@ -93,24 +93,24 @@
              IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
              (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
-      (testing "containing-class"
-        (let [expected #{{:subject-type "containing-class"
+      (testing "containing_class"
+        (let [expected #{{:subject_type "containing_class"
                           :subject {:title nil}
                           :failures 0
                           :successes 2
                           :noops 0
                           :skips 0}
-                         {:subject-type "containing-class"
+                         {:subject_type "containing_class"
                           :subject {:title "Foo"}
                           :failures 0
                           :successes 0
                           :noops 0
                           :skips 1}}
-              actual   (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class")]
+              actual   (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class")]
           (is (= actual expected))))
 
       (testing "certname"
-        (let [expected  #{{:subject-type "certname"
+        (let [expected  #{{:subject_type "certname"
                            :subject {:title "foo.local"}
                            :failures 0
                            :successes 2
@@ -120,19 +120,19 @@
           (is (= actual expected))))
 
       (testing "resource"
-        (let [expected  #{{:subject-type "resource"
+        (let [expected  #{{:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yo"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yar"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "hi"}
                            :failures 0
                            :successes 0
@@ -141,25 +141,25 @@
               actual    (event-counts-query-result version ["=" "certname" "foo.local"] "resource")]
           (is (= actual expected)))))
 
-    (testing "counts-filter"
+    (testing "counts_filter"
       (testing "= operator"
-        (let [expected  #{{:subject-type "containing-class"
+        (let [expected  #{{:subject_type "containing_class"
                            :subject {:title nil}
                            :failures 0
                            :successes 2
                            :noops 0
                            :skips 0}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class" {:counts-filter ["=" "successes" 2]})]
+              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:counts-filter ["=" "successes" 2]})]
           (is (= actual expected))))
 
       (testing "> operator"
-        (let [expected  #{{:subject-type "resource"
+        (let [expected  #{{:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yo"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yar"}
                            :failures 0
                            :successes 1
@@ -169,19 +169,19 @@
           (is (= actual expected))))
 
       (testing ">= operator"
-        (let [expected  #{{:subject-type "resource"
+        (let [expected  #{{:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yo"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yar"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "hi"}
                            :failures 0
                            :successes 0
@@ -191,13 +191,13 @@
           (is (= actual expected))))
 
       (testing "< operator"
-        (let [expected  #{{:subject-type "resource"
+        (let [expected  #{{:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yo"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yar"}
                            :failures 0
                            :successes 1
@@ -207,19 +207,19 @@
           (is (= actual expected))))
 
       (testing "<= operator"
-        (let [expected  #{{:subject-type "resource"
+        (let [expected  #{{:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yo"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "notify, yar"}
                            :failures 0
                            :successes 1
                            :noops 0
                            :skips 0}
-                          {:subject-type "resource"
+                          {:subject_type "resource"
                            :subject {:type "Notify" :title "hi"}
                            :failures 0
                            :successes 0
@@ -235,23 +235,23 @@
              (event-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
-        (let [expected  #{{:subject-type "containing-class"
+        (let [expected  #{{:subject_type "containing_class"
                            :subject {:title nil}
                            :failures 0
                            :successes 2
                            :noops 0
                            :skips 0}
-                          {:subject-type "containing-class"
+                          {:subject_type "containing_class"
                            :subject {:title "Foo"}
                            :failures 0
                            :successes 0
                            :noops 0
                            :skips 1}}
-              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing-class" {:count-by "resource"})]
+              actual    (event-counts-query-result version ["=" "certname" "foo.local"] "containing_class" {:count-by "resource"})]
           (is (= actual expected))))
 
       (testing "certname"
-        (let [expected  #{{:subject-type "certname"
+        (let [expected  #{{:subject_type "certname"
                            :subject {:title "foo.local"}
                            :failures 0
                            :successes 1

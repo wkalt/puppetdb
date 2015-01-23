@@ -60,7 +60,7 @@ if Puppet::Util::Puppetdb.puppet3compat?
             metadata = {
               'timestamp' => timestamp,
               'command-versions' => {
-                'replace-catalog' => 5,
+                'replace-catalog' => 6,
               }
             }
 

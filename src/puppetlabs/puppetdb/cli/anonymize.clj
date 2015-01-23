@@ -76,7 +76,7 @@
                                 ;; Line numbers without file names does not give away a lot
                                 {"context" {} "anonymize" false}
                                 ]
-                        "transaction-uuid" [
+                        "transaction_uuid" [
                                             {"context" {} "anonymize" false}
                                             ]
 
@@ -144,7 +144,7 @@
                                                                     "/password/" "/pwd/" "/secret/" "/key/" "/private/"]}
                                        "anonymize" true}
                                       ]
-                   "transaction-uuid" [
+                   "transaction_uuid" [
                                        {"context" {} "anonymize" false}
                                        ]
 
@@ -169,7 +169,7 @@
                     "file" [ {"context" {} "anonymize" false} ]
                     "message" [ {"context" {} "anonymize" false} ]
                     "parameter-value" [ {"context" {} "anonymize" false} ]
-                    "transaction-uuid" [ {"context" {} "anonymize" false} ]
+                    "transaction_uuid" [ {"context" {} "anonymize" false} ]
                     "fact-name" [{"context" {} "anonymize" false}]
                     "fact-value" [{"context" {} "anonymize" false}]
                     "environment" [{"context" {} "anonymize" false}]
@@ -224,8 +224,8 @@
             new-hostname (get new-report "certname")
             new-hash     (kitchensink/utf8-string->sha1
                           (str
-                           (get new-report "start-time")
-                           (get new-report "configuration-version")))
+                           (get new-report "start_time")
+                           (get new-report "configuration_version")))
             file-suffix  ["reports" (format "%s-%s.json" new-hostname new-hash)]
             new-path     (.getPath (apply io/file export-root-dir file-suffix))]
         (println (format "Anonymizing report from archive entry '%s' to '%s'" path new-path))

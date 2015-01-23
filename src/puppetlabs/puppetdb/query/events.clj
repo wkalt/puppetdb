@@ -134,9 +134,9 @@
      ;; TODO: conversion to underscore should be standard anyway
      ;; at least for V4. Consider moving this operation to
      ;; query/streamed-query-result in the future.
-     #(-> (kitchensink/mapkeys jdbc/underscores->dashes %)
-          (utils/update-when [:old-value] json/parse-string)
-          (utils/update-when [:new-value] json/parse-string))
+     #(-> %
+          (utils/update-when [:old_value] json/parse-string)
+          (utils/update-when [:new_value] json/parse-string))
      rows)))
 
 (defn query-resource-events
@@ -171,7 +171,7 @@
          (query-resource-events version)
          :result
          (mapv #(dissoc %
-                        :run-start-time
-                        :run-end-time
-                        :report-receive-time
+                        :run_start_time
+                        :run_end_time
+                        :report_receive_time
                         :environment)))))

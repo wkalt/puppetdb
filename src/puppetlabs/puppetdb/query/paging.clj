@@ -8,7 +8,8 @@
             [clojure.string :as string]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.kitchensink.core :refer [keyset seq-contains? parse-int order-by-expr?]]
-            [puppetlabs.puppetdb.jdbc :refer [underscores->dashes]]))
+            [puppetlabs.puppetdb.jdbc :refer [underscores->dashes]]
+            [clojure.walk :refer [keywordize-keys]]))
 
 (def query-params ["limit" "offset" "order-by" "include-total"])
 (def count-header "X-Records")
@@ -192,19 +193,18 @@
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of
-   paging options, validate that the order-by data in the paging options complies with
-   the list of fields.  Throws an exception if validation fails."
+  paging options, validate that the order-by data in the paging options complies with
+  the list of fields.  Throws an exception if validation fails."
   [columns paging-options]
   {:pre [(sequential? columns)
          (every? keyword? columns)
          ((some-fn nil? valid-paging-options?) paging-options)]}
-  (let [columns (map underscores->dashes columns)]
-    (doseq [field (map first (:order-by paging-options))]
-      (when-not (seq-contains? columns field)
-        (throw (IllegalArgumentException.
-                (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
-                        (name field)
-                        (string/join "', '" (map name columns)))))))))
+  (doseq [field (map first (:order-by paging-options))]
+    (when-not (seq-contains? columns field)
+      (throw (IllegalArgumentException.
+               (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
+                       (name field)
+                       (string/join "', '" (map name columns))))))))
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging

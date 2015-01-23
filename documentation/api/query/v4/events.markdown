@@ -79,30 +79,30 @@ operators.
   supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `run-start-time` (timestamp): the timestamp (from the puppet agent) at which the puppet run began.  This field
+* `run_start_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run began.  This field
   supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `run-end-time` (timestamp): the timestamp (from the puppet agent) at which the puppet run finished.  This field
+* `run_end_time` (timestamp): the timestamp (from the puppet agent) at which the puppet run finished.  This field
   supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `report-receive-time` (timestamp): the timestamp (from the PuppetDB server) at which the puppet report was
+* `report_receive_time` (timestamp): the timestamp (from the PuppetDB server) at which the puppet report was
   received.  This field supports the inequality operators.  Timestamps are always [ISO-8601][8601]
   compatible date/time strings.
 
-* `resource-type` (string, with first letter always capitalized): the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
+* `resource_type` (string, with first letter always capitalized): the type of resource that the event occurred on; e.g., `File`, `Package`, etc.
 
-* `resource-title` (string): the title of the resource that the event occurred on.
+* `resource_title` (string): the title of the resource that the event occurred on.
 
 * `property` (string or null): the property/parameter of the resource that the event occurred on; e.g., for a
   `Package` resource, this field might have a value of `ensure`.  NOTE: this field
   may contain `NULL` values; see notes above.
 
-* `new-value` (string or null): the new value that Puppet was attempting to set for the specified resource
+* `new_value` (string or null): the new value that Puppet was attempting to set for the specified resource
   property.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `old-value` (string or null): the previous value of the resource property, which Puppet was attempting to
+* `old_value` (string or null): the previous value of the resource property, which Puppet was attempting to
   change.  NOTE: this field may contain `NULL` values; see notes above.
 
 * `message` (string or null): a description (supplied by the resource provider) of what happened during the
@@ -114,18 +114,18 @@ operators.
 * `line` (number or null): the line (of the containing manifest file) at which the resource definition
   can be found.  NOTE: this field may contain `NULL` values; see notes above.
 
-* `containing-class` (string or null): the Puppet class where this resource is declared.  NOTE: this field may
+* `containing_class` (string or null): the Puppet class where this resource is declared.  NOTE: this field may
   contain `NULL` values; see notes above.
 
-* `latest-report?` (boolean): whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
+* `latest_report?` (boolean): whether the event occurred in the most recent Puppet run (per-node).  NOTE: the
 value of this field is always boolean (`true` or `false` without quotes), and it
 is not supported by the regex match operator.
 
 * `environment` (string): the environment associated with the reporting node.
 
-* `configuration-version` (string): an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run.
+* `configuration_version` (string): an identifier string that puppet uses to match a specific catalog for a node to a specific puppet run.
 
-* `containment-path` (array of strings, where each string is a containment path element): the containment path associated with the event, as an ordered array that ends with the most specific containing element.
+* `containment_path` (array of strings, where each string is a containment path element): the containment path associated with the event, as an ordered array that ends with the most specific containing element.
 
 ### Response Format
 
@@ -135,41 +135,41 @@ The array is unordered.
     [
       {
         "certname": "foo.localdomain",
-        "old-value": "absent",
+        "old_value": "absent",
         "property": "ensure",
         "timestamp": "2012-10-30T19:01:05.000Z",
-        "resource-type": "File",
-        "resource-title": "/tmp/reportingfoo",
-        "new-value": "file",
+        "resource_type": "File",
+        "resource_title": "/tmp/reportingfoo",
+        "new_value": "file",
         "message": "defined content as '{md5}49f68a5c8493ec2c0bf489821c21fc3b'",
         "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
         "status": "success",
         "file": "/home/user/path/to/manifest.pp",
         "line": 6,
-        "containment-path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
-        "containing-class": "Foo",
-        "run-start-time": "2012-10-30T19:00:00.000Z",
-        "run-end-time": "2012-10-30T19:05:00.000Z",
-        "report-receive-time": "2012-10-30T19:06:00.000Z"
+        "containment_path": [ "Stage[main]", "Foo", "File[/tmp/reportingfoo]" ],
+        "containing_class": "Foo",
+        "run_start_time": "2012-10-30T19:00:00.000Z",
+        "run_end_time": "2012-10-30T19:05:00.000Z",
+        "report_receive_time": "2012-10-30T19:06:00.000Z"
       },
       {
         "certname": "foo.localdomain",
-        "old-value": "absent",
+        "old_value": "absent",
         "property": "message",
         "timestamp": "2012-10-30T19:01:05.000Z",
-        "resource-type": "Notify",
-        "resource-title": "notify, yo",
-        "new-value": "notify, yo",
+        "resource_type": "Notify",
+        "resource_title": "notify, yo",
+        "new_value": "notify, yo",
         "message": "defined 'message' as 'notify, yo'",
         "report": "38ff2aef3ffb7800fe85b322280ade2b867c8d27",
         "status": "success",
         "file": "/home/user/path/to/manifest.pp",
         "line": 10,
-        "containment-path": [ "Stage[main]", "", "Node[default]", "Notify[notify, yo]" ],
-        "containing-class": null,
-        "run-start-time": "2012-10-30T19:00:00.000Z",
-        "run-end-time": "2012-10-30T19:05:00.000Z",
-        "report-receive-time": "2012-10-30T19:06:00.000Z"
+        "containment_path": [ "Stage[main]", "", "Node[default]", "Notify[notify, yo]" ],
+        "containing_class": null,
+        "run_start_time": "2012-10-30T19:00:00.000Z",
+        "run_end_time": "2012-10-30T19:05:00.000Z",
+        "report_receive_time": "2012-10-30T19:06:00.000Z"
       }
     ]
 
@@ -195,11 +195,11 @@ type 'Service':
 
     ["and", ["=", "status", "failure"],
             ["~", "certname", "^foo\\."],
-            ["=", "resource-type", "Service"]]
+            ["=", "resource_type", "Service"]]
 
 To retrieve latest events that are tied to the class found in your update.pp file:
 
-    ["and", ["=", "latest-report?", true],
+    ["and", ["=", "latest_report?", true],
             ["~", "file", "update.pp"]]
 
 ## Paging

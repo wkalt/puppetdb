@@ -23,7 +23,7 @@
                            :values (into {} (map (fn [x] [x "unused"]) [f2 f4 f1 f3]))
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (facts/fact-names {:count? true}))]

@@ -75,7 +75,7 @@ to the result of the form supplied to this method."
       (let [{:keys [body status]} (get-response endpoint
                                                 ["and"
                                                  ["=" "type" "File"]
-                                                 ["in" "certname" ["extract" "certname" ["select-facts"
+                                                 ["in" "certname" ["extract" "certname" ["select_facts"
                                                                                          ["and"
                                                                                           ["=" "name" "operatingsystem"]
                                                                                           ["=" "value" "Debian"]]]]]])]
@@ -84,7 +84,7 @@ to the result of the form supplied to this method."
 
       ;; Using the value of a fact as the title of a resource
       (let [{:keys [body status]} (get-response endpoint
-                                                ["in" "title" ["extract" "value" ["select-facts"
+                                                ["in" "title" ["extract" "value" ["select_facts"
                                                                                   ["=" "name" "message"]]]])]
         (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
@@ -96,7 +96,7 @@ to the result of the form supplied to this method."
                                                  ["=" "exported" true]
                                                  ["and"
                                                   ["=" "exported" false]
-                                                  ["in" "title" ["extract" "title" ["select-resources"
+                                                  ["in" "title" ["extract" "title" ["select_resources"
                                                                                     ["=" "exported" true]]]]]])]
         (is (= status http/status-ok))
         (is (= (set (json/parse-string body true)) #{foo2 bar2}))))

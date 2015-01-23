@@ -33,7 +33,7 @@
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
-    (let [expected  #{{:subject-type "containing-class"
+    (let [expected  #{{:subject_type "containing_class"
                        :subject {:title "Foo"}
                        :failures 0
                        :successes 0
@@ -41,7 +41,7 @@
                        :skips 1}}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  "containing-class"
+                                  "containing_class"
                                   {"count-by"      "certname"
                                    "counts-filter" ["<" "successes" 1]})]
       (response-equal? response expected)))
@@ -49,19 +49,19 @@
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
     (testing (str "should support paging through event-counts " label " counts")
-      (let [expected  #{{:subject-type "resource"
+      (let [expected  #{{:subject_type "resource"
                          :subject {:type "Notify" :title "notify, yar"}
                          :failures        0
                          :successes       1
                          :noops           0
                          :skips           0}
-                        {:subject-type "resource"
+                        {:subject_type "resource"
                          :subject {:type "Notify" :title "notify, yo"}
                          :failures        0
                          :successes       1
                          :noops           0
                          :skips           0}
-                        {:subject-type "resource"
+                        {:subject_type "resource"
                          :subject {:type "Notify" :title "hi"}
                          :failures        0
                          :successes       0
@@ -84,19 +84,19 @@
   (store-example-report! (:basic reports) (now))
   (store-example-report! (:basic3 reports) (now))
   (testing "should only count the most recent event for each resource"
-    (let [expected  #{{:subject-type "resource"
+    (let [expected  #{{:subject_type "resource"
                        :subject {:type "Notify" :title "notify, yo"}
                        :failures 0
                        :successes 1
                        :noops 0
                        :skips 0}
-                      {:subject-type "resource"
+                      {:subject_type "resource"
                        :subject {:type "Notify" :title "notify, yar"}
                        :failures 1
                        :successes 0
                        :noops 0
                        :skips 0}
-                      {:subject-type "resource"
+                      {:subject_type "resource"
                        :subject {:type "Notify" :title "hi"}
                        :failures 0
                        :successes 0
@@ -124,19 +124,19 @@
                                                       "distinct-start-time" 0
                                                       "distinct-end-time" (now)})
                                        result)
-       #{{:subject-type "resource"
+       #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "notify, yar"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "hi"}
           :failures 0
           :successes 0
@@ -144,19 +144,19 @@
           :skips 1}}
        ["=" "environment" "DEV"]
 
-       #{{:subject-type "resource"
+       #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "notify, yar"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "hi"}
           :failures 0
           :successes 0
@@ -164,19 +164,19 @@
           :skips 1}}
        ["~" "environment" "DE.*"]
 
-       #{{:subject-type "resource"
+       #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "notify, yar"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "hi"}
           :failures 0
           :successes 0
@@ -184,37 +184,37 @@
           :skips 1}}
        ["not" ["=" "environment" "PROD"]]
 
-       #{{:subject-type "resource"
+       #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "notify, yar"}
           :failures 0
           :successes 1
           :noops 0
           :skips 0}
-         {:subject-type "resource"
+         {:subject_type "resource"
           :subject {:type "Notify" :title "hi"}
           :failures 0
           :successes 0
           :noops 0
           :skips 1}
-         {:subject-type "resource",
+         {:subject_type "resource",
           :noops 0,
           :skips 0,
           :successes 1,
           :failures 0,
           :subject {:type "File", :title "tmp-directory"}}
-         {:subject-type "resource",
+         {:subject_type "resource",
           :noops 0,
           :skips 0,
           :successes 1,
           :failures 0,
           :subject {:type "File", :title "puppet-managed-file"}}
-         {:subject-type "resource",
+         {:subject_type "resource",
           :noops 0,
           :skips 0,
           :successes 1,

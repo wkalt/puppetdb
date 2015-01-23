@@ -65,7 +65,7 @@
   (omap/ordered-map
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-resources"
+    ["in" "certname" ["extract" "certname" ["select_resources"
                                             ["and"
                                              ["=" "type" "Class"]
                                              ["=" "title" "Apache"]]]]]]
@@ -77,7 +77,7 @@
    ["and"
     ["=" "name" "ipaddress"]
     ["not"
-     ["in" "certname" ["extract" "certname" ["select-resources"
+     ["in" "certname" ["extract" "certname" ["select_resources"
                                              ["and"
                                               ["=" "type" "Class"]
                                               ["=" "title" "Apache"]]]]]]]
@@ -87,7 +87,7 @@
    ;; Multiple matching resources
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-resources"
+    ["in" "certname" ["extract" "certname" ["select_resources"
                                             ["=" "type" "Class"]]]]]
 
    #{{:certname "foo" :name "ipaddress" :value "192.168.1.100" :environment "DEV"}
@@ -99,7 +99,7 @@
     ["or"
      ["=" "name" "ipaddress"]
      ["=" "name" "operatingsystem"]]
-    ["in" "certname" ["extract" "certname" ["select-resources"
+    ["in" "certname" ["extract" "certname" ["select_resources"
                                             ["and"
                                              ["=" "type" "Class"]
                                              ["=" "title" "Apache"]]]]]]
@@ -113,11 +113,11 @@
    ["and"
     ["=" "name" "ipaddress"]
     ["or"
-     ["in" "certname" ["extract" "certname" ["select-resources"
+     ["in" "certname" ["extract" "certname" ["select_resources"
                                              ["and"
                                               ["=" "type" "Class"]
                                               ["=" "title" "Apache"]]]]]
-     ["in" "certname" ["extract" "certname" ["select-resources"
+     ["in" "certname" ["extract" "certname" ["select_resources"
                                              ["and"
                                               ["=" "type" "Class"]
                                               ["=" "title" "Main"]]]]]]]
@@ -129,21 +129,21 @@
    ;; No matching resources
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-resources"
+    ["in" "certname" ["extract" "certname" ["select_resources"
                                             ["=" "type" "NotRealAtAll"]]]]]
    #{}
 
    ;; No matching facts
    ["and"
     ["=" "name" "nosuchfact"]
-    ["in" "certname" ["extract" "certname" ["select-resources"
+    ["in" "certname" ["extract" "certname" ["select_resources"
                                             ["=" "type" "Class"]]]]]
    #{}
 
    ;; Fact subquery
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-facts"
+    ["in" "certname" ["extract" "certname" ["select_facts"
                                             ["and"
                                              ["=" "name" "osfamily"]
                                              ["=" "value" "Debian"]]]]]]
@@ -152,7 +152,7 @@
      {:certname "bar" :name "ipaddress" :value "192.168.1.101" :environment "DEV"}}
 
    ;; Using a different column
-   ["in" "name" ["extract" "name" ["select-facts"
+   ["in" "name" ["extract" "name" ["select_facts"
                                    ["=" "name" "osfamily"]]]]
 
    #{{:certname "bar" :name "osfamily" :value "Debian" :environment "DEV"}
@@ -162,11 +162,11 @@
    ;; Nested fact subqueries
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-facts"
+    ["in" "certname" ["extract" "certname" ["select_facts"
                                             ["and"
                                              ["=" "name" "osfamily"]
                                              ["=" "value" "Debian"]
-                                             ["in" "certname" ["extract" "certname" ["select-facts"
+                                             ["in" "certname" ["extract" "certname" ["select_facts"
                                                                                      ["and"
                                                                                       ["=" "name" "uptime_seconds"]
                                                                                       [">" "value" 10000]]]]]]]]]]
@@ -175,11 +175,11 @@
    ;; Multiple fact subqueries
    ["and"
     ["=" "name" "ipaddress"]
-    ["in" "certname" ["extract" "certname" ["select-facts"
+    ["in" "certname" ["extract" "certname" ["select_facts"
                                             ["and"
                                              ["=" "name" "osfamily"]
                                              ["=" "value" "Debian"]]]]]
-    ["in" "certname" ["extract" "certname" ["select-facts"
+    ["in" "certname" ["extract" "certname" ["select_facts"
                                             ["and"
                                              ["=" "name" "uptime_seconds"]
                                              [">" "value" 10000]]]]]]
@@ -202,21 +202,21 @@
   (omap/ordered-map
    "/v4/facts" (omap/ordered-map
                 ;; Extract using invalid fields should throw an error
-                ["in" "certname" ["extract" "nothing" ["select-resources"
-                                                       ["=" "type" "Class"]]]]
+                ["in" "certname" ["extract" "nothing" ["select_resources"
+                                                        ["=" "type" "Class"]]]]
                 "Can't extract unknown 'resources' field 'nothing'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
 
-                ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select-resources"
+                ["in" "certname" ["extract" ["nothing" "nothing2" "certname"] ["select_resources"
                                                                                ["=" "type" "Class"]]]]
                 "Can't extract unknown 'resources' fields: 'nothing', 'nothing2'. Acceptable fields are: [\"certname\",\"environment\",\"resource\",\"type\",\"title\",\"tag\",\"exported\",\"file\",\"line\",\"parameters\"]"
 
                 ;; In-query for invalid fields should throw an error
-                ["in" "nothing" ["extract" "certname" ["select-resources"
-                                                       ["=" "type" "Class"]]]]
+                ["in" "nothing" ["extract" "certname" ["select_resources"
+                                                        ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' field 'nothing' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]"
 
-                ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select-resources"
-                                                                           ["=" "type" "Class"]]]]
+                ["in" ["name" "nothing" "nothing2"] ["extract" "certname" ["select_resources"
+                                                                            ["=" "type" "Class"]]]]
                 "Can't match on unknown 'facts' fields: 'nothing', 'nothing2' for 'in'. Acceptable fields are: [\"name\",\"certname\",\"environment\",\"value\"]")))
 
 (def versioned-invalid-projections
@@ -463,22 +463,22 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name  "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
@@ -519,17 +519,17 @@
                          :values {"ipaddress" "192.168.1.100" "operatingsystem" "Debian" "osfamily" "Debian" "uptime_seconds" 11000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer-timestamp nil})
+                         :producer_timestamp nil})
   (scf-store/add-facts! {:name "bar"
                          :values {"ipaddress" "192.168.1.101" "operatingsystem" "Ubuntu" "osfamily" "Debian" "uptime_seconds" 12}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer-timestamp nil})
+                         :producer_timestamp nil})
   (scf-store/add-facts! {:name "baz"
                          :values {"ipaddress" "192.168.1.102" "operatingsystem" "CentOS" "osfamily" "RedHat" "uptime_seconds" 50000}
                          :timestamp (now)
                          :environment "DEV"
-                         :producer-timestamp nil})
+                         :producer_timestamp nil})
 
   (let [catalog (:empty catalogs)
         apache-resource {:type "Class" :title "Apache"}
@@ -576,7 +576,7 @@
                                    :values facts1
                                    :timestamp (now)
                                    :environment "DEV"
-                                   :producer-timestamp nil}))
+                                   :producer_timestamp nil}))
 
           (testing "queries only use the read database"
             (let [request (get-request endpoint (json/parse-string nil))
@@ -629,12 +629,12 @@
                              :values facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo2"
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil}))
+                             :producer_timestamp nil}))
 
     (testing "should support fact paging"
       (doseq [[label counts?] [["without" false]
@@ -702,31 +702,31 @@
                            :values {"hostname" "c-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:name "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:name "d.local"
                            :values {"uptime_days" "2"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:name "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "e.local")
     (scf-store/add-facts! {:name "e.local"
                            :values {"my_structured_fact" (:value f5)}
                            :timestamp (now)
                            :environment "DEV"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
 
     (testing "include total results count"
       (let [actual (:count (raw-query-endpoint endpoint nil {:include-total true}))]
@@ -810,31 +810,31 @@
                            :values {"my_structured_fact" (:value f3)}
                            :timestamp (now)
                            :environment "C"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "a.local")
     (scf-store/add-facts! {:name "a.local"
                            :values {"hostname" "a-host"}
                            :timestamp (now)
                            :environment "A"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "b.local")
     (scf-store/add-facts! {:name "b.local"
                            :values {"uptime_days" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "b2.local")
     (scf-store/add-facts! {:name "b2.local"
                            :values {"max" "4"}
                            :timestamp (now)
                            :environment "B"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
     (scf-store/add-certname! "d.local")
     (scf-store/add-facts! {:name "d.local"
                            :values {"min" "-4"}
                            :timestamp (now)
                            :environment "D"
-                           :producer-timestamp nil})
+                           :producer_timestamp nil})
 
     (testing "ordering by environment should work"
       (doseq [[[env-order name-order] expected] [[["DESC" "ASC"]  [f5 f3 f4 f2 f1]]
@@ -886,22 +886,22 @@
                                :values facts1
                                :timestamp (now)
                                :environment "DEV"
-                               :producer-timestamp nil})
+                               :producer_timestamp nil})
         (scf-store/add-facts! {:name "foo2"
                                :values facts2
                                :timestamp (now)
                                :environment "DEV"
-                               :producer-timestamp nil})
+                               :producer_timestamp nil})
         (scf-store/add-facts! {:name "foo3"
                                :values facts3
                                :timestamp (now)
                                :environment "PROD"
-                               :producer-timestamp nil})
+                               :producer_timestamp nil})
         (scf-store/add-facts! {:name "foo4"
                                :values facts4
                                :timestamp (now)
                                :environment "PROD"
-                               :producer-timestamp nil}))
+                               :producer_timestamp nil}))
 
       (doseq [query '[[= environment PROD]
                       [not [= environment DEV]]
@@ -960,26 +960,26 @@
                              :values facts1
                              :timestamp test-time
                              :environment "DEV"
-                             :producer-timestamp test-time})
+                             :producer_timestamp test-time})
       (scf-store/add-facts! {:name  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer-timestamp (to-timestamp "2013-01-01")})
+                             :producer_timestamp (to-timestamp "2013-01-01")})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp test-time
                              :environment "PROD"
-                             :producer-timestamp test-time})
+                             :producer_timestamp test-time})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
                              :timestamp test-time
                              :environment "PROD"
-                             :producer-timestamp test-time})
+                             :producer_timestamp test-time})
       (scf-store/deactivate-node! "foo4"))))
 
 (def factset-results
-  (map #(utils/assoc-when % "timestamp" reference-time "producer-timestamp" reference-time)
+  (map #(utils/assoc-when % "timestamp" reference-time "producer_timestamp" reference-time)
        [{"facts" {"domain" "testing.com"
                   "uptime_seconds" "4000"
                   "test#~delimiter" "foo"
@@ -987,7 +987,7 @@
                                         "f" nil, "b" 3.14, "a" 1}},
          "environment" "DEV"
          "certname" "foo1"
-         "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
+         "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}
 
         {"facts" {"uptime_seconds" "6000"
                   "domain" "testing.com"
@@ -996,8 +996,8 @@
          "timestamp" "2013-01-01T00:00:00.000Z"
          "environment" "DEV"
          "certname" "foo2"
-         "producer-timestamp" "2013-01-01T00:00:00.000Z"
-         "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}
+         "producer_timestamp" "2013-01-01T00:00:00.000Z"
+         "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}
 
         {"facts" {"domain" "testing.com"
                   "operatingsystem" "Darwin"
@@ -1005,7 +1005,7 @@
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
          "environment" "PROD"
          "certname" "foo3"
-         "hash" "34a0dfb96739364467cab639a74802d6cf39a872"}]))
+         "hash" "631f76bddfd60861c9db8b281276327e40cb2161"}]))
 
 (deftestseq factset-paging-results
   [[version endpoint] factsets-endpoints]
@@ -1061,9 +1061,9 @@
                                                             [["DESC" "DESC"] [2 0 1]]
                                                             [["ASC" "DESC"]  [1 2 0]]
                                                             [["ASC" "ASC"]   [1 0 2]]]]
-          (testing (format "producer-timestamp %s certname %s" pt-order certname-order)
+          (testing (format "producer_timestamp %s certname %s" pt-order certname-order)
             (let [params {:order-by
-                          (json/generate-string [{"field" "producer-timestamp" "order" pt-order}
+                          (json/generate-string [{"field" "producer_timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
               (is (= actual (map #(nth factset-results %) expected-order))))))))
@@ -1099,7 +1099,7 @@
     (let [queries [["=" "certname" "foo1"]
                    ["=" "environment" "DEV"]
                    ["<" "timestamp" "2014-01-01"]
-                   ["<" "producer-timestamp" "2014-01-01"]
+                   ["<" "producer_timestamp" "2014-01-01"]
                    ["extract" ["certname" "hash"]
                     ["=" "certname" "foo1"]]]
           responses (map (comp json/parse-string
@@ -1118,10 +1118,10 @@
                        "uptime_seconds" "4000"
                        "test#~delimiter" "foo"}
               "timestamp" reference-time
-              "producer-timestamp" reference-time
+              "producer_timestamp" reference-time
               "environment" "DEV"
               "certname" "foo1"
-              "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}))
+              "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}))
       (is (= (into [] (nth responses 1))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1134,10 +1134,10 @@
                         "uptime_seconds" "4000"
                         "test#~delimiter" "foo"}
                "timestamp" reference-time
-               "producer-timestamp" reference-time
+               "producer_timestamp" reference-time
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}
+               "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}
 
               {"facts" {"my_structured_fact"
                         {"a" 1
@@ -1148,10 +1148,10 @@
                         "domain" "testing.com"
                         "uptime_seconds" "6000"}
                "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
+               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
 
       (is (= (into [] (nth responses 2))
              [{"facts" {"my_structured_fact"
@@ -1163,10 +1163,10 @@
                         "domain" "testing.com"
                         "uptime_seconds" "6000"}
                "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
+               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
       (is (= (into [] (nth responses 3))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1177,13 +1177,13 @@
                         "domain" "testing.com"
                         "uptime_seconds" "6000"}
                "timestamp" (to-string (to-timestamp "2013-01-01"))
-               "producer-timestamp" (to-string (to-timestamp "2013-01-01"))
+               "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "3e26b7428e60ad8f4c07cf2420a8b09b0da3e33e"}]))
+               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "1ac62c7f4d290d8f064575b0ac5453a5a860d127"}])))))
+               "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}])))))
 
 (defn structured-fact-results
   [version endpoint]
@@ -1293,22 +1293,22 @@
                              :values facts1
                              :timestamp reference-time
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name  "foo2"
                              :values facts2
                              :timestamp (to-timestamp "2013-01-01")
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo4"
                              :values facts4
                              :timestamp reference-time
                              :environment "PROD"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"

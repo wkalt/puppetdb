@@ -35,7 +35,7 @@ This endpoint builds on top of the [`event-counts`][event-counts] endpoint, and 
 This query is forwarded to the [`events`][events] endpoint - see there for additional documentation. For general info about queries, see [the page on query structure.][query]
 
 * `summarize-by`: Required. A string specifying which type of object you'd like count. Supported values are
-`resource`, `containing-class`, and `certname`.
+`resource`, `containing_class`, and `certname`.
 
 * `count-by`: Optional. A string specifying what type of object is counted when building up the counts of
 `successes`, `failures`, `noops`, and `skips`. Supported values are `resource` (default) and `certname`.
@@ -75,7 +75,7 @@ You can use [`curl`][curl] to query information about aggregated resource event 
 
     curl -G 'http://localhost:8080/v4/aggregate-event-counts'
             --data-urlencode 'query=["=", "certname", "foo.local"]' \
-            --data-urlencode 'summarize-by=containing-class'
+            --data-urlencode 'summarize-by=containing_class'
 
 ## No Paging
 

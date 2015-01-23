@@ -33,9 +33,7 @@
 (defn munge-result-rows
   [version _]
   (fn [rows]
-    (map
-     #(kitchensink/mapkeys jdbc/underscores->dashes %)
-     rows)))
+    rows))
 
 (defn query-nodes
   "Search for nodes satisfying the given SQL filter."

@@ -44,7 +44,7 @@
                      :total 1}
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  "containing-class"
+                                  "containing_class"
                                   {"count-by"      "certname"
                                    "counts-filter" ["<" "successes" 1]})
           actual    (json/parse-string (:body response) true)]

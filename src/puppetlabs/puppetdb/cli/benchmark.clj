@@ -116,14 +116,14 @@
     catalog))
 
 (defn update-report-run-fields
-  "configuration-version, start-time and end-time should always change
+  "configuration_version, start_time and end_time should always change
    on subsequent report submittions, this changes those fields to avoid
    computing the same hash again (causing constraint errors in the DB)"
   [report]
   (assoc report
-    "configuration-version" (ks/uuid)
-    "start-time" (time/now)
-    "end-time" (time/now)))
+    "configuration_version" (ks/uuid)
+    "start_time" (time/now)
+    "end_time" (time/now)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
@@ -154,11 +154,11 @@
    (randomize-map-leaf rp value)))
 
 (defn update-factset
-  "Updates the producer-timestamp to be current, and randomly updates the leaves
+  "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
   [rand-percentage factset]
   (-> factset
-      (assoc "producer-timestamp" (time/now))
+      (assoc "producer_timestamp" (time/now))
       (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
