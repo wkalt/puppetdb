@@ -33,21 +33,21 @@ are generated from Puppet reports.)
 
 * `query`: Required. A JSON array of query predicates, in prefix form (`["<OPERATOR>", "<FIELD>", "<VALUE>"]`). See the sections below for the supported operators and fields. For general info about queries, see [the page on query structure.][query]
 
-* `distinct-resources`: Optional. Boolean. (I.e. `distinct-resources=true`.) (EXPERIMENTAL: it is possible that the behavior
+* `distinct_resources`: Optional. Boolean. (I.e. `distinct_resources=true`.) (EXPERIMENTAL: it is possible that the behavior
 of this parameter may change in future releases.) If specified, the result set will only return the most recent event for a given resource on a given node.
 
     For example: if the resource `File[/tmp/foo]` was failing on some node
     but has since been fixed and is now succeeding, then a "normal" event query might
-    return both the success and failure events.  A query with `distinct-resources=true`
+    return both the success and failure events.  A query with `distinct_resources=true`
     would only return the success event, since it's the most recent event for that resource.
 
-    Since a `distinct-resources` query can be expensive, it requires a limited
+    Since a `distinct_resources` query can be expensive, it requires a limited
     window of time to examine. Use the `distinct-start-time` and
     `distinct-end-time` parameters to define this interval.
-    Issuing a `distinct-resources` query without specifying both of these parameters will cause an error.
+    Issuing a `distinct_resources` query without specifying both of these parameters will cause an error.
 
-* `distinct-start-time`: Used with `distinct-resources`. The start of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
-* `distinct-end-time`: Used with `distinct-resources`. The end of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
+* `distinct-start-time`: Used with `distinct_resources`. The start of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
+* `distinct-end-time`: Used with `distinct_resources`. The end of the window of time to examine, as an [ISO-8601][8601] compatible date/time string.
 
 ### Query Operators
 

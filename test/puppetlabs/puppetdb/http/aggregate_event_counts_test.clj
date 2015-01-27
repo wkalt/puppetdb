@@ -18,14 +18,14 @@
 
   (store-example-report! (:basic reports) (now))
 
-  (testing "summarize-by rejects unsupported values"
+  (testing "summarize_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "illegal-summarize-by"
                                   {} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'summarize-by': 'illegal-summarize-by'" body))))
+      (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
   (testing "count-by rejects unsupported values"
     (let [response  (get-response endpoint

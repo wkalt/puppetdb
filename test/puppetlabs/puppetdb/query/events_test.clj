@@ -460,14 +460,14 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order-by"
+      (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (resource-events-query-result
                 version
                 [">" "timestamp" 0]
-                {:order-by [[:invalid-field :ascending]]}))))
+                {:order_by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected-events] [[:ascending  [10 11 12]]
@@ -478,7 +478,7 @@
                     actual   (:result (raw-resource-events-query-result
                                        version
                                        [">" "timestamp" 0]
-                                       {:order-by [[:line order]]}))]
+                                       {:order_by [[:line order]]}))]
                 (is (= actual expected))))))
 
         (testing "alphabetical fields"
@@ -490,7 +490,7 @@
                     actual   (:result (raw-resource-events-query-result
                                        version
                                        [">" "timestamp" 0]
-                                       {:order-by [[:file order]]}))]
+                                       {:order_by [[:file order]]}))]
                 (is (= actual expected))))))
 
         (testing "timestamp fields"
@@ -502,7 +502,7 @@
                     actual   (:result (raw-resource-events-query-result
                                        version
                                        [">" "timestamp" 0]
-                                       {:order-by [[:timestamp order]]}))]
+                                       {:order_by [[:timestamp order]]}))]
                 (is (= actual expected))))))
 
         (testing "multiple fields"
@@ -514,7 +514,7 @@
                     actual   (:result (raw-resource-events-query-result
                                        version
                                        [">" "timestamp" 0]
-                                       {:order-by [[:status status-order]
+                                       {:order_by [[:status status-order]
                                                    [:resource_title title-order]]}))]
                 (is (= actual expected)))))))
 
@@ -534,7 +534,7 @@
                     actual   (:result (raw-resource-events-query-result
                                        version
                                        [">" "timestamp" 0]
-                                       {:order-by [[:line order]] :offset offset}))]
+                                       {:order_by [[:line order]] :offset offset}))]
                 (is (= actual expected))))))))))
 
 (deftest query-by-environment

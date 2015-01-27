@@ -223,10 +223,10 @@ to the result of the form supplied to this method."
 (deftestseq resource-query-result-ordering
   [[version endpoint] endpoints]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
-    (testing "ordering results with order-by"
-      (let [order-by {:order-by (json/generate-string [{"field" "certname" "order" "DESC"}
+    (testing "ordering results with order_by"
+      (let [order_by {:order_by (json/generate-string [{"field" "certname" "order" "DESC"}
                                                        {"field" "resource" "order" "DESC"}])}
-            response (get-response endpoint nil order-by)
+            response (get-response endpoint nil order_by)
             actual   (json/parse-string (get response :body "null") true)]
         (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))

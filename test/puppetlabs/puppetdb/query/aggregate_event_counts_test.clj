@@ -11,20 +11,20 @@
 (defn- aggregate-counts-query-result
   "Utility function that executes an aggregate-event-counts query
   and returns a set of results for use in test comparison."
-  ([version query summarize-by]
-     (aggregate-counts-query-result version query summarize-by {}))
-  ([version query summarize-by extra-query-params]
-     (-> (aggregate-event-counts/query->sql version query [summarize-by extra-query-params])
+  ([version query summarize_by]
+     (aggregate-counts-query-result version query summarize_by {}))
+  ([version query summarize_by extra-query-params]
+     (-> (aggregate-event-counts/query->sql version query [summarize_by extra-query-params])
          (aggregate-event-counts/query-aggregate-event-counts))))
 
 (deftest aggregate-event-count-queries
   (store-example-report! (:basic reports) (now))
 
   (let [version :v4]
-    (testing (str "summarize-by for api version" version)
+    (testing (str "summarize_by for api version" version)
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
+             IllegalArgumentException #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
              (aggregate-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing_class"

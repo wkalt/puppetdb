@@ -126,19 +126,19 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order-by"
+      (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (retrieve-node-names version nil
-                                    {:order-by [[:invalid-field :ascending]]}))))
+                                    {:order_by [[:invalid-field :ascending]]}))))
 
         (testing "alphabetical fields"
           (doseq [[order expected] [[:ascending  ["node_a" "node_b" "node_c" "node_d" "node_e"]]
                                     [:descending ["node_e" "node_d" "node_c" "node_b" "node_a"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:certname order]]})]
+                                                {:order_by [[:certname order]]})]
                 (is (= actual expected))))))
 
         (testing "timestamp fields"
@@ -146,7 +146,7 @@
                                     [:descending ["node_a" "node_d" "node_c" "node_b" "node_e"]]]]
             (testing order
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:facts_timestamp order]]})]
+                                                {:order_by [[:facts_timestamp order]]})]
                 (is (= actual expected))))))
 
         (testing "multiple fields"
@@ -154,7 +154,7 @@
                                                            [[:descending :ascending] ["node_c" "node_b" "node_e" "node_a" "node_d"]]]]
             (testing (format "catalog-timestamp %s name %s" timestamp-order name-order)
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:catalog_timestamp timestamp-order]
+                                                {:order_by [[:catalog_timestamp timestamp-order]
                                                             [:certname name-order]]})]
                 (is (= actual expected)))))))
 
@@ -174,6 +174,6 @@
           (testing order
             (doseq [[offset expected] expected-sequences]
               (let [actual (retrieve-node-names version nil
-                                                {:order-by [[:certname order]]
+                                                {:order_by [[:certname order]]
                                                  :offset offset})]
                 (is (= actual expected))))))))))

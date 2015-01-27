@@ -9,19 +9,19 @@
 (use-fixtures :each with-test-db)
 
 (defn- raw-event-counts-query-result
-  [version query summarize-by query-options paging-options]
-  (->> (event-counts/query->sql version query [summarize-by query-options paging-options])
-       (event-counts/query-event-counts version summarize-by)))
+  [version query summarize_by query-options paging-options]
+  (->> (event-counts/query->sql version query [summarize_by query-options paging-options])
+       (event-counts/query-event-counts version summarize_by)))
 
 (defn- event-counts-query-result
   "Utility function that executes an event-counts query and
   returns a set of results for use in test comparison."
-  ([version query summarize-by]
-     (event-counts-query-result version query summarize-by {}))
-  ([version query summarize-by query-options]
-     (event-counts-query-result version query summarize-by query-options {}))
-  ([version query summarize-by query-options paging-options]
-     (-> (raw-event-counts-query-result version query summarize-by query-options paging-options)
+  ([version query summarize_by]
+     (event-counts-query-result version query summarize_by {}))
+  ([version query summarize_by query-options]
+     (event-counts-query-result version query summarize_by query-options {}))
+  ([version query summarize_by query-options paging-options]
+     (-> (raw-event-counts-query-result version query summarize_by query-options paging-options)
          (:result)
          (set))))
 
@@ -42,16 +42,16 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order-by"
+      (testing "order_by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (event-counts-query-result
                 version
                 ["=" "certname" "foo.local"]
                 "resource"
                 {}
-                {:order-by [[:invalid-field :ascending]]}))))
+                {:order_by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected] [[:ascending  [count2 count1]]
@@ -62,7 +62,7 @@
                                      ["=" "certname" "foo.local"]
                                      "containing_class"
                                      {}
-                                     {:order-by [[:successes order]]}))]
+                                     {:order_by [[:successes order]]}))]
                 (is (= actual expected)))))))
 
       (testing "offset"
@@ -79,7 +79,7 @@
                                      ["=" "certname" "foo.local"]
                                      "containing_class"
                                      {}
-                                     {:order-by [[:successes order]] :offset offset}))]
+                                     {:order_by [[:successes order]] :offset offset}))]
                 (is (= actual expected))))))))))
 
 (deftest resource-event-count-queries
@@ -87,10 +87,10 @@
 
   (let [version :v4]
 
-    (testing "summarize-by"
+    (testing "summarize_by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unsupported value for 'summarize-by': 'illegal-summarize-by'"
+             IllegalArgumentException #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
              (event-counts-query-result version ["these" "are" "unused"] "illegal-summarize-by"))))
 
       (testing "containing_class"
