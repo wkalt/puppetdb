@@ -74,13 +74,13 @@
   "Helper function to executed paged queries.  Builds up the paged sql string,
   executes the query, and returns map containing the `:result` key and an
   optional `:count` key."
-  [fail-limit query {:keys [limit offset order-by count?] :as paging-options}]
+  [fail-limit query {:keys [limit offset order_by count?] :as paging-options}]
   {:pre [(and (integer? fail-limit) (>= fail-limit 0))
          (valid-jdbc-query? query)
          ((some-fn nil? integer?) limit)
          ((some-fn nil? integer?) offset)
-         ((some-fn nil? sequential?) order-by)
-         (every? order-by-expr? order-by)]
+         ((some-fn nil? sequential?) order_by)
+         (every? order-by-expr? order_by)]
    :post [(map? %)
           (vector? (:result %))
           ((some-fn nil? integer?) (:count %))]}
@@ -119,7 +119,7 @@
   count' should be returned, then the map will also include a key `:count`,
   whose value is an integer indicating the total number of results available."
   ([query paging-options] (execute-query 0 query paging-options))
-  ([fail-limit query {:keys [limit offset order-by] :as paging-options}]
+  ([fail-limit query {:keys [limit offset order_by] :as paging-options}]
      {:pre [((some-fn string? sequential?) query)]
       :post [(map? %)
              (vector? (:result %))

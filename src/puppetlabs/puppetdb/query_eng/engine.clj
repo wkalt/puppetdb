@@ -998,14 +998,14 @@
 (defn augment-paging-options
   "Specially augmented paging options to include handling the cases where name
   and certname may be part of the ordering."
-  [{:keys [order-by] :as paging-options} entity]
-  (if (or (not (contains? #{:factsets} entity)) (nil? order-by))
+  [{:keys [order_by] :as paging-options} entity]
+  (if (or (not (contains? #{:factsets} entity)) (nil? order_by))
     paging-options
     (let [[to-dissoc to-append] (case entity
                                   :factsets  [nil
                                               [[:certname :ascending]]])
-          to-prepend (filter #(not (= to-dissoc (first %))) order-by)]
-      (assoc paging-options :order-by (concat to-prepend to-append)))))
+          to-prepend (filter #(not (= to-dissoc (first %))) order_by)]
+      (assoc paging-options :order_by (concat to-prepend to-append)))))
 
 (defn basic-project
   "Returns a function will remove non-projected columns if projections is specified."

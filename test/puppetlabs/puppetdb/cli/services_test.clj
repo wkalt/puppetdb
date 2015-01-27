@@ -123,7 +123,7 @@
                              (drop offset (if (= order :ascending) exp rexp)))]
           (check-service-query
            :facts :v4 ["=" "certname" "foo.local"]
-           {:order-by [[:name order]]
+           {:order_by [[:name order]]
             :offset offset
             :limit limit}
            (fn [result]

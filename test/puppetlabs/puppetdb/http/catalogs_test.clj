@@ -55,19 +55,19 @@
    [catalog1 catalog2]})
 
 (def paging-options
-  {{:order-by (json/generate-string [{:field "environment"}])}
+  {{:order_by (json/generate-string [{:field "environment"}])}
    [catalog1 catalog2]
 
-   {:order-by (json/generate-string [{:field "producer_timestamp"}])}
+   {:order_by (json/generate-string [{:field "producer_timestamp"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "name"}])}
+   {:order_by (json/generate-string [{:field "name"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "transaction_uuid"}])}
+   {:order_by (json/generate-string [{:field "transaction_uuid"}])}
    [catalog2 catalog1]
 
-   {:order-by (json/generate-string [{:field "name" :order "desc"}])}
+   {:order_by (json/generate-string [{:field "name" :order "desc"}])}
    [catalog1 catalog2]})
 
 (defn extract-tags
