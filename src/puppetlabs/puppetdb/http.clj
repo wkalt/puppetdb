@@ -116,7 +116,7 @@
      (json-response body status-ok))
   ([body code]
      (-> body
-         json/generate-pretty-string
+         json/generate-response-string
          (json-response* code))))
 
 (def json-response-content-type "application/json; charset=utf-8")

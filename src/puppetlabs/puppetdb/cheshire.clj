@@ -13,6 +13,8 @@
   (:require [cheshire.generate :as generate]
             [cheshire.core :as core]
             [clj-time.coerce :as coerce]
+            [clojure.walk :as walk]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.io :as io]))
 
 (defn add-common-json-encoders!*
@@ -44,6 +46,12 @@
 
 (def generate-stream core/generate-stream)
 
+(defn underscore-keys
+  "Recursively transform dashed map keys to underscored"
+  [m]
+  (let [f (fn [[k v]] [(jdbc/dashes->underscores k) v])]
+    (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
+
 (defn generate-pretty-string
   "Thinly wraps cheshire.core/generate-string, adding the PuppetDB default date format
    and pretty printing from `default-pretty-opts`"
@@ -52,13 +60,20 @@
   ([obj opts]
      (generate-string obj (merge default-pretty-opts opts))))
 
+(defn generate-response-string
+  [obj]
+  (-> obj
+      underscore-keys
+      (generate-pretty-string default-pretty-opts)))
+
+
 (defn generate-pretty-stream
   "Thinly wraps cheshire.core/generate-stream, adding the PuppetDB default date format
    and pretty printing from `default-pretty-opts`"
   ([obj writer]
-     (generate-pretty-stream obj writer default-pretty-opts))
+     (generate-pretty-stream (underscore-keys obj) writer default-pretty-opts))
   ([obj writer opts]
-     (generate-stream obj writer (merge default-pretty-opts opts))))
+     (generate-stream (underscore-keys obj) writer (merge default-pretty-opts opts))))
 
 (def parse-string core/parse-string)
 
