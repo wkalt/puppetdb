@@ -11,7 +11,7 @@
             [puppetlabs.puppetdb.jdbc :refer [underscores->dashes]]
             [clojure.walk :refer [keywordize-keys]]))
 
-(def query-params ["limit" "offset" "order-by" "include-total"])
+(def query-params ["limit" "offset" "order_by" "include_total"])
 (def count-header "X-Records")
 
 (defn valid-order-str?
@@ -26,7 +26,7 @@
   "Predicate that tests whether an object represents valid
   paging options, based on the format that is generated
   by the wrap-with-paging-options middleware."
-  [{:keys [limit offset order-by] :as paging-options}]
+  [{:keys [limit offset order_by] :as paging-options}]
   (and
    (map? paging-options)
    (or
@@ -36,10 +36,10 @@
     (nil? offset)
     (>= offset 0))
    (or
-    (nil? order-by)
+    (nil? order_by)
     (and
-     (sequential? order-by)
-     (every? order-by-expr? order-by)))))
+     (sequential? order_by)
+     (every? order-by-expr? order_by)))))
 
 (defn parse-order-by-json
   "Parses a JSON order-by string.  Returns the parsed string, or a Ring
