@@ -49,18 +49,18 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:name "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil}))
+                             :producer_timestamp nil}))
 
     (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
       (let [request (get-request endpoint)
@@ -113,23 +113,23 @@
                              :values facts2
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/add-facts! {:name "foo3"
                              :values facts3
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil})
+                             :producer_timestamp nil})
       (scf-store/deactivate-node! "foo1")
       (scf-store/add-facts! {:name "foo1"
                              :values  facts1
                              :timestamp (now)
                              :environment "DEV"
-                             :producer-timestamp nil}))
+                             :producer_timestamp nil}))
 
     (testing "query should return appropriate results"
       (let [request (get-request
                      endpoint nil
-                     {:order-by (json/generate-string [{:field "path" :order "asc"}])})
+                     {:order_by (json/generate-string [{:field "path" :order "asc"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status http/status-ok))
@@ -138,7 +138,7 @@
     (testing "regex operator on path"
       (let [request (get-request
                      endpoint (json/generate-string ["~" "path" "my"])
-                     {:order-by (json/generate-string [{:field "path"}])})
+                     {:order_by (json/generate-string [{:field "path"}])})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]
         (is (= status http/status-ok))
@@ -148,7 +148,7 @@
                 {:path ["my_SF" "foo"], :type "string"}]))))
     (testing "paging for fact-paths"
       (let [request (get-request endpoint nil
-                                 {:order-by (json/generate-string [{:field "path" :order "desc"}])
+                                 {:order_by (json/generate-string [{:field "path" :order "desc"}])
                                   :offset 2})
             {:keys [status body]} (fixt/*app* request)
             result (parse-result body)]

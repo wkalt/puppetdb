@@ -87,31 +87,23 @@
 
     (testing "key validation"
       (let [catalog (:basic catalogs)
-            v5-catalog (dissoc catalog :api_version)
-            v4-catalog (dissoc catalog :api_version :producer-timestamp)
-            v3-catalog (dissoc catalog :environment :producer-timestamp)
-            v2-catalog (dissoc catalog :transaction-uuid :environment :producer-timestamp)
-            v1-catalog (assoc catalog :something "random")]
+            v6-catalog (dissoc catalog :api-version)]
         (testing "should accept catalogs with the correct set of keys"
           (are [version catalog] (= catalog (s/validate (catalog-wireformat version) catalog))
                :all catalog
-               :v5 v5-catalog
-               ))
+               :v6 v6-catalog))
 
         (testing "should fail if the catalog has an extra key"
           (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
                                                    (s/validate (catalog-wireformat version) (assoc catalog :classes #{})))
                :all catalog
-               :v5 v5-catalog
-               ))
+               :v6 v6-catalog))
 
         (testing "should fail if the catalog is missing a key"
           (are [version catalog] (thrown-with-msg? ExceptionInfo #"Value does not match schema"
                                                    (s/validate (catalog-wireformat version) (dissoc catalog :version)))
-
                :all catalog
-               :v5 v5-catalog
-               ))))))
+               :v6 v6-catalog))))))
 
 (deftest resource-normalization
   (let [;; Synthesize some fake resources
@@ -161,12 +153,12 @@
                (canonical-catalog version (canonical-catalog :all catalog))))))
     (testing "version 5"
       (let [v5-catalog (canonical-catalog :v5 catalog)]
-        (is (= (:transaction-uuid catalog)
-               (:transaction-uuid v5-catalog)))
+        (is (= (:transaction_uuid catalog)
+               (:transaction_uuid v5-catalog)))
         (is (= (:environment catalog)
                (:environment v5-catalog)))
-        (is (= (:producer-timestamp catalog)
-               (:producer-timestamp v5-catalog)))
+        (is (= (:producer_timestamp catalog)
+               (:producer_timestamp v5-catalog)))
         (is (not (contains? v5-catalog :api_version)))))))
 
 (deftest test-canonical->wire-format

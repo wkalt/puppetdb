@@ -4,6 +4,12 @@
             <pattern>%d %-5p [%thread] [%c{2}] %m%n</pattern>
         </encoder>
     </appender>
+    <appender name="FILE" class="ch.qos.logback.core.FileAppender">
+      <file>${user.home}/.puppet/var/log/puppetdb.log</file>
+        <encoder>
+            <pattern>%d %-5p [%thread] [%c{2}] %m%n</pattern>
+        </encoder>
+    </appender>
 
     <!-- Silence particularly noisy packages -->
     <logger name="org.apache.activemq" level="warn"/>
@@ -13,6 +19,9 @@
 
     <root level="info">
         <appender-ref ref="STDOUT" />
+    </root>
+    <root level="info">
+        <appender-ref ref="FILE" />
     </root>
 </configuration>
 

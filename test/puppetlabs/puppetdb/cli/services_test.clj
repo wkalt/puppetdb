@@ -88,12 +88,12 @@
 (deftest query-via-puppdbserver-service
   (jutils/with-puppetdb-instance
     (submit-command *base-url*
-                    :replace-facts 3 {:name "foo.local"
+                    :replace-facts 4 {:name "foo.local"
                                       :environment "DEV"
                                       :values {:foo "the foo"
                                                :bar "the bar"
                                                :baz "the baz"}
-                                      :producer-timestamp (to-string (now))})
+                                      :producer_timestamp (to-string (now))})
     @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
     (check-service-query
      :facts :v4 ["=" "certname" "foo.local"]
@@ -116,10 +116,10 @@
 (deftest pagination-via-puppdbserver-service
   (jutils/with-puppetdb-instance
     (submit-command *base-url*
-                    :replace-facts 3 {:name "foo.local"
+                    :replace-facts 4 {:name "foo.local"
                                       :environment "DEV"
                                       :values {:a "a" :b "b" :c "c"}
-                                      :producer-timestamp (to-string (now))})
+                                      :producer_timestamp (to-string (now))})
     @(block-until-results 100 (facts-for-node *base-url* "foo.local"))
     (let [exp ["a" "b" "c"]
           rexp (reverse exp)]
@@ -130,7 +130,7 @@
                              (drop offset (if (= order :ascending) exp rexp)))]
           (check-service-query
            :facts :v4 ["=" "certname" "foo.local"]
-           {:order-by [[:name order]]
+           {:order_by [[:name order]]
             :offset offset
             :limit limit}
            (fn [result]

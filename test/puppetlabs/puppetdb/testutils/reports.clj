@@ -27,7 +27,7 @@
              (update-in ["timestamp"] time-coerce/to-string)
              (dissoc "report")
              (dissoc "certname")
-             (dissoc "configuration-version"))
+             (dissoc "configuration_version"))
         events)))
 
 (defn munge-report-for-comparison
@@ -40,14 +40,14 @@
   [report]
   {:pre  [(map? report)]
    :post [(map? %)
-          (set? (% "resource-events"))]}
+          (set? (% "resource_events"))]}
   (-> report
       (clojure.walk/stringify-keys)
-      (update-in ["start-time"] time-coerce/to-string)
-      (update-in ["end-time"] time-coerce/to-string)
-      (update-in ["resource-events"] munge-events-for-comparison)
+      (update-in ["start_time"] time-coerce/to-string)
+      (update-in ["end_time"] time-coerce/to-string)
+      (update-in ["resource_events"] munge-events-for-comparison)
       (dissoc "hash")
-      (dissoc "receive-time")))
+      (dissoc "receive_time")))
 
 (defn store-example-report*!
   "Store an example report (from examples/report.clj) for use in tests.  Params:
@@ -72,7 +72,8 @@
   ([example-report timestamp]
      (store-example-report! example-report timestamp true))
   ([example-report timestamp update-latest-report?]
-     (store-example-report*! #(report/validate! 4 (munge-example-report-for-storage example-report)) example-report timestamp update-latest-report?)))
+     (store-example-report*! #(report/validate! 5 (munge-example-report-for-storage example-report))
+                             example-report timestamp update-latest-report?)))
 
 (defn expected-report
   [example-report]

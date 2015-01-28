@@ -344,10 +344,10 @@
 (pls/defn-validated catalog-row-map
   "Creates a row map for the catalogs table, optionally adding envrionment when it was found"
   [hash
-   {:keys [api_version version transaction-uuid environment producer-timestamp]} :- catalog-schema
+   {:keys [api-version version transaction-uuid environment producer-timestamp]} :- catalog-schema
    timestamp :- pls/Timestamp]
   {:hash hash
-   :api_version api_version
+   :api_version api-version
    :catalog_version  version
    :transaction_uuid transaction-uuid
    :timestamp (to-timestamp timestamp)

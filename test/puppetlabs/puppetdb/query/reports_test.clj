@@ -86,11 +86,11 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order-by"
+    (testing "order_by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order_by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
@@ -99,7 +99,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]]})]
+                                                 {:order_by [[:report-format order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "alphabetical fields"
@@ -109,7 +109,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:transaction-uuid order]]})]
+                                                 {:order_by [[:transaction-uuid order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "timestamp fields"
@@ -119,7 +119,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:start-time order]]})]
+                                                 {:order_by [[:start-time order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "multiple fields"
@@ -129,7 +129,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:puppet-version puppet-version-order]
+                                                 {:order_by [[:puppet-version puppet-version-order]
                                                              [:configuration-version conf-version-order]]})]
               (is (= (order-events actual) (order-events expected))))))))
 
@@ -149,7 +149,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order-by [[:report-format order]] :offset offset})]
+                                                 {:order_by [[:report-format order]] :offset offset})]
               (is (= (order-events actual) (order-events expected))))))))))
 
 
@@ -170,27 +170,27 @@
     :environment "production",
     :configuration-version "1419379250",
     :certname "foo.com",
-    :resource-events [{:new_value "\"Hi world\"",
+    :resource-events [{:new-value "\"Hi world\"",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "\"absent\"",
                        :line 3,
-                       :resource_type "Notify",
+                       :resource-type "Notify",
                        :status "changed",
-                       :resource_title "hi",
+                       :resource-title "hi",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}
-                      {:new_value "\"file\"",
+                      {:new-value "\"file\"",
                        :property "ensure",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "\"absent\"",
                        :line 7,
-                       :resource_type "File",
+                       :resource-type "File",
                        :status "changed",
-                       :resource_title "/home/wyatt/Desktop/foo",
+                       :resource-title "/home/wyatt/Desktop/foo",
                        :timestamp "2014-12-24T00:00:50Z",
-                       :containment_path
+                       :containment-path
                        ["Stage[main]" "Main" "File[/home/wyatt/Desktop/foo]"],
                        :message
                        "defined content as '{md5}207995b58ba1956b97028ebb2f8caeba'"}]}
@@ -205,16 +205,16 @@
     :environment "production",
     :configuration-version "1419379250",
     :certname "bar.com",
-    :resource-events [{:new_value "\"Hi world\"",
+    :resource-events [{:new-value "\"Hi world\"",
                        :property "message",
                        :file "/home/wyatt/.puppet/manifests/site.pp",
-                       :old_value "\"absent\"",
+                       :old-value "\"absent\"",
                        :line 3,
-                       :resource_type "Notify",
+                       :resource-type "Notify",
                        :status "changed",
-                       :resource_title "hi",
+                       :resource-title "hi",
                        :timestamp "2014-12-24T00:01:12Z",
-                       :containment_path ["Stage[main]" "Main" "Notify[hi]"],
+                       :containment-path ["Stage[main]" "Main" "Notify[hi]"],
                        :message "defined 'message' as 'Hi world'"}]}])
 
 (deftest structured-data-seq

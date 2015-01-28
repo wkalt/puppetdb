@@ -229,15 +229,15 @@
 
 (def catalog-versions
   "Currently supported catalog versions"
-  [:v5])
+  [:v6])
 
 ;; The two different versions of replace-catalog have exactly the same
 ;; behavior, except different inputs.
 (deftest replace-catalog
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 5
-                            :payload (get-in wire-catalogs [5 :empty])}]]
+                            :version 6
+                            :payload (get-in wire-catalogs [6 :empty])}]]
     (testing (str (command-names :replace-catalog) " " version)
       (let [certname (get-in command [:payload :name])
             catalog-hash (shash/catalog-similarity-hash
@@ -354,12 +354,12 @@
                        resources)))))
 
 (def basic-wire-catalog
-  (get-in wire-catalogs [5 :basic]))
+  (get-in wire-catalogs [6 :basic]))
 
 (deftest catalog-with-updated-resource-line
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 5
+                            :version 6
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :line 20)))]]
@@ -380,7 +380,7 @@
 (deftest catalog-with-updated-resource-file
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 5
+                            :version 6
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :file "/tmp/not-foo")))]]
@@ -400,7 +400,7 @@
 (deftest catalog-with-updated-resource-exported
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 5
+                            :version 6
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload (update-resource version command "File" "/etc/foobar" #(assoc % :exported true)))]]
@@ -421,7 +421,7 @@
 (deftest catalog-with-updated-resource-tags
   (doverseq [version catalog-versions
              :let [command {:command (command-names :replace-catalog)
-                            :version 5
+                            :version 6
                             :payload basic-wire-catalog}
                    command-1 (stringify-payload command)
                    command-2 (stringify-payload
@@ -456,7 +456,7 @@
 
 (def fact-versions
   "Support fact command versions"
-  [:v3])
+  [:v4])
 
 (let [certname  "foo.example.com"
       facts     {:name certname
@@ -464,8 +464,8 @@
                  :values {"a" "1"
                           "b" "2"
                           "c" "3"}}
-      v3-command {:command (command-names :replace-facts)
-                  :version 3
+      v4-command {:command (command-names :replace-facts)
+                  :version 4
                   :payload facts}
       one-day   (* 24 60 60 1000)
       yesterday (to-timestamp (- (System/currentTimeMillis) one-day))
@@ -473,7 +473,7 @@
 
   (deftest replace-facts-no-facts
     (doverseq [version fact-versions
-               :let [command v3-command]]
+               :let [command v4-command]]
 
       (testing "should store the facts"
         (test-msg-handler command publish discard-dir
@@ -501,7 +501,7 @@
 
   (deftest replace-facts-existing-facts
     (doverseq [version fact-versions
-               :let [command v3-command]]
+               :let [command v4-command]]
 
       (sql/transaction
        (scf-store/ensure-environment "DEV")
@@ -509,7 +509,7 @@
        (scf-store/replace-facts! {:name certname
                                   :values {"x" "24" "y" "25" "z" "26"}
                                   :timestamp yesterday
-                                  :producer-timestamp yesterday
+                                  :producer_timestamp yesterday
                                   :environment "DEV"}))
 
       (testing "should replace the facts"
@@ -543,7 +543,7 @@
 
   (deftest replace-facts-newer-facts
     (doverseq [version fact-versions
-               :let [command v3-command]]
+               :let [command v4-command]]
 
       (sql/transaction
        (scf-store/ensure-environment "DEV")
@@ -551,7 +551,7 @@
        (scf-store/add-facts! {:name certname
                               :values {"x" "24" "y" "25" "z" "26"}
                               :timestamp tomorrow
-                              :producer-timestamp nil
+                              :producer_timestamp nil
                               :environment "DEV"}))
 
       (testing "should ignore the message"
@@ -580,7 +580,7 @@
 
   (deftest replace-facts-deactivated-node-facts
     (doverseq [version fact-versions
-               :let [command v3-command]]
+               :let [command v4-command]]
 
       (testing "should reactivate the node if it was deactivated before the message"
         (sql/insert-record :certnames {:name certname :deactivated yesterday})
@@ -635,7 +635,7 @@
 
 (deftest replace-facts-bad-payload
   (let [bad-command {:command (command-names :replace-facts)
-                     :version 3
+                     :version 4
                      :payload "bad stuff"}]
     (doverseq [version fact-versions
                :let [command bad-command]]
@@ -669,7 +669,7 @@
                           "kernel" "Linux"
                           "operatingsystem" "Debian"}}
           command   {:command (command-names :replace-facts)
-                     :version 3
+                     :version 4
                      :payload facts}
 
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
@@ -681,7 +681,7 @@
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil
-                              :producer-timestamp nil}))
+                              :producer_timestamp nil}))
 
       (with-redefs [scf-store/update-facts! (fn [fact-data]
                                               (.put hand-off-queue "got the lock")
@@ -700,7 +700,7 @@
                                                          (dissoc "kernel")
                                                          (assoc "newfact2" "here"))))
               new-facts-cmd {:command (command-names :replace-facts)
-                             :version 3
+                             :version 4
                              :payload new-facts}]
 
           (test-msg-handler new-facts-cmd publish discard-dir
@@ -714,10 +714,10 @@
 (deftest concurrent-catalog-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
-          {certname :name :as wire-catalog} (get-in wire-catalogs [5 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 5)
+          {certname :name :as wire-catalog} (get-in wire-catalogs [6 :empty])
+          nonwire-catalog (catalog/parse-catalog wire-catalog 6)
           command {:command (command-names :replace-catalog)
-                   :version 5
+                   :version 6
                    :payload (json/generate-string wire-catalog)}
 
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
@@ -744,7 +744,7 @@
                                             :target       {:title "Settings" :type "Class"}
                                             :source       {:title "main" :type "Stage"}}})
               new-catalog-cmd {:command (command-names :replace-catalog)
-                               :version 5
+                               :version 6
                                :payload (json/generate-string new-wire-catalog)}]
 
           (test-msg-handler new-catalog-cmd publish discard-dir
@@ -759,10 +759,10 @@
 (deftest concurrent-catalog-resource-updates
   (testing "Should allow only one replace catalogs update for a given cert at a time"
     (let [test-catalog (get-in catalogs [:empty])
-          {certname :name :as wire-catalog} (get-in wire-catalogs [5 :empty])
-          nonwire-catalog (catalog/parse-catalog wire-catalog 5)
+          {certname :name :as wire-catalog} (get-in wire-catalogs [6 :empty])
+          nonwire-catalog (catalog/parse-catalog wire-catalog 6)
           command {:command (command-names :replace-catalog)
-                   :version 5
+                   :version 6
                    :payload (json/generate-string wire-catalog)}
 
           hand-off-queue (java.util.concurrent.SynchronousQueue.)
@@ -796,7 +796,7 @@
                                                         :group  "root"
                                                         :user   "root"}})
               new-catalog-cmd {:command (command-names :replace-catalog)
-                               :version 5
+                               :version 6
                                :payload (json/generate-string new-wire-catalog)}]
 
           (test-msg-handler new-catalog-cmd publish discard-dir
@@ -854,21 +854,21 @@
 
 (def report-versions
   "Report versions supported. Version 1 is not currently being tested."
-  [:v3])
+  [:v5])
 
 (let [report (-> (:basic report-examples/reports)
                  (assoc :environment "DEV")
                  munge-example-report-for-storage)
-      v3-command {:command (command-names :store-report)
-                  :version 3
+      v5-command {:command (command-names :store-report)
+                  :version 5
                   :payload report}]
   (deftest store-report
     (testing "should store the report"
       (doverseq [version report-versions
-                 :let [command v3-command]]
+                 :let [command v5-command]]
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-                 [(with-env {:certname (:certname report) :configuration_version (:configuration-version report)})]))
+                 [(with-env {:certname (:certname report) :configuration_version (:configuration_version report)})]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 

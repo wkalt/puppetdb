@@ -51,7 +51,7 @@
   "Returns the correct schema for the `version`, use :all for the full-catalog (superset)"
   [api-version]
   (case api-version
-    :v4 (assoc (cats/catalog-wireformat :v5) :hash String)
+    :v4 (assoc (cats/catalog-wireformat :v6) :hash String)
     (cats/catalog-wireformat api-version)))
 
 (defn create-catalog-pred

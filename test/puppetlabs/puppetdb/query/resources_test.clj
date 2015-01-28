@@ -60,17 +60,28 @@
    {:id 2 :hash "bar" :api_version 1 :catalog_version "14" :certname "subset.local" :environment_id nil})
 
   (sql/insert-records :catalog_resources
-                      {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-                      {:catalog_id 1 :resource "2" :type "Notify" :title "hello" :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
-                      {:catalog_id 1 :resource "3" :type "Notify" :title "no-params" :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
-                      {:catalog_id 1 :resource "4" :type "File" :title "/etc/Makefile" :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
-                      {:catalog_id 1 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
-                      {:catalog_id 1 :resource "6" :type "Mval" :title "multivalue" :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
-                      {:catalog_id 1 :resource "7" :type "Hval" :title "hashvalue" :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
-                      {:catalog_id 1 :resource "8" :type "Notify" :title "semver" :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
-                      {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd" :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
-                      {:catalog_id 2 :resource "3" :type "Notify" :title "no-params" :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-                      {:catalog_id 2 :resource "5" :type "Notify" :title "booyah" :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+                      {:catalog_id 1 :resource "1" :type "File" :title "/etc/passwd"
+                       :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+                      {:catalog_id 1 :resource "2" :type "Notify" :title "hello"
+                       :exported true :tags (to-jdbc-varchar-array []) :file "a" :line 2}
+                      {:catalog_id 1 :resource "3" :type "Notify" :title "no-params"
+                       :exported true :tags (to-jdbc-varchar-array []) :file "c" :line 1}
+                      {:catalog_id 1 :resource "4" :type "File" :title "/etc/Makefile"
+                       :exported false :tags (to-jdbc-varchar-array ["vivid"]) :file "d" :line 1}
+                      {:catalog_id 1 :resource "5" :type "Notify" :title "booyah"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 2}
+                      {:catalog_id 1 :resource "6" :type "Mval" :title "multivalue"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "e" :line 1}
+                      {:catalog_id 1 :resource "7" :type "Hval" :title "hashvalue"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "f" :line 1}
+                      {:catalog_id 1 :resource "8" :type "Notify" :title "semver"
+                       :exported false :tags (to-jdbc-varchar-array ["1.3.7+build.11.e0f985a"]) :file "f" :line 1}
+                      {:catalog_id 2 :resource "1" :type "File" :title "/etc/passwd"
+                       :exported true :tags (to-jdbc-varchar-array []) :file "b" :line 1}
+                      {:catalog_id 2 :resource "3" :type "Notify" :title "no-params"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+                      {:catalog_id 2 :resource "5" :type "Notify" :title "booyah"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
   (let [foo1 {:certname   "example.local"
               :resource   "1"
               :type       "File"
@@ -285,17 +296,30 @@
   (sql/insert-records :certnames
                       {:name "foo.local"})
   (sql/insert-records :catalogs
-                      {:id 1 :hash "foo" :api_version 1 :catalog_version "12" :certname "foo.local" :environment_id (ensure-environment "DEV")})
+                      {:id 1 :hash "foo" :api_version 1 :catalog_version "12"
+                       :certname "foo.local" :environment_id (ensure-environment "DEV")})
   (sql/insert-records :catalog_resources
-                      {:catalog_id 1 :resource "1" :type "File" :title "alpha"   :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
-                      {:catalog_id 1 :resource "2" :type "File" :title "beta"    :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
-                      {:catalog_id 1 :resource "3" :type "File" :title "charlie" :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
-                      {:catalog_id 1 :resource "4" :type "File" :title "delta"   :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
+                      {:catalog_id 1 :resource "1" :type "File" :title "alpha"
+                       :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 1}
+                      {:catalog_id 1 :resource "2" :type "File" :title "beta"
+                       :exported true  :tags (to-jdbc-varchar-array []) :file "a" :line 4}
+                      {:catalog_id 1 :resource "3" :type "File" :title "charlie"
+                       :exported true  :tags (to-jdbc-varchar-array []) :file "c" :line 2}
+                      {:catalog_id 1 :resource "4" :type "File" :title "delta"
+                       :exported false :tags (to-jdbc-varchar-array []) :file "d" :line 3})
 
-  (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"   :tags [] :exported true  :file "a" :line 1 :environment "DEV" :parameters {"ensure" "file" "group" "root" "owner" "root"}}
-        r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"    :tags [] :exported true  :file "a" :line 4 :environment "DEV" :parameters {"enabled" "false" "random" "true"}}
-        r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie" :tags [] :exported true  :file "c" :line 2 :environment "DEV" :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
-        r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"   :tags [] :exported false :file "d" :line 3 :environment "DEV" :parameters {"content" "contents" "ensure" "present"}}]
+  (let [r1 {:certname "foo.local" :resource "1" :type "File" :title "alpha"
+            :tags [] :exported true  :file "a" :line 1 :environment "DEV"
+            :parameters {"ensure" "file" "group" "root" "owner" "root"}}
+        r2 {:certname "foo.local" :resource "2" :type "File" :title "beta"
+            :tags [] :exported true  :file "a" :line 4 :environment "DEV"
+            :parameters {"enabled" "false" "random" "true"}}
+        r3 {:certname "foo.local" :resource "3" :type "File" :title "charlie"
+            :tags [] :exported true  :file "c" :line 2 :environment "DEV"
+            :parameters {"hash" {"bar" 10 "foo" 5} "multi" '("one" "two" "three")}}
+        r4 {:certname "foo.local" :resource "4" :type "File" :title "delta"
+            :tags [] :exported false :file "d" :line 3 :environment "DEV"
+            :parameters {"content" "contents" "ensure" "present"}}]
 
     (let [version :v4]
       (testing (str "version " version)
@@ -311,16 +335,16 @@
                   actual  (count results)]
               (is (= actual expected)))))
 
-        (testing "order-by"
+        (testing "order_by"
           (testing "rejects invalid fields"
             (is (thrown-with-msg?
-                 IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
-                 (:result (raw-query-resources version [] {:order-by [[:invalid-field :ascending]]})))))
+                 IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+                 (:result (raw-query-resources version [] {:order_by [[:invalid-field :ascending]]})))))
 
           (testing "defaults to ascending"
             (let [expected [r1 r3 r4 r2]
                   actual   (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                         {:order-by [[:line :ascending]]}))]
+                                                         {:order_by [[:line :ascending]]}))]
               (is (= actual expected))))
 
           (testing "alphabetical fields"
@@ -328,7 +352,7 @@
                                       [:descending [r4 r3 r2 r1]]]]
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:title order]]}))]
+                                                           {:order_by [[:title order]]}))]
                   (is (= actual expected))))))
 
           (testing "numerical fields"
@@ -336,7 +360,7 @@
                                       [:descending [r2 r4 r3 r1]]]]
               (testing order
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:line order]]}))]
+                                                           {:order_by [[:line order]]}))]
                   (is (= actual expected))))))
 
           (testing "multiple fields"
@@ -346,7 +370,7 @@
                                                         [[:descending :descending] [r4 r3 r2 r1]]]]
               (testing (format "file %s line %s" file-order line-order)
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:file file-order]
+                                                           {:order_by [[:file file-order]
                                                                        [:line line-order]]}))]
                   (is (= actual expected)))))))
 
@@ -364,5 +388,5 @@
             (testing order
               (doseq [[offset expected] expected-sequences]
                 (let [actual (:result (raw-query-resources version ["=" ["node" "active"] true]
-                                                           {:order-by [[:title order]] :offset offset}))]
+                                                           {:order_by [[:title order]] :offset offset}))]
                   (is (= actual expected)))))))))))

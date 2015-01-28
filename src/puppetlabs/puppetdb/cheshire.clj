@@ -52,6 +52,12 @@
   (let [f (fn [[k v]] [(jdbc/dashes->underscores k) v])]
     (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
 
+(defn dash-keys
+  "Recursively transform dashed map keys to underscored"
+  [m]
+  (let [f (fn [[k v]] [(jdbc/underscores->dashes k) v])]
+    (walk/postwalk (fn [x] (if (map? x) (into {} (map f x)) x)) m)))
+
 (defn generate-pretty-string
   "Thinly wraps cheshire.core/generate-string, adding the PuppetDB default date format
    and pretty printing from `default-pretty-opts`"

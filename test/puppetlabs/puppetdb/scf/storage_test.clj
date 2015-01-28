@@ -83,7 +83,7 @@
       (testing "should add the certname if necessary"
         (is (= (query-to-vec "SELECT name FROM certnames")
                [{:name certname}])))
-      (testing "producer-timestamp should store nil"
+      (testing "producer_timestamp should store nil"
         (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                [{:producer_timestamp nil}])))
       (testing "replacing facts"
@@ -122,7 +122,7 @@
                       {:name "hostname" :value "myhost"}
                       {:name "kernel" :value "Linux"}
                       {:name "uptime_seconds" :value "3600"}])))
-            (testing "producer-timestamp should store current time"
+            (testing "producer_timestamp should store current time"
               (is (= (query-to-vec "SELECT producer_timestamp FROM factsets")
                      [{:producer_timestamp (to-timestamp reference-time)}])))
             (testing "should only delete operatingsystem key"
@@ -133,7 +133,7 @@
             (testing "should update existing keys"
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :hash "66c90476f974812b6532207f39d80d6010da1363"
+                           :hash "5717719490c3f8d01cd6fbf1d6796bd5e0549ac9"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm] (last itm)) @updates)))
@@ -273,7 +273,7 @@
 
     (testing "should contain proper catalog metadata"
       (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
-             [{:certname certname :api_version 1 :catalog_version "123456789" :producer_timestamp (to-timestamp current-time)}])))
+             [{:certname certname :api-version 1 :catalog-version "123456789" :producer-timestamp (to-timestamp current-time)}])))
 
     (testing "should contain a complete edges list"
       (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
@@ -663,7 +663,7 @@
 
     (testing "changing a resource title"
       (let [{orig-id :id
-             orig-tx-id :transaction_uuid
+             orig-tx-id :transaction-uuid
              orig-timestamp :timestamp} (first (query-to-vec "SELECT id from catalogs where certname=?" certname))
              updated-catalog (walk/prewalk foobar->foobar2 (:basic catalogs))
              new-uuid (kitchensink/uuid)
@@ -1128,7 +1128,7 @@
 
     (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
            [{:certname (:certname report)
-             :environment_id (environment-id "DEV")}])))
+             :environment-id (environment-id "DEV")}])))
 
   (deftest report-storage-with-status
     (is (nil? (status-id "unchanged")))
