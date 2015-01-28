@@ -18,7 +18,7 @@
     "certname" ["certname"]
     "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
-    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'summarize_by': '%s'" summarize-by)))))
 
 (defn- get-counts-filter-where-clause
   "Given a `counts-filter` query, return the appropriate SQL where clause and parameters.

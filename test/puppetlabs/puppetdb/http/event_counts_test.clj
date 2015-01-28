@@ -28,7 +28,7 @@
   (testing "count-by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "certname"
-                                  {"count-by" "illegal-count-by"} true)
+                                  {"count_by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
       (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
@@ -43,8 +43,8 @@
           response  (get-response endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   "containing_class"
-                                  {"count-by"      "certname"
-                                   "counts-filter" ["<" "successes" 1]})]
+                                  {"count_by"      "certname"
+                                   "counts_filter" ["<" "successes" 1]})]
       (response-equal? response expected)))
 
   (doseq [[label count?] [["without" false]
@@ -72,7 +72,7 @@
                      {:app-fn  fixt/*app*
                       :path    endpoint
                       :query   [">" "timestamp" 0]
-                      :params  {:summarize_by "resource"}
+                      :params  {:summarize-by "resource"}
                       :limit   1
                       :total   (count expected)
                       :include-total count?})]
@@ -106,9 +106,9 @@
           response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "resource"
-                                  {"distinct-resources" true
-                                   "distinct-start-time" 0
-                                   "distinct-end-time" (now)})]
+                                  {"distinct_resources" true
+                                   "distinct_start_time" 0
+                                   "distinct_end_time" (now)})]
       (response-equal? response expected))))
 
 (deftestseq query-with-environment
@@ -121,9 +121,9 @@
   (are [result query] (response-equal? (get-response endpoint
                                                      query
                                                      "resource"
-                                                     {"distinct-resources" false
-                                                      "distinct-start-time" 0
-                                                      "distinct-end-time" (now)})
+                                                     {"distinct_resources" false
+                                                      "distinct_start_time" 0
+                                                      "distinct_end_time" (now)})
                                        result)
        #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
