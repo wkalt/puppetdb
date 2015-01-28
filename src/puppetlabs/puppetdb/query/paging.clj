@@ -199,13 +199,12 @@
   {:pre [(sequential? columns)
          (every? keyword? columns)
          ((some-fn nil? valid-paging-options?) paging-options)]}
-  (let [columns (map underscores->dashes columns)]
     (doseq [field (map first (:order-by paging-options))]
       (when-not (seq-contains? columns field)
         (throw (IllegalArgumentException.
                 (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
                         (name field)
-                        (string/join "', '" (map name columns)))))))))
+                        (string/join "', '" (map name columns))))))))
 
 (defn requires-paging?
   "Given a paging-options map, return true if the query requires paging
