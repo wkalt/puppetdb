@@ -72,7 +72,7 @@
                      {:app-fn  fixt/*app*
                       :path    endpoint
                       :query   [">" "timestamp" 0]
-                      :params  {:summarize-by "resource"}
+                      :params  {:summarize_by "resource"}
                       :limit   1
                       :total   (count expected)
                       :include-total count?})]
