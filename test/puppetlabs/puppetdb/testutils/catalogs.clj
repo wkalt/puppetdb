@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.testutils.catalogs
   (:require [puppetlabs.puppetdb.command :as command]
-            [cheshire.core :as json]
+            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.catalogs :as cats]
             [puppetlabs.kitchensink.core :refer [uuid]]
@@ -41,7 +41,8 @@
 
 (defn munge-catalog-for-comparison* [catalog-root-key catalog]
   (-> catalog
-      (clojure.walk/stringify-keys)
+      clojure.walk/stringify-keys
+      json/dash-keys  
       (update-in* [catalog-root-key "resources"] #(map munge-resource-for-comparison %))
       (update-in* [catalog-root-key "resources"] set)
       (update-in* [catalog-root-key "edges"] (fn [edges]
@@ -76,7 +77,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
-  (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)))
+  (munge-catalog-for-comparison* nil (update-in catalog [:producer_timestamp] to-string)))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

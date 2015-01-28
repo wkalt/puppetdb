@@ -96,7 +96,7 @@
                         :bar "the bar"
                         :baz "the baz"
                         :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
-               :producer_timestamp (to-string (now))}
+               :producer-timestamp (to-string (now))}
         export-out-file (testutils/temp-file "export-test" ".tar.gz")
         catalog (-> (get-in wire-catalogs [6 :empty])
                     (assoc :name "foo.local"))

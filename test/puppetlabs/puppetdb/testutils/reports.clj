@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.reports :as report]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.query.reports :as query]
             [clj-time.coerce :as time-coerce]
             [puppetlabs.puppetdb.testutils.events :refer [munge-example-event-for-storage]]))
@@ -27,7 +28,7 @@
              (update-in ["timestamp"] time-coerce/to-string)
              (dissoc "report")
              (dissoc "certname")
-             (dissoc "configuration_version"))
+             (dissoc "configuration-version"))
         events)))
 
 (defn munge-report-for-comparison
@@ -40,14 +41,15 @@
   [report]
   {:pre  [(map? report)]
    :post [(map? %)
-          (set? (% "resource_events"))]}
+          (set? (% "resource-events"))]}
   (-> report
-      (clojure.walk/stringify-keys)
-      (update-in ["start_time"] time-coerce/to-string)
-      (update-in ["end_time"] time-coerce/to-string)
-      (update-in ["resource_events"] munge-events-for-comparison)
+      clojure.walk/stringify-keys
+      json/dash-keys
+      (update-in ["start-time"] time-coerce/to-string)
+      (update-in ["end-time"] time-coerce/to-string)
+      (update-in ["resource-events"] munge-events-for-comparison)
       (dissoc "hash")
-      (dissoc "receive_time")))
+      (dissoc "receive-time")))
 
 (defn store-example-report*!
   "Store an example report (from examples/report.clj) for use in tests.  Params:

@@ -26,12 +26,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
 
-(def node-map {:catalog-timestamp (s/maybe String)
-               :facts-timestamp (s/maybe String)
-               :report-timestamp (s/maybe String)
-               :catalog-environment (s/maybe String)
-               :facts-environment (s/maybe String)
-               :report-environment (s/maybe String)
+(def node-map {:catalog_timestamp (s/maybe String)
+               :facts_timestamp (s/maybe String)
+               :report_timestamp (s/maybe String)
+               :catalog_environment (s/maybe String)
+               :facts_environment (s/maybe String)
+               :report_environment (s/maybe String)
                :certname String
                :deactivated (s/maybe String)})
 
@@ -85,7 +85,7 @@
       {:name node
        :values (:facts facts)
        :environment (:environment facts)
-       :producer-timestamp (:producer-timestamp facts)})))
+       :producer-timestamp (:producer_timestamp facts)})))
 
 (defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
