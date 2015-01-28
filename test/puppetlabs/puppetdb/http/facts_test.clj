@@ -197,7 +197,7 @@
            ;; vectored fact-contents subquery
            ["in" ["name" "certname"]
             ["extract" ["name" "certname"]
-             ["select-fact-contents"
+             ["select_fact_contents"
               ["and" ["<" "value" 10000] ["~>" "path" ["up.*"]]]]]]
            #{{:value 12, :name "uptime_seconds", :environment "DEV", :certname "bar"}}))))
 
@@ -972,7 +972,7 @@
                                         "f" nil, "b" 3.14, "a" 1}},
          "environment" "DEV"
          "certname" "foo1"
-         "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}
+         "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
 
         {"facts" {"uptime_seconds" "6000"
                   "domain" "testing.com"
@@ -982,7 +982,7 @@
          "environment" "DEV"
          "certname" "foo2"
          "producer_timestamp" "2013-01-01T00:00:00.000Z"
-         "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}
+         "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}
 
         {"facts" {"domain" "testing.com"
                   "operatingsystem" "Darwin"
@@ -990,7 +990,7 @@
                                         "d" {"n" ""}, "" "g?", "c" ["a" "b" "c"]}},
          "environment" "PROD"
          "certname" "foo3"
-         "hash" "631f76bddfd60861c9db8b281276327e40cb2161"}]))
+         "hash" "aa3b47b7337a04b34f395f02ede01ec2d2f577d9"}]))
 
 (deftestseq factset-paging-results
   [[version endpoint] factsets-endpoints]
@@ -1106,7 +1106,7 @@
               "producer_timestamp" reference-time
               "environment" "DEV"
               "certname" "foo1"
-              "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}))
+              "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}))
       (is (= (into [] (nth responses 1))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1122,7 +1122,7 @@
                "producer_timestamp" reference-time
                "environment" "DEV"
                "certname" "foo1"
-               "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}
+               "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}
 
               {"facts" {"my_structured_fact"
                         {"a" 1
@@ -1136,7 +1136,7 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
+               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
 
       (is (= (into [] (nth responses 2))
              [{"facts" {"my_structured_fact"
@@ -1151,7 +1151,7 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
+               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
       (is (= (into [] (nth responses 3))
              [{"facts" {"my_structured_fact"
                         {"a" 1
@@ -1165,10 +1165,10 @@
                "producer_timestamp" (to-string (to-timestamp "2013-01-01"))
                "environment" "DEV"
                "certname" "foo2"
-               "hash" "0d34bebd41aa6e5a6ab3e8f040c7a64db0d1796b"}]))
+               "hash" "6c7a82560d100da6b40b55d652062cc603de5e58"}]))
       (is (= (into [] (nth responses 4))
              [{"certname" "foo1"
-               "hash" "bfff165485c6c751f5807d0c20b756cbad09c664"}])))))
+               "hash" "2148456e95cb3c513ebe80ffe10dd3c74991734b"}])))))
 
 (defn structured-fact-results
   [version endpoint]

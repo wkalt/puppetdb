@@ -95,4 +95,4 @@
   (let [valid-keys (map name report-fields)]
     (-> payload
         (select-keys valid-keys)
-        (update-in ["resource-events"] sanitize-events))))
+        (update-in ["resource_events"] sanitize-events))))

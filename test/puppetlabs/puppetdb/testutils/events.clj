@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.testutils.events
   (:require [puppetlabs.puppetdb.query.events :as query]
             [puppetlabs.puppetdb.reports :as report]
+            [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :as walk]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [clj-time.coerce :refer [to-timestamp to-string]]))
@@ -64,6 +65,7 @@
   [version example-resource-events report]
   (-> (raw-expected-resource-events version example-resource-events report)
       timestamps->str
+      json/underscore-keys
       set))
 
 (defn expected-resource-events

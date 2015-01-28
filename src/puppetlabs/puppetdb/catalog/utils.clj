@@ -26,7 +26,7 @@
   (fn [wire-catalog]
     (-> wire-catalog
         walk/keywordize-keys
-        (cat/parse-catalog 5)
+        (cat/parse-catalog 6)
         f
         convert-to-wire)))
 

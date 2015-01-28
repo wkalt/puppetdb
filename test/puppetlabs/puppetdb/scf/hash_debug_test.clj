@@ -106,6 +106,8 @@
                "database name"
                "database version")
 
+          (println "CATALOG META" catalog-metadata)
+
           (are [metadata-key] (and (kitchensink/string-contains? (:name new-catalog)
                                                                  (get catalog-metadata metadata-key))
                                    (.startsWith (get catalog-metadata metadata-key) debug-dir))

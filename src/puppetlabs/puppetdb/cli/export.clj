@@ -1,4 +1,5 @@
 (ns puppetlabs.puppetdb.cli.export
+
   "Export utility
 
    This is a command-line tool for exporting data from PuppetDB.  It currently
@@ -26,12 +27,12 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Internal Schemas
 
-(def node-map {:catalog_timestamp (s/maybe String)
-               :facts_timestamp (s/maybe String)
-               :report_timestamp (s/maybe String)
-               :catalog_environment (s/maybe String)
-               :facts_environment (s/maybe String)
-               :report_environment (s/maybe String)
+(def node-map {:catalog-timestamp (s/maybe String)
+               :facts-timestamp (s/maybe String)
+               :report-timestamp (s/maybe String)
+               :catalog-environment (s/maybe String)
+               :facts-environment (s/maybe String)
+               :report-environment (s/maybe String)
                :certname String
                :deactivated (s/maybe String)})
 
@@ -57,7 +58,7 @@
    catalog-json-str :- String]
   {:msg (format "Writing catalog for node '%s'" node)
    :file-suffix ["catalogs" (format "%s.json" node)]
-   :contents catalog-json-str})
+   :contents (json/underscore-keys catalog-json-str)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Fact Exporting
@@ -66,7 +67,7 @@
   "The parsed JSON response body"
   [{:keys [status body]}]
   (when (= status 200)
-    (seq (json/parse-string body true))))
+    (seq (json/dash-keys (json/parse-string body true)))))
 
 (defn-validated facts-for-node
   :- {s/Keyword s/Any}
@@ -85,7 +86,7 @@
       {:name node
        :values (:facts facts)
        :environment (:environment facts)
-       :producer-timestamp (:producer_timestamp facts)})))
+       :producer-timestamp (:producer-timestamp facts)})))
 
 (defn-validated facts->tar :- utils/tar-item
   "Creates a tar-item map for the collection of facts"
@@ -93,7 +94,7 @@
    facts :- {s/Keyword s/Any}]
   {:msg (format "Writing facts for node '%s'" node)
    :file-suffix ["facts" (format "%s.json" node)]
-   :contents (json/generate-pretty-string facts)})
+   :contents (json/generate-pretty-string (json/underscore-keys facts))})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Report Exporting
@@ -145,7 +146,7 @@
                 hash (kitchensink/utf8-string->sha1 unique-seed)]
             {:msg (format "Writing report for node '%s' (start-time: %s version: %s hash: %s)" node start-time configuration-version hash)
              :file-suffix ["reports" (format "%s-%s.json" node hash)]
-             :contents (json/generate-pretty-string (dissoc report :hash))}))
+             :contents (json/generate-pretty-string (json/underscore-keys (dissoc report :hash)))}))
         reports))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -162,17 +163,20 @@
    {:keys [certname] :as node-data} :- node-map]
   {:node certname
    :facts (when-not (str/blank? (:facts-timestamp node-data))
-            [(facts->tar certname (facts-for-node base-url certname))])
+            [(->> (facts-for-node base-url certname)
+                 (facts->tar certname))])
    :reports (when-not (str/blank? (:report-timestamp node-data))
-              (report->tar certname (reports-for-node base-url certname)))
+              (->> (reports-for-node base-url certname)
+                   (report->tar certname)))
    :catalog (when-not (str/blank? (:catalog-timestamp node-data))
-              [(catalog->tar certname (catalog-for-node base-url certname))])})
+              [(->> (catalog-for-node base-url certname)
+                    (catalog->tar certname))])})
 
 (defn-validated get-nodes :- (s/maybe (s/pred seq? 'seq?))
   "Get a list of the names of all active nodes."
   [base-url :- utils/base-url-schema]
-  (parse-response (client/get (str (utils/base-url->str base-url) "/nodes")
-                              {:accept :json})))
+  (-> (client/get (str (utils/base-url->str base-url) "/nodes") {:accept :json})
+                  parse-response))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Metadata Exporting
@@ -190,9 +194,9 @@
                ;;  on which version of the `replace catalog` matches up with the current
                ;;  version of the `catalog` endpoint... or even to query what the latest
                ;;  version of a command is.  We should improve that.
-               {:replace-catalog 5
-                :store-report 3
-                :replace-facts 3}})})
+               {:replace-catalog 6
+                :store-report 5
+                :replace-facts 4}})})
 
 (defn- validate-cli!
   [args]

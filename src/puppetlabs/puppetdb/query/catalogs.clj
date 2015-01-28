@@ -19,8 +19,8 @@
 (def catalog-columns
   [:name
    :version
-   :transaction-uuid
-   :producer-timestamp
+   :transaction_uuid
+   :producer_timestamp
    :environment
    :hash
    :edges

@@ -133,7 +133,7 @@
             (testing "should update existing keys"
               (is (some #{{:timestamp (to-timestamp reference-time)
                            :environment_id 1
-                           :hash "5717719490c3f8d01cd6fbf1d6796bd5e0549ac9"
+                           :hash "66c90476f974812b6532207f39d80d6010da1363"
                            :producer_timestamp (to-timestamp reference-time)}}
                         ;; Again we grab the pertinent non-id bits
                         (map (fn [itm] (last itm)) @updates)))
@@ -1128,7 +1128,7 @@
 
     (is (= (query-to-vec ["SELECT certname, environment_id FROM reports"])
            [{:certname (:certname report)
-             :environment-id (environment-id "DEV")}])))
+             :environment_id (environment-id "DEV")}])))
 
   (deftest report-storage-with-status
     (is (nil? (status-id "unchanged")))

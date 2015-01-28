@@ -67,7 +67,7 @@
   ;; with keywords as keys, but real world-data has strings as keys.  Here
   ;; we simply convert the keys to strings so that we can compare them for
   ;; tests.
-  (map #(kitchensink/maptrans {[:old-value :new-value] stringify-keys} %) events))
+  (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
 
 (deftestseq query-by-report
   [[version endpoint] endpoints]
@@ -310,7 +310,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "cdbcc373b184ff1879e3a8d5a04831f5a3ec6ff5"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -335,7 +335,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "cdbcc373b184ff1879e3a8d5a04831f5a3ec6ff5"
        :resource_title "hi"
        :property nil
        :file "bar"
@@ -362,7 +362,7 @@
        :new_value nil
        :containing_class "Foo"
        :report_receive_time "2014-04-16T12:44:40.978Z"
-       :report "227a8b2b960ab0183b2100923f05cee7c7f0d8d4"
+       :report "cdbcc373b184ff1879e3a8d5a04831f5a3ec6ff5"
        :resource_title "hi"
        :property nil
        :file "bar"
