@@ -64,9 +64,9 @@
           response  (get-response endpoint
                                   ["=" "certname" "foo.local"]
                                   "resource"
-                                  {"distinct-resources" true
-                                   "distinct-start-time" 0
-                                   "distinct-end-time" (now)})]
+                                  {"distinct_resources" true
+                                   "distinct_start_time" 0
+                                   "distinct_end_time" (now)})]
       (assert-success! response)
       (is (= expected (json/parse-string (:body response) true))))))
 
@@ -80,9 +80,9 @@
   (are [result query] (= result (-> (get-response endpoint
                                                   query
                                                   "resource"
-                                                  {"distinct-resources" false
-                                                   "distinct-start-time" 0
-                                                   "distinct-end-time" (now)})
+                                                  {"distinct_resources" false
+                                                   "distinct_start_time" 0
+                                                   "distinct_end_time" (now)})
                                     :body
                                     (json/parse-string true)))
        {:successes 2

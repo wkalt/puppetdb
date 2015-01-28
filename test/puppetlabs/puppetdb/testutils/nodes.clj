@@ -20,7 +20,7 @@
   (-> (:basic reports)
       (change-certname node-name)
       tur/munge-example-report-for-storage
-      (assoc :end_time (now))))
+      (assoc :end-time (now))))
 
 (defn store-example-nodes
   []
