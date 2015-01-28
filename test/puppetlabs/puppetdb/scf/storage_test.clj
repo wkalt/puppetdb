@@ -273,7 +273,7 @@
 
     (testing "should contain proper catalog metadata"
       (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
-             [{:certname certname :api-version 1 :catalog-version "123456789" :producer-timestamp (to-timestamp current-time)}])))
+             [{:certname certname :api_version 1 :catalog_version "123456789" :producer_timestamp (to-timestamp current-time)}])))
 
     (testing "should contain a complete edges list"
       (is (= (query-to-vec [(str "SELECT r1.type as stype, r1.title as stitle, r2.type as ttype, r2.title as ttitle, e.type as etype "
