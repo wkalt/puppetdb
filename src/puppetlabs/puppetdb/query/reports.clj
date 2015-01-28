@@ -66,15 +66,15 @@
 
 (def report-columns
   [:hash
-   :puppet-version
-   :receive-time
-   :report-format
-   :start-time
-   :end-time
-   :transaction-uuid
+   :puppet_version
+   :receive_time
+   :report_format
+   :start_time
+   :end_time
+   :transaction_uuid
    :status
    :environment
-   :configuration-version
+   :configuration_version
    :certname])
 
 (defn create-report-pred
@@ -101,7 +101,7 @@
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
+    (assoc (select-keys first-row (map jdbc/underscores->dashes report-columns))
       :resource-events resource-events)))
 
 (pls/defn-validated structured-data-seq

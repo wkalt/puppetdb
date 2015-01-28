@@ -208,11 +208,11 @@
         basic3 (assoc (:basic3 reports) :puppet-version "3.0.3")
         hash3 (:hash (store-example-report! basic3 (now)))
 
-        v301 (get-response endpoint ["=" "puppet-version" "3.0.1"])
+        v301 (get-response endpoint ["=" "puppet_version" "3.0.1"])
         v301-body (json/parse-strict-string (:body v301) true)
-        v360 (get-response endpoint ["=" "puppet-version" "3.6.0"])
+        v360 (get-response endpoint ["=" "puppet_version" "3.6.0"])
         v360-body (json/parse-strict-string (:body v360) true)
-        v30x (get-response endpoint ["~" "puppet-version" "3\\.0\\..*"])
+        v30x (get-response endpoint ["~" "puppet_version" "3\\.0\\..*"])
         v30x-body (json/parse-strict-string (:body v30x) true)]
 
     (is (= 1 (count v301-body)))
