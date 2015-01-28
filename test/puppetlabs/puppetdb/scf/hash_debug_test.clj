@@ -106,15 +106,13 @@
                "database name"
                "database version")
 
-          (println "CATALOG META" catalog-metadata)
-
           (are [metadata-key] (and (kitchensink/string-contains? (:name new-catalog)
                                                                  (get catalog-metadata metadata-key))
                                    (.startsWith (get catalog-metadata metadata-key) debug-dir))
-               "old catalog path - edn"
-               "new catalog path - edn"
-               "old catalog path - json"
-               "new catalog path - json")
+               "old catalog path _ edn"
+               "new catalog path _ edn"
+               "old catalog path _ json"
+               "new catalog path _ json")
 
           (is (not= (get catalog-metadata "new catalog hash")
                     (get catalog-metadata "old catalog hash"))))))))
