@@ -148,24 +148,24 @@
 (deftest test-canonical-catalog
   (let [catalog (:basic catalogs)]
     (testing "conversion to :all should never lose information"
-      (doseq [version [:v5]]
+      (doseq [version [:v6]]
         (is (= (canonical-catalog version catalog)
                (canonical-catalog version (canonical-catalog :all catalog))))))
-    (testing "version 5"
-      (let [v5-catalog (canonical-catalog :v5 catalog)]
-        (is (= (:transaction_uuid catalog)
-               (:transaction_uuid v5-catalog)))
+    (testing "version 6"
+      (let [v6-catalog (canonical-catalog :v6 catalog)]
+        (is (= (:transaction-uuid catalog)
+               (:transaction-uuid v6-catalog)))
         (is (= (:environment catalog)
-               (:environment v5-catalog)))
-        (is (= (:producer_timestamp catalog)
-               (:producer_timestamp v5-catalog)))
-        (is (not (contains? v5-catalog :api_version)))))))
+               (:environment v6-catalog)))
+        (is (= (:producer-timestamp catalog)
+               (:producer-timestamp v6-catalog)))
+        (is (not (contains? v6-catalog :api-version)))))))
 
 (deftest test-canonical->wire-format
   (let [catalog (:basic catalogs)]
-    (testing "version 5"
-      (let [wire-catalog (canonical->wire-format :v5 catalog)]
+    (testing "version 6"
+      (let [wire-catalog (canonical->wire-format :v6 catalog)]
         (is (not (contains? wire-catalog :data)))
         (is (not (contains? wire-catalog :metadata)))
-        (is (= (dissoc catalog :api_version)
+        (is (= (dissoc catalog :api-version)
                wire-catalog))))))

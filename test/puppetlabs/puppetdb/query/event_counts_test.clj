@@ -42,16 +42,16 @@
                 actual  (count results)]
             (is (= actual expected)))))
 
-      (testing "order_by"
+      (testing "order-by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
                (event-counts-query-result
                 version
                 ["=" "certname" "foo.local"]
                 "resource"
                 {}
-                {:order_by [[:invalid-field :ascending]]}))))
+                {:order-by [[:invalid-field :ascending]]}))))
 
         (testing "numerical fields"
           (doseq [[order expected] [[:ascending  [count2 count1]]
@@ -62,7 +62,7 @@
                                      ["=" "certname" "foo.local"]
                                      "containing_class"
                                      {}
-                                     {:order_by [[:successes order]]}))]
+                                     {:order-by [[:successes order]]}))]
                 (is (= actual expected)))))))
 
       (testing "offset"
@@ -79,7 +79,7 @@
                                      ["=" "certname" "foo.local"]
                                      "containing_class"
                                      {}
-                                     {:order_by [[:successes order]] :offset offset}))]
+                                     {:order-by [[:successes order]] :offset offset}))]
                 (is (= actual expected))))))))))
 
 (deftest resource-event-count-queries

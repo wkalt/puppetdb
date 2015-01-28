@@ -169,7 +169,7 @@
                         :limit   1
                         :total   (count basic-events)
                         :include-total  count?
-                        :params  {:order_by (json/generate-string [{"field" "status"}])}})]
+                        :params  {:order-by (json/generate-string [{"field" "status"}])}})]
           (is (= (count basic-events) (count results)))
           (is (= (http-expected-resource-events
                   version
@@ -177,18 +177,18 @@
                   basic)
                  (set (munge-event-values results)))))))
 
-    (testing "order_by field names"
+    (testing "order-by field names"
       (testing "should accept underscores"
         (let [expected  (http-expected-resource-events version basic-events basic)
-              response  (get-response endpoint [">", "timestamp", 0] {:order_by (json/generate-string [{:field "resource_title"}])})]
+              response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource_title"}])})]
           (is (= (:status response) http/status-ok))
           (response-equal? response expected munge-event-values)))
 
       (testing "should reject dashes"
-        (let [response  (get-response endpoint [">", "timestamp", 0] {:order_by (json/generate-string [{:field "resource-title"}])})
+        (let [response  (get-response endpoint [">", "timestamp", 0] {:order-by (json/generate-string [{:field "resource-title"}])})
               body      (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
-          (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
+          (is (re-find #"Unrecognized column 'resource-title' specified in :order-by" body)))))))
 
 (deftestseq query-distinct-resources
   [[version endpoint] endpoints]

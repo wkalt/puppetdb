@@ -86,11 +86,11 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order_by"
+    (testing "order-by"
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
-             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order_by [[:invalid-field :ascending]]}))))
+             IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+             (reports-query-result :v4 ["=" "certname" "foo.local"] {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "numerical fields"
         (doseq [[order expecteds] [[:ascending  [report1 report2 report4 report3]]
@@ -99,7 +99,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order_by [[:report-format order]]})]
+                                                 {:order-by [[:report-format order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "alphabetical fields"
@@ -109,7 +109,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order_by [[:transaction-uuid order]]})]
+                                                 {:order-by [[:transaction-uuid order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "timestamp fields"
@@ -119,7 +119,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order_by [[:start-time order]]})]
+                                                 {:order-by [[:start-time order]]})]
               (is (= (order-events actual) (order-events expected)))))))
 
       (testing "multiple fields"
@@ -129,7 +129,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order_by [[:puppet-version puppet-version-order]
+                                                 {:order-by [[:puppet-version puppet-version-order]
                                                              [:configuration-version conf-version-order]]})]
               (is (= (order-events actual) (order-events expected))))))))
 
@@ -149,7 +149,7 @@
             (let [expected (expected-reports expecteds)
                   actual   (reports-query-result :v4
                                                  ["=" "certname" "foo.local"]
-                                                 {:order_by [[:report-format order]] :offset offset})]
+                                                 {:order-by [[:report-format order]] :offset offset})]
               (is (= (order-events actual) (order-events expected))))))))))
 
 
