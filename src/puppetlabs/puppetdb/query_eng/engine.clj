@@ -358,8 +358,8 @@
                          "containment_path" :array
                          "containing_class" :string
                          "environment" :string}
-               :queryable-fields ["message" "old_value" "report-receive-time" "run-end-time" "containment_path"
-                                  "certname" "run-start-time" "timestamp" "configuration_version" "new_value"
+               :queryable-fields ["message" "old_value" "report_receive_time" "run_end_time" "containment_path"
+                                  "certname" "run_starthtime" "timestamp" "configuration_version" "new_value"
                                   "resource_title" "status" "property" "resource_type" "line" "environment"
                                   "containing_class" "file" "report" "latest_report?"]
                :alias "events"
