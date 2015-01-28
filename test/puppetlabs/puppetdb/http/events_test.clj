@@ -67,13 +67,13 @@
   ;; with keywords as keys, but real world-data has strings as keys.  Here
   ;; we simply convert the keys to strings so that we can compare them for
   ;; tests.
-  (map #(kitchensink/maptrans {[:old_value :new_value] stringify-keys} %) events))
+  (map #(kitchensink/maptrans {[:old-value :new-value] stringify-keys} %) events))
 
 (deftestseq query-by-report
   [[version endpoint] endpoints]
 
   (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource_events])
+        basic-events      (get-in reports [:basic :resource-events])
         basic-events-map  (get-events-map (:basic reports))
         report-hash       (:hash basic)]
 
@@ -87,11 +87,11 @@
     ;; NOTE: more exhaustive testing for these queries can be found in
     ;; `puppetlabs.puppetdb.query.event-test`
     (testing "should support querying resource events by timestamp"
-      (let [start_time "2011-01-01T12:00:01-03:00"
-            end_time   "2011-01-01T12:00:03-03:00"]
+      (let [start-time "2011-01-01T12:00:01-03:00"
+            end-time   "2011-01-01T12:00:03-03:00"]
 
         (testing "should support single term timestamp queries"
-          (let [response (get-response endpoint ["<" "timestamp" end_time])
+          (let [response (get-response endpoint ["<" "timestamp" end-time])
                 expected (http-expected-resource-events
                           version
                           (kitchensink/select-values basic-events-map [1 3])
@@ -99,8 +99,8 @@
             (response-equal? response expected munge-event-values)))
 
         (testing "should support compound timestamp queries"
-          (let [response (get-response endpoint ["and" [">" "timestamp" start_time]
-                                                 ["<" "timestamp" end_time]])
+          (let [response (get-response endpoint ["and" [">" "timestamp" start-time]
+                                                 ["<" "timestamp" end-time]])
                 expected (http-expected-resource-events
                           version
                           (kitchensink/select-values basic-events-map [3])
@@ -194,11 +194,11 @@
   [[version endpoint] endpoints]
 
   (let [basic             (store-example-report! (:basic reports) (now))
-        basic-events      (get-in reports [:basic :resource_events])
+        basic-events      (get-in reports [:basic :resource-events])
         basic-events-map  (get-events-map (:basic reports))
 
         basic3            (store-example-report! (:basic3 reports) (now))
-        basic3-events     (get-in reports [:basic3 :resource_events])
+        basic3-events     (get-in reports [:basic3 :resource-events])
         basic3-events-map (get-events-map (:basic3 reports))]
 
     (testing "should return an error if the caller passes :distinct-resources without timestamps"
@@ -255,10 +255,10 @@
   [[version endpoint] endpoints]
 
   (let [basic         (store-example-report! (:basic reports) (now))
-        basic-events  (get-in reports [:basic :resource_events])
+        basic-events  (get-in reports [:basic :resource-events])
 
         basic3        (store-example-report! (:basic3 reports) (now))
-        basic3-events (get-in reports [:basic3 :resource_events])]
+        basic3-events (get-in reports [:basic3 :resource-events])]
 
     (testing "query by report start time"
       (let [expected  (http-expected-resource-events version basic-events basic)
@@ -284,7 +284,7 @@
   (let [test-start-time (ago (secs 1))
 
         basic           (store-example-report! (:basic reports) (now))
-        basic-events    (get-in reports [:basic :resource_events])]
+        basic-events    (get-in reports [:basic :resource-events])]
     (testing "query by report receive time"
       (let [expected  (http-expected-resource-events version basic-events basic)
             response  (get-response endpoint [">" "report_receive_time" (to-string test-start-time)])]
@@ -392,7 +392,7 @@
                            :values {"ipaddress" "1.1.1.1"}
                            :timestamp (now)
                            :environment nil
-                           :producer_timestamp nil}))
+                           :producer-timestamp nil}))
 
   (doseq [[query results] (get versioned-subqueries endpoint)]
     (testing (str "query: " query " should match expected output")
