@@ -169,7 +169,7 @@
                         :query   ["=" "report" report-hash]
                         :limit   1
                         :total   (count basic-events)
-                        :include-total  count?
+                        :include_total  count?
                         :params  {:order_by (json/generate-string [{"field" "status"}])}})]
           (is (= (count basic-events) (count results)))
           (is (= (http-expected-resource-events
@@ -178,7 +178,7 @@
                   basic)
                  (set (munge-event-values results)))))))
 
-    (testing "order-by field names"
+    (testing "order_by field names"
       (testing "should accept underscores"
         (let [expected  (http-expected-resource-events version basic-events basic)
               response  (get-response endpoint [">", "timestamp", 0] {:order_by (json/generate-string [{:field "resource_title"}])})]
@@ -189,7 +189,7 @@
         (let [response  (get-response endpoint [">", "timestamp", 0] {:order_by (json/generate-string [{:field "resource-title"}])})
               body      (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
-          (is (re-find #"Unrecognized column 'resource-title' specified in :order-by" body)))))))
+          (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
 (deftestseq query-distinct-resources
   [[version endpoint] endpoints]
