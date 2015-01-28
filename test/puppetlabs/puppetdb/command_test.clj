@@ -509,7 +509,7 @@
        (scf-store/replace-facts! {:name certname
                                   :values {"x" "24" "y" "25" "z" "26"}
                                   :timestamp yesterday
-                                  :producer_timestamp yesterday
+                                  :producer-timestamp yesterday
                                   :environment "DEV"}))
 
       (testing "should replace the facts"
@@ -551,7 +551,7 @@
        (scf-store/add-facts! {:name certname
                               :values {"x" "24" "y" "25" "z" "26"}
                               :timestamp tomorrow
-                              :producer_timestamp nil
+                              :producer-timestamp nil
                               :environment "DEV"}))
 
       (testing "should ignore the message"
@@ -681,7 +681,7 @@
                               :values (:values facts)
                               :timestamp (-> 2 days ago)
                               :environment nil
-                              :producer_timestamp nil}))
+                              :producer-timestamp nil}))
 
       (with-redefs [scf-store/update-facts! (fn [fact-data]
                                               (.put hand-off-queue "got the lock")
@@ -868,7 +868,7 @@
                  :let [command v5-command]]
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-                 [(with-env {:certname (:certname report) :configuration_version (:configuration_version report)})]))
+                 [(with-env {:certname (:certname report) :configuration_version (:configuration-version report)})]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 

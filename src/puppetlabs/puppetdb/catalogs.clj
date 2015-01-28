@@ -100,7 +100,7 @@
 (def ^:const catalog-version
   "Constant representing the version number of the PuppetDB
   catalog format"
-  5)
+  6)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Schemas
