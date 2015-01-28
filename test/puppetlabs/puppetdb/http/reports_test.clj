@@ -41,10 +41,10 @@
    ;; them to be coerced to dates and then back to strings, which normalizes
    ;; the timezone so that it will match the value returned form the db.
    to-string
-   [:start_time :end_time]
+   [:start-time :end-time]
    ;; the response won't include individual events, so we need to pluck those
    ;; out of the example report object before comparison
-   (update-in report [:resource_events] (comp keywordize-keys munge-resource-events))))
+   (update-in report [:resource-events] (comp keywordize-keys munge-resource-events))))
 
 (defn reports-response
   [version reports]
@@ -55,7 +55,7 @@
   ;; the example reports don't have a receive time (because this is
   ;; calculated by the server), so we remove this field from the response
   ;; for test comparison
-  (map (comp #(dissoc % :receive_time) #(update-in % [:resource_events] set)) reports))
+  (map (comp #(dissoc % :receive-time) #(update-in % [:resource-events] set)) reports))
 
 (deftestseq query-by-certname
   [[version endpoint] endpoints]
@@ -101,7 +101,7 @@
       (response-equal?
        (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
                                ["=" "certname" (:certname basic)]])
-       #{(select-keys basic [:hash :certname :transaction_uuid])}))))
+       #{(select-keys basic [:hash :certname :transaction-uuid])}))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
@@ -203,16 +203,16 @@
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
-        basic2 (assoc (:basic2 reports) :puppet_version "3.6.0")
+        basic2 (assoc (:basic2 reports) :puppet-version "3.6.0")
         hash2 (:hash (store-example-report! basic2 (now)))
-        basic3 (assoc (:basic3 reports) :puppet_version "3.0.3")
+        basic3 (assoc (:basic3 reports) :puppet-version "3.0.3")
         hash3 (:hash (store-example-report! basic3 (now)))
 
-        v301 (get-response endpoint ["=" "puppet_version" "3.0.1"])
+        v301 (get-response endpoint ["=" "puppet-version" "3.0.1"])
         v301-body (json/parse-strict-string (:body v301) true)
-        v360 (get-response endpoint ["=" "puppet_version" "3.6.0"])
+        v360 (get-response endpoint ["=" "puppet-version" "3.6.0"])
         v360-body (json/parse-strict-string (:body v360) true)
-        v30x (get-response endpoint ["~" "puppet_version" "3\\.0\\..*"])
+        v30x (get-response endpoint ["~" "puppet-version" "3\\.0\\..*"])
         v30x-body (json/parse-strict-string (:body v30x) true)]
 
     (is (= 1 (count v301-body)))
@@ -239,9 +239,9 @@
 
   (let [basic (:basic reports)
         hash1 (:hash (store-example-report! basic (now)))
-        basic2 (assoc (:basic2 reports) :report_format 5)
+        basic2 (assoc (:basic2 reports) :report-format 5)
         hash2 (:hash (store-example-report! basic2 (now)))
-        basic3 (assoc (:basic3 reports) :report_format 6)
+        basic3 (assoc (:basic3 reports) :report-format 6)
         hash3 (:hash (store-example-report! basic3 (now)))
 
         v4-format (get-response endpoint ["=" "report_format" 4])
@@ -356,7 +356,7 @@
         stored-basic (store-example-report! basic (now))
         hash1 (:hash stored-basic)
 
-        basic-result (get-response endpoint ["=" "receive_time" (ts->str (:receive_time stored-basic))])
+        basic-result (get-response endpoint ["=" "receive_time" (ts->str (:receive-time stored-basic))])
         basic-result-body (json/parse-strict-string (:body basic-result) true)]
 
     (is (= 1 (count basic-result-body)))
