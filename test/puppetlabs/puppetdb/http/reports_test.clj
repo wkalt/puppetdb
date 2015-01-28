@@ -9,6 +9,7 @@
             [clojure.test :refer :all]
             [ring.mock.request :refer :all]
             [puppetlabs.puppetdb.fixtures :as fixt]
+            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.testutils :refer [response-equal?
                                                    assert-success!
                                                    get-request
@@ -48,14 +49,14 @@
 
 (defn reports-response
   [version reports]
-  (set (map report-response reports)))
+  (set (map (comp json/underscore-keys report-response) reports)))
 
 (defn munge-reports-for-comparison
   [reports]
   ;; the example reports don't have a receive time (because this is
   ;; calculated by the server), so we remove this field from the response
   ;; for test comparison
-  (map (comp #(dissoc % :receive-time) #(update-in % [:resource-events] set)) reports))
+  (map (comp #(dissoc % :receive_time) #(update-in % [:resource_events] set)) reports))
 
 (deftestseq query-by-certname
   [[version endpoint] endpoints]
@@ -67,7 +68,7 @@
     (doseq [field ["certname" "hash" "puppet_version" "report_format"
                    "configuration_version" "start_time" "end_time"
                    "transaction_uuid" "status"]
-            :let [field-kwd (keyword field)]]
+            :let [field-kwd (keyword (jdbc/underscores->dashes field))]]
       (testing (format "should return all reports for a %s" field)
         (let [result (get-response endpoint ["=" field (get basic field-kwd)])]
           (is (every? #(= "DEV" (:environment %)) (json/parse-string (:body result) true)))
@@ -101,7 +102,8 @@
       (response-equal?
        (get-response endpoint ["extract" ["hash" "certname" "transaction_uuid"]
                                ["=" "certname" (:certname basic)]])
-       #{(select-keys basic [:hash :certname :transaction-uuid])}))))
+       #{(select-keys (json/underscore-keys basic)
+                      [:hash :certname :transaction_uuid])}))))
 
 (deftestseq query-with-paging
   [[version endpoint] endpoints]
