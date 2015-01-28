@@ -637,7 +637,7 @@
             [["=" "latest_report?" value]]
             (let [expanded-latest ["in" "report"
                                    ["extract" "latest_report_hash"
-                                    ["select-latest-report"]]]]
+                                    ["select_latest_report"]]]]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))

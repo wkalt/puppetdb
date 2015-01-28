@@ -20,16 +20,16 @@
   [params]
   {:pre [(map? params)]
    :post [(map? %)
-          (every? (partial contains? %) #{:distinct_resources? :distinct-start-time :distinct-end-time})
+          (every? (partial contains? %) #{:distinct_resources? :distinct_start_time :distinct_end_time})
           (kitchensink/boolean? (:distinct_resources? %))
-          ((some-fn (partial instance? Timestamp) nil?) (:distinct-start-time %))
-          ((some-fn (partial instance? Timestamp) nil?) (:distinct-end-time %))]}
+          ((some-fn (partial instance? Timestamp) nil?) (:distinct_start_time %))
+          ((some-fn (partial instance? Timestamp) nil?) (:distinct_end_time %))]}
   (let [distinct-params ["distinct_resources" "distinct_start_time" "distinct_end_time"]]
     (cond
      (not-any? #(contains? params %) distinct-params)
      {:distinct_resources? false
-      :distinct-start-time nil
-      :distinct-end-time   nil}
+      :distinct_start_time nil
+      :distinct_end_time   nil}
 
      (every? #(contains? params %) distinct-params)
      (let [start (to-timestamp (params "distinct_start_time"))
@@ -40,8 +40,8 @@
                       (params "distinct_start_time") " "
                       (params "distinct_end_time")))))
        {:distinct_resources? (http/parse-boolean-query-param params "distinct_resources")
-        :distinct-start-time start
-        :distinct-end-time   end})
+        :distinct_start_time start
+        :distinct_end_time   end})
 
      :else
      (throw (IllegalArgumentException.
