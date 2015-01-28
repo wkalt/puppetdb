@@ -62,27 +62,27 @@
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer-timestamp nil})
     (scf-store/add-facts! {:name "node_b"
                            :values {"kernel" "Linux"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer-timestamp nil})
     (scf-store/add-facts! {:name "node_c"
                            :values {"kernel" "Darwin"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer-timestamp nil})
     (scf-store/add-facts! {:name "node_d"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer-timestamp nil})
     (scf-store/add-facts! {:name "node_e"
                            :values {"uptime_seconds" "10000"}
                            :timestamp timestamp
                            :environment "production"
-                           :producer_timestamp nil})
+                           :producer-timestamp nil})
 
     (testing "basic combination testing"
       (let [test-cases {["=" ["fact" "kernel"] "Linux"]
