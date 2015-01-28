@@ -463,7 +463,7 @@
                              :values facts4
                              :timestamp (now)
                              :environment "DEV"
-                             :producerntimestamp nil})
+                             :producer-timestamp nil})
       (scf-store/deactivate-node! "foo4"))
 
     (testing "query without param should not fail"
