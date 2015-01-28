@@ -29,6 +29,6 @@
   [version]
   (-> (routes version)
       verify-accepts-json
-      (validate-query-params {:required ["query" "summarize-by"]
-                              :optional ["counts-filter" "count-by" "distinct-resources"
-                                         "distinct-start-time" "distinct-end-time"]})))
+      (validate-query-params {:required ["query" "summarize_by"]
+                              :optional ["counts_filter" "count_by" "distinct_resources"
+                                         "distinct_start_time" "distinct_end_time"]})))
