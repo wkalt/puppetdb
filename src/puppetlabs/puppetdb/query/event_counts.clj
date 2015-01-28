@@ -9,14 +9,14 @@
 
 (defn- get-group-by
   "Given the value to summarize by, return the appropriate database field to be used in the SQL query.
-  Supported values are `certname`, `containing-class`, and `resource` (default), otherwise an
+  Supported values are `certname`, `containing_class`, and `resource` (default), otherwise an
   IllegalArgumentException is thrown."
   [summarize-by]
   {:pre  [(string? summarize-by)]
    :post [(vector? %)]}
   (condp = summarize-by
     "certname" ["certname"]
-    "containing-class" ["containing_class"]
+    "containing_class" ["containing_class"]
     "resource" ["resource_type" "resource_title"]
     (throw (IllegalArgumentException. (format "Unsupported value for 'summarize-by': '%s'" summarize-by)))))
 
@@ -51,7 +51,7 @@
   {:pre [(vector? group-by)]}
   (concat
    ["failures" "successes" "noops" "skips"]
-   (map jdbc/underscores->dashes group-by)))
+   (map jdbc/dashes->underscores group-by)))
 
 (defn- get-event-count-sql
   "Given the `event-sql` and value to `group-by`, return a SQL string that
@@ -86,7 +86,7 @@
   "Helper function to transform the event count subject data from the raw format that we get back from the
   database into the more structured format that the API specifies."
   [summarize-by result]
-  {:pre [(contains? #{"certname" "resource" "containing-class"} summarize-by)
+  {:pre [(contains? #{"certname" "resource" "containing_class"} summarize-by)
          (map? result)
          (or
           (contains? result :certname)
@@ -95,20 +95,20 @@
    :post [(map? %)
           (not (kitchensink/contains-some % [:certname :resource_type :resource_title :containing_class]))
           (map? (:subject %))
-          (= summarize-by (:subject-type %))]}
+          (= summarize-by (:subject_type %))]}
   (condp = summarize-by
     "certname"          (-> result
-                            (assoc :subject-type "certname")
+                            (assoc :subject_type "certname")
                             (assoc :subject {:title (:certname result)})
                             (dissoc :certname))
 
     "resource"          (-> result
-                            (assoc :subject-type "resource")
+                            (assoc :subject_type "resource")
                             (assoc :subject {:type (:resource_type result) :title (:resource_title result)})
                             (dissoc :resource_type :resource_title))
 
-    "containing-class"  (-> result
-                            (assoc :subject-type "containing-class")
+    "containing_class"  (-> result
+                            (assoc :subject_type "containing_class")
                             (assoc :subject {:title (:containing_class result)})
                             (dissoc :containing_class))))
 
