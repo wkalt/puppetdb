@@ -16,15 +16,15 @@
   (app
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
-           (let [{:strs [query summarize-by counts-filter count-by] :as query-params} params
-                 query-options (merge {:counts-filter (if counts-filter (json/parse-strict-string counts-filter true))
-                                       :count-by count-by}
+           (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
+                 query-options (merge {:counts-filter (if counts_filter (json/parse-strict-string counts_filter true))
+                                       :count-by count_by}
                                       (events-http/validate-distinct-options! query-params))]
              (produce-streaming-body
               :event-counts
               version
               query
-              [summarize-by query-options paging-options]
+              [summarize_by query-options paging-options]
               (:scf-read-db globals))))}))
 
 (defn event-counts-app

@@ -3,6 +3,7 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
+            [puppetlabs.puppetdb.cheshire :as pjson]
             [cheshire.core :as json]
             [puppetlabs.puppetdb.testutils.events :refer [http-expected-resource-events]]
             [flatland.ordered.map :as omap]
@@ -32,7 +33,7 @@
   ([endpoint query]
      (get-response endpoint query {}))
   ([endpoint query extra-query-params]
-     (let [resp (*app* (get-request endpoint query extra-query-params))]
+     (let [resp (*app* (get-request endpoint query (pjson/underscore-keys extra-query-params)))]
        (if (string? (:body resp))
          resp
          (update-in resp [:body] slurp)))))
@@ -206,14 +207,14 @@
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
                                                                            :distinct-start-time 0})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body)))
       (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true
                                                                            :distinct-end-time 0})
