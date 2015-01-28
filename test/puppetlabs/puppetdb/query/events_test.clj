@@ -57,7 +57,7 @@
 (deftest resource-event-queries
   (let [basic             (store-example-report! (:basic reports) (now))
         report-hash       (:hash basic)
-        basic-events      (get-in reports [:basic :resource_events])
+        basic-events      (get-in reports [:basic :resource-events])
         basic-events-map  (get-events-map (:basic reports))]
     (let [version :v4]
       (testing (str "resource event retrieval by report - version " version)
@@ -350,12 +350,12 @@
 (deftest latest-report-resource-event-queries
   (let [basic1        (store-example-report! (:basic reports) (now))
         report-hash1  (:hash basic1)
-        events1       (get-in reports [:basic :resource_events])
+        events1       (get-in reports [:basic :resource-events])
         events1-map   (get-events-map (:basic reports))
 
         basic2        (store-example-report! (:basic2 reports) (now))
         report2-hash  (:hash basic2)
-        events2       (get-in reports [:basic2 :resource_events])
+        events2       (get-in reports [:basic2 :resource-events])
         events2-map   (get-events-map (:basic2 reports))]
     (let [version :v4]
       (testing "retrieval of events for latest report only"
@@ -404,8 +404,8 @@
   (let [basic1        (store-example-report! (:basic reports) (now))
         basic3        (store-example-report! (:basic3 reports) (now))
         report-hash3  (:hash basic3)
-        events1       (get-in reports [:basic :resource_events])
-        events3       (get-in reports [:basic3 :resource_events])]
+        events1       (get-in reports [:basic :resource-events])
+        events3       (get-in reports [:basic3 :resource-events])]
     (let [version :v4]
       (testing "retrieval of events for distinct resources only"
         (let [expected  (expected-resource-events version events3 basic3)
@@ -446,7 +446,7 @@
 
 (deftest paging-results
   (let [basic4        (store-example-report! (:basic4 reports) (now))
-        events        (get-in reports [:basic4 :resource_events])
+        events        (get-in reports [:basic4 :resource-events])
         event-count   (count events)
         select-values #(reverse (kitchensink/select-values
                                   (get-events-map (:basic4 reports)) %))]
@@ -544,8 +544,8 @@
   (let [basic           (store-example-report! (:basic reports) (now))
         basic2          (store-example-report! (assoc (:basic2 reports)
                                                       :environment "PROD") (now))
-        basic-events    (get-in reports [:basic :resource_events])
-        basic-events2    (get-in reports [:basic2 :resource_events])]
+        basic-events    (get-in reports [:basic :resource-events])
+        basic-events2    (get-in reports [:basic2 :resource-events])]
     (testing "query for DEV reports"
       (let [expected    (expected-resource-events :v4 basic-events basic)]
         (doseq [query [["=" "environment" "DEV"]
