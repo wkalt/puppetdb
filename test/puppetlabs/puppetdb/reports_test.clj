@@ -22,7 +22,7 @@
     (testing "should fail when a resource event has the wrong data type for a key"
       (is (thrown-with-msg?
            IllegalArgumentException #":timestamp should be Datetime"
-           (validate! 5 (assoc-in report [:resource_events 0 :timestamp] "foo")))))))
+           (validate! 5 (assoc-in report [:resource-events 0 :timestamp] "foo")))))))
 
 (deftest test-sanitize-events
   (testing "ensure extraneous keys are removed"
