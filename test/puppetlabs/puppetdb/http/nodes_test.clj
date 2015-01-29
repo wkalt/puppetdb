@@ -201,8 +201,8 @@
                         :path    endpoint
                         :limit   1
                         :total   (count expected)
-                        :include-total  count?
-                        :params {:order-by (json/generate-string [{:field (certname version) :order "asc"}])}})]
+                        :include_total  count?
+                        :params {:order_by (json/generate-string [{:field (certname version) :order "asc"}])}})]
           (is (= (count results) (count expected)))
           (is (= (set (vals expected))
                  (set (map :certname results)))))))))
