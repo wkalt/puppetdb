@@ -44,7 +44,7 @@
     "resource"  sql
     "certname"  (let [field-string (if (= group-by ["certname"]) "" (str ", " (string/join ", " group-by)))]
                   (format "SELECT DISTINCT certname, status%s FROM (%s) distinct_events" field-string sql))
-    (throw (IllegalArgumentException. (format "Unsupported value for 'count-by': '%s'" count-by)))))
+    (throw (IllegalArgumentException. (format "Unsupported value for 'count_by': '%s'" count-by)))))
 
 (defn- event-counts-columns
   [group-by]
