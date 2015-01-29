@@ -35,10 +35,13 @@
   (let [[query->sql munge-fn]
         (case entity
           :facts [facts/query->sql facts/munge-result-rows]
-          :event-counts [event-counts/query->sql (ignore-engine-params (event-counts/munge-result-rows (first paging-options)))]
+          :event-counts [event-counts/query->sql (-> (first paging-options)
+                                                     event-counts/munge-result-rows
+                                                     ignore-engine-params)]
           :aggregate-event-counts [aggregate-event-counts/query->sql (ignore-engine-params (comp (partial kitchensink/mapvals #(if (nil? %) 0 %)) first))]
           :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
-          :fact-paths [facts/fact-paths-query->sql (ignore-engine-params facts/munge-path-result-rows)]
+          :fact-paths [facts/fact-paths-query->sql
+                       (ignore-engine-params facts/munge-path-result-rows)]
           :events [events/query->sql events/munge-result-rows]
           :nodes [nodes/query->sql nodes/munge-result-rows]
           :environments [environments/query->sql (fn [_ _] identity)]
@@ -49,8 +52,7 @@
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query
              count-query :count-query
-             projections :projections} (query->sql version query
-                                                   paging-options)
+             projections :projections} (query->sql version query paging-options)
              resp (output-fn
                    (fn [f]
                      (jdbc/with-transacted-connection db

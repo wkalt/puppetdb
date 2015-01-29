@@ -53,7 +53,8 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (try
-             (let [query-options (validate-distinct-options! params)]
+             (println "PARAMS ARE" params)
+             (let [query-options #spy/d (validate-distinct-options! params)]
                (produce-streaming-body
                 :events
                 version
