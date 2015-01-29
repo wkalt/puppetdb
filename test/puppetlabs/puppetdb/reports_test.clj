@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.reports-test
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [cheshire.core :as json]
+            [puppetlabs.puppetdb.cheshire :refer [dash-keys]]
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.reports :refer :all]
@@ -49,5 +50,5 @@
 
 (deftest test-sanitize-report
   (testing "no action on valid reports"
-    (let [test-data (clojure.walk/stringify-keys (:basic reports))]
+    (let [test-data (dash-keys (clojure.walk/stringify-keys (:basic reports)))]
       (= (sanitize-report test-data) test-data))))

@@ -92,7 +92,8 @@
   {:pre [(map? payload)]
    :post [(map? %)]}
   (println "PAYLOAD" payload)
-  (let [valid-keys (map name report-fields)]
+  (let [valid-keys (map name report-fields)
+        _ (println valid-keys)]
     (-> payload
         (select-keys valid-keys)
-        (update-in ["resource_events"] sanitize-events))))
+        (update-in ["resource-events"] sanitize-events))))
