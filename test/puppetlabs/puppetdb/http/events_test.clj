@@ -203,7 +203,7 @@
         basic3-events-map (get-events-map (:basic3 reports))]
 
     (testing "should return an error if the caller passes :distinct-resources without timestamps"
-      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct-resources true})
+      (let [response  (get-response endpoint ["=" "certname" "foo.local"] {:distinct_resources true})
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find

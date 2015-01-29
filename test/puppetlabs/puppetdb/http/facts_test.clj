@@ -591,7 +591,7 @@
     :query   query
     :limit   limit
     :total   total
-    :include-total  count?}))
+    :include_total  count?}))
 
 (deftestseq fact-query-paging
   [[version endpoint] facts-endpoints]
@@ -639,16 +639,16 @@
 
 (defn- raw-query-endpoint
   [endpoint query paging-options]
-  (let [{:keys [limit offset include-total]
+  (let [{:keys [limit offset include_total]
          :or {limit Integer/MAX_VALUE
-              include-total true
+              include_total true
               offset 0}}  paging-options
               {:keys [headers body]} (paged-results* (assoc paging-options
                                                        :app-fn  *app*
                                                        :path    endpoint
                                                        :offset  offset
                                                        :limit   limit
-                                                       :include-total include-total))]
+                                                       :include_total include_total))]
     {:results body
      :count (when-let [rec-count (get headers "X-Records")]
               (ks/parse-int rec-count))}))
@@ -714,7 +714,7 @@
                            :producer-timestamp nil})
 
     (testing "include total results count"
-      (let [actual (:count (raw-query-endpoint endpoint nil {:include-total true}))]
+      (let [actual (:count (raw-query-endpoint endpoint nil {:include_total true}))]
         (is (= actual fact-count))))
 
     (testing "limit results"
@@ -723,16 +723,16 @@
               actual  (count results)]
           (is (= actual expected)))))
 
-    (testing "order-by"
+    (testing "order_by"
       (testing "rejects invalid fields"
-        (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
-                        (:body (*app* (get-request endpoint nil {:order-by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
+        (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
+                        (:body (*app* (get-request endpoint nil {:order_by (json/generate-string [{"field" "invalid-field" "order" "ASC"}])}))))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
             (let [actual (query-endpoint endpoint
-                                         {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}})]
+                                         {:params {:order_by (json/generate-string [{"field" "certname" "order" order}])}})]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version)))))
@@ -744,7 +744,7 @@
                                                         [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
           (testing (format "name %s certname %s" name-order certname-order)
             (let [actual (query-endpoint endpoint
-                                         {:params {:order-by (json/generate-string [{"field" "name" "order" name-order}
+                                         {:params {:order_by (json/generate-string [{"field" "name" "order" name-order}
                                                                                     {"field" "certname" "order" certname-order}])}})]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
@@ -767,15 +767,15 @@
         (testing order
           (doseq [[offset expected] expected-sequences]
             (let [actual (query-endpoint endpoint
-                                         {:params {:order-by (json/generate-string [{"field" "certname" "order" order}])}
+                                         {:params {:order_by (json/generate-string [{"field" "certname" "order" order}])}
                                           :offset offset})]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))
         (testing "rejects order by value on v4+"
-          (is (re-matches #"Unrecognized column 'value' specified in :order-by.*"
+          (is (re-matches #"Unrecognized column 'value' specified in :order_by.*"
                           (:body (*app*(get-request endpoint nil
-                                                    {:order-by
+                                                    {:order_by
                                                      (json/generate-string
                                                       [{"field" "value" "order" "ASC"}])}))))))))))
 
@@ -830,7 +830,7 @@
         (testing (format "environment %s name %s" env-order name-order)
           (let [actual (query-endpoint
                         endpoint
-                        {:params {:order-by
+                        {:params {:order_by
                                   (json/generate-string [{"field" "environment" "order" env-order}
                                                          {"field" "name" "order" name-order}])}})]
             (compare-structured-response (map unkeywordize-values actual)
@@ -998,7 +998,7 @@
     (populate-for-structured-tests reference-time)
     (testing "include total results count"
       (let [actual (json/parse-string
-                    (slurp (:body (get-response endpoint nil {:include-total true}))))]
+                    (slurp (:body (get-response endpoint nil {:include_total true}))))]
         (is (= (count actual) factset-count))))
 
     (testing "limit results"
@@ -1009,17 +1009,17 @@
 
     (testing "order-by"
       (testing "rejects invalid fields"
-        (is (re-matches #"Unrecognized column 'invalid-field' specified in :order-by.*"
+        (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
                         (:body (*app*
                                 (get-request endpoint nil
-                                             {:order-by (json/generate-string
+                                             {:order_by (json/generate-string
                                                          [{"field" "invalid-field"
                                                            "order" "ASC"}])}))))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" (sort-by #(get % "certname") factset-results)]
                                   ["DESC" (reverse (sort-by #(get % "certname") factset-results))]]]
           (testing order
-            (let [ordering {:order-by (json/generate-string [{"field" "certname" "order" order}])}
+            (let [ordering {:order_by (json/generate-string [{"field" "certname" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
               (is (= actual expected))))))
 
@@ -1027,7 +1027,7 @@
         (doseq [[order expected] [["ASC" (sort-by #(get % "hash") factset-results)]
                                   ["DESC" (reverse (sort-by #(get % "hash") factset-results))]]]
           (testing order
-            (let [ordering {:order-by (json/generate-string [{"field" "hash" "order" order}])}
+            (let [ordering {:order_by (json/generate-string [{"field" "hash" "order" order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil ordering))))]
               (is (= actual expected))))))
 
@@ -1037,7 +1037,7 @@
                                                              [["ASC" "DESC"]  [1 0 2]]
                                                              [["ASC" "ASC"]   [0 1 2]]]]
           (testing (format "environment %s certname %s" env-order certname-order)
-            (let [params {:order-by
+            (let [params {:order_by
                           (json/generate-string [{"field" "environment" "order" env-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
@@ -1047,7 +1047,7 @@
                                                             [["ASC" "DESC"]  [1 2 0]]
                                                             [["ASC" "ASC"]   [1 0 2]]]]
           (testing (format "producer_timestamp %s certname %s" pt-order certname-order)
-            (let [params {:order-by
+            (let [params {:order_by
                           (json/generate-string [{"field" "producer_timestamp" "order" pt-order}
                                                  {"field" "certname" "order" certname-order}])}
                   actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
@@ -1063,7 +1063,7 @@
                                                    [2 [0]]
                                                    [3 [ ]]]]]]
         (doseq [[offset expected-order] expected-sequences]
-          (let [params {:order-by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
+          (let [params {:order_by (json/generate-string [{"field" "certname" "order" order}]) :offset offset}
                 actual (json/parse-string (slurp (:body (get-response endpoint nil params))))]
             (is (= actual (map #(nth factset-results %) expected-order)))))))))
 
@@ -1340,7 +1340,7 @@
       (is (not (contains? (into [] (map #(get % "certname") responses)) "foo4")))))
 
   (testing "fact nodes queries should return appropriate results"
-    (let [response (fact-content-response endpoint {:order-by (json/generate-string [{:field "path"} {:field "certname"}])})]
+    (let [response (fact-content-response endpoint {:order_by (json/generate-string [{:field "path"} {:field "certname"}])})]
       (is (= (into {} (first (response ["=" "certname" "foo1"])))
              {"certname" "foo1", "name" "domain" "path" ["domain"], "value" "testing.com", "environment" "DEV"}))
       (is (= (into [] (response ["=" "environment" "DEV"]))

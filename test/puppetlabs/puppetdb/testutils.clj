@@ -239,7 +239,7 @@
   [{:keys [app-fn path query params limit total include_total offset] :as paged-test-params}]
   {:pre [(= #{} (difference
                  (keyset paged-test-params)
-                 #{:app-fn :path :query :params :limit :total :include-total :offset}))]}
+                 #{:app-fn :path :query :params :limit :total :include_total :offset}))]}
   (let [params  (merge params
                        {:limit limit
                         :offset offset})

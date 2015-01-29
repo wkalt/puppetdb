@@ -137,7 +137,7 @@
                            (wrapped-fn {:params
                                         {"order_by"
                                          (json/generate-string [valid-order-by])}})
-                           :order_by
+                           :order-by
                            first
                            second)))))
 
@@ -150,7 +150,7 @@
                             (wrapped-fn {:params
                                          {"order_by"
                                           (json/generate-string [valid-order-by])}})
-                            :order_by
+                            :order-by
                             first
                             second)))))
 
