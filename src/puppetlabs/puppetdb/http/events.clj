@@ -53,8 +53,7 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (try
-             (println "PARAMS ARE" params)
-             (let [query-options #spy/d (validate-distinct-options! params)]
+             (let [query-options (kitchensink/mapkeys jdbc/underscores->dashes (validate-distinct-options! params))]
                (produce-streaming-body
                 :events
                 version

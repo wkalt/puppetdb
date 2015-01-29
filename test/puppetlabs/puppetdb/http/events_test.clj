@@ -246,9 +246,9 @@
             response (get-response endpoint ["and" ["=" "certname" "foo.local"]
                                              ["=" "status" "success"]
                                              ["=" "resource_title" "notify, yar"]]
-                                   {:distinct-resources true
-                                    :distinct-start-time 0
-                                    :distinct-end-time (now)})]
+                                   {:distinct_resources true
+                                    :distinct_start_time 0
+                                    :distinct_end_time (now)})]
         (assert-success! response)
         (response-equal? response expected munge-event-values)))))
 
