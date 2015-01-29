@@ -77,7 +77,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
-  (munge-catalog-for-comparison* nil (update-in catalog [:producer-timestamp] to-string)))
+  (munge-catalog-for-comparison* nil (update-in catalog [:producer_timestamp] to-string)))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

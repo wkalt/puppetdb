@@ -50,6 +50,7 @@
   (let [base-url (merge {:version api-version} base-url)
         src (str (utils/base-url->str base-url) "/catalogs/" (url-encode node))
         {:keys [status body]} (client/get src {:accept :json})]
+    (println "BODY IS" body)
     (when (= status 200) body)))
 
 (defn-validated catalog->tar :- utils/tar-item
@@ -103,6 +104,7 @@
   "Given a report hash, returns all events as a vector of maps."
   [base-url :- utils/base-url-schema
    report-hash :- s/Str]
+  (println "IN FN")
   (let [base-url (merge {:version api-version} base-url)
         body (parse-response
               (client/get

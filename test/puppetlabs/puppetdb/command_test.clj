@@ -868,7 +868,8 @@
                  :let [command v5-command]]
         (test-msg-handler command publish discard-dir
           (is (= (query-to-vec "SELECT certname,configuration_version,environment_id FROM reports")
-                 [(with-env {:certname (:certname report) :configuration_version (:configuration-version report)})]))
+                 [(with-env {:certname (:certname report)
+                             :configuration_version (:configuration-version report)})]))
           (is (= 0 (times-called publish)))
           (is (empty? (fs/list-dir discard-dir))))))))
 

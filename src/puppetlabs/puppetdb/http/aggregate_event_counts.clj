@@ -1,10 +1,11 @@
 (ns puppetlabs.puppetdb.http.aggregate-event-counts
   (:require [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http.events :as events-http]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
+            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection underscores->dashes]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params]]
             [net.cgrand.moustache :refer [app]]))
 
@@ -16,7 +17,8 @@
            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
                  counts_filter (if counts_filter (json/parse-string counts_filter true))
                  distinct-options (events-http/validate-distinct-options! query-params)
-                 query-options (merge {:counts-filter counts_filter :count-by count_by} distinct-options)]
+                 query-options (merge {:counts-filter counts_filter :count-by count_by}
+                                      (ks/mapkeys underscores->dashes distinct-options))]
              (produce-streaming-body
               :aggregate-event-counts
               version

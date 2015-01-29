@@ -139,8 +139,8 @@
   [version]
   (case version
     :all full-catalog
-    :v5 (dissoc full-catalog :api-version)
-    (catalog-wireformat :v5)))
+    :v6 (dissoc full-catalog :api-version)
+    (catalog-wireformat :v6)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog Conversion functions
@@ -311,6 +311,7 @@
   "Parse a wire-format `catalog` object or string of the specified `version`,
   returning a PuppetDB-suitable representation."
   (fn [catalog version]
+    (println "CATALOG TO PARSE" catalog)
     (match [catalog version]
            [(_ :guard string?) _]
            String
