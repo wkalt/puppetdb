@@ -31,13 +31,12 @@
 (def catalog1
   (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
       json/parse-string
-      underscore-keys
       keywordize-keys))
 
 (def catalog2 (merge catalog1
                  {:name "host2.localdomain"
-                  :producer_timestamp "2010-07-10T22:33:54.781Z"
-                  :transaction_uuid "000000000000000000000000000"
+                  :producer-timestamp "2010-07-10T22:33:54.781Z"
+                  :transaction-uuid "000000000000000000000000000"
                   :environment "PROD"}))
 
 (def queries
