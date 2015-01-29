@@ -25,13 +25,13 @@
       (is (= (:status response) http/status-bad-request))
       (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
 
-  (testing "count-by rejects unsupported values"
+  (testing "count_by rejects unsupported values"
     (let [response  (get-response endpoint
                                   ["=" "certname" "foo.local"] "certname"
                                   {"count_by" "illegal-count-by"} true)
           body      (get response :body "null")]
       (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'count-by': 'illegal-count-by'" body))))
+      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "nontrivial query using all the optional parameters"
     (let [expected  #{{:subject_type "containing_class"

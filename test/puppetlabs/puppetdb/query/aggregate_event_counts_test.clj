@@ -103,7 +103,7 @@
     (testing "count-by"
       (testing "rejects unsupported values"
         (is (thrown-with-msg?
-             IllegalArgumentException #"Unsupported value for 'count-by': 'illegal-count-by'"
+             IllegalArgumentException #"Unsupported value for 'count_by': 'illegal-count-by'"
              (aggregate-counts-query-result version ["=" "certname" "foo.local"] "certname" {:count-by "illegal-count-by"}))))
 
       (testing "resource"
