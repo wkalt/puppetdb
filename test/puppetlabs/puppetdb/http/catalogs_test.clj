@@ -1,5 +1,6 @@
 (ns puppetlabs.puppetdb.http.catalogs-test
   (:require [cheshire.core :as json]
+            [puppetlabs.puppetdb.cheshire :refer [underscore-keys]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.catalogs :as cats]
             [clojure.java.io :refer [resource reader]]
@@ -30,6 +31,7 @@
 (def catalog1
   (-> (slurp (resource "puppetlabs/puppetdb/cli/export/tiny-catalog.json"))
       json/parse-string
+      underscore-keys
       keywordize-keys))
 
 (def catalog2 (merge catalog1
@@ -83,6 +85,7 @@
   (testcat/replace-catalog (json/generate-string catalog2))
   (testing "v4 catalog endpoint is queryable"
     (doseq [q (keys queries)]
+      (println "Q" q)
       (let [{:keys [status body] :as response} (get-response endpoint nil q)
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get queries q)]
