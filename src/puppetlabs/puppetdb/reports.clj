@@ -91,7 +91,6 @@
   [payload]
   {:pre [(map? payload)]
    :post [(map? %)]}
-  (println "PAYLOAD" payload)
   (let [valid-keys (map name report-fields)
         _ (println valid-keys)]
     (-> payload
