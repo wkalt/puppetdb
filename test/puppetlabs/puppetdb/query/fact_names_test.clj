@@ -39,7 +39,7 @@
       (testing "rejects invalid fields"
         (is (thrown-with-msg?
              IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
-             (query-fact-names {:order_by [[:invalid-field :ascending]]}))))
+             (query-fact-names {:order-by [[:invalid-field :ascending]]}))))
 
       (testing "alphabetical fields"
         (doseq [[order expected] [[:ascending  [f1 f2 f3 f4]]
