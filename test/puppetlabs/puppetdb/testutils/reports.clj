@@ -28,7 +28,7 @@
              (update-in ["timestamp"] time-coerce/to-string)
              (dissoc "report")
              (dissoc "certname")
-             (dissoc "configuration-version"))
+             (dissoc "configuration_version"))
         events)))
 
 (defn munge-report-for-comparison

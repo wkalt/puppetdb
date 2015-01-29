@@ -23,8 +23,7 @@
    :environment              {:optional? true
                               :type :string}
    :status                   {:optional? true
-                              :type :string}
-   })
+                              :type :string}})
 
 (def report-fields
   "Report fields"
@@ -92,7 +91,8 @@
   [payload]
   {:pre [(map? payload)]
    :post [(map? %)]}
+  (println "PAYLOAD" payload)
   (let [valid-keys (map name report-fields)]
     (-> payload
         (select-keys valid-keys)
-        (update-in ["resource-events"] sanitize-events))))
+        (update-in ["resource_events"] sanitize-events))))
