@@ -84,7 +84,6 @@
   (testcat/replace-catalog (json/generate-string catalog2))
   (testing "v4 catalog endpoint is queryable"
     (doseq [q (keys queries)]
-      (println "Q" q)
       (let [{:keys [status body] :as response} (get-response endpoint nil q)
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get queries q)]

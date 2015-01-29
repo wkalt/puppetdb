@@ -126,7 +126,6 @@
       :post [(map? %)
              (vector? (:result %))
              ((some-fn nil? integer?) (:count %))]}
-     (println "PAGING OPTIONS" paging-options)
      (let [sql-and-params (if (string? query) [query] query)]
        (if (requires-paging? paging-options)
          (execute-paged-query* fail-limit sql-and-params paging-options)
