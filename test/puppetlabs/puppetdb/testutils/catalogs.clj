@@ -77,6 +77,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
+  (println "CATALOG IS" catalog)
   (munge-catalog-for-comparison* nil (update-in catalog [:producer_timestamp] to-string)))
 
 (defn munge-catalog-for-comparison

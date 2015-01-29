@@ -311,7 +311,6 @@
   "Parse a wire-format `catalog` object or string of the specified `version`,
   returning a PuppetDB-suitable representation."
   (fn [catalog version]
-    (println "CATALOG TO PARSE" catalog)
     (match [catalog version]
            [(_ :guard string?) _]
            String
@@ -339,6 +338,7 @@
          (number? version)]
    :post [(map? %)]}
   (->> catalog
+       json/dash-keys
        transform
        (canonical-catalog :all)
        validate))
