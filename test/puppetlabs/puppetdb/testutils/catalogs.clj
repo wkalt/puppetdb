@@ -7,6 +7,7 @@
             [clj-time.core :refer [now]]
             [clj-time.coerce :refer [to-string]]
             [puppetlabs.puppetdb.testutils :refer [test-db]]
+            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]
             [puppetlabs.puppetdb.fixtures :refer [*db*]]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
@@ -41,6 +42,8 @@
 
 (defn munge-catalog-for-comparison* [catalog-root-key catalog]
   (-> catalog
+      (utils/update-when [:producer-timestamp] to-string)
+      (utils/update-when [:producer_timestamp] to-string)
       clojure.walk/stringify-keys
       json/dash-keys  
       (update-in* [catalog-root-key "resources"] #(map munge-resource-for-comparison %))
@@ -77,8 +80,7 @@
           (set? (get-in % ["resources"]))
           (set? (get-in % ["edges"]))
           (string? (get-in % ["version"]))]}
-  (println "CATALOG IS" catalog)
-  (munge-catalog-for-comparison* nil (update-in catalog [:producer_timestamp] to-string)))
+  (munge-catalog-for-comparison* nil catalog))
 
 (defn munge-catalog-for-comparison
   "Given a catalog object (represented as a map, either having come out of a

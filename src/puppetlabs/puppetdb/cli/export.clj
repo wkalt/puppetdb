@@ -103,7 +103,6 @@
   "Given a report hash, returns all events as a vector of maps."
   [base-url :- utils/base-url-schema
    report-hash :- s/Str]
-  (println "IN FN")
   (let [base-url (merge {:version api-version} base-url)
         body (parse-response
               (client/get
