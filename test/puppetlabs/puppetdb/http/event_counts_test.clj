@@ -75,7 +75,7 @@
                       :params  {:summarize_by "resource"}
                       :limit   1
                       :total   (count expected)
-                      :include-total count?})]
+                      :include_total count?})]
         (is (= (count expected) (count results)))
         (is (= expected (set results)))))))
 
