@@ -17,9 +17,10 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
-                 query-options (merge {:counts-filter (if counts_filter (json/parse-strict-string counts_filter true))
-                                       :count-by count_by}
-                                      (events-http/validate-distinct-options! query-params))]
+                 query-options (json/dash-keys
+                                 (merge {:counts-filter (if counts_filter (json/parse-strict-string counts_filter true))
+                                         :count-by count_by}
+                                        (events-http/validate-distinct-options! query-params)))]
              (produce-streaming-body
               :event-counts
               version
