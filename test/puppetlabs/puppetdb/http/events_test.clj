@@ -221,7 +221,7 @@
             body      (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
-             #"'distinct-resources' query parameter requires accompanying parameters 'distinct-start-time' and 'distinct-end-time'"
+             #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
              body))))
 
     (testing "should return only one event for a given resource"
