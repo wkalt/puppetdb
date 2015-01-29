@@ -52,7 +52,7 @@
     (doall (json/parse-string order-by true))
     (catch JsonParseException e
       (throw (IllegalArgumentException.
-              (str "Illegal value '" order-by "' for :order-by; expected a JSON "
+              (str "Illegal value '" order-by "' for :order_by; expected a JSON "
                    "array of maps."))))))
 
 (defn parse-order-str
@@ -65,7 +65,7 @@
     :descending))
 
 (defn validate-order-by-data-structure
-  "Validates an order-by data structure.  The value must be `nil`, an empty list,
+  "Validates an order_by data structure.  The value must be `nil`, an empty list,
   or a list of maps.  Returns the input if validation is successful, or a
   Ring error response with a useful error message if the validation fails."
   [order-by]
@@ -73,7 +73,7 @@
           ((every-pred sequential? #(every? map? %)) order-by))
     order-by
     (throw (IllegalArgumentException.
-            (str "Illegal value '" order-by "' for :order-by; expected "
+            (str "Illegal value '" order-by "' for :order_by; expected "
                  "an array of maps.")))))
 
 (defn parse-required-order-by-fields
@@ -88,13 +88,13 @@
                            (fn [x] (when-not (contains? x :field) x))
                            order-by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order-by; "
+            (str "Illegal value '" bad-order-by "' in :order_by; "
                  "missing required key 'field'."))))
   (when-let [bad-order-by (some
                            (fn [x] (when-not (valid-order-str? (:order x)) x))
                            order-by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order-by; "
+            (str "Illegal value '" bad-order-by "' in :order_by; "
                  "'order' must be either 'asc' or 'desc'"))))
   (map
    (fn [x]
@@ -102,7 +102,7 @@
    order-by))
 
 (defn validate-no-invalid-order-by-fields
-  "Validates that each map in the order-by list does not contain any invalid
+  "Validates that each map in the order_by list does not contain any invalid
   keys.  Legal keys are ':field' and ':order'.  Returns the input if validation
   was successful; throws an exception with a useful error message otherwise."
   [order-by]
@@ -110,12 +110,12 @@
                          (fn [x] (when (keys (dissoc x :field :order)) x))
                          order-by)]
     (throw (IllegalArgumentException.
-            (str "Illegal value '" bad-order-by "' in :order-by; "
+            (str "Illegal value '" bad-order-by "' in :order_by; "
                  "unknown key '" (name (first (keys (dissoc bad-order-by :field :order)))) "'.")))
     order-by))
 
 (defn parse-order-by
-  "Given a map of paging-options, validates that the order-by field conforms to
+  "Given a map of paging-options, validates that the order_by field conforms to
   our specifications:
 
   * Must be a JSON string
@@ -126,7 +126,7 @@
     any other keys
 
   Assuming that these conditions are met, the function will return the paging-options
-  map with an updated/sanitized version of the 'order-by' value; deserialized
+  map with an updated/sanitized version of the 'order_by' value; deserialized
   from JSON into a map, keywordized-keys, etc.
 
   If validation fails, this function will throw an exception with
@@ -145,7 +145,7 @@
     paging-options))
 
 (defn parse-count
-  "Parse the optional `include-total` query parameter in the paging options map,
+  "Parse the optional `include_total` query parameter in the paging options map,
   and return an updated map with the correct boolean value."
   [paging-options]
   (let [count? (http/parse-boolean-query-param paging-options :include-total)]
@@ -193,7 +193,7 @@
 
 (defn validate-order-by!
   "Given a list of keywords representing legal fields for ordering a query, and a map of
-   paging options, validate that the order-by data in the paging options complies with
+   paging options, validate that the order_by data in the paging options complies with
    the list of fields.  Throws an exception if validation fails."
   [columns paging-options]
   {:pre [(sequential? columns)
@@ -202,7 +202,7 @@
     (doseq [field (map first (:order-by paging-options))]
       (when-not (seq-contains? columns field)
         (throw (IllegalArgumentException.
-                (format "Unrecognized column '%s' specified in :order-by; Supported columns are '%s'"
+                (format "Unrecognized column '%s' specified in :order_by; Supported columns are '%s'"
                         (name field)
                         (string/join "', '" (map name columns))))))))
 

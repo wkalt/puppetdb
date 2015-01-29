@@ -66,12 +66,9 @@
   If the query can't be parsed, a 400 is returned."
   [entity version query paging-options db]
   (try
-    (let [parsed-query (json/parse-strict-string query true)
-          _ (println "PAGING OPTIONS ARE")
-          _ (clojure.pprint/pprint paging-options)
-          _ (println "PARSED QUERY")
-          _ (clojure.pprint/pprint parsed-query)]
-      (stream-query-result entity version parsed-query paging-options db pl-http/stream-json-response))
+    (let [parsed-query (json/parse-strict-string query true)]
+      (stream-query-result entity version parsed-query
+                           paging-options db pl-http/stream-json-response))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (pl-http/error-response e))
     (catch IllegalArgumentException e

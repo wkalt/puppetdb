@@ -4,6 +4,7 @@
             [puppetlabs.puppetdb.utils.metrics :refer [multitime!]]
             [puppetlabs.puppetdb.http :as http]
             [ring.util.response :as rr]
+            [puppetlabs.puppetdb.cheshire :as json]
             [ring.util.request :as request]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
@@ -90,8 +91,9 @@
     (try
       (app (assoc req :paging-options
                   (-> params
-                      (select-keys ["limit" "offset" "order-by" "include-total"])
+                      (select-keys ["limit" "offset" "order_by" "include_total"])
                       (keywordize-keys)
+                      (json/dash-keys)
                       (paging/parse-limit)
                       (paging/parse-offset)
                       (paging/parse-count)
@@ -151,7 +153,9 @@
                           (http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
                           :else
-                          (app req))))
+                          (app (-> req
+                                   (update-in [:params] json/dash-keys)
+                                   (update-in [:paging-options] json/dash-keys))))))
 
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.

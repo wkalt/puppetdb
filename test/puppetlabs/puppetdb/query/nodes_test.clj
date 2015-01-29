@@ -129,7 +129,7 @@
       (testing "order-by"
         (testing "rejects invalid fields"
           (is (thrown-with-msg?
-               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order-by"
+               IllegalArgumentException #"Unrecognized column 'invalid-field' specified in :order_by"
                (retrieve-node-names version nil
                                     {:order-by [[:invalid-field :ascending]]}))))
 
