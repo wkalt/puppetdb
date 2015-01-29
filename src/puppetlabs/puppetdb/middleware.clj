@@ -154,7 +154,6 @@
 
                           :else
                           (app (-> req
-                                   (update-in [:params] json/dash-keys)
                                    (update-in [:paging-options] json/dash-keys))))))
 
 (defn validate-no-query-params
