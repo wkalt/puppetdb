@@ -191,6 +191,9 @@
                          "hash" :string
                          "message" :string
                          "transaction_uuid" :string
+                         "metric_value" :number
+                         "metric_name" :string
+                         "metric_category" :string
                          "status" :string}
                :queryable-fields ["certname" "environment" "puppet-version"
                                   "report-format" "configuration-version"
@@ -223,11 +226,17 @@
                        re.file,
                        re.line,
                        re.containment_path,
-                       re.containing_class
+                       re.containing_class,
+                       rm.value as metric_value,
+                       mn.name as metric_name,
+                       mc.category as metric_category
                        FROM reports
                        INNER JOIN resource_events re on reports.hash=re.report
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id
-                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
+                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id
+                       INNER JOIN report_metrics rm on rm.report_id = reports.hash
+                       INNER JOIN metrics_names mn on mn.id = rm.name_id
+                       INNER JOIN metrics_categories mc on mc.id = mn.category_id"}))
 
 (def catalog-query
   "Query for the top level catalogs entity"

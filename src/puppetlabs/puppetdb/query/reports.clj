@@ -33,6 +33,9 @@
    :file (s/maybe String)
    :line (s/maybe s/Int)
    :containment_path (s/maybe [String])
+   :metric_value s/Any
+   :metric_name String
+   :metric_category String
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
@@ -58,7 +61,8 @@
    :end-time pls/Timestamp
    :report-format s/Int
    :configuration-version String
-   :resource-events [resource-event-schema]
+   :metrics s/Any
+   :resource-events #{resource-event-schema}
    :transaction-uuid String
    :status (s/maybe String)})
 
@@ -74,6 +78,14 @@
    :environment
    :configuration-version
    :certname])
+
+(defn collapse-metrics
+  [acc {:keys [metric_name metric_category metric_value]}]
+  (let [category (keyword metric_category)
+        metric_name (keyword metric_name)]
+    (merge acc
+           {category
+            (assoc (category acc) metric_name metric_value)})))
 
 (defn create-report-pred
   [rows]
@@ -93,14 +105,19 @@
                (update-in [:old-value] json/parse-string)
                (rename-keys {:event-status :status}))])))
 
+
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
         resource-events (->> report-rows
-                             (reduce collapse-resource-events []))]
+                             (reduce collapse-resource-events [])
+                             (into #{}))
+        metrics (->> report-rows
+                     (reduce collapse-metrics {}))]
     (assoc (select-keys first-row report-columns)
-      :resource-events resource-events)))
+      :resource-events resource-events
+      :metrics metrics)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"

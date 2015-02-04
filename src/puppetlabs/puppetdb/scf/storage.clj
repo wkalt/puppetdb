@@ -1119,7 +1119,7 @@
         all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
                  "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
                  "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
-        n (inc (rand-int 5))
+        n (inc (rand-int 20))
         category (rand-nth all-categories)
         metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
         values (take n (repeatedly rand))]
@@ -1176,7 +1176,8 @@
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
 
-            (populate-metric report-hash)
+            (dotimes [n (inc (rand-int 3))]
+              (populate-metric report-hash))
 
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?
