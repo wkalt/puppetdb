@@ -60,10 +60,10 @@
           (s/optional-key :parameters) {s/Any s/Any}}))
 
 (def category-ids
-  {:time 0
-   :resources 1
-   :events 2
-   :changes 3})
+  {"time" 0
+   "resources" 1
+   "events" 2
+   "changes" 3})
 
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
@@ -1140,8 +1140,7 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        metrics (generate-metric)
-        category-id (get category-ids (:category metrics))
+        metrics "foo"
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                       (utils/update-when [:timestamp] to-timestamp)
