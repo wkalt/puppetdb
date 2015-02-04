@@ -59,6 +59,12 @@
           (s/optional-key :aliases)#{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
 
+(def category-ids
+  {:time 0
+   :resources 1
+   :events 2
+   :changes 3})
+
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
 
@@ -296,6 +302,10 @@
     (if-let [id (query-id table row-map)]
       id
       (create-row table row-map))))
+
+(pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
+  [name category-id]
+  (ensure-row :metrics_names {:name name :category_id category-id}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
@@ -1103,6 +1113,19 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn generate-metric
+  []
+  (let [all-categories ["time" "resources" "events" "changes"]
+        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
+                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
+                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
+        n (inc (rand-int 5))
+        category (rand-nth all-categories)
+        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
+        values (take n (repeatedly rand))]
+    {:category category
+     :metrics (zipmap metrics values)}))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1117,6 +1140,8 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
+        metrics (generate-metric)
+        category-id (get category-ids (:category metrics))
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                       (utils/update-when [:timestamp] to-timestamp)
@@ -1141,6 +1166,12 @@
                                  :transaction_uuid       transaction-uuid
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
+
+      ;      (doseq [m (:metrics metrics)]
+      ;        (let [name-id (ensure-metric-name (key m) category-id)]
+      ;          (sql/insert-record :report_metrics
+      ;                             {:report_id report-hash :value (val m)
+      ;                              :name_id name-id})))  
 
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?

@@ -890,6 +890,36 @@
     "ALTER TABLE factsets ADD hash VARCHAR(40)"
     "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
 
+(defn add-metrics-capacity
+  "Insert columns related to storage of metrics"
+  []
+
+  (sql/do-commands
+   "CREATE SEQUENCE metric_names_id_seq CYCLE"
+   "CREATE SEQUENCE metric_categories_id_seq CYCLE"
+   "CREATE SEQUENCE report_metrics_id_seq CYCLE")
+
+  (sql/create-table :metrics_categories
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('metric_categories_id_seq')"]
+                    ["category" "VARCHAR(255)"])
+
+  (sql/create-table :metrics_names
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('metric_names_id_seq')"]
+                    ["name" "VARCHAR(255)"]
+                    ["category_id" "bigint NOT NULL REFERENCES metrics_categories(id)"])
+
+  (sql/do-commands
+   "INSERT INTO metrics_categories (id, category) values (0, 'time')"
+   "INSERT INTO metrics_categories (id, category) values (1, 'resources')"
+   "INSERT INTO metrics_categories (id, category) values (2, 'events')"
+   "INSERT INTO metrics_categories (id, category) values (3, 'changes')")
+
+  (sql/create-table :report_metrics
+                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('report_metrics_id_seq')"]
+                    ["report_id" "VARCHAR(40) NOT NULL REFERENCES reports(hash)"]
+                    ["name_id" "bigint NOT NULL REFERENCES metrics_names(id)"]
+                    ["value" "NUMERIC(6)"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -919,7 +949,8 @@
    25 structured-facts
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
-   28 insert-factset-hash-column})
+   28 insert-factset-hash-column
+   29 add-metrics-capacity})
 
 (def desired-schema-version (apply max (keys migrations)))
 
