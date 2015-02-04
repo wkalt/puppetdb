@@ -289,7 +289,7 @@
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
-        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
+        where-clause (str "where " (str/join " and " (map (fn [col] (str (name col) "=?") ) cols)))]
     (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
       (:id (first rs)))))
 
@@ -1126,6 +1126,17 @@
     {:category category
      :metrics (zipmap metrics values)}))
 
+(defn populate-metric
+  [hash]
+  (println "IN THE FN")
+  (let [metric (generate-metric)
+        category-id (get category-ids (:category metric))]
+    (doseq [m (:metrics metric)]
+      (let [name-id (ensure-metric-name (key m) category-id)]
+        (sql/insert-record :report_metrics
+                           {:report_id hash :value (val m)
+                            :name_id name-id})))))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1140,7 +1151,6 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        metrics "foo"
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
                                       (utils/update-when [:timestamp] to-timestamp)
@@ -1166,11 +1176,7 @@
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
 
-      ;      (doseq [m (:metrics metrics)]
-      ;        (let [name-id (ensure-metric-name (key m) category-id)]
-      ;          (sql/insert-record :report_metrics
-      ;                             {:report_id report-hash :value (val m)
-      ;                              :name_id name-id})))  
+            (populate-metric report-hash)
 
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?
