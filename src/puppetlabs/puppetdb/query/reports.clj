@@ -112,7 +112,8 @@
                                          :property :file :line :event_status :timestamp
                                          :message])
         category (keyword (:metric_category row))
-        metric_name (keyword (:metric_name row))]
+        metric_name (keyword (:metric_name row))
+        metric_value (:metric_value row)]
 
     [(into acc1
           [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
@@ -121,14 +122,14 @@
                (rename-keys {:event-status :status}))])
      (merge acc2
             {category
-             (assoc (category acc) metric_name metric_value)})]))
+             (assoc (category acc2) metric_name metric_value)})]))
 
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
         [resource-events metrics] (->> report-rows
-                                       (reduce collapse-externals [[] {}]))]
+                                       (reduce collapse-external [[] {}]))]
     (assoc (select-keys first-row report-columns)
       :resource-events (into #{} resource-events)
       :metrics metrics)))

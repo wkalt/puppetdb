@@ -307,6 +307,10 @@
   [name category-id]
   (ensure-row :metrics_names {:name name :category_id category-id}))
 
+(pls/defn-validated ensure-report-id :- (s/maybe s/Int)
+  [hash]
+  (ensure-row :reports {:hash hash}))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
 
@@ -1128,14 +1132,14 @@
 
 (defn populate-metric
   [hash]
-  (println "IN THE FN")
+  (println "populating metric")
   (let [metric (generate-metric)
         category-id (get category-ids (:category metric))]
     (doseq [m (:metrics metric)]
       (let [name-id (ensure-metric-name (key m) category-id)]
         (sql/insert-record :report_metrics
-                           {:report_id hash :value (val m)
-                            :name_id name-id})))))
+                           {:name_id name-id
+                            :report_id (ensure-report-id hash)})))))
 
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which

@@ -243,8 +243,11 @@
 (defn add-reports-tables
   "Add a resource_events and reports tables."
   []
+  (sql/do-commands
+    "CREATE SEQUENCE reports_id_seq CYCLE")
   (sql/create-table :reports
-                    ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+                    ["hash" "VARCHAR(40)" "NOT NULL"]
+                    ["id" "bigint" "PRIMARY KEY" "DEFAULT nextval('reports_id_seq')"]
                     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
                     ["report_format" "SMALLINT" "NOT NULL"]
@@ -254,7 +257,8 @@
                     ["receive_time" "TIMESTAMP WITH TIME ZONE" "NOT NULL"])
 
   (sql/create-table :resource_events
-                    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"]
+                    ["report" "VARCHAR(40)" "NOT NULL"]
+                    ["report_id" "bigint" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"]
                     ["status" "VARCHAR(40)" "NOT NULL"]
                     ["timestamp" "TIMESTAMP WITH TIME ZONE" "NOT NULL"]
                     ["resource_type" "TEXT" "NOT NULL"]
@@ -387,7 +391,9 @@
   []
   (sql/create-table :latest_reports
                     ["certname" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
-                    ["report" "VARCHAR(40)" "NOT NULL" "REFERENCES reports(hash)" "ON DELETE CASCADE"])
+                    ["report" "VARCHAR(40)" "NOT NULL"]
+                    ["report_id" "bigint" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"])
+
   (sql/do-commands
    "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")
   (sql/do-commands
@@ -916,7 +922,7 @@
 
   (sql/create-table :report_metrics
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('report_metrics_id_seq')"]
-                    ["report_id" "VARCHAR(40) NOT NULL REFERENCES reports(hash)"]
+                    ["report_id" "bigint REFERENCES reports(id)"]
                     ["name_id" "bigint NOT NULL REFERENCES metrics_names(id)"]
                     ["value" "NUMERIC(6)"]))
 
