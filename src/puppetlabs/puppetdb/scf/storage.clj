@@ -28,6 +28,7 @@
             [clojure.data :as data]
             [puppetlabs.puppetdb.scf.hash :as shash]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.scf.hash-debug :as hashdbg]
             [schema.core :as s]
             [schema.macros :as sm]
@@ -58,6 +59,12 @@
           (s/optional-key :tags) #{String}
           (s/optional-key :aliases)#{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
+
+(def category-ids
+  {"time" 0
+   "resources" 1
+   "events" 2
+   "changes" 3})
 
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
@@ -283,7 +290,7 @@
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
-        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
+        where-clause (str "where " (str/join " and " (map (fn [col] (str (name col) "=?") ) cols)))]
     (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
       (:id (first rs)))))
 
@@ -296,6 +303,14 @@
     (if-let [id (query-id table row-map)]
       id
       (create-row table row-map))))
+
+(pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
+  [name category-id]
+  (ensure-row :metrics_names {:name name :category_id category-id}))
+
+(pls/defn-validated ensure-report-id :- (s/maybe s/Int)
+  [hash]
+  (ensure-row :reports {:hash hash}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
@@ -1103,6 +1118,30 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn generate-metric
+  []
+  (let [all-categories ["time" "resources" "events" "changes"]
+        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
+                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
+                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
+        n (inc (rand-int 20))
+        category (rand-nth all-categories)
+        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
+        values (take n (repeatedly rand))]
+    {:category category
+     :metrics (zipmap metrics values)}))
+
+(defn populate-metric
+  [hash]
+  (let [metric (generate-metric)
+        category-id (get category-ids (:category metric))]
+    (doseq [m (:metrics metric)]
+      (let [name-id (ensure-metric-name (key m) category-id)]
+        (sql/insert-record :report_metrics
+                           {:name_id name-id
+                            :report_id (ensure-report-id hash)
+                            :value (val m)})))))
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1132,6 +1171,7 @@
                                (maybe-environment
                                 {:hash                   report-hash
                                  :puppet_version         puppet-version
+                                 :metric                 (json/generate-string (merge (generate-metric) (generate-metric)))
                                  :certname               certname
                                  :report_format          report-format
                                  :configuration_version  configuration-version

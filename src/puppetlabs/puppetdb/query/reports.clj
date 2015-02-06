@@ -23,6 +23,7 @@
    :transaction_uuid String
    :event_status String
    :timestamp pls/Timestamp
+   :metric String
    :resource_type String
    :resource_title String
    :new_value String
@@ -57,6 +58,7 @@
    :start-time pls/Timestamp
    :end-time pls/Timestamp
    :report-format s/Int
+   :metric {s/Any s/Any}
    :configuration-version String
    :resource-events [resource-event-schema]
    :transaction-uuid String
@@ -66,6 +68,7 @@
   [:hash
    :puppet-version
    :receive-time
+   :metric
    :report-format
    :start-time
    :end-time
@@ -99,8 +102,9 @@
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
-      :resource-events resource-events)))
+    (-> (select-keys first-row report-columns)
+        (assoc :resource-events resource-events)
+        (update-in [:metric] json/parse-string))))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"

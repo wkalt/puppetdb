@@ -245,6 +245,7 @@
   []
   (sql/create-table :reports
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+                    ["metric" "TEXT"]
                     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
                     ["report_format" "SMALLINT" "NOT NULL"]

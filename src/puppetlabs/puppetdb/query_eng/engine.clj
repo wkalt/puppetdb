@@ -189,6 +189,7 @@
                          "property" :string
                          "line" :number
                          "hash" :string
+                         "metric" :string
                          "message" :string
                          "transaction_uuid" :string
                          "status" :string}
@@ -209,6 +210,7 @@
                        reports.end_time,
                        reports.receive_time,
                        reports.transaction_uuid,
+                       reports.metric,
                        environments.name as environment,
                        report_statuses.status as status,
                        re.report,
