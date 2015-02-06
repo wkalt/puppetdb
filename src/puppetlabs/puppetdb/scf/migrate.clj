@@ -246,8 +246,8 @@
   (sql/do-commands
     "CREATE SEQUENCE reports_id_seq CYCLE")
   (sql/create-table :reports
-                    ["hash" "VARCHAR(40)" "NOT NULL"]
                     ["id" "bigint" "PRIMARY KEY" "DEFAULT nextval('reports_id_seq')"]
+                    ["hash" "VARCHAR(40)" "NOT NULL"]
                     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
                     ["report_format" "SMALLINT" "NOT NULL"]
@@ -392,7 +392,7 @@
   (sql/create-table :latest_reports
                     ["certname" "TEXT" "NOT NULL" "PRIMARY KEY" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["report" "VARCHAR(40)" "NOT NULL"]
-                    ["report_id" "bigint" "NOT NULL" "REFERENCES reports(id)" "ON DELETE CASCADE"])
+                    ["report_id" "bigint" "REFERENCES reports(id)" "ON DELETE CASCADE"])
 
   (sql/do-commands
    "CREATE INDEX idx_latest_reports_report ON latest_reports(report)")

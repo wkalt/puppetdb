@@ -1139,7 +1139,8 @@
       (let [name-id (ensure-metric-name (key m) category-id)]
         (sql/insert-record :report_metrics
                            {:name_id name-id
-                            :report_id (ensure-report-id hash)})))))
+                            :report_id (ensure-report-id hash)
+                            :value (val m)})))))
 
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -1161,6 +1162,7 @@
                                       (utils/update-when [:old-value] sutils/db-serialize)
                                       (utils/update-when [:new-value] sutils/db-serialize)
                                       (utils/update-when [:containment-path] containment-path-fn)
+                                      (assoc :report-id (ensure-report-id report-hash))
                                       (assoc :containing-class (find-containing-class (% :containment-path)))
                                       (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
                                  resource-events)]
@@ -1180,12 +1182,13 @@
                                  :environment_id         (ensure-environment environment)
                                  :status_id              (ensure-status status)}))
 
-            (dotimes [n (inc (rand-int 3))]
-              (populate-metric report-hash))
-
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?
-              (update-latest-report! certname))))))
+              (update-latest-report! certname)))
+           (sql/transaction
+            (dotimes [n (inc (rand-int 3))]
+              (populate-metric report-hash))))))
+
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
