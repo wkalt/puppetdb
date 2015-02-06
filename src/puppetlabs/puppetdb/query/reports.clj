@@ -79,6 +79,12 @@
    :configuration-version
    :certname])
 
+(defn create-report-pred
+  [rows]
+  (let [report-hash (:hash (first rows))]
+    (fn [row]
+      (= report-hash (:hash row)))))
+
 (defn collapse-metrics
   [acc {:keys [metric_name metric_category metric_value]}]
   (let [category (keyword metric_category)
@@ -86,12 +92,6 @@
     (merge acc
            {category
             (assoc (category acc) metric_name metric_value)})))
-
-(defn create-report-pred
-  [rows]
-  (let [report-hash (:hash (first rows))]
-    (fn [row]
-      (= report-hash (:hash row)))))
 
 (defn collapse-resource-events
   [acc row]
@@ -105,18 +105,32 @@
                (update-in [:old-value] json/parse-string)
                (rename-keys {:event-status :status}))])))
 
+(defn collapse-external
+  [[acc1 acc2] row]
+  (let [resource-event (select-keys row [:containment_path :new_value
+                                         :old_value :resource_title :resource_type
+                                         :property :file :line :event_status :timestamp
+                                         :message])
+        category (keyword (:metric_category row))
+        metric_name (keyword (:metric_name row))]
+
+    [(into acc1
+          [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
+               (update-in [:new-value] json/parse-string)
+               (update-in [:old-value] json/parse-string)
+               (rename-keys {:event-status :status}))])
+     (merge acc2
+            {category
+             (assoc (category acc) metric_name metric_value)})]))
 
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
-        resource-events (->> report-rows
-                             (reduce collapse-resource-events [])
-                             (into #{}))
-        metrics (->> report-rows
-                     (reduce collapse-metrics {}))]
+        [resource-events metrics] (->> report-rows
+                                       (reduce collapse-externals [[] {}]))]
     (assoc (select-keys first-row report-columns)
-      :resource-events resource-events
+      :resource-events (into #{} resource-events)
       :metrics metrics)))
 
 (pls/defn-validated structured-data-seq
