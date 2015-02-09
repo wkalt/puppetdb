@@ -211,7 +211,7 @@
                        reports.transaction_uuid,
                        environments.name as environment,
                        report_statuses.status as status,
-                       re.report,
+                       reports.hash as report,
                        re.status as event_status,
                        re.timestamp,
                        re.resource_type,
@@ -225,7 +225,7 @@
                        re.containment_path,
                        re.containing_class
                        FROM reports
-                       INNER JOIN resource_events re on reports.hash=re.report
+                       INNER JOIN resource_events re on reports.id=re.report_id
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id
                        LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
 
@@ -369,7 +369,7 @@
                        reports.start_time as run_start_time,
                        reports.end_time as run_end_time,
                        reports.receive_time as report_receive_time,
-                       report,
+                       reports.hash as report,
                        status,
                        timestamp,
                        resource_type,
@@ -384,7 +384,7 @@
                        containing_class,
                        environments.name as environment
                        FROM resource_events
-                       JOIN reports ON resource_events.report = reports.hash
+                       JOIN reports ON resource_events.report_id = reports.id
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id"}))
 
 (def latest-report-query
@@ -395,8 +395,9 @@
                :subquery? false
                :source-table "latest_report"
                :supports-extract? true
-               :source "SELECT latest_reports.report as latest_report_hash
-                        FROM latest_reports"}))
+               :source "SELECT report.hash as latest_report_hash
+                        FROM latest_reports
+                        INNER JOIN reports ON reports.id = latest_reports.report_id"}))
 
 (def environments-query
   "Basic environments query, more useful when used with subqueries"
