@@ -890,6 +890,117 @@
     "ALTER TABLE factsets ADD hash VARCHAR(40)"
     "ALTER TABLE factsets ADD CONSTRAINT factsets_hash_key UNIQUE (hash)"))
 
+(defn migrate-to-report-id
+  "Migrate to report id"
+  []
+    (sql/do-commands
+     "CREATE SEQUENCE reports_id_seq CYCLE")
+
+    (sql/create-table :reports_transform
+                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
+                      ["hash"                  "varchar(40) NOT NULL"]
+                      ["certname"              "text"] ;; TODO: why isn't this not null?
+                      ["puppet_version"        "varchar(255) NOT NULL"]
+                      ["report_format"         "smallint NOT NULL"]
+                      ["configuration_version" "varchar(255) NOT NULL"]
+                      ["start_time"            "timestamp with time zone NOT NULL"]
+                      ["end_time"              "timestamp with time zone NOT NULL"]
+                      ["receive_time"          "timestamp with time zone NOT NULL"]
+                      ["transaction_uuid"      "varchar(255) DEFAULT NULL"]
+                      ["environment_id"        "integer"]
+                      ["status_id"             "integer"])
+
+    (sql/create-table :resource_events_transform
+                      ["report_id"        "bigint NOT NULL"]
+                      ["status"           "varchar(40) NOT NULL"]
+                      ["timestamp"        "timestamp with time zone NOT NULL"]
+                      ["resource_type"    "text NOT NULL"]
+                      ["resource_title"   "text NOT NULL"]
+                      ["property"         "varchar (40)"]
+                      ["new_value"        "text"]
+                      ["old_value"        "text"]
+                      ["message"          "text"]
+                      ["file"             "varchar(1024) DEFAULT NULL"]
+                      ["line"             "integer"]
+                      ["containment_path" "text[]"]
+                      ["containing_class" "varchar(255)"])
+
+    (sql/create-table :latest_reports_transform
+                      ["certname"  "text NOT NULL"]
+                      ["report_id" "bigint NOT NULL"])
+
+
+    (sql/do-commands
+     "INSERT INTO reports_transform (
+       hash, certname, puppet_version, report_format, configuration_version,
+       start_time, end_time, receive_time, transaction_uuid, environment_id,
+       status_id)
+       SELECT hash, certname, puppet_version, report_format,
+         configuration_version, start_time, end_time, receive_time,
+         transaction_uuid, environment_id, status_id
+         FROM reports")
+
+    (sql/do-commands
+     "ALTER TABLE reports_transform
+       ADD CONSTRAINT reports_hash_key UNIQUE (hash)")
+
+    (sql/do-commands
+     "INSERT INTO resource_events_transform (
+        report_id, status, timestamp, resource_type, resource_title, property,
+        new_value, old_value, message, file, line, containment_path,
+        containing_class)
+        SELECT rt.id, status, timestamp, resource_type, resource_title,
+          property, new_value, old_value, message, file, line, containment_path,
+          containing_class
+          FROM resource_events AS re
+          INNER JOIN reports_transform rt on re.report = rt.hash")
+
+    (sql/do-commands
+     "INSERT INTO latest_reports_transform(certname, report_id)
+        SELECT lr.certname, rt.id
+          FROM latest_reports AS lr
+          INNER JOIN reports_transform rt on lr.report = rt.hash")
+
+    (sql/do-commands
+     "DROP TABLE resource_events"
+     "DROP TABLE latest_reports"
+     "DROP TABLE reports")
+
+    ;; TODO: do we need to delete other references here, or do they magically disappear?
+
+    (sql/do-commands
+     "ALTER TABLE resource_events_transform RENAME to resource_events"
+     "ALTER TABLE latest_reports_transform RENAME to latest_reports"
+     "ALTER TABLE reports_transform RENAME to reports")
+
+    (sql/do-commands
+     "ALTER TABLE reports ADD CONSTRAINT reports_pkey PRIMARY KEY (id)"
+     "CREATE INDEX idx_reports_certname ON reports USING btree (certname)"
+     "CREATE INDEX idx_reports_end_time ON reports USING btree (end_time)"
+     "CREATE INDEX idx_reports_environment_id ON reports USING btree (environment_id)"
+     "CREATE INDEX idx_reports_status_id ON reports USING btree (status_id)"
+     "CREATE INDEX idx_reports_transaction_uuid ON reports USING btree (transaction_uuid)" ;; TODO: is this really necessary today?
+     "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_env_fkey FOREIGN KEY (environment_id) REFERENCES environments(id) ON DELETE CASCADE"
+     "ALTER TABLE reports ADD CONSTRAINT reports_status_fkey FOREIGN KEY (status_id) REFERENCES report_statuses(id) ON DELETE CASCADE")
+
+    (sql/do-commands
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_pkey PRIMARY KEY (certname)"
+     "CREATE INDEX idx_latest_reports_report_id ON latest_reports USING btree (report_id)"
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+     "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE")
+
+    (sql/do-commands
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
+     "CREATE INDEX idx_resource_events_containing_class ON resource_events USING btree (containing_class)"
+     "CREATE INDEX idx_resource_events_property ON resource_events USING btree (property)"
+     "CREATE INDEX idx_resource_events_reports_id ON resource_events USING btree (report_id)"
+     "CREATE INDEX idx_resource_events_resource_type ON resource_events USING btree (resource_type)"
+     "CREATE INDEX idx_resource_events_resource_title ON resource_events USING btree (resource_title)"
+     "CREATE INDEX idx_resource_events_status ON resource_events USING btree (status)"
+     "CREATE INDEX idx_resource_events_timestamp ON resource_events USING btree (\"timestamp\")"
+     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -919,7 +1030,8 @@
    25 structured-facts
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
-   28 insert-factset-hash-column})
+   28 insert-factset-hash-column
+   29 migrate-to-report-id})
 
 (def desired-schema-version (apply max (keys migrations)))
 
