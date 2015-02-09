@@ -1066,16 +1066,16 @@
   most recent report for the node."
   [node]
   {:pre [(string? node)]}
-  (let [latest-report (:hash (first (query-to-vec
-                                     ["SELECT hash FROM reports
-                                            WHERE certname = ?
-                                            ORDER BY end_time DESC
-                                            LIMIT 1" node])))]
+  (let [latest-report (:id (first (query-to-vec
+                                   ["SELECT id FROM reports
+                                     WHERE certname = ?
+                                     ORDER BY end_time DESC
+                                     LIMIT 1" node])))]
     (sql/update-or-insert-values
      :latest_reports
      ["certname = ?" node]
      {:certname      node
-      :report        latest-report})))
+      :report_id     latest-report})))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -1117,34 +1117,38 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
-        resource-event-rows (map #(-> %
-                                      (utils/update-when [:timestamp] to-timestamp)
-                                      (utils/update-when [:old-value] sutils/db-serialize)
-                                      (utils/update-when [:new-value] sutils/db-serialize)
-                                      (utils/update-when [:containment-path] containment-path-fn)
-                                      (assoc :containing-class (find-containing-class (% :containment-path)))
-                                      (assoc :report report-hash) ((partial kitchensink/mapkeys dashes->underscores)))
-                                 resource-events)]
+        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
     (time! (:store-report metrics)
            (sql/transaction
-            (sql/insert-record :reports
-                               (maybe-environment
-                                {:hash                   report-hash
-                                 :puppet_version         puppet-version
-                                 :certname               certname
-                                 :report_format          report-format
-                                 :configuration_version  configuration-version
-                                 :start_time             (to-timestamp start-time)
-                                 :end_time               (to-timestamp end-time)
-                                 :receive_time           (to-timestamp timestamp)
-                                 :transaction_uuid       transaction-uuid
-                                 :environment_id         (ensure-environment environment)
-                                 :status_id              (ensure-status status)}))
+            (let [insert-results
+                  (sql/insert-record :reports
+                                     (maybe-environment
+                                      {:hash                   report-hash
+                                       :puppet_version         puppet-version
+                                       :certname               certname
+                                       :report_format          report-format
+                                       :configuration_version  configuration-version
+                                       :start_time             (to-timestamp start-time)
+                                       :end_time               (to-timestamp end-time)
+                                       :receive_time           (to-timestamp timestamp)
+                                       :transaction_uuid       transaction-uuid
+                                       :environment_id         (ensure-environment environment)
+                                       :status_id              (ensure-status status)}))
 
-            (apply sql/insert-records :resource_events resource-event-rows)
-            (if update-latest-report?
-              (update-latest-report! certname))))))
+                  report-id (:id insert-results)
+                  resource-event-rows (map #(-> %
+                                                (utils/update-when [:timestamp] to-timestamp)
+                                                (utils/update-when [:old-value] sutils/db-serialize)
+                                                (utils/update-when [:new-value] sutils/db-serialize)
+                                                (utils/update-when [:containment-path] containment-path-fn)
+                                                (assoc :containing-class (find-containing-class (% :containment-path)))
+                                                (assoc :report-id report-id)
+                                                ((partial kitchensink/mapkeys dashes->underscores)))
+                                           resource-events)]
+
+              (apply sql/insert-records :resource_events resource-event-rows)
+              (if update-latest-report?
+                (update-latest-report! certname)))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
