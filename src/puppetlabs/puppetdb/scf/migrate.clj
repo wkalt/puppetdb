@@ -1001,6 +1001,32 @@
      "CREATE INDEX idx_resource_events_timestamp ON resource_events USING btree (\"timestamp\")"
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn log-storage
+  "Log storage"
+  []
+  (sql/do-commands
+   "CREATE SEQUENCE log_levels_id_seq CYCLE")
+
+  (sql/create-table :log_levels
+                    ["id" "bigint PRIMARY KEY NOT NULL DEFAULT nextval('log_levels_id_seq')"]
+                    ["level" "varchar(256)"])
+
+  (sql/create-table :logs
+                    ["report_id" "bigint NOT NULL"]
+                    ["level_id" "bigint NOT NULL"]
+                    ["message" "text NOT NULL"]
+                    ["source" "varchar(1024) NOT NULL"] ;; TODO: figure this one out
+                    ["tags" "text[] NOT NULL"]
+                    ["time" "timestamp with time zone NOT NULL"]
+                    ["file" "varchar(1024)"]
+                    ["line" "integer"])
+
+  (sql/do-commands
+   "CREATE INDEX logs_report_id_idx ON logs USING btree (report_id)"
+   "CREATE INDEX logs_level_id ON logs USING btree (level_id)"
+   "ALTER TABLE logs ADD CONSTRAINT logs_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE ON UPDATE CASCADE"
+   "ALTER TABLE logs ADD CONSTRAINT logs_level_id_fkey FOREIGN KEY (level_id) REFERENCES log_levels(id) ON DELETE RESTRICT ON UPDATE RESTRICT"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1031,7 +1057,8 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 migrate-to-report-id})
+   29 migrate-to-report-id
+   30 log-storage})
 
 (def desired-schema-version (apply max (keys migrations)))
 
