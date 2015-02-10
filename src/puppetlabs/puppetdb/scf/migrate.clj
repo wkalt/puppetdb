@@ -907,8 +907,8 @@
                       ["end_time"              "timestamp with time zone NOT NULL"]
                       ["receive_time"          "timestamp with time zone NOT NULL"]
                       ["transaction_uuid"      "varchar(255) DEFAULT NULL"]
-                      ["environment_id"        "integer"]
-                      ["status_id"             "integer"])
+                      ["environment_id"        "bigint"]
+                      ["status_id"             "bigint"])
 
     (sql/create-table :resource_events_transform
                       ["report_id"        "bigint NOT NULL"]
