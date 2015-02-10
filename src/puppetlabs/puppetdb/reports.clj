@@ -48,6 +48,17 @@
                         :type      :coll}
    })
 
+(defmodel Log
+  {:message :string
+   :source  :string
+   :level   :string
+   :tags    :coll
+   :time    :datetime
+   :file    {:optional? true
+             :type      :string}
+   :line    {:optional? true
+             :type      :integer}})
+
 (def resource-event-fields
   "Resource event fields"
   (keys (:fields ResourceEvent)))
@@ -67,6 +78,8 @@
       (throw (IllegalArgumentException.
               (format "Containment path should only contain strings: '%s'"
                       (resource-event :containment_path))))))
+  (doseq [log (:logs report)]
+    (validate-against-model! Log log))
   (when (nil? (:environment report))
     (throw (IllegalArgumentException. "Version 5 of reports must contain an environment")))
   (when (nil? (:status report))

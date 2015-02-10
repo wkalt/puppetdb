@@ -328,6 +328,16 @@
     (ensure-row :report_statuses {:status status})))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; Log level querying/updating
+
+(pls/defn-validated ensure-log-level :- (s/maybe s/Int)
+  "Check if the given `log_level` exists, create it if it does not. Always
+   returns the id of the `log_level` (whether created or existing)"
+  [level :- (s/maybe s/Str)]
+  (when level
+    (ensure-row :log_levels {:level level})))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Catalog updates/changes
 
 (defn catalog-metadata
@@ -1110,15 +1120,15 @@
   scenarios."
   [{:keys [puppet_version certname report_format configuration_version
            start_time end_time resource_events transaction_uuid environment
-           status]
+           status logs]
     :as report}
    timestamp
    update-latest-report?]
   {:pre [(map? report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
-  (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
+  (let [report-hash (shash/report-identity-hash report)
+        array-fn    (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
     (time! (:store-report metrics)
            (sql/transaction
             (let [insert-results
@@ -1141,12 +1151,21 @@
                                                 (utils/update-when [:timestamp] to-timestamp)
                                                 (utils/update-when [:old_value] sutils/db-serialize)
                                                 (utils/update-when [:new_value] sutils/db-serialize)
-                                                (utils/update-when [:containment_path] containment-path-fn)
+                                                (utils/update-when [:containment_path] array-fn)
                                                 (assoc :containing_class (find-containing-class (% :containment_path)))
                                                 (assoc :report_id report-id))
                                            resource-events)]
 
               (apply sql/insert-records :resource_events resource-event-rows)
+
+              (let [log-rows (map #(-> %
+                                   (utils/update-when [:time] to-timestamp)
+                                   (utils/update-when [:tags] array-fn)
+                                   (assoc :level_id (ensure-log-level (% :level)))
+                                   (assoc :report_id report-id)
+                                   (dissoc :level))
+                                  logs)]
+                (apply sql/insert-records :logs log-rows))
               (if update-latest-report?
                 (update-latest-report! certname)))))))
 
