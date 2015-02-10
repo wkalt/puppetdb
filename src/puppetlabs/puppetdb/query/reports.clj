@@ -33,6 +33,9 @@
    :file (s/maybe String)
    :line (s/maybe s/Int)
    :containment_path (s/maybe [String])
+   :metric_value s/Any
+   :metric_name String
+   :metric_category String
    (s/optional-key :environment) (s/maybe String)})
 
 (def resource-event-schema
@@ -58,7 +61,8 @@
    :end-time pls/Timestamp
    :report-format s/Int
    :configuration-version String
-   :resource-events [resource-event-schema]
+   :metrics s/Any
+   :resource-events #{resource-event-schema}
    :transaction-uuid String
    :status (s/maybe String)})
 
@@ -81,6 +85,14 @@
     (fn [row]
       (= report-hash (:hash row)))))
 
+(defn collapse-metrics
+  [acc {:keys [metric_name metric_category metric_value]}]
+  (let [category (keyword metric_category)
+        metric_name (keyword metric_name)]
+    (merge acc
+           {category
+            (assoc (category acc) metric_name metric_value)})))
+
 (defn collapse-resource-events
   [acc row]
   (let [resource-event (select-keys row [:containment_path :new_value
@@ -93,14 +105,34 @@
                (update-in [:old-value] json/parse-string)
                (rename-keys {:event-status :status}))])))
 
+(defn collapse-external
+  [[acc1 acc2] row]
+  (let [resource-event (select-keys row [:containment_path :new_value
+                                         :old_value :resource_title :resource_type
+                                         :property :file :line :event_status :timestamp
+                                         :message])
+        category (keyword (:metric_category row))
+        metric_name (keyword (:metric_name row))
+        metric_value (:metric_value row)]
+
+    [(into acc1
+          [(-> (kitchensink/mapkeys jdbc/underscores->dashes resource-event)
+               (update-in [:new-value] json/parse-string)
+               (update-in [:old-value] json/parse-string)
+               (rename-keys {:event-status :status}))])
+     (merge acc2
+            {category
+             (assoc (category acc2) metric_name metric_value)})]))
+
 (pls/defn-validated collapse-report :- report-schema
   [version :- s/Keyword
    report-rows :- [row-schema]]
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first report-rows))
-        resource-events (->> report-rows
-                             (reduce collapse-resource-events []))]
+        [resource-events metrics] (->> report-rows
+                                       (reduce collapse-external [[] {}]))]
     (assoc (select-keys first-row report-columns)
-      :resource-events resource-events)))
+      :resource-events (into #{} resource-events)
+      :metrics metrics)))
 
 (pls/defn-validated structured-data-seq
   "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"

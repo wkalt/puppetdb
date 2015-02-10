@@ -59,6 +59,12 @@
           (s/optional-key :aliases)#{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
 
+(def category-ids
+  {"time" 0
+   "resources" 1
+   "events" 2
+   "changes" 3})
+
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
 
@@ -283,7 +289,7 @@
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
-        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
+        where-clause (str "where " (str/join " and " (map (fn [col] (str (name col) "=?") ) cols)))]
     (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
       (:id (first rs)))))
 
@@ -296,6 +302,14 @@
     (if-let [id (query-id table row-map)]
       id
       (create-row table row-map))))
+
+(pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
+  [name category-id]
+  (ensure-row :metrics_names {:name name :category_id category-id}))
+
+(pls/defn-validated ensure-report-id :- (s/maybe s/Int)
+  [hash]
+  (ensure-row :reports {:hash hash}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
@@ -1103,6 +1117,31 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn generate-metric
+  []
+  (let [all-categories ["time" "resources" "events" "changes"]
+        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
+                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
+                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
+        n (inc (rand-int 20))
+        category (rand-nth all-categories)
+        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
+        values (take n (repeatedly rand))]
+    {:category category
+     :metrics (zipmap metrics values)}))
+
+(defn populate-metric
+  [hash]
+  (let [metric (generate-metric)
+        category-id (get category-ids (:category metric))]
+    (doseq [m (:metrics metric)]
+      (let [name-id (ensure-metric-name (key m) category-id)]
+        (sql/insert-record :report_metrics
+                           {:name_id name-id
+                            :report_id (ensure-report-id hash)
+                            :value (val m)})))))
+
+  
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1117,38 +1156,38 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash         (shash/report-identity-hash report)
-        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
+        containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
+        resource-event-rows (map #(-> %
+                                      (utils/update-when [:timestamp] to-timestamp)
+                                      (utils/update-when [:old-value] sutils/db-serialize)
+                                      (utils/update-when [:new-value] sutils/db-serialize)
+                                      (utils/update-when [:containment-path] containment-path-fn)
+                                      (assoc :report-id (ensure-report-id report-hash))
+                                      (assoc :containing-class (find-containing-class (% :containment-path)))
+                                      ((partial kitchensink/mapkeys dashes->underscores)))
+                                 resource-events)]
     (time! (:store-report metrics)
            (sql/transaction
-            (let [insert-results
-                  (sql/insert-record :reports
-                                     (maybe-environment
-                                      {:hash                   report-hash
-                                       :puppet_version         puppet-version
-                                       :certname               certname
-                                       :report_format          report-format
-                                       :configuration_version  configuration-version
-                                       :start_time             (to-timestamp start-time)
-                                       :end_time               (to-timestamp end-time)
-                                       :receive_time           (to-timestamp timestamp)
-                                       :transaction_uuid       transaction-uuid
-                                       :environment_id         (ensure-environment environment)
-                                       :status_id              (ensure-status status)}))
+            (sql/insert-record :reports
+                               (maybe-environment
+                                {:hash                   report-hash
+                                 :puppet_version         puppet-version
+                                 :certname               certname
+                                 :report_format          report-format
+                                 :configuration_version  configuration-version
+                                 :start_time             (to-timestamp start-time)
+                                 :end_time               (to-timestamp end-time)
+                                 :receive_time           (to-timestamp timestamp)
+                                 :transaction_uuid       transaction-uuid
+                                 :environment_id         (ensure-environment environment)
+                                 :status_id              (ensure-status status)}))
 
-                  report-id (:id insert-results)
-                  resource-event-rows (map #(-> %
-                                                (utils/update-when [:timestamp] to-timestamp)
-                                                (utils/update-when [:old-value] sutils/db-serialize)
-                                                (utils/update-when [:new-value] sutils/db-serialize)
-                                                (utils/update-when [:containment-path] containment-path-fn)
-                                                (assoc :containing-class (find-containing-class (% :containment-path)))
-                                                (assoc :report-id report-id)
-                                                ((partial kitchensink/mapkeys dashes->underscores)))
-                                           resource-events)]
-
-              (apply sql/insert-records :resource_events resource-event-rows)
-              (if update-latest-report?
-                (update-latest-report! certname)))))))
+            (apply sql/insert-records :resource_events resource-event-rows)
+            (if update-latest-report?
+              (update-latest-report! certname)))
+           (sql/transaction
+            (dotimes [n (inc (rand-int 3))]
+              (populate-metric report-hash))))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
