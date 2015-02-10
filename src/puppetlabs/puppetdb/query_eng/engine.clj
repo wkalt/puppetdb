@@ -200,7 +200,8 @@
                :subquery? false
                :entity :reports
                :source-table "reports"
-               :source "select reports.hash,
+               :source"
+               select reports.hash,
                        reports.certname,
                        reports.puppet_version,
                        reports.report_format,

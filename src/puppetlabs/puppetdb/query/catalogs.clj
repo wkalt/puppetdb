@@ -82,6 +82,7 @@
 (pls/defn-validated collapse-catalog :- (catalog-response-schema :v4)
   [version :- s/Keyword
    catalog-rows :- [row-schema]]
+  (println "CATALOG ROW COUNT" (count catalog-rows))
   (let [first-row (kitchensink/mapkeys jdbc/underscores->dashes (first catalog-rows))
         resources (->> catalog-rows
                        (filter #(not (nil? (:resource %))))
