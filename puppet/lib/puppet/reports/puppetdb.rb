@@ -1,6 +1,7 @@
 require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'pp'
 
 Puppet::Reports.register_report(:puppetdb) do
   include Puppet::Util::Puppetdb
@@ -48,6 +49,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "environment"             => environment,
         "transaction-uuid"        => transaction_uuid,
         "status"                  => status,
+        "metrics"                  => build_metrics_list,
       }
     end
   end
@@ -72,16 +74,18 @@ Puppet::Reports.register_report(:puppetdb) do
   def build_metrics_list
     profile("Build metrics list (count: #{metrics.count})",
             [:puppetdb, :metrics_list, :build]) do
-    metrics_list = []
-    metrics.each do |metric|
-      metric_hash = {
-        "name" => metric.name,
-        "category" => metric.category,
-        "value" => metric.value,
-      }
-      end)
-    end
-end
+              metrics_list = []
+              metrics.each do |metric_kv|
+                metric = metric_kv[1]
+                metric_hash = {
+                  "category" => metric.label,
+                  "metrics" => metric.values.map {|x| {x.first => x.last}}.inject(:merge)
+                }
+                metrics_list.push(metric_hash)
+              end
+              metrics_list
+            end
+  end
 
 # @return Number
 # @api private
