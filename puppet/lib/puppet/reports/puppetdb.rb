@@ -1,7 +1,6 @@
 require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
-require 'pp'
 
 Puppet::Reports.register_report(:puppetdb) do
   include Puppet::Util::Puppetdb
@@ -49,7 +48,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "environment"             => environment,
         "transaction-uuid"        => transaction_uuid,
         "status"                  => status,
-        "metrics"                  => build_metrics_list,
+        "report-metrics"                  => build_metrics_list,
       }
     end
   end
@@ -78,7 +77,7 @@ Puppet::Reports.register_report(:puppetdb) do
               metrics.each do |metric_kv|
                 metric = metric_kv[1]
                 metric_hash = {
-                  "category" => metric.label,
+                  "category" => metric.name,
                   "metrics" => metric.values.map {|x| {x.first => x.last}}.inject(:merge)
                 }
                 metrics_list.push(metric_hash)

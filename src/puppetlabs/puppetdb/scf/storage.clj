@@ -60,10 +60,10 @@
           (s/optional-key :parameters) {s/Any s/Any}}))
 
 (def category-ids
-  {:time 0
-   :resources 1
-   :events 2
-   :changes 3})
+  {"time" 0
+   "resources" 1
+   "events" 2
+   "changes" 3})
 
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
@@ -304,8 +304,8 @@
       (create-row table row-map))))
 
 (pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
-  [name category-id]
-  (ensure-row :metrics_names {:name name :category_id category-id}))
+  [metric-name category-id]
+  (ensure-row :metrics_names {:name (name metric-name) :category_id category-id}))
 
 (pls/defn-validated ensure-report-id :- (s/maybe s/Int)
   [hash]
@@ -1132,14 +1132,13 @@
 
 (defn populate-metric
   [hash metric]
-  (println "POPULATE METRIC IS" metric)
-  (doseq [m (:metrics metric)]
-    (let [category-id (get category-ids (:category metric))
-          name-id (ensure-metric-name (key m) category-id)]
-      (sql/insert-record :report_metrics
-                         {:name_id name-id
-                          :report_id (ensure-report-id hash)
-                          :value (val m)}))))
+  (let [category-id (get category-ids (:category metric))]
+    (doseq [m (:metrics metric)]
+      (let [name-id (ensure-metric-name (key m) category-id)]
+        (sql/insert-record :report_metrics
+                           {:name_id name-id
+                            :report_id (ensure-report-id hash)
+                            :value (val m)})))))
 
   
 (defn add-report!*
@@ -1149,14 +1148,12 @@
   scenarios."
   [{:keys [puppet-version certname report-format configuration-version
            start-time end-time resource-events transaction-uuid environment
-           status metrics]
+           status report-metrics]
     :as report}
    timestamp update-latest-report?]
   {:pre [(map? report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
-  (println "IN FN")
-  (println "METRIC IS" metrics)
   (let [report-hash         (shash/report-identity-hash report)
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %
@@ -1186,7 +1183,11 @@
 
             (apply sql/insert-records :resource_events resource-event-rows)
             (if update-latest-report?
-              (update-latest-report! certname))))))
+              (update-latest-report! certname)))
+           (sql/transaction
+            (doseq [m report-metrics]
+              (populate-metric report-hash m))))))
+
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `end-time` that is prior to
   the specified date/time."
