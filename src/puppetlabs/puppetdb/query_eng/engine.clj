@@ -61,8 +61,8 @@
                             LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
                             LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
                             LEFT OUTER JOIN reports ON certnames.name = reports.certname
-                             AND reports.hash
-                               IN (SELECT report FROM latest_reports)
+                             AND reports.id
+                               IN (SELECT report_id FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
                             LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))

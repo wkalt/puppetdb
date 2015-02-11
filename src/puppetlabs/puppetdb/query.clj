@@ -727,7 +727,7 @@
               :params [value]}
 
              ["latest_report?"]
-             {:where (format "resource_events.report %s (SELECT latest_reports.report FROM latest_reports)"
+             {:where (format "resource_events.report_id %s (SELECT latest_reports.report_id FROM latest_reports)"
                              (if value "IN" "NOT IN"))}
 
              ["environment"]
