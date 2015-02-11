@@ -69,11 +69,25 @@ Puppet::Reports.register_report(:puppetdb) do
     end
   end
 
-  # @return Number
-  # @api private
-  def run_duration
-    # TODO: this is wrong in puppet.  I am consistently seeing reports where
-    # start-time + this value is less than the timestamp on the individual
+  def build_metrics_list
+    profile("Build metrics list (count: #{metrics.count})",
+            [:puppetdb, :metrics_list, :build]) do
+    metrics_list = []
+    metrics.each do |metric|
+      metric_hash = {
+        "name" => metric.name,
+        "category" => metric.category,
+        "value" => metric.value,
+      }
+      end)
+    end
+end
+
+# @return Number
+# @api private
+def run_duration
+  # TODO: this is wrong in puppet.  I am consistently seeing reports where
+  # start-time + this value is less than the timestamp on the individual
     # resource events.  Not sure what the best short-term fix is yet; the long
     # term fix is obviously to make the correct data available in puppet.
     # I've filed a ticket against puppet here:
