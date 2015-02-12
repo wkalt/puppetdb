@@ -1154,7 +1154,7 @@
                                                 (utils/update-when [:containment_path] array-fn)
                                                 (assoc :containing_class (find-containing-class (% :containment_path)))
                                                 (assoc :report_id report-id))
-                                           resource-events)]
+                                           resource_events)]
 
               (apply sql/insert-records :resource_events resource-event-rows)
 

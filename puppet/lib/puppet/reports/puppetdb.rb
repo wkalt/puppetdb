@@ -1,6 +1,7 @@
 require 'puppet'
 require 'puppet/util/puppetdb'
 require 'puppet/util/puppetdb/command_names'
+require 'pp'
 
 Puppet::Reports.register_report(:puppetdb) do
   include Puppet::Util::Puppetdb
@@ -83,12 +84,15 @@ Puppet::Reports.register_report(:puppetdb) do
           'level' => log.level,
           'message' => log.message,
           'source' => log.source,
-          'tags' => log.tags,
+          'tags' => [*log.tags],
           'time' => Puppet::Util::Puppetdb.to_wire_time(log.time),
         }
         log_list.push(log_hash)
       end
 
+      pp "LOG IST ISL"
+      pp log_list
+      pp log_list
       log_list
     end
   end
