@@ -1141,14 +1141,13 @@
      :metrics (zipmap metrics values)}))
 
 (defn populate-metric
-  [hash metric]
-  (let [category-id (get category-ids (:category metric))]
-    (doseq [m (:metrics metric)]
-      (let [name-id (ensure-metric-name (key m) category-id)]
+  [hash m]
+  (let [category-id (get category-ids (:category m))]
+      (let [name-id (ensure-metric-name (:name m) category-id)]
         (sql/insert-record :report_metrics
                            {:name_id name-id
                             :report_id (ensure-report-id hash)
-                            :value (val m)})))))
+                            :value (:value m)}))))
 
 
 (defn add-report!*

@@ -141,10 +141,10 @@
     (-> clause
         (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
         (str/replace #"hash" "COALESCE(distinct_names.hash, '')"))
-    :reports
-    (-> clause
-        (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
-        (str/replace #"status" "COALESCE(distinct_names.status, '')"))
+    ;:reports
+    ;(-> clause
+    ;    (str/replace #"environment" "COALESCE(distinct_names.environment, '')")
+    ;    (str/replace #"status" "COALESCE(distinct_names.status, '')"))
     clause))
 
 (defn paged-sql
@@ -222,9 +222,9 @@
        :factsets
        (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT certname
             from (%s) paged_sql) results_to_count" sql)
-      ; :reports
-      ; (format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT transaction_uuid
-      ;         from (%s) paged_sql) results_to_count" sql)
+       ;:reports
+       ;(format "SELECT COUNT(*) AS result_count FROM (SELECT DISTINCT transaction_uuid
+       ;        from (%s) paged_sql) results_to_count" sql)
        (format "SELECT COUNT(*) AS result_count FROM (%s) results_to_count" sql))))
 
 (defn get-result-count

@@ -101,11 +101,8 @@ Puppet::Reports.register_report(:puppetdb) do
               metrics_list = []
               metrics.each do |metric_kv|
                 metric = metric_kv[1]
-                metric_hash = {
-                  "category" => metric.name,
-                  "metrics" => metric.values.map {|x| {x.first => x.last}}.inject(:merge)
-                }
-                metrics_list.push(metric_hash)
+                metric_hashes = metric.values.map {|x| {"category" => metric.name, "name" => x.first, "value" => x.last}}
+                metrics_list.concat(metric_hashes)
               end
               metrics_list
             end
