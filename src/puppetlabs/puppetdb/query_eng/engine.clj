@@ -176,6 +176,7 @@
                          "report_format" :number
                          "configuration_version" :string
                          "logs" :string
+                         "metrics" :string
                          "old_value" :string
                          "new_value" :string
                          "timestamp" :timestamp
@@ -201,7 +202,8 @@
                :subquery? false
                :entity :reports
                :source-table "reports"
-               :source "select reports.hash,
+               :source "
+               select reports.hash,
                        reports.certname,
                        reports.puppet_version,
                        reports.report_format,
@@ -224,6 +226,17 @@
                         FROM logs as l
                         LEFT OUTER JOIN log_levels as ll ON ll.id = l.level_id
                         WHERE l.report_id = reports.id) as logs,
+
+                       (SELECT json_agg(
+                         json_build_object(
+                           'category', mc.category,
+                           'value', rm.value,
+                           'name', mn.name))
+                       FROM report_metrics as rm
+                       INNER JOIN metrics_names mn on rm.name_id=mn.id
+                       INNER JOIN metrics_categories mc on mc.id = mn.category_id
+                       WHERE rm.report_id = reports.id) as metrics,
+
                        reports.hash as report,
                        re.status as event_status,
                        re.timestamp,
@@ -240,7 +253,8 @@
                        FROM reports
                        INNER JOIN resource_events re on reports.id=re.report_id
                        LEFT OUTER JOIN environments on reports.environment_id = environments.id
-                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id"}))
+                       LEFT OUTER JOIN report_statuses on reports.status_id = report_statuses.id
+                       "}))
 
 (def catalog-query
   "Query for the top level catalogs entity"

@@ -18,6 +18,7 @@
    :report_format s/Int
    :configuration_version String
    :logs (s/maybe s/Any)
+   :metrics (s/maybe s/Any)
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
@@ -62,6 +63,7 @@
    :resource_events [resource-event-schema]
    :transaction_uuid String
    :status (s/maybe String)
+   :metrics (s/maybe s/Any)
    :logs (s/maybe s/Any)})
 
 (def report-columns
@@ -76,6 +78,7 @@
    :environment
    :configuration_version
    :certname
+   :metrics
    :logs])
 
 (defn create-report-pred

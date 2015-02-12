@@ -50,6 +50,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
         "logs"                    => build_logs_list,
+        "report_metrics"          => build_metrics_list,
       }
     end
   end
@@ -90,11 +91,24 @@ Puppet::Reports.register_report(:puppetdb) do
         log_list.push(log_hash)
       end
 
-      pp "LOG IST ISL"
-      pp log_list
-      pp log_list
       log_list
     end
+  end
+
+  def build_metrics_list
+    profile("Build metrics list (count: #{metrics.count})",
+            [:puppetdb, :metrics_list, :build]) do
+              metrics_list = []
+              metrics.each do |metric_kv|
+                metric = metric_kv[1]
+                metric_hash = {
+                  "category" => metric.name,
+                  "metrics" => metric.values.map {|x| {x.first => x.last}}.inject(:merge)
+                }
+                metrics_list.push(metric_hash)
+              end
+              metrics_list
+            end
   end
 
   # @return Number

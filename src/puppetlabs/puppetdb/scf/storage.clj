@@ -59,6 +59,12 @@
           (s/optional-key :aliases)#{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
 
+(def category-ids
+  {"time" 0
+   "resources" 1
+   "events" 2
+   "changes" 3})
+
 (def resource-ref->resource-schema
   {resource-ref-schema resource-schema})
 
@@ -283,7 +289,7 @@
   [table :- s/Keyword
    row-map :- {s/Keyword s/Any}]
   (let [cols (keys row-map)
-        where-clause (str "where " (str/join " " (map (fn [col] (str (name col) "=?") ) cols)))]
+        where-clause (str "where " (str/join " and " (map (fn [col] (str (name col) "=?") ) cols)))]
     (sql/with-query-results rs (apply vector (format "select id from %s %s" (name table) where-clause) (map row-map cols))
       (:id (first rs)))))
 
@@ -296,6 +302,14 @@
     (if-let [id (query-id table row-map)]
       id
       (create-row table row-map))))
+
+(pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
+  [metric-name category-id]
+  (ensure-row :metrics_names {:name (name metric-name) :category_id category-id}))
+
+(pls/defn-validated ensure-report-id :- (s/maybe s/Int)
+  [hash]
+  (ensure-row :reports {:hash hash}))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Environments querying/updating
@@ -1113,6 +1127,30 @@
     (dissoc row-map :environment_id)
     row-map))
 
+(defn generate-metric
+  []
+  (let [all-categories ["time" "resources" "events" "changes"]
+        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
+                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
+                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
+        n (inc (rand-int 20))
+        category (rand-nth all-categories)
+        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
+        values (take n (repeatedly rand))]
+    {:category category
+     :metrics (zipmap metrics values)}))
+
+(defn populate-metric
+  [hash metric]
+  (let [category-id (get category-ids (:category metric))]
+    (doseq [m (:metrics metric)]
+      (let [name-id (ensure-metric-name (key m) category-id)]
+        (sql/insert-record :report_metrics
+                           {:name_id name-id
+                            :report_id (ensure-report-id hash)
+                            :value (val m)})))))
+
+
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1120,7 +1158,7 @@
   scenarios."
   [{:keys [puppet_version certname report_format configuration_version
            start_time end_time resource_events transaction_uuid environment
-           status logs]
+           status logs report_metrics]
     :as report}
    timestamp
    update-latest-report?]
@@ -1166,6 +1204,8 @@
                                    (dissoc :level))
                                   logs)]
                 (apply sql/insert-records :logs log-rows))
+              (doseq [m report_metrics]
+                (populate-metric report-hash m))   
               (if update-latest-report?
                 (update-latest-report! certname)))))))
 

@@ -21,6 +21,7 @@
    :status                   {:optional? true
                               :type :string}
    :logs                     :coll
+   :report_metrics           :coll
    })
 
 (def report-fields
