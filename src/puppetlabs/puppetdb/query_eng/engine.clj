@@ -61,8 +61,8 @@
                             LEFT OUTER JOIN catalogs ON certnames.name = catalogs.certname
                             LEFT OUTER JOIN factsets as fs ON certnames.name = fs.certname
                             LEFT OUTER JOIN reports ON certnames.name = reports.certname
-                             AND reports.hash
-                               IN (SELECT report FROM latest_reports)
+                             AND reports.id
+                               IN (SELECT report_id FROM latest_reports)
                             LEFT OUTER JOIN environments AS catalog_environment ON catalog_environment.id = catalogs.environment_id
                             LEFT OUTER JOIN environments AS facts_environment ON facts_environment.id = fs.environment_id
                             LEFT OUTER JOIN environments AS reports_environment ON reports_environment.id = reports.environment_id"}))
@@ -175,6 +175,7 @@
                          "puppet_version" :string
                          "report_format" :number
                          "configuration_version" :string
+                         "logs" :string
                          "old_value" :string
                          "new_value" :string
                          "timestamp" :timestamp
@@ -211,6 +212,18 @@
                        reports.transaction_uuid,
                        environments.name as environment,
                        report_statuses.status as status,
+                       (SELECT json_agg(
+                         json_build_object(
+                           'level', ll.level,
+                           'message', l.message,
+                           'source', l.source,
+                           'tags', l.tags,
+                           'time', l.time,
+                           'file', l.file,
+                           'line', l.line))
+                        FROM logs as l
+                        LEFT OUTER JOIN log_levels as ll ON ll.id = l.level_id
+                        WHERE l.report_id = reports.id) as logs,
                        reports.hash as report,
                        re.status as event_status,
                        re.timestamp,

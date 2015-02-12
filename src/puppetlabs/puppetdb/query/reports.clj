@@ -17,6 +17,7 @@
    :puppet_version String
    :report_format s/Int
    :configuration_version String
+   :logs (s/maybe s/Any)
    :start_time pls/Timestamp
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
@@ -60,7 +61,8 @@
    :configuration_version String
    :resource_events [resource-event-schema]
    :transaction_uuid String
-   :status (s/maybe String)})
+   :status (s/maybe String)
+   :logs (s/maybe s/Any)})
 
 (def report-columns
   [:hash
@@ -73,7 +75,8 @@
    :status
    :environment
    :configuration_version
-   :certname])
+   :certname
+   :logs])
 
 (defn create-report-pred
   [rows]

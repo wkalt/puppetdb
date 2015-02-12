@@ -21,7 +21,13 @@
   (generate/add-encoder
    org.joda.time.DateTime
    (fn [data jsonGenerator]
-     (.writeString jsonGenerator (coerce/to-string data)))))
+     (.writeString jsonGenerator (coerce/to-string data))))
+
+  (generate/add-encoder
+   org.postgresql.util.PGobject
+   (fn [data jsonGenerator]
+     ;; Naive, assumes sequences always
+     (generate/encode-seq (core/parse-string (.toString data)) jsonGenerator))))
 
 (def
   ^{:doc "Registers some common encoders for cheshire JSON encoding.
