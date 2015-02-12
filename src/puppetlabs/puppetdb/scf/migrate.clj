@@ -1055,7 +1055,7 @@
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('report_metrics_id_seq')"]
                     ["report_id" "bigint REFERENCES reports(id)"]
                     ["name_id" "bigint NOT NULL REFERENCES metrics_names(id)"]
-                    ["value" "NUMERIC(6)"]))
+                    ["value" "double precision"]))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
