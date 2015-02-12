@@ -51,6 +51,19 @@
 
 (def cli-description "Development-only benchmarking tool")
 
+(defn generate-metric
+  []
+  (let [all-categories ["time" "resources" "events" "changes"]
+        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
+                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
+                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
+        n (inc (rand-int 20))
+        category (rand-nth all-categories)
+        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
+        values (take n (repeatedly rand))]
+    {:category category
+     :metrics (zipmap metrics values)}))
+
 (defn try-load-file
   "Attempt to read and parse the JSON in `file`. If this failed, an error is
   logged, and nil is returned."
@@ -123,7 +136,8 @@
   (assoc report
     "configuration-version" (ks/uuid)
     "start-time" (time/now)
-    "end-time" (time/now)))
+    "end-time" (time/now)
+    "report-metrics" (generate-metric)))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
