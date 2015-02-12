@@ -1154,6 +1154,8 @@
   {:pre [(map? report)
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
+
+  (println "REPORT METRICS ARE" report-metrics)
   (let [report-hash         (shash/report-identity-hash report)
         containment-path-fn (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
         resource-event-rows (map #(-> %

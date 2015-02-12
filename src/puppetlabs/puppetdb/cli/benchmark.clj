@@ -137,7 +137,7 @@
     "configuration-version" (ks/uuid)
     "start-time" (time/now)
     "end-time" (time/now)
-    "report-metrics" (generate-metric)))
+    "report-metrics" [ (generate-metric)]))
 
 (defn randomize-map-leaf
   "Randomizes a fact leaf based on a percentage provided with `rp`."
