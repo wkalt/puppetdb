@@ -1127,28 +1127,12 @@
     (dissoc row-map :environment_id)
     row-map))
 
-(defn generate-metric
-  []
-  (let [all-categories ["time" "resources" "events" "changes"]
-        all-metrics ["alpha" "beta" "gamma" "delta" "epsilon" "zeta" "eta"
-                 "theta" "iota" "kappa" "lambda" "mu" "nu" "xi" "omicron"
-                 "pi" "rho" "sigma" "tau" "upsilon" "phi" "chi" "psi" "omega"]
-        n (inc (rand-int 20))
-        category (rand-nth all-categories)
-        metrics (into #{} (take n (repeatedly #(rand-nth all-metrics))))
-        values (take n (repeatedly rand))]
-    {:category category
-     :metrics (zipmap metrics values)}))
-
-(defn populate-metric
-  [hash m]
-  (let [category-id (get category-ids (:category m))]
-      (let [name-id (ensure-metric-name (:name m) category-id)]
-        (sql/insert-record :report_metrics
-                           {:name_id name-id
-                            :report_id (ensure-report-id hash)
-                            :value (:value m)}))))
-
+(defn create-metrics-rows
+  [report-hash {:keys [name category value]}]
+  (let [category-id (get category-ids category)]
+    {:name_id (ensure-metric-name name category-id)
+     :report_id (ensure-report-id report-hash)
+     :value value}))
 
 (defn add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
@@ -1157,7 +1141,7 @@
   scenarios."
   [{:keys [puppet_version certname report_format configuration_version
            start_time end_time resource_events transaction_uuid environment
-           status logs report_metrics]
+           status logs]
     :as report}
    timestamp
    update-latest-report?]
@@ -1165,7 +1149,8 @@
          (kitchensink/datetime? timestamp)
          (kitchensink/boolean? update-latest-report?)]}
   (let [report-hash (shash/report-identity-hash report)
-        array-fn    (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))]
+        array-fn    (fn [cp] (if-not (nil? cp) (sutils/to-jdbc-varchar-array cp)))
+        report-metrics (:metrics report)]
     (time! (:store-report metrics)
            (sql/transaction
             (let [insert-results
@@ -1201,10 +1186,10 @@
                                    (assoc :level_id (ensure-log-level (% :level)))
                                    (assoc :report_id report-id)
                                    (dissoc :level))
-                                  logs)]
-                (apply sql/insert-records :logs log-rows))
-              (doseq [m report_metrics]
-                (populate-metric report-hash m))   
+                                  logs)
+                    metrics-rows (map (partial create-metrics-rows report-hash) report-metrics)]
+                (apply sql/insert-records :logs log-rows)
+                (apply sql/insert-records :report_metrics metrics-rows))
               (if update-latest-report?
                 (update-latest-report! certname)))))))
 

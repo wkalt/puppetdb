@@ -50,7 +50,7 @@ Puppet::Reports.register_report(:puppetdb) do
         "transaction_uuid"        => transaction_uuid,
         "status"                  => status,
         "logs"                    => build_logs_list,
-        "report_metrics"          => build_metrics_list,
+        "metrics"                 => build_metrics_list,
       }
     end
   end
