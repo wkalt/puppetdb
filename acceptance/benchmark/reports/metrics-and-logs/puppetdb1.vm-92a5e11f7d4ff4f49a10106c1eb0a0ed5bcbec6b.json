@@ -1,0 +1,354 @@
+{
+  "transaction_uuid" : "8a56e682-e98c-400b-a4d1-d01c523dc01c",
+  "puppet_version" : "3.7.2",
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.67 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:20:51.876+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "content changed '{md5}df14e44b311152c34358a675ae34afe0' to '{md5}02f9276315f9a84c0fd8c9dd08514268'",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/tmp/file]/content",
+    "tags" : [ "notice", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.746+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 169
+  }, {
+    "level" : "info",
+    "message" : "Filebucketed /tmp/file to puppet with sum df14e44b311152c34358a675ae34afe0",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/tmp/file]",
+    "tags" : [ "info", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.743+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 169
+  }, {
+    "level" : "info",
+    "message" : "Computing checksum on file /tmp/file",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:51.738+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /tmp/file\t2015-02-13 12:31:47.595262274 +0000\n+++ /tmp/puppet-file20150213-57436-hnkslx\t2015-02-13 13:20:51.706812969 +0000\n@@ -1 +1 @@\n-test contents\n\\ No newline at end of file\n+test contents footest contents foo\n\\ No newline at end of file\n",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/tmp/file]/content",
+    "tags" : [ "notice", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm", "content" ],
+    "time" : "2015-02-13T13:20:51.737+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 169
+  }, {
+    "level" : "notice",
+    "message" : "Triggered 'refresh' from 2 events",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]",
+    "tags" : [ "notice", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.706+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "notice",
+    "message" : "executed successfully",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/returns",
+    "tags" : [ "notice", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.667+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]",
+    "tags" : [ "info", "file", "concat::fragment", "concat", "fragment", "tmpfile", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.59+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "content changed '{md5}df14e44b311152c34358a675ae34afe0' to '{md5}3a010064e9f94f26236ba1167c7ee125'",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]/content",
+    "tags" : [ "notice", "file", "concat::fragment", "concat", "fragment", "tmpfile", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.589+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile\t2015-02-13 12:31:47.407268205 +0000\n+++ /tmp/puppet-file20150213-57436-10movs2\t2015-02-13 13:20:51.558817113 +0000\n@@ -1 +1 @@\n-test contents\n\\ No newline at end of file\n+test contents foo\n\\ No newline at end of file\n",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]/content",
+    "tags" : [ "notice", "file", "concat::fragment", "concat", "fragment", "tmpfile", "class", "loadtest", "node", "puppetdb1.vm", "content" ],
+    "time" : "2015-02-13T13:20:51.586+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "info",
+    "message" : "Scheduling refresh of Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]",
+    "tags" : [ "info", "file", "concat::fragment", "concat", "fragment", "tmpfile2", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.558+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}3a010064e9f94f26236ba1167c7ee125'",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]/ensure",
+    "tags" : [ "notice", "file", "concat::fragment", "concat", "fragment", "tmpfile2", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.558+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.431+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:20:51.43+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "content changed '{md5}a3f731187a6aaaa23d4a7b244f223f33' to '{md5}2ad29fb572566510afe1a228738880ee'",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "notice", "file", "class", "motd", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:51.354+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /etc/motd\t2015-02-13 13:05:15.677361528 +0000\n+++ /tmp/puppet-file20150213-57436-1qxvndp\t2015-02-13 13:20:51.302824279 +0000\n@@ -1 +1,3 @@\n-Welcome to my test host!\n\\ No newline at end of file\n+The operating system is Debian\n+The free memory is 1.08 GB\n+The domain is vm\n",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "notice", "file", "class", "motd", "loadtest", "node", "puppetdb1.vm", "content" ],
+    "time" : "2015-02-13T13:20:51.351+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833650'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:51.268+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:51.124+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:49.434+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:48.992+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:48.953+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:20:48.861Z",
+  "end_time" : "2015-02-13T13:20:50.352Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}2ad29fb572566510afe1a228738880ee",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}a3f731187a6aaaa23d4a7b244f223f33",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:20:51.352Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "content changed '{md5}a3f731187a6aaaa23d4a7b244f223f33' to '{md5}2ad29fb572566510afe1a228738880ee'"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:20:51.430Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+    "timestamp" : "2015-02-13T13:20:51.555Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile2]", "File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]" ],
+    "message" : "defined content as '{md5}3a010064e9f94f26236ba1167c7ee125'"
+  }, {
+    "new_value" : "{md5}3a010064e9f94f26236ba1167c7ee125",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "{md5}df14e44b311152c34358a675ae34afe0",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+    "timestamp" : "2015-02-13T13:20:51.587Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile]", "File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]" ],
+    "message" : "content changed '{md5}df14e44b311152c34358a675ae34afe0' to '{md5}3a010064e9f94f26236ba1167c7ee125'"
+  }, {
+    "new_value" : [ "0" ],
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "notrun",
+    "line" : 187,
+    "resource_type" : "Exec",
+    "status" : "success",
+    "resource_title" : "concat_/tmp/file",
+    "timestamp" : "2015-02-13T13:20:51.629Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "Exec[concat_/tmp/file]" ],
+    "message" : "executed successfully"
+  }, {
+    "new_value" : "{md5}02f9276315f9a84c0fd8c9dd08514268",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "{md5}df14e44b311152c34358a675ae34afe0",
+    "line" : 169,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/tmp/file",
+    "timestamp" : "2015-02-13T13:20:51.738Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/tmp/file]" ],
+    "message" : "content changed '{md5}df14e44b311152c34358a675ae34afe0' to '{md5}02f9276315f9a84c0fd8c9dd08514268'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833650",
+  "environment" : "production",
+  "certname" : "puppetdb1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 4.99271E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 1.073164953,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.076675148,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.15880302899999998,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 6.5343E-5,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.025177189,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.46739E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.001444325,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.029295373000000006,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 5.679140000000001E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.12480786499999999,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 1.491058733,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 2.11584E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 6,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 6,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 6,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 6,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 6,
+    "name" : "total"
+  } ]
+}

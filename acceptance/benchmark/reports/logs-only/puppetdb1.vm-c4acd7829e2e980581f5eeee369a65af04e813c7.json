@@ -1,0 +1,89 @@
+{
+  "transaction_uuid" : "9c58848f-2fe6-45f2-a394-7deeacdd1651",
+  "puppet_version" : "3.7.2",
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.47 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:30:27.33+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:30:27.041+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:30:27.04+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423834124'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:30:26.924+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:30:26.775+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:30:25.488+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:30:25.035+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:30:24.998+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:30:24.900Z",
+  "end_time" : "2015-02-13T13:30:25.788Z",
+  "resource_events" : [ {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:30:27.040Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423834124",
+  "environment" : "production",
+  "certname" : "puppetdb1.vm"
+}
