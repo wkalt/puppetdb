@@ -1,0 +1,469 @@
+{
+  "transaction_uuid" : "1fe685d2-cf15-46ba-8a07-84854c584703",
+  "puppet_version" : "3.7.1",
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:28:41.219Z",
+  "end_time" : "2015-02-13T13:28:44.696Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}a3f731187a6aaaa23d4a7b244f223f33",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}d41d8cd98f00b204e9800998ecf8427e",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:28:46.797Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "current_value {md5}d41d8cd98f00b204e9800998ecf8427e, should be {md5}a3f731187a6aaaa23d4a7b244f223f33 (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "old_value" : "absent",
+    "line" : 76,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "snmp-client",
+    "timestamp" : "2015-02-13T13:28:46.980Z",
+    "containment_path" : [ "Stage[main]", "Snmp::Client", "Package[snmp-client]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "latest",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 41,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "etckeeper",
+    "timestamp" : "2015-02-13T13:28:47.026Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Package[etckeeper]" ],
+    "message" : "current_value absent, should be latest (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 405,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "snmpd",
+    "timestamp" : "2015-02-13T13:28:47.069Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "Package[snmpd]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "noop",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:28:47.072Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "current_value absent, should be foo (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "stopped",
+    "line" : 4,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "cron",
+    "timestamp" : "2015-02-13T13:28:47.177Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Service[cron]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 465,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmptrapd.sysconfig",
+    "timestamp" : "2015-02-13T13:28:47.182Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmptrapd.sysconfig]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 441,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmpd.sysconfig",
+    "timestamp" : "2015-02-13T13:28:47.191Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmpd.sysconfig]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "{md5}eb918d28434c9fefcc05875c29c3ba1a",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/ntp/manifests/config.pp",
+    "old_value" : "{md5}7fda24f62b1c7ae951db0f746dc6e0cc",
+    "line" : 14,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/ntp.conf",
+    "timestamp" : "2015-02-13T13:28:47.224Z",
+    "containment_path" : [ "Stage[main]", "Ntp::Config", "File[/etc/ntp.conf]" ],
+    "message" : "current_value {md5}7fda24f62b1c7ae951db0f746dc6e0cc, should be {md5}eb918d28434c9fefcc05875c29c3ba1a (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 45,
+    "resource_type" : "Ini_setting",
+    "status" : "noop",
+    "resource_title" : "sample setting",
+    "timestamp" : "2015-02-13T13:28:47.231Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Ini_setting[sample setting]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 410,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "var-net-snmp",
+    "timestamp" : "2015-02-13T13:28:47.234Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[var-net-snmp]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/ntp/manifests/service.pp",
+    "old_value" : "stopped",
+    "line" : 9,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "ntp",
+    "timestamp" : "2015-02-13T13:28:47.393Z",
+    "containment_path" : [ "Stage[main]", "Ntp::Service", "Service[ntp]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 69,
+    "resource_type" : "Gnupg_key",
+    "status" : "noop",
+    "resource_title" : "hkp_server_20BC0A86",
+    "timestamp" : "2015-02-13T13:28:47.439Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Gnupg_key[hkp_server_20BC0A86]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 453,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmptrapd.conf",
+    "timestamp" : "2015-02-13T13:28:47.699Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmptrapd.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 144,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file",
+    "timestamp" : "2015-02-13T13:28:47.701Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 159,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments.concat",
+    "timestamp" : "2015-02-13T13:28:47.703Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments.concat]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 164,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments.concat.out",
+    "timestamp" : "2015-02-13T13:28:47.705Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments.concat.out]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "directory",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 149,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments",
+    "timestamp" : "2015-02-13T13:28:47.919Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/var/lib/puppet/concat/_tmp_file/fragments]" ],
+    "message" : "current_value absent, should be directory (noop)"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+    "timestamp" : "2015-02-13T13:28:47.921Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile2]", "File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]" ],
+    "message" : "current_value absent, should be file (noop)"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+    "timestamp" : "2015-02-13T13:28:47.989Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile]", "File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]" ],
+    "message" : "current_value absent, should be file (noop)"
+  }, {
+    "new_value" : [ "0" ],
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : "notrun",
+    "line" : 187,
+    "resource_type" : "Exec",
+    "status" : "noop",
+    "resource_title" : "concat_/tmp/file",
+    "timestamp" : "2015-02-13T13:28:48.056Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "Exec[concat_/tmp/file]" ],
+    "message" : "current_value notrun, should be 0 (noop)"
+  }, {
+    "new_value" : null,
+    "property" : null,
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "old_value" : null,
+    "line" : 169,
+    "resource_type" : "File",
+    "status" : "failure",
+    "resource_title" : "/tmp/file",
+    "timestamp" : "2015-02-13T13:28:48.062Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat[/tmp/file]", "File[/tmp/file]" ],
+    "message" : "Could not retrieve information from environment production source(s) file:/var/lib/puppet/concat/_tmp_file/fragments.concat.out"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 429,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmpd.conf",
+    "timestamp" : "2015-02-13T13:28:48.067Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "File[snmpd.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "running",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "old_value" : "stopped",
+    "line" : 517,
+    "resource_type" : "Service",
+    "status" : "noop",
+    "resource_title" : "snmpd",
+    "timestamp" : "2015-02-13T13:28:48.164Z",
+    "containment_path" : [ "Stage[main]", "Snmp", "Service[snmpd]" ],
+    "message" : "current_value stopped, should be running (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/git/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 12,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "git",
+    "timestamp" : "2015-02-13T13:28:48.351Z",
+    "containment_path" : [ "Stage[main]", "Git", "Package[git]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 60,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-pip",
+    "timestamp" : "2015-02-13T13:28:48.609Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-pip]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 61,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-devel",
+    "timestamp" : "2015-02-13T13:28:48.637Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-devel]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "old_value" : "absent",
+    "line" : 59,
+    "resource_type" : "Package",
+    "status" : "noop",
+    "resource_title" : "python-virtualenv",
+    "timestamp" : "2015-02-13T13:28:48.688Z",
+    "containment_path" : [ "Stage[main]", "Python::Install", "Package[python-virtualenv]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "old_value" : "absent",
+    "line" : 85,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "snmp.conf",
+    "timestamp" : "2015-02-13T13:28:48.694Z",
+    "containment_path" : [ "Stage[main]", "Snmp::Client", "File[snmp.conf]" ],
+    "message" : "current_value absent, should be present (noop)"
+  } ],
+  "status" : "failed",
+  "configuration_version" : "1423834124",
+  "environment" : "production",
+  "certname" : "pg2.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 0.001149,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.050034,
+    "name" : "augeas"
+  }, {
+    "category" : "time",
+    "value" : 1.71986413002014,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.451339,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.322403,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.29E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.041761,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 8.04E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 8.86E-4,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.257424,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 6.36E-4,
+    "name" : "postgresql_conf"
+  }, {
+    "category" : "time",
+    "value" : 0.053516,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.576265,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 3.47621013002014,
+    "name" : "total"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 29,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 88,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 28,
+    "name" : "noop"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 29,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 0,
+    "name" : "total"
+  } ]
+}

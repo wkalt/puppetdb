@@ -1,0 +1,1978 @@
+{
+  "transaction_uuid" : "eec7bb9d-51b8-4b56-9957-21af1074f849",
+  "puppet_version" : "3.7.2",
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.70 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:21:49.651+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:21:49.203+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:21:49.202+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "content changed '{md5}2ad29fb572566510afe1a228738880ee' to '{md5}a881a6c660d453a2ce6961748846269f'",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "notice", "file", "class", "motd", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:21:49.111+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "notice",
+    "message" : "\n--- /etc/motd\t2015-02-13 13:20:51.350822935 +0000\n+++ /tmp/puppet-file20150213-58323-ujv4x\t2015-02-13 13:21:49.077226326 +0000\n@@ -1,3 +1,3 @@\n The operating system is Debian\n-The free memory is 1.08 GB\n+The free memory is 1.07 GB\n The domain is vm\n",
+    "source" : "/Stage[main]/Motd/File[/etc/motd]/content",
+    "tags" : [ "notice", "file", "class", "motd", "loadtest", "node", "puppetdb1.vm", "content" ],
+    "time" : "2015-02-13T13:21:49.108+00:00",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "line" : 33
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833650'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:21:49.04+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:21:48.881+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:21:47.363+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}232dff623067f137bff364c67186dc05'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_cmd.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.347+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e7f968c34928107b84cd0860daf50ab1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/parsejson.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.316+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}10e0d3ecf75fac15e415aee79acf70dc'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_float.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.285+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6f7667742d9f6d192cd202be0014dd85'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/firewall.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.25+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}0ec76f54afd94201f35785dfeb2092b5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/chop.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.218+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e02e01a598ca5d7d6eee0ba22440304a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/strftime.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.185+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}0fed7f40f3de82c6490ac241cea46b3a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/cvs.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.155+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2492d446adbb68f678e86a75eb7ff3bd'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod/gentoo.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.122+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ab01ce68140bbdd84162a519a14ece3b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/getvar.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.091+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}325a899e0201e8df5bd483fec6f12d76'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/values_at.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.059+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bfe3202efcecfe8f5fa98282594f7bed'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database_grant/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:47.028+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}37be809c17902c1ecf9bb2b20f0bfacd'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/fqdn_rotate.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.995+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b32d4a3925753b2eb2c318cbd7f14404'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/delete_undef_values.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.963+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}54eb3e1aa73dc7b347e2e20970619968'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/package/npm.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.932+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}49afad7b386be38ce53deaefef326e85'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/str2saltedsha512.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.9+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}628428bbcd9313ce09783d9484330e09'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_function_available.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.87+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a328969caa34005ed047f30c87638bb9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/git_config/git_config.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.838+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c6664b3943bc820415a43f16372dc2a9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_re.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.783+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6678127386e77bbc0f09db7b5a32ab6a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/ensure_resource.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.752+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ff080677e7f192b9b96911698b0b9b3d'",
+    "source" : "/File[/var/lib/puppet/lib/facter/concat_basedir.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.722+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6b9a9e99a50ae6cc278337483aa7ba0f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewall/ip6tables.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.691+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a1eb7b8bf41b6c09beec9af90e1a41b4'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/gnupg_key/gnupg.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.639+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a89d5e802bc1e63e52020c2ddbaaca2c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/zip.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.608+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}62f914d6c90662aaae40c5539701be60'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/type.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.577+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}facbd760223f236538b731c1d1f6cf8f'",
+    "source" : "/File[/var/lib/puppet/lib/facter/iptables_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.547+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b234b54b8cd62b2d67ccd70489ffdccf'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/reverse.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.516+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}cf6a20877a27b1073d63fdd522af50bb'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_string.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.485+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e693b7c4b5366cff1380b6e0c7dd7b11'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_bool.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.455+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}08d88d52abd1e230e3a2f82107545d48'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/time.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.424+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}8bd810767eafda46956f7477ba917459'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/git.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.393+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}cd82d70a6af6c1b695126ee3e4ea7d00'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/file_line.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.362+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/._ini_setting]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.331+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}41845ccc3653bf32f5ee922b23f77981'",
+    "source" : "/File[/var/lib/puppet/lib/facter/pip_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.301+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}086a7a470f738c4cb4cfc44591f1c00a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/upcase.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.271+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ddb054a5fd03689ae4325fbe003a41d3'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/mysql_user.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.24+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}951bad007a3b5db035be069c1d1c9c09'",
+    "source" : "/File[/var/lib/puppet/lib/puppet_x/apt_key/patch_openuri.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.207+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet_x/apt_key]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.177+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}85d70ab95492e3e4ca5f0b5ec3f284a9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/strip.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.176+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b7a47827cd3d3bb1acbd526a31da3acb'",
+    "source" : "/File[/var/lib/puppet/lib/facter/iptables_persistent_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.145+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d8a05d1f3e5003c2024bd6415ebc2cf5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/ini_subsetting.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.115+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a285a05c015ae278608f6454aef211ea'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/join.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.063+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/._ini_setting.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.032+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ad3ea60262de408767786d37a54d45dc'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/pick_default.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:46.002+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c48f8286e4815e6858bbeb4a584a4fe5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_setting/ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.972+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4a9353952963b011759f3e6652a10da5'",
+    "source" : "/File[/var/lib/puppet/lib/facter/pe_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.941+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}7e67c213509b9383707819cc612b2a29'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_slength.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.91+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b8bbbc3179ea8e1c84952137cfc97cd0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/range.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.88+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}689f6a7c961a55fe9dcd240921f4c7f9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/reject.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.848+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}39b147f7d369bb5f809044b6341954a2'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/delete_values.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.818+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c7ddc97e8a84ded3dd93baa5b9b3283d'",
+    "source" : "/File[/var/lib/puppet/lib/facter/puppet_vardir.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.785+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b24a3cfc080ab6295729c344b950f6e6'",
+    "source" : "/File[/var/lib/puppet/lib/facter/python_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.753+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c4e09a85a5f0cc998d6c0173d709b983'",
+    "source" : "/File[/var/lib/puppet/lib/facter/apt_package_updates.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.72+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6c018f7d72d8fb20d295453f2389de60'",
+    "source" : "/File[/var/lib/puppet/lib/facter/apt_updates.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.69+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d9c8276acdceb7340d95f60c36dcdcc5'",
+    "source" : "/File[/var/lib/puppet/lib/facter/root_home.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.66+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d72123a9dbc408c52058a6a13429f34d'",
+    "source" : "/File[/var/lib/puppet/lib/facter/apt_security_updates.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.63+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}15c1ec06d198c8e7cf2339ca34211b7a'",
+    "source" : "/File[/var/lib/puppet/lib/facter/facter_dot_d.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.599+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bec3487d7e98f4a9d2ab106242e18bd8'",
+    "source" : "/File[/var/lib/puppet/lib/facter/git_exec_path.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.568+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a07c9627095656a2e1e8d36a48835fce'",
+    "source" : "/File[/var/lib/puppet/lib/facter/git_html_path.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.538+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}1f555ef563bffd9032d41cf0ee0aa5eb'",
+    "source" : "/File[/var/lib/puppet/lib/facter/virtualenv_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.507+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}9f1d2593d0ae56bfca89d4b9266aeee1'",
+    "source" : "/File[/var/lib/puppet/lib/facter/util/puppet_settings.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.477+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/facter/util]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.446+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}091123ad703f1706686bca4398c5b06f'",
+    "source" : "/File[/var/lib/puppet/lib/facter/ip6tables_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.445+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b3d84b1555831d31c86839318e702918'",
+    "source" : "/File[/var/lib/puppet/lib/facter/git_version.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.414+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/facter]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.361+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_setting/._ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.359+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}98ac7c8a44014681a243da2391b09de6'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewallchain/iptables_chain.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.328+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}88739d191642568aab222bca3fb79b8a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/firewall.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.294+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}afcd3f28b946b08db1b48fb189e6d8cf'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/ini_setting.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.242+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}082aa9131d7e5871935da409ee16a9fa'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/mysql_grant.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.212+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}66fce5df0f3f4111fe37f094965f6f93'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/database_grant.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.183+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}548676cc7da53598eb24268ebac38a0d'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/firewallchain.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.151+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}8a3fdbf03aa5e33e78000d1907048083'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/git_config.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.121+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e21a38611edc6cba5454889170bc0ebc'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/mysql_database.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.089+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/._ini_subsetting.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.059+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bbd36bb49c3b554f8602d8d3df366c0c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/anchor.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:45.022+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}9042ccc045bfeecca28bebb834114f05'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/a2mod.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.991+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}0427f46f99137cea53a45d19f2c918f0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/vcsrepo.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.96+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}58aea541abad95d51c3a92dcd65d9bc3'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/gnupg_key.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.93+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b2a87e3854324fb0ae407a1fbad5802a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/database_user.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.9+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}f4173764a09dcbf66375c2dbb53ab7aa'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/apt_key.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.869+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}7b4b49b841d41541ce719d1a051ee94b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/database.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.838+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.808+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bed19aaf4d9d06b646c554e1cdf37d2d'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/file_line/ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.806+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a649418f4c767d976f4bf13985575b3c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/setting_value.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.775+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4699238e4cad60e7e1428905523eaeb7'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_ipv6_address.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.746+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a8fb6f0ca36aa460d462c07c2af5d5a2'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_ipv4_address.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.715+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4490fb75f044bd43855b2962b8f6e301'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/dummy.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.682+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4638c351a373450495d6ce38e708ec67'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/uriescape.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.628+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}42faeabb8f5b245e1044c3dfc5712fde'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/apt_key/apt_key.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.598+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/apt_key]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.568+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database_grant]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.566+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}eb6ac815ea14fbf423580ed903ef7bad'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/keys.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.565+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}8c7d9a05084dab0389d1b779c8a05b1a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_hash.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.535+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a5081f6220da11fa043fdcc5c9fd2a08'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_subsetting/ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.504+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}8972d48c0f9e487d659bd7326b40b642'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/size.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.471+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6bc24b79390d463d8be95396c963381a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/delete_at.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.44+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c39b80e75e7d0666def31c2a6cdedb0b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod/redhat.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.41+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2bd9a652bbb2668323eee6c57729ff64'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_string.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.378+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}73121616d73339cf8dd10e0de61a6c50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/downcase.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.342+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}541f85b4203b55c9931d3d6ecd5c75f8'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/squeeze.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.311+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e31b95fbaf974cf853a510177368bfb9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/difference.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.278+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}100421e10f27f7adee4f53ec7778501c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_grant/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.248+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_grant]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.219+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d986d8e8373f3f31c97359381c180628'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod/a2mod.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.218+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}109e37ef3261f95ae19fcbccb280042d'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/ntp_dirname.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.184+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}5682995af458b05f3b53dd794c4bf896'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/grep.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.153+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}938b0602ea341e7062b011478e9fafb1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_database/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.121+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_subsetting/._ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.09+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}00f10ec1e2b050e23d80c256061ebdd7'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/parseyaml.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.06+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}05d5deeb6e0c31acee7c55b249ec8e06'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/bool2httpd.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:44.029+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bef7214eb89db3eb8f7ee5fc9dca0233'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/dirname.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.997+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}32161bd0435fdfc2aec2fc559d2b454b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/abs.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.946+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6320f1a50fd28ec027981cd1fb8ffdd0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/str2bool.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.892+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b4e4ada41f7c1d2fcad073ce6344980f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/rstrip.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.861+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/gnupg_key]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.83+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}65a45f4382ed5874eeea3f2c3e0729f1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/hg.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.829+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}bf01f13bbfe2318e7f6a302ac7c4433f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/pick.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.799+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}da00dfb4a67fd01d4756e6497d5ed7f1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/svn.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.769+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/._util]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.739+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}3efe69f1eb189b2913e178b8472aaede'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/mysql_strip_hash.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.708+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}71c67b71eac4b7f46a0dd22cb915d2e6'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/camelcase.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.678+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a81e71d6b67a551d38770ba9a1948a75'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/any2array.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.643+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}5c0cfccb20d5553e5a7d14ba1aa70fc5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/concat.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.612+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}f29da49531228f6ca5b3aa0df00a14c2'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/join_keys_to_values.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.582+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}605c12fa518c87ed2c66ae153e0686ce'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/num2bool.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.551+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d50f72b0aeb921e64d2482f62488e2f3'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/shuffle.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.521+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c1bb4a8aeebd09ba3e4c8bc3702cfd60'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/unique.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.491+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet_x]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.461+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2b7dc42f9967edd34cfa0ba9a97229ca'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/chomp.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.46+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}066a6e4170e5034edb9a80463dff2bb5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/values.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.43+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}da131748a9d32da9eb0b6438e39377eb'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/capitalize.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.399+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}10c0c508f88145d0cda948f26f97d86f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.369+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.339+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ae25adf92295df67ebd9edfabc9ecdd6'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/base64.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.337+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}3c5375ebf3e2dafa84903009f0f1f47c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/member.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.306+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}9304caa8c45685d741248fb167c47842'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/bzr.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.274+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a4c8ec72dede069508dbc266131b06a3'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/mysql_password.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.243+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}dbd72590771291f1db23a41ac048ed9d'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.189+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}f3dcc5c83440cdda2036cce69b61a14b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/merge.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.159+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}504b033b438461ca4f9764feeb017833'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/sort.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.129+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}0d2a1b7e735ab251c5469e735fa3f4c6'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/min.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.099+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}875ca4356cb0d7a10606fb146b4a3d11'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_array.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.067+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}20a9b1fa077c16f34e0ef5448b895698'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/lstrip.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.036+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d83696855578fb81b64b9e92b9c7cc7c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/deep_merge.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:43.006+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ee3a1d6193951939b492a69ef170faac'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/has_interface_with.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.975+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}65437027687b6172173b3a211a799e37'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/to_bytes.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.944+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b17a9f3cb0271451d309e4b4f52dd651'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/swapcase.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.912+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}c665be82686aa4729959bb42c66a7510'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_integer.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.881+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}aebbea0290be82a4ae89ddfffbee1125'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/prefix.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.85+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a5dc6980d7f27d1b858e791964682756'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/concat_is_bool.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.819+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}924ac4aceec7b896952166a7ec08fdb1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/intersection.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.789+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}42cad4c689231a51526c55a6f0985d1f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/floor.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}7654b44a87a05b2f2e9de2eaadf1ff8f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/concat_getparam.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.727+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2b5040ee8cd75a81cf881851e922833a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/mysql_deepmerge.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.696+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}109279db4180441e75545dbd5f273298'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/suffix.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.665+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}9d072527dfc7354b69292e9302906530'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/hash.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.634+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}137998fe47decf25aede20f0c0155a4c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/union.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.581+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}f953f5fc094c2ae3908a72d8840ba291'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/bool2num.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.55+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ffab4433d03f32b551f2ea024a2948fc'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/defined_with_params.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.519+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}0b6ca9d0550a39c1ca50fc3d1ecbc98c'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/empty.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.465+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2b912f257aa078e376d3b3f6a86c2a00'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/loadyaml.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.434+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}72b29289b8af1cfc3662ef9be78911b8'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_array.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.401+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4dd7a0e35f4a3780dcfc9b19b4e0006e'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/getparam.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.37+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}288bd4b38d4df42a83681f13e7eaaee0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_mac_address.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.339+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b4d726c8b2a0afac81ced8a3a28aa731'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/has_ip_network.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.309+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b57e68fca390759782885474dc3ab2d0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_augeas.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.279+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}f652fd0b46ef7d2fbdb42b141f8fdd1d'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/max.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.248+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}065102bb39f665d65420c97dda740a40'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/private.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.218+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}25777b76f9719162a8bab640e5595b7a'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/flatten.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.187+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}7cd9728c38f0b0065f832dabd62b0e7e'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/has_key.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.154+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}385137ac24a2dec6cecc4e6ea75be442'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_absolute_path.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.124+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}ee207f47906455a5aa49c4fb219dd325'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/has_ip_address.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.093+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}cf72726c0fec831eb703ec9deea739eb'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_domain_name.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.062+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}96e569dac96b8c9387e9303445d73048'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/delete.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:42.031+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}34497af8db94754542b9d4cfacc8a27f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/bool2str.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.999+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}93ddc9d4c0834a5e5e0562d7b3cdce91'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_numeric.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.969+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a714a736c1560e8739aaacd9030cca00'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/is_ip_address.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.939+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d4bf50da25c0b98d26b75354fa1bcc45'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/get_module_path.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.908+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a712634a000024398b3c6cd4ecc46463'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_bool.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.877+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}9eb74eccd93e2b3c87fd5ea14e329eba'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/count.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.846+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e9cfaca68751524efe16ecf2f958a9a0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/validate_hash.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.815+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}fbed5c0c9bf82b7746e01f15f89d184f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/ensure_packages.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.784+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.729+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.729+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}881f4f76b084054f7299fe2de596e4c9'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.728+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}69ad1eb930ca6d8d6b6faea343b4a22e'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/external_iterator.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.697+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}6162fa035df2af4b6600ca0c617769f4'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/ini_file.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.667+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b50a64e46a8b6cf10063ac4bb3d4ad41'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewall/iptables.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.638+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewall]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.607+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/._setting_value.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.606+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/git_config]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.576+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/._ini_file.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.575+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/package]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.543+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b324e3141913337d5592ebbcb2a7544e'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo/p4.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.542+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/vcsrepo]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.511+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/._type]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.509+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/._ini_file]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.478+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_setting]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.448+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}03ed73d680787dd126ea37a03be0b236'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.447+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}b689a1c83c9ccd8590399c67f3e588e5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod/modfix.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.416+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/a2mod]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.386+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}77757399ed9b9ce352ddcc8b8f9273c4'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/ini_file/section.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.385+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/ini_file/._section.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.355+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/ini_file]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.324+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}7eda6cfab27de90e3ee8f6517d2ae3a0'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_user/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.323+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_database]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.278+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewallchain]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.277+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}32d2f5e5dcc082986b82ef26a119038b'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/firewall.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.275+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/mysql_user]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.244+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e1160dfd6e73fc5ef2bb8abc291f6fd5'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/ipcidr.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.243+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}750717ecc21a3ece6a4668dd4bd61395'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util/._external_iterator.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.211+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/util]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.179+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/._ini_subsetting]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.178+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/file_line]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.147+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/ini_subsetting]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.146+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}070d74a10b4f1dd8bf73e2db3da75b50'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/._provider]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.144+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}26d55375b308ffa8cf9db68d0e039c5f'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database_user/mysql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.112+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/database_user]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.079+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.078+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:21:41.076+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:21:40.737+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:21:40.697+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:21:40.605Z",
+  "end_time" : "2015-02-13T13:21:41.780Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}a881a6c660d453a2ce6961748846269f",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}2ad29fb572566510afe1a228738880ee",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:21:49.109Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "content changed '{md5}2ad29fb572566510afe1a228738880ee' to '{md5}a881a6c660d453a2ce6961748846269f'"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:21:49.202Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833650",
+  "environment" : "production",
+  "certname" : "puppetdb1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.803270000000001E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.748441616,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.037898096,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.07364967899999998,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.11986E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.054657455,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.9634E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.001364863,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.061109330999999996,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 0.001096994,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.195849125,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 1.1754854350000001,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 3.29623E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 2,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 2,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 2,
+    "name" : "total"
+  } ]
+}

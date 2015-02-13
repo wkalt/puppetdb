@@ -1,0 +1,173 @@
+{
+  "transaction_uuid" : "441eb073-d81a-4c3d-9c75-8c4bb1ca1cd1",
+  "puppet_version" : "3.7.1",
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:26:28.549Z",
+  "end_time" : "2015-02-13T13:26:31.273Z",
+  "resource_events" : [ {
+    "new_value" : [ "0" ],
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "notrun",
+    "line" : 83,
+    "resource_type" : "Exec",
+    "status" : "noop",
+    "resource_title" : "postgresql_data_directory",
+    "timestamp" : "2015-02-13T13:26:34.422Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Exec[postgresql_data_directory]" ],
+    "message" : "current_value notrun, should be 0 (noop)"
+  }, {
+    "new_value" : "link",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config.pp",
+    "old_value" : "absent",
+    "line" : 120,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/sysconfig/pgsql/postgresql-8.4",
+    "timestamp" : "2015-02-13T13:26:34.425Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "File[/etc/sysconfig/pgsql/postgresql-8.4]" ],
+    "message" : "current_value absent, should be link (noop)"
+  }, {
+    "new_value" : 0,
+    "property" : "returns",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "need_to_run",
+    "line" : 90,
+    "resource_type" : "Augeas",
+    "status" : "noop",
+    "resource_title" : "override PGDATA in /etc/sysconfig/pgsql/postgresql",
+    "timestamp" : "2015-02-13T13:26:34.488Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Augeas[override PGDATA in /etc/sysconfig/pgsql/postgresql]" ],
+    "message" : "current_value need_to_run, should be 0 (noop)"
+  }, {
+    "new_value" : "present",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/postgresql/manifests/server/config_entry.pp",
+    "old_value" : "absent",
+    "line" : 105,
+    "resource_type" : "Postgresql_conf",
+    "status" : "noop",
+    "resource_title" : "data_directory",
+    "timestamp" : "2015-02-13T13:26:34.498Z",
+    "containment_path" : [ "Stage[main]", "Postgresql::Server::Config", "Postgresql::Server::Config_entry[data_directory]", "Postgresql_conf[data_directory]" ],
+    "message" : "current_value absent, should be present (noop)"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/manifests/site.pp",
+    "old_value" : "absent",
+    "line" : 6,
+    "resource_type" : "Notify",
+    "status" : "noop",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:26:35.125Z",
+    "containment_path" : [ "Stage[main]", "Main", "Node[pg2.vm]", "Notify[foo]" ],
+    "message" : "current_value absent, should be foo (noop)"
+  } ],
+  "status" : "unchanged",
+  "configuration_version" : "1423833741",
+  "environment" : "production",
+  "certname" : "pg2.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.46E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.089285,
+    "name" : "augeas"
+  }, {
+    "category" : "time",
+    "value" : 1.24463891983032,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 1.178981,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.126266,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 1.12E-4,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 6.67E-4,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.001085,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 0.001515,
+    "name" : "postgresql_conf"
+  }, {
+    "category" : "time",
+    "value" : 6.58E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.080169,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 2.72392291983032,
+    "name" : "total"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 5,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 50,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 5,
+    "name" : "noop"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 5,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 0,
+    "name" : "total"
+  } ]
+}
