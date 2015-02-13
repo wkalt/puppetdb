@@ -105,7 +105,7 @@
   (let [first-row (first report-rows)
         resource-events (->> report-rows
                              (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
+    (assoc (update-in (select-keys first-row report-columns) [:metrics] json/parse-string)
       :resource_events resource-events)))
 
 (pls/defn-validated structured-data-seq

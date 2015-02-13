@@ -245,6 +245,7 @@
   []
   (sql/create-table :reports
                     ["hash" "VARCHAR(40)" "NOT NULL" "PRIMARY KEY"]
+                    ["metrics" "TEXT"]
                     ["certname" "TEXT" "REFERENCES certnames(name)" "ON DELETE CASCADE"]
                     ["puppet_version" "VARCHAR(40)" "NOT NULL"]
                     ["report_format" "SMALLINT" "NOT NULL"]
@@ -900,6 +901,7 @@
                       ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq')"]
                       ["hash"                  "varchar(40) NOT NULL"]
                       ["certname"              "text"] ;; TODO: why isn't this not null?
+                      ["metrics"               "text"]
                       ["puppet_version"        "varchar(255) NOT NULL"]
                       ["report_format"         "smallint NOT NULL"]
                       ["configuration_version" "varchar(255) NOT NULL"]

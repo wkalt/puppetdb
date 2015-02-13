@@ -212,6 +212,7 @@
                        reports.end_time,
                        reports.receive_time,
                        reports.transaction_uuid,
+                       reports.metrics,
                        environments.name as environment,
                        report_statuses.status as status,
                        (SELECT json_agg(
@@ -226,17 +227,6 @@
                         FROM logs as l
                         LEFT OUTER JOIN log_levels as ll ON ll.id = l.level_id
                         WHERE l.report_id = reports.id) as logs,
-
-                       (SELECT json_agg(
-                         json_build_object(
-                           'category', mc.category,
-                           'value', rm.value,
-                           'name', mn.name))
-                       FROM report_metrics as rm
-                       INNER JOIN metrics_names mn on rm.name_id=mn.id
-                       INNER JOIN metrics_categories mc on mc.id = mn.category_id
-                       WHERE rm.report_id = reports.id) as metrics,
-
                        reports.hash as report,
                        re.status as event_status,
                        re.timestamp,

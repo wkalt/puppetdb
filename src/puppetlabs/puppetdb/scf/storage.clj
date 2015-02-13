@@ -20,6 +20,7 @@
   up, it's important to run `garbage-collect!`."
   (:require [puppetlabs.puppetdb.catalogs :as cat]
             [puppetlabs.puppetdb.facts :as facts]
+            [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [clojure.java.jdbc :as sql]
@@ -1160,6 +1161,8 @@
                                        :puppet_version         puppet_version
                                        :certname               certname
                                        :report_format          report_format
+                                       :metrics                (json/generate-string
+                                                                 report-metrics)
                                        :configuration_version  configuration_version
                                        :start_time             (to-timestamp start_time)
                                        :end_time               (to-timestamp end_time)
@@ -1187,9 +1190,11 @@
                                    (assoc :report_id report-id)
                                    (dissoc :level))
                                   logs)
-                    metrics-rows (map (partial create-metrics-rows report-hash) report-metrics)]
+               ;     metrics-rows (map (partial create-metrics-rows report-hash) report-metrics)
+               ]
                 (apply sql/insert-records :logs log-rows)
-                (apply sql/insert-records :report_metrics metrics-rows))
+                ;(apply sql/insert-records :report_metrics metrics-rows)
+                )
               (if update-latest-report?
                 (update-latest-report! certname)))))))
 
