@@ -1032,34 +1032,25 @@
   []
 
   (sql/do-commands
-   "CREATE SEQUENCE metric_names_id_seq CYCLE"
-   "CREATE SEQUENCE metric_categories_id_seq CYCLE")
-
-  (sql/create-table :metrics_categories
-                    ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('metric_categories_id_seq')"]
-                    ["category" "VARCHAR(255)"])
+   "CREATE SEQUENCE metric_names_id_seq CYCLE")
 
   (sql/create-table :metrics_names
                     ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('metric_names_id_seq')"]
                     ["name" "VARCHAR(255)"]
-                    ["category_id" "bigint NOT NULL REFERENCES metrics_categories(id)"])
-
-  (sql/do-commands
-   "INSERT INTO metrics_categories (id, category) values (0, 'time')"
-   "INSERT INTO metrics_categories (id, category) values (1, 'resources')"
-   "INSERT INTO metrics_categories (id, category) values (2, 'events')"
-   "INSERT INTO metrics_categories (id, category) values (3, 'changes')")
+                    ["category" "VARCHAR(255)"])
 
   (sql/create-table :report_metrics
                     ["report_id" "bigint REFERENCES reports(id)"]
                     ["name_id" "bigint NOT NULL REFERENCES metrics_names(id)"]
                     ["value" "double precision"])
+
   (sql/do-commands
     "ALTER TABLE report_metrics ADD CONSTRAINT report_metrics_unique UNIQUE (report_id, name_id)"
     "CREATE INDEX report_id_idx ON report_metrics USING btree (report_id)"
     "CREATE INDEX report_metrics_name_idx ON report_metrics USING btree (name_id)"
     "CREATE INDEX metrics_names_id_idx ON metrics_names USING btree (id)"
-    "ALTER TABLE metrics_names ADD CONSTRAINT metrics_names_unique UNIQUE (name,category_id)"))
+    "CREATE INDEX metrics_names_category_idx ON metrics_names USING btree (category)"
+    "ALTER TABLE metrics_names ADD CONSTRAINT metrics_names_unique UNIQUE (name,category)"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."

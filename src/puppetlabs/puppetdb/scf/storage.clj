@@ -304,8 +304,8 @@
       (create-row table row-map))))
 
 (pls/defn-validated ensure-metric-name :- (s/maybe s/Int)
-  [metric-name category-id]
-  (ensure-row :metrics_names {:name (name metric-name) :category_id category-id}))
+  [metric-name category]
+  (ensure-row :metrics_names {:name (name metric-name) :category category}))
 
 (pls/defn-validated ensure-report-id :- (s/maybe s/Int)
   [hash]
@@ -1130,7 +1130,7 @@
 (defn create-metrics-rows
   [report-hash {:keys [name category value]}]
   (let [category-id (get category-ids category)]
-    {:name_id (ensure-metric-name name category-id)
+    {:name_id (ensure-metric-name name category)
      :report_id (ensure-report-id report-hash)
      :value value}))
 

@@ -229,12 +229,11 @@
 
                        (SELECT json_agg(
                          json_build_object(
-                           'category', mc.category,
+                           'category', mn.category,
                            'value', rm.value,
                            'name', mn.name))
                        FROM report_metrics as rm
                        INNER JOIN metrics_names mn on rm.name_id=mn.id
-                       INNER JOIN metrics_categories mc on mc.id = mn.category_id
                        WHERE rm.report_id = reports.id) as metrics,
 
                        reports.hash as report,
