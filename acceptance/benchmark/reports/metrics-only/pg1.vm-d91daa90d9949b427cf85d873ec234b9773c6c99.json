@@ -1,0 +1,137 @@
+{
+  "transaction_uuid" : "019b2dd6-29b4-47d6-918e-f96f71f1921d",
+  "puppet_version" : "3.7.4",
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:22:28.314Z",
+  "end_time" : "2015-02-13T13:22:29.264Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}a3f731187a6aaaa23d4a7b244f223f33",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}ed132dbd31efba0f517dda09d5fbb9b6",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "success",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:22:31.372Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "content changed '{md5}ed132dbd31efba0f517dda09d5fbb9b6' to '{md5}a3f731187a6aaaa23d4a7b244f223f33'"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:22:31.415Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833741",
+  "environment" : "production",
+  "certname" : "pg1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.17645E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.778813802,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.014550457,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.05057365800000001,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 8.8965E-5,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.011366801,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.23491E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.001740658,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.018001817,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 5.9879E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.073345167,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 0.9501059690000001,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 1.84718E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 2,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 2,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 2,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 2,
+    "name" : "total"
+  } ]
+}

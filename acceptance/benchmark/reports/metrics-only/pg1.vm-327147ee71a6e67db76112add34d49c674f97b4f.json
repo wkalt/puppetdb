@@ -1,0 +1,165 @@
+{
+  "transaction_uuid" : "d00ab23c-bd14-42a5-b5ef-855ceede8a40",
+  "puppet_version" : "3.7.4",
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:21:03.326Z",
+  "end_time" : "2015-02-13T13:21:04.382Z",
+  "resource_events" : [ {
+    "new_value" : "{md5}a3bfa10444570ab20a2f7d563592294d",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/motd/manifests/init.pp",
+    "old_value" : "{md5}a3f731187a6aaaa23d4a7b244f223f33",
+    "line" : 33,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/etc/motd",
+    "timestamp" : "2015-02-13T13:21:06.444Z",
+    "containment_path" : [ "Stage[main]", "Motd", "File[/etc/motd]" ],
+    "message" : "current_value {md5}a3f731187a6aaaa23d4a7b244f223f33, should be {md5}a3bfa10444570ab20a2f7d563592294d (noop)"
+  }, {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "noop",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:21:06.488Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "current_value absent, should be foo (noop)"
+  }, {
+    "new_value" : "file",
+    "property" : "ensure",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "absent",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2",
+    "timestamp" : "2015-02-13T13:21:06.575Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile2]", "File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]" ],
+    "message" : "current_value absent, should be file (noop)"
+  }, {
+    "new_value" : "{md5}3a010064e9f94f26236ba1167c7ee125",
+    "property" : "content",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "old_value" : "{md5}df14e44b311152c34358a675ae34afe0",
+    "line" : 113,
+    "resource_type" : "File",
+    "status" : "noop",
+    "resource_title" : "/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile",
+    "timestamp" : "2015-02-13T13:21:06.589Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Concat::Fragment[tmpfile]", "File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]" ],
+    "message" : "current_value {md5}df14e44b311152c34358a675ae34afe0, should be {md5}3a010064e9f94f26236ba1167c7ee125 (noop)"
+  } ],
+  "status" : "unchanged",
+  "configuration_version" : "1423833650",
+  "environment" : "production",
+  "certname" : "pg1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.503540000000001E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.882534088,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.016960151,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.043997192,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 9.3244E-5,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.011448235,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.85746E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.00134731,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.019649724000000004,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 5.75223E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.078253771,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 1.056010572,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 2.15534E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 4,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 4,
+    "name" : "noop"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 4,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 0,
+    "name" : "total"
+  } ]
+}

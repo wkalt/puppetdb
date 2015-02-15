@@ -1,0 +1,262 @@
+{
+  "transaction_uuid" : "e0c71734-dd8c-4e9e-86c9-6b1b9601b67a",
+  "puppet_version" : "3.7.2",
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.57 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:29:53.991+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:29:53.636+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:29:53.635+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423834124'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:53.507+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:53.354+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:52.034+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}8d8fdb4349d1ddfb79bc5539e7843e45'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/postgresql_conf/parsed.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:52.012+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/postgresql_conf]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.982+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}a3f6495a6e89bc02872a38fdef0afca8'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/postgresql_psql/ruby.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.97+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}e2e1339f5ea40a1aaf6ec25cdc966514'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/postgresql_psql.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.934+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}4f333138a3689f9768e7fe4bc3cde9fd'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/type/postgresql_conf.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.883+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}d518a7959b950874820a3b0a7a324488'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/postgresql_acls_to_resources_hash.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.83+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}2e136fcd653ab38d831c5b40806d47d1'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/postgresql_escape.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.797+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "defined content as '{md5}820da02a888ab42357fe9bc2352b1c37'",
+    "source" : "/File[/var/lib/puppet/lib/puppet/parser/functions/postgresql_password.rb]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.763+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "notice",
+    "message" : "created",
+    "source" : "/File[/var/lib/puppet/lib/puppet/provider/postgresql_psql]/ensure",
+    "tags" : [ "notice", "file", "plugin" ],
+    "time" : "2015-02-13T13:29:51.711+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:51.338+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:29:51.296+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:29:51.204Z",
+  "end_time" : "2015-02-13T13:29:52.192Z",
+  "resource_events" : [ {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:29:53.635Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423834124",
+  "environment" : "production",
+  "certname" : "puppetdb1.vm",
+  "metrics" : [ {
+    "category" : "time",
+    "value" : 5.338729999999999E-4,
+    "name" : "anchor"
+  }, {
+    "category" : "time",
+    "value" : 0.664333383,
+    "name" : "config_retrieval"
+  }, {
+    "category" : "time",
+    "value" : 0.033774235,
+    "name" : "exec"
+  }, {
+    "category" : "time",
+    "value" : 0.039688833,
+    "name" : "file"
+  }, {
+    "category" : "time",
+    "value" : 9.9485E-5,
+    "name" : "filebucket"
+  }, {
+    "category" : "time",
+    "value" : 0.023618457,
+    "name" : "gnupg_key"
+  }, {
+    "category" : "time",
+    "value" : 3.52586E-4,
+    "name" : "ini_setting"
+  }, {
+    "category" : "time",
+    "value" : 0.001725828,
+    "name" : "notify"
+  }, {
+    "category" : "time",
+    "value" : 0.058338985,
+    "name" : "package"
+  }, {
+    "category" : "time",
+    "value" : 5.115800000000001E-4,
+    "name" : "schedule"
+  }, {
+    "category" : "time",
+    "value" : 0.164877411,
+    "name" : "service"
+  }, {
+    "category" : "time",
+    "value" : 0.9881233469999999,
+    "name" : "total"
+  }, {
+    "category" : "time",
+    "value" : 2.68691E-4,
+    "name" : "vcsrepo"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "changed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "failed_to_restart"
+  }, {
+    "category" : "resources",
+    "value" : 1,
+    "name" : "out_of_sync"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "restarted"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "scheduled"
+  }, {
+    "category" : "resources",
+    "value" : 0,
+    "name" : "skipped"
+  }, {
+    "category" : "resources",
+    "value" : 47,
+    "name" : "total"
+  }, {
+    "category" : "events",
+    "value" : 0,
+    "name" : "failure"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "success"
+  }, {
+    "category" : "events",
+    "value" : 1,
+    "name" : "total"
+  }, {
+    "category" : "changes",
+    "value" : 1,
+    "name" : "total"
+  } ]
+}

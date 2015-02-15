@@ -1,0 +1,1297 @@
+{
+  "transaction_uuid" : "de5663ae-c72f-4e1b-8f54-4f5d588e917e",
+  "puppet_version" : "3.7.2",
+  "logs" : [ {
+    "level" : "notice",
+    "message" : "Finished catalog run in 0.51 seconds",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:20:57.344+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Stored state in 0.08 seconds",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.344+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Storing state",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.259+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Finishing transaction 30821720",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.258+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Nothing to manage: no ensure and the resource doesn't exist",
+    "source" : "/Package[gunicorn]",
+    "tags" : [ "debug", "package", "gunicorn", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:57.253+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 71
+  }, {
+    "level" : "debug",
+    "message" : "The container Stage[main] will propagate my refresh event",
+    "source" : "Class[Loadtest]",
+    "tags" : [ "debug", "completed_class", "loadtest" ],
+    "time" : "2015-02-13T13:20:57.25+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/etc/init.d/snmpd status'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.209+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/var/lib/puppet/concat/bin/concatfragments.sh -o \"/var/lib/puppet/concat/_tmp_file/fragments.concat.out\" -d \"/var/lib/puppet/concat/_tmp_file\" -t'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.169+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing check '/var/lib/puppet/concat/bin/concatfragments.sh -o \"/var/lib/puppet/concat/_tmp_file/fragments.concat.out\" -d \"/var/lib/puppet/concat/_tmp_file\" -t'",
+    "source" : "Exec[concat_/tmp/file](provider=posix)",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.168+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing 'gpg --list-keys --with-colons 20BC0A86'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.135+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/etc/init.d/ntp status'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.097+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/etc/init.d/cron status'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57.047+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "The container Class[Loadtest] will propagate my refresh event",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]",
+    "tags" : [ "debug", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:57.046+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "defined 'message' as 'foo'",
+    "source" : "/Stage[main]/Loadtest/Notify[foo]/message",
+    "tags" : [ "notice", "notify", "foo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:57.045+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 3
+  }, {
+    "level" : "notice",
+    "message" : "foo",
+    "source" : "Puppet",
+    "tags" : [ "notice" ],
+    "time" : "2015-02-13T13:20:57.045+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/usr/bin/apt-cache policy etckeeper'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:57+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/usr/bin/dpkg-query -W --showformat '${Status} ${Package} ${Version}\\n''",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.969+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Prefetching apt resources for package",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.969+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Caching connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.966+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.936+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "file_metadata supports formats: pson b64_zlib_yaml yaml raw",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.936+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Network::Format[msgpack]: feature msgpack is missing",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.935+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Failed to load library 'msgpack' for feature 'msgpack'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.935+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Applying configuration version '1423833650'",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:56.929+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/_tmp_file/fragments]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]",
+    "tags" : [ "debug", "file", "concat::fragment", "concat", "fragment", "tmpfile2", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.919+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/_tmp_file/fragments]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]",
+    "tags" : [ "debug", "file", "concat::fragment", "concat", "fragment", "tmpfile", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.919+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/bin/concatfragments.sh]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.918+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/_tmp_file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments.concat.out]",
+    "tags" : [ "debug", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.917+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 164
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/_tmp_file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments.concat]",
+    "tags" : [ "debug", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.917+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 159
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/_tmp_file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments]",
+    "tags" : [ "debug", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.917+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 149
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file]",
+    "tags" : [ "debug", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.916+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 144
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat]",
+    "source" : "/Stage[main]/Concat::Setup/File[/var/lib/puppet/concat/bin]",
+    "tags" : [ "debug", "file", "class", "concat::setup", "concat", "setup", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.916+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/setup.pp",
+    "line" : 60
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring File[/var/lib/puppet/concat/bin]",
+    "source" : "/Stage[main]/Concat::Setup/File[/var/lib/puppet/concat/bin/concatfragments.sh]",
+    "tags" : [ "debug", "file", "class", "concat::setup", "concat", "setup", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.915+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/setup.pp",
+    "line" : 53
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring Package[gnupg]",
+    "source" : "/Stage[main]/Loadtest/Gnupg_key[hkp_server_20BC0A86]",
+    "tags" : [ "debug", "gnupg_key", "hkp_server_20bc0a86", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.914+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 69
+  }, {
+    "level" : "debug",
+    "message" : "Autorequiring Package[git]",
+    "source" : "/Stage[main]/Loadtest/Vcsrepo[/srv/puppetdb]",
+    "tags" : [ "debug", "vcsrepo", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.912+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 11
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile2]/File[/var/lib/puppet/concat/_tmp_file/fragments/02_tmpfile2]/notify",
+    "tags" : [ "debug", "file", "concat::fragment", "concat", "fragment", "tmpfile2", "class", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.911+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat::Fragment[tmpfile]/File[/var/lib/puppet/concat/_tmp_file/fragments/01_tmpfile]/notify",
+    "tags" : [ "debug", "file", "concat::fragment", "concat", "fragment", "tmpfile", "class", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.91+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/fragment.pp",
+    "line" : 113
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to File[/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/notify",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.91+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to File[/var/lib/puppet/concat/_tmp_file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/subscribe",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm", "subscribe" ],
+    "time" : "2015-02-13T13:20:56.91+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "requires File[/var/lib/puppet/concat/_tmp_file/fragments.concat]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/require",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.909+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "requires File[/var/lib/puppet/concat/_tmp_file/fragments]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/require",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.909+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "requires File[/var/lib/puppet/concat/_tmp_file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/Exec[concat_/tmp/file]/require",
+    "tags" : [ "debug", "exec", "concat", "class", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.908+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 187
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Exec[concat_/tmp/file]",
+    "source" : "/Stage[main]/Loadtest/Concat[/tmp/file]/File[/var/lib/puppet/concat/_tmp_file/fragments]/notify",
+    "tags" : [ "debug", "file", "concat", "class", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.908+00:00",
+    "file" : "/etc/puppet/modules/concat/manifests/init.pp",
+    "line" : 149
+  }, {
+    "level" : "debug",
+    "message" : "requires Anchor[python::end]",
+    "source" : "/Stage[main]/Python::Config/before",
+    "tags" : [ "debug", "class", "python::config", "python", "config", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.908+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/init.pp",
+    "line" : 92
+  }, {
+    "level" : "debug",
+    "message" : "requires Class[Python::Config]",
+    "source" : "/Stage[main]/Python::Install/before",
+    "tags" : [ "debug", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.907+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/init.pp",
+    "line" : 91
+  }, {
+    "level" : "debug",
+    "message" : "requires Class[Python::Install]",
+    "source" : "/Stage[main]/Python/Anchor[python::begin]/before",
+    "tags" : [ "debug", "anchor", "python::begin", "python", "begin", "class", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.907+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/init.pp",
+    "line" : 90
+  }, {
+    "level" : "debug",
+    "message" : "requires File[var-net-snmp]",
+    "source" : "/Stage[main]/Snmp/Service[snmpd]/require",
+    "tags" : [ "debug", "service", "snmpd", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.906+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 517
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmpd]",
+    "source" : "/Stage[main]/Snmp/Service[snmpd]/require",
+    "tags" : [ "debug", "service", "snmpd", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.906+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 517
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.conf]/notify",
+    "tags" : [ "debug", "file", "snmptrapd.conf", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.905+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 453
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmptrapd.conf]/require",
+    "tags" : [ "debug", "file", "snmptrapd.conf", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.905+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 453
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.sysconfig]/notify",
+    "tags" : [ "debug", "file", "snmpd.sysconfig", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.905+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 441
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.sysconfig]/require",
+    "tags" : [ "debug", "file", "snmpd.sysconfig", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.904+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 441
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Service[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.conf]/notify",
+    "tags" : [ "debug", "file", "snmpd.conf", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.904+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 429
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[snmpd.conf]/require",
+    "tags" : [ "debug", "file", "snmpd.conf", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.903+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 429
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmpd]",
+    "source" : "/Stage[main]/Snmp/File[var-net-snmp]/require",
+    "tags" : [ "debug", "file", "var-net-snmp", "class", "snmp", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.903+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 410
+  }, {
+    "level" : "debug",
+    "message" : "requires Package[snmp-client]",
+    "source" : "/Stage[main]/Snmp::Client/File[snmp.conf]/require",
+    "tags" : [ "debug", "file", "snmp.conf", "class", "snmp::client", "snmp", "client", "loadtest", "node", "puppetdb1.vm", "require" ],
+    "time" : "2015-02-13T13:20:56.902+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "line" : 85
+  }, {
+    "level" : "debug",
+    "message" : "requires Anchor[ntp::end]",
+    "source" : "/Stage[main]/Ntp::Service/before",
+    "tags" : [ "debug", "class", "ntp::service", "ntp", "service", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.902+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/init.pp",
+    "line" : 61
+  }, {
+    "level" : "debug",
+    "message" : "subscribes to Class[Ntp::Service]",
+    "source" : "/Stage[main]/Ntp::Config/notify",
+    "tags" : [ "debug", "class", "ntp::config", "ntp", "config", "loadtest", "node", "puppetdb1.vm", "notify" ],
+    "time" : "2015-02-13T13:20:56.901+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/init.pp",
+    "line" : 60
+  }, {
+    "level" : "debug",
+    "message" : "requires Class[Ntp::Config]",
+    "source" : "/Stage[main]/Ntp::Install/before",
+    "tags" : [ "debug", "class", "ntp::install", "ntp", "install", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.9+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/init.pp",
+    "line" : 59
+  }, {
+    "level" : "debug",
+    "message" : "requires Class[Ntp::Install]",
+    "source" : "/Stage[main]/Ntp/Anchor[ntp::begin]/before",
+    "tags" : [ "debug", "anchor", "ntp::begin", "ntp", "begin", "class", "loadtest", "node", "puppetdb1.vm", "before" ],
+    "time" : "2015-02-13T13:20:56.885+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/init.pp",
+    "line" : 58
+  }, {
+    "level" : "debug",
+    "message" : "Loaded state in 0.05 seconds",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.884+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Creating default schedules",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.82+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[gnupg]",
+    "tags" : [ "debug", "package", "gnupg", "class", "gnupg::install", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.81+00:00",
+    "file" : "/etc/puppet/modules/gnupg/manifests/install.pp",
+    "line" : 4
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[gunicorn]",
+    "tags" : [ "debug", "package", "gunicorn", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.808+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 71
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python]",
+    "tags" : [ "debug", "package", "python", "class", "python::install", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.807+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 62
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python-dev]",
+    "tags" : [ "debug", "package", "python-dev", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.806+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 61
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python-pip]",
+    "tags" : [ "debug", "package", "python-pip", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.806+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 60
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python-virtualenv]",
+    "tags" : [ "debug", "package", "python-virtualenv", "class", "python::install", "python", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.805+00:00",
+    "file" : "/etc/puppet/modules/python/manifests/install.pp",
+    "line" : 59
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[snmpd]",
+    "tags" : [ "debug", "package", "snmpd", "class", "snmp", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.8+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/init.pp",
+    "line" : 405
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[snmp-client]",
+    "tags" : [ "debug", "package", "snmp-client", "class", "snmp::client", "snmp", "client", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.798+00:00",
+    "file" : "/etc/puppet/modules/snmp/manifests/client.pp",
+    "line" : 76
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[git]",
+    "tags" : [ "debug", "package", "git", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.797+00:00",
+    "file" : "/etc/puppet/modules/git/manifests/init.pp",
+    "line" : 12
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[etckeeper]",
+    "tags" : [ "debug", "package", "etckeeper", "class", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.795+00:00",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "line" : 41
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Vcsrepo::ProviderCvs: file cvs does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.791+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Vcsrepo::ProviderBzr: file bzr does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.791+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Vcsrepo::ProviderSvn: file svn does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.79+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Vcsrepo::ProviderHg: file hg does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.789+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[ntp]",
+    "tags" : [ "debug", "package", "ntp", "class", "ntp::install", "install", "loadtest", "node", "puppetdb1.vm" ],
+    "time" : "2015-02-13T13:20:56.786+00:00",
+    "file" : "/etc/puppet/modules/ntp/manifests/install.pp",
+    "line" : 4
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderUpstart: 0 confines (of 2) were true",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.784+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderRunit: file /usr/bin/sv does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.783+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderRedhat: file /sbin/chkconfig does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.783+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderLaunchd: file /bin/launchctl does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.783+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderDaemontools: file /usr/bin/svc does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.782+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderGentoo: file /sbin/rc-update does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.782+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderOpenrc: file /bin/rc-status does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.782+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Service::ProviderSystemd: file systemctl does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.781+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Caching catalog for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:56.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Caching connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.632+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.115+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "catalog supports formats: pson b64_zlib_yaml yaml dot raw",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.114+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Network::Format[msgpack]: feature msgpack is missing",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.113+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Failed to load library 'msgpack' for feature 'msgpack'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:56.113+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Executing '/usr/bin/dpkg-query -W --showformat '${Status} ${Package} ${Version}\\n' python'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.963+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[virtualenv]",
+    "tags" : [ "debug", "package", "virtualenv" ],
+    "time" : "2015-02-13T13:20:55.761+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python-pip]",
+    "tags" : [ "debug", "package", "python-pip" ],
+    "time" : "2015-02-13T13:20:55.76+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Provider apt does not support features virtual_packages; not managing attribute allow_virtual",
+    "source" : "/Package[python]",
+    "tags" : [ "debug", "package", "python" ],
+    "time" : "2015-02-13T13:20:55.759+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderUrpmi: file urpmi does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderSunfreeware: file pkg-get does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderFink: file /sw/bin/fink does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderHpux: file /usr/sbin/swinstall does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderNim: file /usr/sbin/nimclient does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPacman: file /usr/bin/pacman does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.758+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPortage: file /usr/bin/emerge does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderYum: file yum does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPorts: file /usr/local/sbin/portupgrade does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderFreebsd: file /usr/sbin/pkg_info does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderOpenbsd: file pkg_info does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderAix: file /usr/bin/lslpp does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.757+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderZypper: file /usr/bin/zypper does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.756+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderRug: file /usr/bin/rug does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.756+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderAptrpm: file rpm does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.756+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderSun: file /usr/bin/pkginfo does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.756+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPortupgrade: file /usr/local/sbin/portupgrade does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.756+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPkgin: file pkgin does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderUp2date: file /usr/sbin/up2date-nox does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderRpm: file rpm does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderPkg: file /usr/bin/pkg does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Type::Package::ProviderOpkg: file opkg does not exist",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.755+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/iptables_persistent_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.451+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/python_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.451+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/facter_dot_d.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.451+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/pe_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.451+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/pip_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/apt_package_updates.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/puppet_vardir.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/iptables_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/apt_security_updates.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/apt_updates.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/git_html_path.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/git_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/concat_basedir.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.45+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/virtualenv_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.449+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/git_exec_path.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.449+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/root_home.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.449+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading facts from /var/lib/puppet/lib/facter/ip6tables_version.rb",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.449+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Loading facts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:55.449+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Loading external facts from /var/lib/puppet/facts.d",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.447+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Finishing transaction 29352920",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.442+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Caching connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.212+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.148+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "file_metadata supports formats: pson b64_zlib_yaml yaml raw",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.147+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Network::Format[msgpack]: feature msgpack is missing",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.147+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Failed to load library 'msgpack' for feature 'msgpack'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.146+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving plugin",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:55.02+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Finishing transaction 28378840",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.019+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Caching connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:55.018+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.987+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "file_metadata supports formats: pson b64_zlib_yaml yaml raw",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.987+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Network::Format[msgpack]: feature msgpack is missing",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.987+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Failed to load library 'msgpack' for feature 'msgpack'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.987+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "info",
+    "message" : "Retrieving pluginfacts",
+    "source" : "Puppet",
+    "tags" : [ "info" ],
+    "time" : "2015-02-13T13:20:54.981+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Caching connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.979+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Starting connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.938+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached certificate_revocation_list for ca",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.937+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Creating new connection for https://puppet:8140",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.937+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached certificate for puppetdb1.vm",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.936+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Using cached certificate for ca",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.936+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "node supports formats: pson b64_zlib_yaml yaml raw",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.935+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Puppet::Network::Format[msgpack]: feature msgpack is missing",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.934+00:00",
+    "file" : null,
+    "line" : null
+  }, {
+    "level" : "debug",
+    "message" : "Failed to load library 'msgpack' for feature 'msgpack'",
+    "source" : "Puppet",
+    "tags" : [ "debug" ],
+    "time" : "2015-02-13T13:20:54.934+00:00",
+    "file" : null,
+    "line" : null
+  } ],
+  "report_format" : 4,
+  "start_time" : "2015-02-13T13:20:54.889Z",
+  "end_time" : "2015-02-13T13:20:55.827Z",
+  "resource_events" : [ {
+    "new_value" : "foo",
+    "property" : "message",
+    "file" : "/etc/puppet/modules/loadtest/manifests/init.pp",
+    "old_value" : "absent",
+    "line" : 3,
+    "resource_type" : "Notify",
+    "status" : "success",
+    "resource_title" : "foo",
+    "timestamp" : "2015-02-13T13:20:57.045Z",
+    "containment_path" : [ "Stage[main]", "Loadtest", "Notify[foo]" ],
+    "message" : "defined 'message' as 'foo'"
+  } ],
+  "status" : "changed",
+  "configuration_version" : "1423833650",
+  "environment" : "production",
+  "certname" : "puppetdb1.vm"
+}
