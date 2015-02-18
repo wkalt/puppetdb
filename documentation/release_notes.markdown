@@ -24,6 +24,8 @@ TODO
 
 #### New Features & Improvements
 
+* Added ability to expand child data for reports/facts & catalogs endpoints.
+
 * The `reports` database table was using the hash string as its primary key, we know have switched to using a smaller bigint primary key for that table, which should result in faster joins in most cases, and hopefully smaller foreign key indexes sizes for tables relating to `reports`. ([PDB-1218](https://tickets.puppetlabs.com/browse/PDB-1218))
 
 * The reports endpoint now implements the latest_report? query, which filters the

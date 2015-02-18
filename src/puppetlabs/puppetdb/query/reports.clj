@@ -9,7 +9,8 @@
             [clojure.set :refer [rename-keys]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.utils :as utils]))
+            [puppetlabs.puppetdb.utils :as utils]
+            [clojure.tools.logging :as log]))
 
 (def row-schema
   {:hash String
@@ -21,18 +22,8 @@
    :end_time pls/Timestamp
    :receive_time pls/Timestamp
    :transaction_uuid String
-   :event_status String
-   :timestamp pls/Timestamp
-   :resource_type String
-   :resource_title String
-   :new_value String
-   :old_value String
+   :resource_events (s/maybe org.postgresql.util.PGobject)
    :status (s/maybe String)
-   :property (s/maybe String)
-   :message (s/maybe String)
-   :file (s/maybe String)
-   :line (s/maybe s/Int)
-   :containment_path (s/maybe [String])
    :noop (s/maybe s/Bool)
    (s/optional-key :environment) (s/maybe String)})
 
@@ -42,6 +33,7 @@
    :resource_title String
    :resource_type String
    :timestamp pls/Timestamp
+   :containing_class (s/maybe String)
    :containment_path (s/maybe [String])
    :property (s/maybe String)
    :file (s/maybe String)
@@ -60,7 +52,8 @@
    :noop (s/maybe s/Bool)
    :report_format s/Int
    :configuration_version String
-   :resource_events [resource-event-schema]
+   :resource_events (s/either [resource-event-schema]
+                              {:href String})
    :transaction_uuid String
    :status (s/maybe String)})
 
@@ -78,41 +71,6 @@
    :configuration_version
    :certname])
 
-(defn create-report-pred
-  [rows]
-  (let [report-hash (:hash (first rows))]
-    (fn [row]
-      (= report-hash (:hash row)))))
-
-(defn collapse-resource-events
-  [acc row]
-  (let [resource-event (select-keys row [:containment_path :new_value
-                                         :old_value :resource_title :resource_type
-                                         :property :file :line :event_status :timestamp
-                                         :message])]
-    (into acc
-          [(-> resource-event
-               (update-in [:new_value] json/parse-string)
-               (update-in [:old_value] json/parse-string)
-               (rename-keys {:event_status :status}))])))
-
-(pls/defn-validated collapse-report :- report-schema
-  [version :- s/Keyword
-   report-rows :- [row-schema]]
-  (let [first-row (first report-rows)
-        resource-events (->> report-rows
-                             (reduce collapse-resource-events []))]
-    (assoc (select-keys first-row report-columns)
-      :resource_events resource-events)))
-
-(pls/defn-validated structured-data-seq
-  "Produce a lazy seq of catalogs from a list of rows ordered by catalog hash"
-  [version :- s/Keyword
-   rows]
-  (utils/collapse-seq create-report-pred
-                      #(collapse-report version %)
-                      rows))
-
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
   return nodes matching the `query`."
@@ -128,15 +86,53 @@
    (qe/compile-user-query->sql
     qe/reports-query query paging-options)))
 
+(pls/defn-validated munge-event :- resource-event-schema
+  [event]
+  (-> event
+      (rename-keys {"f1" :status
+                    "f2" :timestamp
+                    "f3" :resource_type
+                    "f4" :resource_title
+                    "f5" :property
+                    "f6" :new_value
+                    "f7" :old_value
+                    "f8" :message
+                    "f9" :file
+                    "f10" :line
+                    "f11" :containment_path
+                    "f12" :containing_class})
+      (update-in [:old_value] #(json/parse-string %))
+      (update-in [:new_value] #(json/parse-string %))))
+
+(pls/defn-validated events-to-json-final
+  [obj :- (s/maybe org.postgresql.util.PGobject)]
+  (when obj
+    (map munge-event
+         (json/parse-string (.getValue obj)))))
+
+(pls/defn-validated convert-report :- report-schema
+  [row :- row-schema
+   {:keys [expand?]}]
+  (if expand?
+    (update-in row [:resource_events] events-to-json-final)
+    (assoc row :resource_events {:href (str "/v4/reports/" (:hash row) "/events")})))
+
+(pls/defn-validated convert-reports
+  "Convert resource events"
+  [rows paging-options]
+  (map #(convert-report % paging-options)
+       rows))
+
 (pls/defn-validated munge-result-rows
   "Reassemble rows from the database into the final expected format."
-  [version :- s/Keyword
-   projections]
+  [_
+   projected-fields :- [s/Keyword]
+   paging-options]
   (fn [rows]
     (if (empty? rows)
       []
-      (map (qe/basic-project projections)
-           (structured-data-seq version rows)))))
+      (map (qe/basic-project projected-fields)
+           (convert-reports rows paging-options)))))
 
 (defn query-reports
   "Queries reports and unstreams, used mainly for testing.
@@ -156,7 +152,6 @@
     (if count-query
       (assoc result :count (jdbc/get-result-count count-query :reports))
       result)))
-
 
 (defn reports-for-node
   "Return reports for a particular node."
