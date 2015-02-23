@@ -46,6 +46,7 @@
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time]
             [puppetlabs.puppetdb.client :as client]
+            [clojure.java.io :as io]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [slingshot.slingshot :refer [try+]]))
 
@@ -282,6 +283,7 @@
 (def supported-cli-options
   [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
    ["-F" "--facts FACTS" "Path to a directory containing sample JSON facts (files must end with .json)"]
+   ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Cannot be used with -C, -F, or -R"]
    ["-C" "--catalogs CATALOGS" "Path to a directory containing sample JSON catalogs (files must end with .json)"]
    ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
    ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"]
@@ -302,11 +304,44 @@
        :puppetlabs.kitchensink.core/cli-error (System/exit 1)
        :puppetlabs.kitchensink.core/cli-help (System/exit 0)))))
 
-(defn validate-nummsgs [options action-on-error-fn]
-  (when (and (contains? options :runinterval)
-             (contains? options :nummsgs))
-    (utils/println-err "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
-    (action-on-error-fn)))
+(defn validate-options
+  [options action-on-error-fn]
+  (cond
+    (and (contains? options :runinterval)
+         (contains? options :nummsgs))
+    (do
+      (utils/println-err
+        "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+      (action-on-error-fn))
+    (and (contains? options :archive)
+         (filter #{:reports :catalogs :facts} options))
+    (do
+      (utils/println-err
+        "Error: -A/--archive is incompatible with -F/-C/-R.")
+      (action-on-error-fn))))
+
+(defn process-tar-entry
+  [acc entry archive-path]
+  (let [path (.getName entry)
+        catalog-pattern (str "^" (.getPath
+                                   (io/file archive-path "catalogs" ".*\\.json")) "$")
+        report-pattern (str "^" (.getPath
+                                  (io/file archive-path "reports" ".*\\.json")) "$")
+        facts-pattern (str "^" (.getPath
+                                 (io/file archive-path "facts" ".*\\.json")) "$")
+        parsed-entry (json/parse-string entry)]
+
+    (cond
+      (re-find (re-pattern catalog-pattern) path) (update-in acc :catalogs
+                                                             #(cons parsed-entry %))
+      (re-find (re-pattern report-pattern) path) (update-in acc :reports
+                                                           #(cons parsed-entry %))
+      (re-find (re-pattern facts-pattern) path) (update-in acc :facts
+                                                           #(cons parsed-entry %)))))
+
+(defn build-tar-map
+  [entries path]
+  (reduce process-tar-entry {:catalogs [] :reports [] :facts []} entries path))
 
 (defn -main
   [& args]
@@ -316,12 +351,21 @@
                             (get-in [:global :logging-config])
                             (logutils/configure-logging!))
 
-        _ (validate-nummsgs options #(System/exit 1))
+        _ (validate-options options #(System/exit 1))
 
-        catalogs        (if (:catalogs options) (load-sample-data (:catalogs options)))
-        reports         (if (:reports options) (load-sample-data (:reports options)))
-        facts           (if (:facts options) (load-sample-data (:facts options)))
 
+
+        {:keys [catalogs reports facts]} (if (:archive options)
+                                           (build-tar-map (tarball-reader path) path)
+                                           {:catalogs (when (:catalogs options)
+                                                        (load-sample-data
+                                                          (:catalogs options)))
+                                            :facts (when (:facts options)
+                                                     (load-sample-data
+                                                       (:facts options)))
+                                            :reports (when (:reports options)
+                                                       (load-sample-data
+                                                         (:reports options)))})
         nhosts          (:numhosts options)
         hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
         hostname        (get-in config [:jetty :host] "localhost")
