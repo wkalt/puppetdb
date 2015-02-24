@@ -223,3 +223,64 @@
           (is (= response
                  [{:hash "thisisacoolhash" :environment "testing1"
                    :certname "testing1" :status "testing1"}])))))))
+
+(deftest migration-30
+  (testing "latest reports should be the same before and after"
+    (sql/with-connection db
+      (clear-db-for-testing!)
+      (fast-forward-to-migration! 29)
+
+      (let [current-time (to-timestamp (now))]
+        (sql/insert-records
+          :report_statuses
+          {:status "testing1" :id 1})
+        (sql/insert-records
+          :environments
+          {:id 1 :name "testing1"})
+        (sql/insert-records
+          :certnames
+          {:name "testing1" :deactivated nil}
+          {:name "testing2" :deactivated nil})
+
+        (sql/insert-records
+          :reports
+          {:hash                   "thisisacoolhash"
+           :configuration_version  "thisisacoolconfigversion"
+           :certname               "testing1"
+           :puppet_version         "0.0.0"
+           :report_format          1
+           :start_time             current-time
+           :end_time               current-time
+           :receive_time           current-time
+           :environment_id         1
+           :status_id              1}
+          {:hash "blahblah"
+           :configuration_version "blahblahblah"
+           :certname "testing2"
+           :puppet_version "911"
+           :report_format 1
+           :start_time current-time
+           :end_time current-time
+           :receive_time current-time
+           :environment_id 1
+           :status_id 1})
+
+        (let [[id1 id2] (map :id (query-to-vec "SELECT id from reports order by id"))]
+          (sql/insert-records
+            :latest_reports
+            {:certname "testing1" :report_id id1}
+            {:certname "testing2" :report_id id2})
+
+          (apply-migration-for-testing! 30)
+
+          (let [new-ids (map :latest_report (query-to-vec "select latest_report from certnames order by latest_report"))]
+            (is (= [id1 id2] new-ids)))
+
+          ;; deleting a report should make latest_report null for that node
+
+          (sql/do-commands
+            (format "delete from reports where id=%s" id1))
+
+          (let [remaining-ids (map :latest_report (query-to-vec "select latest_report from certnames order by latest_report"))]
+            (is (= (set remaining-ids) #{id2 nil}))))))))
+

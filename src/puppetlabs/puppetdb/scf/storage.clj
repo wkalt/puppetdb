@@ -1062,7 +1062,7 @@
 ;;; Reports
 
 (defn update-latest-report!
-  "Given a node name, updates the `latest_reports` table to ensure that it indicates the
+  "Given a node name, updates the `certnames` table to ensure that it indicates the
   most recent report for the node."
   [node]
   {:pre [(string? node)]}
@@ -1072,10 +1072,9 @@
                                             ORDER BY end_time DESC
                                             LIMIT 1" node])))]
     (sql/update-or-insert-values
-     :latest_reports
-     ["certname = ?" node]
-     {:certname      node
-      :report_id     latest-report})))
+     :certnames
+     ["name = ?" node]
+     {:latest_report latest-report})))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."

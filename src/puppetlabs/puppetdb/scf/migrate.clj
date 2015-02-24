@@ -1001,6 +1001,30 @@
      "CREATE INDEX idx_resource_events_timestamp ON resource_events(timestamp)"
      "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn drop-latest-reports
+  []
+  (sql/do-commands
+    (if (scf-utils/postgres?)
+      "SELECT c.name,c.deactivated,lr.report_id as latest_report INTO certnames_transform FROM certnames c LEFT OUTER JOIN latest_reports lr ON c.name=lr.certname"
+      "CREATE TABLE certnames_transform (name, deactivated, latest_report) AS (SELECT c.name,c.deactivated,lr.report_id as latest_report FROM certnames c LEFT OUTER JOIN latest_reports lr ON c.name=lr.certname) WITH DATA")
+    "ALTER TABLE edges DROP CONSTRAINT edges_certname_fkey"
+    "ALTER TABLE catalogs DROP CONSTRAINT catalogs_certname_fkey"
+    "ALTER TABLE factsets DROP CONSTRAINT factsets_certname_fk"
+    "ALTER TABLE reports DROP CONSTRAINT reports_certname_fkey"
+    "ALTER TABLE latest_reports DROP CONSTRAINT latest_reports_certname_fkey"
+    "DROP TABLE certnames"
+
+    "ALTER TABLE certnames_transform RENAME TO certnames"
+    "ALTER TABLE certnames ADD CONSTRAINT certnames_pkey PRIMARY KEY (name)"
+
+    "ALTER TABLE edges ADD CONSTRAINT edges_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE catalogs ADD CONSTRAINT catalogs_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE NO ACTION ON DELETE CASCADE"
+    "ALTER TABLE factsets ADD CONSTRAINT factsets_certname_fk FOREIGN KEY (certname) REFERENCES certnames(name) ON UPDATE CASCADE ON DELETE CASCADE"
+    "ALTER TABLE reports ADD CONSTRAINT reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+    "ALTER TABLE latest_reports ADD CONSTRAINT latest_reports_certname_fkey FOREIGN KEY (certname) REFERENCES certnames(name) ON DELETE CASCADE"
+    "ALTER TABLE certnames ADD CONSTRAINT certnames_latest_report_fkey FOREIGN KEY (latest_report) REFERENCES reports(id) ON DELETE SET NULL"
+    "DROP TABLE latest_reports"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1031,7 +1055,8 @@
    26 structured-facts-deferrable-constraints
    27 switch-value-string-index-to-gin
    28 insert-factset-hash-column
-   29 migrate-to-report-id-and-noop-column})
+   29 migrate-to-report-id-and-noop-column
+   30 drop-latest-reports})
 
 (def desired-schema-version (apply max (keys migrations)))
 
