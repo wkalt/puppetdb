@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.query-eng
   (:require [puppetlabs.puppetdb.http :as pl-http]
             [puppetlabs.puppetdb.query.facts :as facts]
+            [puppetlabs.puppetdb.query.edges :as edges]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
             [puppetlabs.puppetdb.query.events :as events]
@@ -45,6 +46,7 @@
           :reports [reports/query->sql reports/munge-result-rows]
           :factsets [factsets/query->sql factsets/munge-result-rows]
           :resources [resources/query->sql resources/munge-result-rows]
+          :edges [edges/query->sql edges/munge-result-rows]
           :catalogs [catalogs/query->sql catalogs/munge-result-rows])]
     (jdbc/with-transacted-connection db
       (let [{[sql & params] :results-query

@@ -349,6 +349,42 @@
                :subquery? false
                :source-table "catalogs"}))
 
+
+;; TODO this is build on an assumption of 1:1 nodes to catalogs. To anticipate
+;; historical storage it may make more sense to key edges on catalog hash than
+;; certname (or maybe include both);
+
+(def edges-query
+  "Query for catalog edges"
+  (map->Query {:projections {"relationship" {:type :string
+                                            :queryable? true
+                                            :field :edges.type}
+                             "source_title" {:type :string
+                                             :queryable? true
+                                             :field :sources.title}
+                             "target_title" {:type :string
+                                             :queryable? true
+                                             :field :targets.title}
+                             "source_type" {:type :string
+                                            :queryable? true
+                                            :field :sources.type}
+                             "certname" {:type :string
+                                         :queryable? true
+                                         :field :edges.certname}
+                             "target_type" {:type :string
+                                            :queryable? true
+                                            :field :targets.type}}
+               :selection {:from [:edges]
+                           :join [[:catalog_resources :sources]
+                                  [:= :edges.source :sources.resource]
+
+                                  [:catalog_resources :targets]
+                                  [:= :edges.target :targets.resource]]}
+
+               :alias "edges"
+               :subquery? true
+               :source-table "edges"}))
+
 (def resources-query
   "Query for the top level resource entity"
   (map->Query {:projections {"certname" {:type  :string
