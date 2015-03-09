@@ -508,7 +508,7 @@
                :alias "events"
                :subquery? false
                :entity :events
-               :supports-extract? false
+               :supports-extract? true
                :source-table "resource_events"}))
 
 (def latest-report-query
@@ -599,11 +599,10 @@
   These are fields with the setting :queryable? set to true."
   [{:keys [projections]}]
   ;; TODO: clean this up later, maybe generalize
-  (reduce-kv (fn [data name {:keys [queryable?]}]
-               (if queryable?
-                 (cons name data)
-                 data))
-             [] projections))
+  (->> projections
+       (remove (comp (complement :queryable?) val))
+       keys
+       (into [])))
 
 (defn projectable-fields
   "Returns a list of projectable fields from a query record.
@@ -611,11 +610,10 @@
   Fields marked as :query-only? true are unable to be projected and thus are
   excluded."
   [{:keys [projections]}]
-  (reduce-kv (fn [data name {:keys [query-only?]}]
-               (if query-only?
-                 data
-                 (cons name data)))
-             [] projections))
+  (->> projections
+       (remove (comp :query-only? val))
+       keys
+       (into [])))
 
 (defn extract-fields
   [[name {:keys [query-only? expandable? field]}] expand?]
@@ -624,8 +622,7 @@
 
   Return nil for fields which are query-only? since these can't be projected
   either."
-  (if query-only?
-    nil
+  (when-not query-only?
     (if expand?
       [field name]
       (if expandable?
@@ -669,16 +666,15 @@
           has-where? (boolean (:where query))]
       (parenthize
        (:subquery? query)
-       (format "SELECT %s FROM ( %s ) AS %s %s %s"
-               (str/join ", " (map #(format "%s.%s" alias %)
-                                   (sort (:projected-fields query))))
+       (format "SELECT %s FROM ( %s ) AS %s %s"
+               (if (empty? (:projected-fields query)) 
+                 "*"
+                 (str/join ", " (map #(format "%s.%s" alias %)
+                                     (sort (:projected-fields query)))))
                (sql-from-query query)
                (:alias query)
                (if has-where?
-                 "WHERE"
-                 "")
-               (if has-where?
-                 (-plan->sql (:where query))
+                 (format "WHERE %s" (-plan->sql (:where query)))
                  "")))))
 
   InExpression
@@ -844,7 +840,8 @@
                                      ["extract" "latest_report_hash"
                                       ["select-latest-report"]]]
 
-                                    (throw (IllegalArgumentException. (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
+                                    (throw (IllegalArgumentException.
+                                             (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
@@ -1064,14 +1061,16 @@
   a SQL statement"
   [query-rec paging-options user-query]
   (let [plan-node (user-node->plan-node query-rec user-query)
-        projectable-fields (projectable-fields query-rec)]
+        projections (projectable-fields query-rec)]
     (if (instance? Query plan-node)
       (-> plan-node
-          (assoc :projected-fields projectable-fields))
+          (update-in [:projected-fields] #(->> %
+                                               (filter (set projections))
+                                               (into []))))
       (-> query-rec
           (assoc :where plan-node)
           (assoc :paging-options paging-options)
-          (assoc :projected-fields projectable-fields)))))
+          (assoc :projected-fields projections)))))
 
 (declare push-down-context)
 
