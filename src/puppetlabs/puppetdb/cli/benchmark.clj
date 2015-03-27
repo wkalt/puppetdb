@@ -170,7 +170,7 @@
    of the factset based on a percentage provided in `rand-percentage`."
   [rand-percentage factset]
   (-> factset
-      (assoc "producer_timestamp" (time/now))
+      (assoc "producer-timestamp" (time/now))
       (update-in ["values"] (partial randomize-map-leaves rand-percentage))))
 
 (defn timed-update-host
@@ -211,7 +211,7 @@
       (when factset
         (future
           (try
-            (client/submit-facts base-url 4 (json/generate-string factset))
+            (client/submit-facts base-url 3 (json/generate-string factset))
             (log/info (format "[%s] submitted factset" host))
             (catch Exception e
               (log/error (format "[%s] failed to submit factset: %s" host e))))))
@@ -235,7 +235,7 @@
     (when report
       (client/submit-report base-url 5 (json/generate-string report)))
     (when factset
-      (client/submit-facts base-url 4 (json/generate-string factset)))
+      (client/submit-facts base-url 3 (json/generate-string factset)))
     (assoc state :catalog catalog)))
 
 (defn submit-n-messages
@@ -289,7 +289,7 @@
   "Takes the given `factset` and transforms it to appear related to
    `hostname`"
   [hostname factset]
-  (assoc factset "certname" hostname))
+  (assoc factset "name" hostname))
 
 (def supported-cli-options
   [["-c" "--config CONFIG" "Path to config.ini or conf.d directory (required)"]
