@@ -31,7 +31,7 @@ class Puppet::Util::Puppetdb::Command
       @payload = Puppet::Util::Puppetdb::CharEncoding.utf8_string({
         :command => command,
         :version => version,
-        :payload => payload,
+        :payload => payload
       }.to_json)
     end
   end
@@ -48,8 +48,16 @@ class Puppet::Util::Puppetdb::Command
 
     begin
       response = profile("Submit command HTTP post", [:puppetdb, :command, :submit]) do
-        Http.action("#{CommandsUrl}?checksum=#{checksum}") do |http_instance, path|
-          http_instance.post(path, payload, headers)
+        Http.action("#{CommandsUrl}?checksum=#{checksum}") do |legacy_host, http_instance, path|
+          if legacy_host
+            munged_payload = munge_command(payload)
+            submission_payload = CGI.escape(munged_payload)
+            new_checksum = Digest::SHA1.hexdigest(munged_payload)
+            path = "checksum=#{new_checksum}&payload=#{submission_payload}"
+            http_instance.post("/v3/commands", path)
+          else
+            http_instance.post(path, payload, headers)
+          end
         end
       end
 

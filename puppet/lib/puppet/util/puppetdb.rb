@@ -52,6 +52,62 @@ module Puppet::Util::Puppetdb
   end
 
   # @!group Public instance methods
+  def underscores_to_dashes(m)
+    Hash[m.map {|k, v| [k.gsub("_","-"), v]}]
+  end
+
+  def legacy_command_versions
+    {"replace facts" => 1, "replace catalog" => 3, "store report" => 2}
+  end
+
+  def stringify(values)
+    values.each do |fact,value|
+      values[fact] = value.to_s
+    end
+  end
+
+  def munge_facts_command(command)
+    stringify(command["values"])
+    {"name" => command["certname"],
+     "values" => stringify(command["values"])}.to_json
+  end
+
+  def munge_reports_command(command)
+    {"certname" => command["certname"],
+     "puppet-version" => command["puppet_version"],
+     "report-format" => command["report_format"],
+     "configuration-version" => command["configuration_version"],
+     "start-time" => command["start_time"],
+     "end-time" => command["end_time"],
+     "resource-events" => command["resource_events"].map {|x| underscores_to_dashes(x)},
+     "transaction-uuid" => command["transaction_uuid"]}
+  end
+
+  def munge_catalogs_command(command)
+    {"data" => {"name" => command["certname"],
+                "version" => command["version"],
+                "transaction-uuid" => command["transaction_uuid"],
+                "edges" => command["edges"],
+                "resources" => command["resources"]},
+    "metadata" => {"api_version" => 1}}
+  end
+
+  def munge_command(payload)
+    command = JSON.parse(payload)
+    command_type = command["command"]
+    case command_type
+    when "replace facts"
+      payload = munge_facts_command(command["payload"])
+    when "store report"
+      payload = munge_reports_command(command["payload"])
+    when "replace catalog"
+      payload = munge_catalogs_command(command["payload"])
+    end
+
+    {"command" => command_type,
+      "version" => legacy_command_versions[command_type],
+      "payload" => payload}.to_json
+  end
 
   # Submit a command to PuppetDB.
   #

@@ -33,9 +33,6 @@ Puppet::Reports.register_report(:puppetdb) do
   def report_to_hash
     profile("Convert report to wire format hash",
             [:puppetdb, :report, :convert_to_wire_format_hash]) do
-      if environment.nil?
-        raise Puppet::Error, "Environment is nil, unable to submit report. This may be due a bug with Puppet. Ensure you are running the latest revision, see PUP-2508 for more details."
-      end
 
       resource_events = build_events_list
       is_noop = resource_events.any? {|rs| rs["status"] == 'noop'} && resource_events.none? {|rs| rs["status"] == 'failed'}

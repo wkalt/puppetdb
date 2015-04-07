@@ -42,12 +42,17 @@ module Puppet::Util::Puppetdb
 
       for url in Puppet::Util::Puppetdb.config.server_urls
         begin
+          legacy_host= url.host == Puppet::Util::Puppetdb.config.pdb_legacy
+
+          if legacy_host
+            path_suffix = "/v3" + path_suffix[3..-1]
+          end
           route = concat_url_snippets(url.request_uri, path_suffix)
           http = Puppet::Network::HttpPool.http_instance(url.host, url.port)
           request_timeout = config.server_url_timeout
 
           response = timeout(request_timeout) do
-            http_callback.call(http, route)
+            http_callback.call(legacy_host, http, route)
           end
 
           if response.is_a? Net::HTTPServerError
@@ -56,8 +61,6 @@ module Puppet::Util::Puppetdb
           elsif response.is_a? Net::HTTPNotFound
             Puppet.warning("Error connecting to #{url.host} on #{url.port} at route #{route}, error message received was '#{response.message}'. #{SERVER_URL_FAIL_MSG if server_url_config}")
             response = nil
-          else
-            break
           end
         rescue Timeout::Error => e
           Puppet.warning("Request to #{url.host} on #{url.port} at route #{route} timed out after #{request_timeout} seconds. #{SERVER_URL_FAIL_MSG if server_url_config}")

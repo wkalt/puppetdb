@@ -15,6 +15,7 @@ module Puppet::Util::Puppetdb
         :url_prefix                => "",
         :soft_write_failure        => false,
         :ignore_blacklisted_events => true,
+        :pdb_legacy                => "",
         :server_url_timeout        => 30
       }
 
@@ -55,7 +56,8 @@ module Puppet::Util::Puppetdb
       main_section = main_section.inject({}) {|h, (k,v)| h[k.to_sym] = v ; h}
       # merge with defaults but filter out anything except the legal settings
       config_hash = defaults.merge(main_section).reject do |k, v|
-        !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure, :server_urls, :server_url_timeout].include?(k))
+        !([:server, :port, :url_prefix, :ignore_blacklisted_events, :soft_write_failure,
+           :server_urls, :server_url_timeout, :pdb_legacy].include?(k))
       end
 
       if config_hash[:server_urls]
@@ -106,6 +108,10 @@ module Puppet::Util::Puppetdb
 
     def server_urls
       config[:server_urls]
+    end
+
+    def pdb_legacy
+      config[:pdb_legacy]
     end
 
     def server_url_timeout

@@ -3,6 +3,32 @@ require 'puppet/indirector/rest'
 require 'puppet/util/puppetdb'
 require 'time'
 
+class Puppet::Resource
+  def to_data_hash
+    data = ([:type, :title, :tags] + ATTRIBUTES).inject({}) do |hash, param|
+      next hash unless value = self.send(param)
+      hash[param.to_s] = value
+      hash
+    end
+
+    data["exported"] ||= false
+
+    params = self.to_hash.inject({}) do |hash, ary|
+      param, value = ary
+
+      # Don't duplicate the title as the namevar
+      next hash if param == namevar and value == title
+
+      hash[param] = Puppet::Resource.value_to_pson_data(value)
+      hash
+    end
+
+    data["parameters"] = params unless params.empty?
+
+    data
+  end
+end
+
 class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   include Puppet::Util::Puppetdb
   include Puppet::Util::Puppetdb::CommandNames
@@ -28,7 +54,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
   end
 
   def hashify_tags(hash)
-    hash["resources"] = hash["resources"].map { |resource| resource["tags"] = resource["tags"].to_data_hash; resource }
+    hash["resources"] = hash["resources"].map { |resource| resource["tags"] = resource["tags"].to_a; resource }
     hash
   end
 
@@ -264,7 +290,7 @@ class Puppet::Resource::Catalog::Puppetdb < Puppet::Indirector::REST
           # exported resources which haven't been also collected will appears as
           # exported and virtual (collected ones will only be exported). They will
           # eventually be removed from the catalog, so we can't add edges involving
-          # them. Puppet::Resource#to_data_hash omits 'virtual', so we have to
+          # them. Puppet::Resource#to_a omits 'virtual', so we have to
           # look it up in the catalog to find that information. This isn't done in
           # a separate step because we don't actually want to send the field (it
           # will always be false). See ticket #16472.
