@@ -653,7 +653,7 @@
   [m call grouping]
   (-> m
       (#(if call (update-in % [:select] conj (apply hcore/call call)) %))
-      (#(if grouping (assoc % :group-by (map keyword grouping))))))
+      (#(if grouping (assoc % :group-by (map keyword grouping)) %))))
 
 (defn honeysql-from-query
   [{:keys [group-by call selection projections paging-options] :as query}]
