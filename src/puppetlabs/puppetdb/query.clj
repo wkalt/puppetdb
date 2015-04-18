@@ -355,7 +355,7 @@
                              fv.value_integer as value_integer,
                              fv.value_float as value_float,
                              COALESCE(fv.value_string,
-                                      fv.value_json,
+                                      fv.value,
                                       cast(fv.value_integer as text),
                                       cast(fv.value_float as text),
                                       cast(fv.value_boolean as text)) as value,

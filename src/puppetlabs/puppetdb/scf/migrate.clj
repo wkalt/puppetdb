@@ -783,7 +783,7 @@
                     ["value_float"   "double precision"]
                     ["value_string"  "text"]
                     ["value_boolean" "boolean"]
-                    ["value_json"    "text"])
+                    ["value"    "text"])
 
   (sql/do-commands
    "ALTER TABLE fact_values ADD CONSTRAINT fact_values_path_id_value_key UNIQUE (path_id, value_type_id, value_hash)"

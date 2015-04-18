@@ -39,7 +39,7 @@
    :value_string (s/maybe s/Str)
    :value_integer (s/maybe s/Int)
    :value_boolean (s/maybe s/Bool)
-   :value_json (s/maybe s/Str)
+   :value (s/maybe s/Str)
    :value_type_id s/Int})
 
 ;; GLOBALS
@@ -135,16 +135,13 @@
 
 (defn value->valuemap
   [value]
-  ;; Used by migration-legacy, so copy this function there before
-  ;; making backward-incompatible changes.
   (let [type-id (value-type-id value)
         initial-map {:value_type_id type-id
                      :value_hash (hash/generic-identity-hash value)
                      :value_string nil
                      :value_integer nil
                      :value_float nil
-                     :value_boolean nil
-                     :value_json nil}]
+                     :value_boolean nil}]
     (if (nil? value)
       initial-map
       (let [value-keyword (case type-id
@@ -152,11 +149,12 @@
                             1 :value_integer
                             2 :value_float
                             3 :value_boolean
-                            5 :value_json)
+                            5 :value)
             value (if (coll? value)
                     (sutils/db-serialize value)
                     value)]
-        (assoc initial-map value-keyword value)))))
+        (assoc initial-map value-keyword value
+          :value (json/generate-string {value type-id}))))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths
@@ -164,6 +162,7 @@
   ;; Used by migration-legacy, so copy this function there before
   ;; making backward-incompatible changes.
   ([leaf-fn facts] (flatten-facts-with leaf-fn facts [] []))
+
   ;; We intentionally do not validate with schema here, for performance.
   ([leaf-fn data mem path]
      (let [depth (dec (count path))]
@@ -251,14 +250,30 @@
 
 (defn convert-row-type
   "Coerce the value of a row to the proper type."
-  [dissociated-fields row]
-  (let [conversion (case (:type row)
-                     "boolean" clj-edn/read-string
-                     "float" (constantly (:value_float row))
-                     "integer" (constantly (:value_integer row))
-                     "json" json/parse-string
-                     ("string" "null") identity
-                     identity)]
+  [dissociated-fields {:keys [value] :as row}]
+  (println "ROW IS" row)
+  (let [; _ (println "pARSED" (json/parse-string value))
+        value-map (json/parse-string value)
+        _ (println "VALUE MAP IS" value)
+        value-string (first (keys value-map))
+        type-id (first (vals value-map))
+        ;[[value type-id]] (into [] (json/parse-string value true))
+        _ (println "TYPE ID IS " type-id "VALUE IS " value-string)
+        conversion (case type-id
+                     0 identity
+                     1 (constantly (:value_integer row))
+                     2 (constantly (:value_float row))
+                     3 clj-edn/read-string
+                     5 (constantly value-string)
+                     identity)
+      ;  conversion  ( case (:type row)
+      ;                "boolean" clj-edn/read-string
+      ;                "float" (constantly (:value_float row))
+      ;                "integer" (constantly (:value_integer row))
+      ;                "json" json/parse-string
+      ;                ("string" "null") identity
+      ;                identity)
+        ]
     (reduce #(dissoc %1 %2)
-            (utils/update-when row [:value] conversion)
+            (assoc row :value (conversion value-string))
             dissociated-fields)))

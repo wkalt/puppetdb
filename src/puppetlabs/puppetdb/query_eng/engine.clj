@@ -138,8 +138,8 @@
                                      :field :fp.path}
                              "value" {:type :multi
                                       :queryable? true
-                                      :field (h/coalesce :fv.value_string
-                                                         :fv.value_json
+                                      :field (h/coalesce :fv.value
+                                                         :fv.value_string
                                                          (h/scast :fv.value_boolean :text))}
                              "depth" {:type :integer
                                       :queryable? false
@@ -560,8 +560,8 @@
                                                         (h/row-to-json
                                                          (h/row
                                                           :fact_paths.path
-                                                          (h/coalesce :fact_values.value_string
-                                                                      :fact_values.value_json
+                                                          (h/coalesce :fact_values.value
+                                                                      :fact_values.value_string
                                                                       (h/scast :fact_values.value_boolean :text))
                                                           :fact_values.value_integer
                                                           :fact_values.value_float
