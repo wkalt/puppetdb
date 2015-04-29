@@ -96,26 +96,27 @@
   "Given a type, generate a random fact value"
   [kind]
   (case kind
-    :int (rand-int 300)
+    :int (rand-int 20)
     :float (rand)
     :bool (random-bool)
-    :string (random-string 4)
+    :string (random-string 3)
     :vector (into [] (take (rand-int 10)
                            (repeatedly #(random-fact-value
                                          (rand-nth [:string :int :float :bool])))))))
 
 (defn random-structured-fact
   "Create a 'random' structured fact.
-  Parameters are fact depth and number of child facts.  Depth 0 implies one child."
+   Parameters are fact depth and number of child facts.  Depth 0 implies one child."
   ([]
-     (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
+   (random-structured-fact (rand-nth [0 1 2 3]) (rand-nth [1 2 3 4])))
   ([depth children]
-     (let [kind (rand-nth [:int :float :bool :string :vector])]
-       (if (zero? depth)
-         {(random-string 10) (random-fact-value kind)}
-         {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
-                                     (take children (repeatedly
-                                                     #(random-structured-fact
+   (let [kind (rand-nth [:int :float :bool :string :vector])]
+     (if (zero? depth)
+       (zipmap (take children (repeatedly #(random-string 10)))
+               (take children (repeatedly #(random-fact-value kind))))
+       {(random-string 10) (zipmap (take children (repeatedly #(random-string 10)))
+                                   (take children (repeatedly
+                                                    #(random-structured-fact
                                                        (rand-nth (range depth))
                                                        (rand-nth (range children))))))}))))
 
@@ -159,8 +160,11 @@
            [k (randomize-map-leaves rp v)]))
 
    (coll? value)
-   (for [v value]
-     (randomize-map-leaves rp v))
+   (let [action (rand-nth [#(concat [(random-structured-fact 0 4)] %)
+                           rest
+                           identity])]
+     (for [v (action value)]
+       (randomize-map-leaves rp v)))
 
    :else
    (randomize-map-leaf rp value)))
