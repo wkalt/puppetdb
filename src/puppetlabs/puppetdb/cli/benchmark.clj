@@ -341,9 +341,9 @@
 (defn default-options
   [options]
   (-> options
-      (assoc :facts "puppetlabs/puppetdb/benchmark/samples/facts")
-      (assoc :reports "puppetlabs/puppetdb/benchmark/samples/reports")
-      (assoc :catalogs "puppetlabs/puppetdb/benchmark/samples/catalogs")
+      (assoc :facts "benchmark/samples/facts")
+      (assoc :reports "benchmark/samples/reports")
+      (assoc :catalogs "benchmark/samples/catalogs")
       (assoc :from-cp? true)))
 
 (defn- validate-cli!
