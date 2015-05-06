@@ -9,7 +9,7 @@ def restart_to_gc(database)
   # to tell that the GC had finished.  We could maybe scrape the logs if this
   # proves too fragile.
   step "sleep 5 seconds to allow GC to complete" do
-    sleep 5
+    sleep 15
   end
 end
 
