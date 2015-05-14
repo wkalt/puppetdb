@@ -184,6 +184,10 @@
                                               :query-only? true
                                               :queryable? false
                                               :field :fv.value_integer}
+                             "value_numeric" {:type :multi
+                                              :query-only? true
+                                              :queryable? false
+                                              :field {:select [(h/coalesce :fv.value_integer :fv.value_float)]}}
                              "value_float" {:type :number
                                             :query-only? true
                                             :queryable? false
@@ -869,6 +873,9 @@
   (cm/match [node]
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
+            [op "value_numeric" value]
+
+            [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
 
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
@@ -1091,8 +1098,8 @@
 
                :multi
                (map->BinaryExpression {:operator :=
-                                       :column (hsql-hash-as-str (keyword (str column "_hash")))
-                                       :value (hash/generic-identity-hash value)})
+                                       :column field
+                                       :value value})
 
                (map->BinaryExpression {:operator :=
                                        :column field
@@ -1187,7 +1194,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-fns ["count"]
+  (let [supported-fns ["count" "max" "avg" "min" "sum"]
         supported-calls (set (map #(vector "function" %) supported-fns))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
