@@ -187,7 +187,7 @@
                              "value_numeric" {:type :multi
                                               :query-only? true
                                               :queryable? false
-                                              :field {:select [(h/coalesce :fv.value_integer :fv.value_float)]}}
+                                              :field {:select [[(h/coalesce :fv.value_integer :fv.value_float) :value_numeric]]}}
                              "value_float" {:type :number
                                             :query-only? true
                                             :queryable? false
@@ -203,6 +203,9 @@
                :selection {:from [[:factsets :fs]]
                            :join [[:facts :f]
                                   [:= :fs.id :f.factset_id]
+
+                                  [[:select [:id [[(h/coalesce :fv.value_integer :fv.value_float) :value_numeric]]]] :t]
+                                  [:= :t.id :fv.id]
 
                                   [:fact_values :fv]
                                   [:= :f.fact_value_id :fv.id]
@@ -976,6 +979,9 @@
   (let [query-context (:query-context (meta node))]
     (cm/match [node]
 
+              [[(op :guard #{">" ">=" "<" "<=" "="}) "value_numeric" value]]
+              nil
+
               [["=" field value]]
               (let [col-type (get-in query-context [:projections field :type])]
                 (when (and (= :number col-type) (string? value))
@@ -1107,7 +1113,7 @@
 
             [[(op :guard #{">" "<" ">=" "<="}) column value]]
             (let [{:keys [type field]} (get-in query-rec [:projections column])]
-              (if (or (= :timestamp type) (and (= :number type) (not (string? value))))
+              (if (or (= :timestamp type) (:= :multi type) (and (= :number type) (not (string? value))))
                 (map->BinaryExpression {:operator (keyword op)
                                         :column field
                                         :value  (if (= :timestamp type)
@@ -1159,6 +1165,11 @@
             [["in" column subquery-expression]]
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
+
+            [["extract" [["function" (f :guard #{"sum" "avg" "min" "max"}) "value"]] expr]]
+            (-> query-rec
+                (assoc :call [f "value_numeric"])
+                (create-extract-node [] expr))
 
             [["extract" [["function" & fargs]] expr]]
             (-> query-rec

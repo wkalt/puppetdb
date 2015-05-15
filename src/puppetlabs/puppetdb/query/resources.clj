@@ -25,6 +25,7 @@
    (s/optional-key :parameters) (s/maybe s/Str)
    (s/optional-key :resource) s/Str
    (s/optional-key :count) s/Int
+   (s/optional-key :max) s/Any
    (s/optional-key :tags) [(s/maybe s/Str)]
    (s/optional-key :title) s/Str
    (s/optional-key :type) s/Str})
@@ -43,6 +44,7 @@
    (s/optional-key :parameters) resource-parameters-schema
    (s/optional-key :resource) s/Str
    (s/optional-key :count) s/Int
+   (s/optional-key :max) s/Any
    (s/optional-key :tags) [(s/maybe s/Str)]
    (s/optional-key :title) s/Str
    (s/optional-key :type) s/Str})
@@ -58,7 +60,7 @@
 
 (pls/defn-validated row->resource :- resource-schema
   "Convert resource query row into a final resource format."
-  [row :- row-schema]
+  [row]
   (utils/update-when row [:parameters] parse-params))
 
 (pls/defn-validated munge-result-rows
