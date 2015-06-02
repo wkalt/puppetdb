@@ -47,6 +47,8 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.kitchensink.core :as ks]
             [clj-time.core :as time]
+            [puppetlabs.puppetdb.time :refer [parse-period to-seconds]]
+            [clj-time.periodic :refer [periodic-seq]]
             [puppetlabs.puppetdb.client :as client]
             [puppetlabs.puppetdb.random :refer [random-string random-bool]]
             [puppetlabs.puppetdb.archive :as archive]
@@ -230,8 +232,9 @@
    submission.  Also submit a report for the host (if present). This is
    similar to timed-update-host, but always sends the update (doesn't run/skip
    based on the clock)"
-  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage] :as state}]
+  [{:keys [host lastrun catalog report factset puppetdb-host puppetdb-port run-interval rand-percentage duration] :as state}]
   (let [base-url {:protocol "http" :host puppetdb-host :port puppetdb-port :prefix "/pdb/query"}
+        stamps (atom ())
         catalog (some-> catalog (maybe-tweak-catalog rand-percentage))
         report (some-> report update-report-run-fields)
         factset (some-> factset (update-factset rand-percentage))]
@@ -249,6 +252,7 @@
              num-msgs (count hosts))
   (loop [mutated-hosts hosts
          msgs-to-send num-msgs]
+    (println "TO SEND" msgs-to-send)
     (when-not (zero? msgs-to-send)
       (recur (mapv update-host mutated-hosts) (dec msgs-to-send)))))
 
@@ -300,6 +304,7 @@
    ["-R" "--reports REPORTS" "Path to a directory containing sample JSON reports (files must end with .json)"]
    ["-A" "--archive ARCHIVE" "Path to a PuppetDB export tarball. Incompatible with -C, -F, -R, or -D"]
    ["-i" "--runinterval RUNINTERVAL" "What runinterval (in minutes) to use during simulation"]
+   ["-d" "--duration DURATION" "length of time over which to spread timestamps"]
    ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation"]
    ["-r" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"]
    ["-N" "--nummsgs NUMMSGS" "Number of commands and/or reports to send for each host"]])
@@ -323,6 +328,14 @@
     (do
       (log/error
         "Error: -N/--nummsgs runs immediately and is not compatable with -i/--runinterval")
+      (action-on-error-fn))
+
+    (and (contains? options :runinterval)
+         (contains? options :duration))
+
+    (do
+      (log/error
+        "Error: -d/--duration runs immediately is not compatible with i-/--runinterval")
       (action-on-error-fn))
 
     (not-any? #{:nummsgs :runinterval} (keys options))
@@ -393,6 +406,17 @@
      :reports (when reports
                 (load-sample-data reports from-cp?))}))
 
+(defn time-seq
+  [duration num-msgs]
+  (let [start (time/now)
+        stop (time/plus (time/now) (parse-period duration))
+        step (/ (- (to-seconds stop) (to-seconds start)) num-msgs)]
+    (periodic-seq start stop step)))
+
+(to-seconds (time/now))
+
+(time-seq "14d" 10)
+
 (defn -main
   [& args]
   (let [options         (validate-cli! args)
@@ -401,6 +425,7 @@
 
         {:keys [catalogs reports facts]} (load-data-from-options options)
         nhosts          (:numhosts options)
+        duration        (periodic-seq (time/now) (time/plus (time/now) (parse-period (:duration options "14d"))))
         hostnames       (set (map #(str "host-" %) (range (Integer/parseInt nhosts))))
         hostname        (get-in config [:jetty :host] "localhost")
         port            (get-in config [:jetty :port] 8080)
