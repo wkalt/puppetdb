@@ -207,6 +207,19 @@ body {
   .call();
 
   counterAndSparkline()
+  .url("/metrics/v1/mbeans/puppetlabs.puppetdb.query.population:type=default,name=pct-fact-value-dupes")
+  .snag(function(res) { return res["Value"]; })
+  .format(d3.format(",.1%"))
+  .description("Fact value duplication")
+  .addendum("% of fact values stored")
+  .container("#metrics")
+  .nHistorical(nHistorical)
+  .pollingInterval(pollingInterval)
+  .width(width)
+  .height(height)
+  .call();
+
+  counterAndSparkline()
   .url("/metrics/v1/mbeans/puppetlabs.puppetdb.scf.storage:type=default,name=duplicate-pct")
   .snag(function(res) { return res["Value"]; })
   .format(d3.format(",.1%"))

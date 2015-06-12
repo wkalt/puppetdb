@@ -68,6 +68,14 @@
         num-total (num-resources)]
     (quotient (- num-total num-unique) num-total)))
 
+(defn fact-value-duplication
+  "Percentage of fact values shared between paths"
+  []
+  {:post [(number? %)]}
+  (let [num-values (:count (first (query-to-vec "select count(*) from fact_values")))
+        num-paths (:count (first (query-to-vec "select count(*) from fact_paths")))]
+    (- 1 (/ num-paths num-values))))
+
 ;; ## Population-wide metrics
 
 ;; This is pinned to the old namespace for backwards compatibility
@@ -86,6 +94,9 @@
    :avg-resources-per-node (gauge [ns-str "default" "avg-resources-per-node"]
                                   (with-transacted-connection db
                                     (avg-resource-per-node)))
+   :pct-fact-value-dupes (gauge [ns-str "default" "pct-fact-value-dupes"]
+                                  (with-transacted-connection db
+                                    (fact-value-duplication)))
    :pct-resource-dupes     (gauge [ns-str "default" "pct-resource-dupes"]
                                   (with-transacted-connection db
                                     (pct-resource-duplication)))})
