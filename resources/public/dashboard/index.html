@@ -154,6 +154,8 @@ body {
   var width = getParameter("width") || 400;
   var height = getParameter("height") || 60;
 
+  histogram()
+
   counterAndSparkline()
   .url("/metrics/v1/mbeans/java.lang:type=Memory")
   .snag(function(res) { return res["HeapMemoryUsage"]["used"]; })

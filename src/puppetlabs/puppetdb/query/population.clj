@@ -74,7 +74,7 @@
   {:post [(number? %)]}
   (let [num-values (:count (first (query-to-vec "select count(*) from fact_values")))
         num-paths (:count (first (query-to-vec "select count(*) from fact_paths")))]
-    (- 1 (/ num-paths num-values))))
+    (- 1 (/ num-values num-paths))))
 
 ;; ## Population-wide metrics
 
