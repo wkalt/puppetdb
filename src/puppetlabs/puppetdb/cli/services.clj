@@ -79,7 +79,7 @@
 ;; PuppetDB components.
 
 (def mq-addr "vm://localhost?jms.prefetchPolicy.all=1&create=false")
-(def mq-endpoint "puppetlabs.puppetdb.commands")
+(def mq-endpoint "com.puppetlabs.puppetdb.commands")
 
 (defn auto-expire-nodes!
   "Expire nodes which haven't had any activity (catalog/fact submission)
