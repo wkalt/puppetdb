@@ -92,6 +92,8 @@
                         :body
                         (json/parse-string true)))
          ["=" "certname" "foo.local"]
+         ["~" "certname" "foo.*"]
+         ["~" "environment" ".*"]
          ["<=" "report_receive_time" current-time-str]
          ["<=" "run_start_time" current-time-str]
          ["<=" "run_end_time" current-time-str])))
