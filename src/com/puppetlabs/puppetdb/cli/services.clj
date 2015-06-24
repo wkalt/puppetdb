@@ -288,9 +288,10 @@
     ;; confused if the database doesn't exist but we open and close a
     ;; connection without creating anything.
     (sql/with-connection write-db
-                         (scf-store/validate-database-version #(System/exit 1))
+                         (scf-store/validate-database-version
+                           product-name #(System/exit 1))
                          (migrate!)
-                         (indexes! (:product-name globals)))
+                         (indexes! product-name))
 
     ;; Initialize database-dependent metrics and dlo metrics if existent.
     (pop/initialize-metrics write-db)

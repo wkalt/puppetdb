@@ -1330,16 +1330,31 @@
 
 (deftest db-deprecation?
   (testing "should return a string if db is deprecated"
-    (are [db version result]
+    (are [db product-name version result]
       (with-db-version db version
         (fn []
-          (is (= result (db-deprecated?)))))
-      "PostgreSQL" [8 4] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 0] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 1] "PostgreSQL DB versions 8.4 - 9.1 are deprecated and won't be supported in the future."
-      "PostgreSQL" [9 2] nil
-      "PostgreSQL" [9 3] nil
-      "PostgreSQL" [9 4] nil)))
+          (is (= result (db-deprecated? product-name)))))
+      "PostgreSQL" "puppetdb" [8 4]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "puppetdb" [9 0]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "puppetdb" [9 1]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "puppetdb" [9 2]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "pe-puppetdb" [9 2] nil
+
+      "PostgreSQL" "puppetdb" [9 3]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "pe-puppetdb" [9 3]
+         "PostgreSQL DB versions 8.4 - 9.3 are deprecated and won't be supported in the future."
+
+      "PostgreSQL" "puppetdb" [9 4] nil)))
 
 (deftest test-db-unsupported?
   (testing "should return a string if db is deprecated"
@@ -1360,26 +1375,29 @@
 (def not-supported-regex #"PostgreSQL DB versions 8.3 and older are no longer supported")
 
 (deftest test-unsupported-fail
-  (testing "unsupported postgres version"
-    (let [fail? (atom false)]
-      (with-db-version "PostgreSQL" [8 1]
-        (fn []
-          (pllog/with-log-output log
-            (is (re-find not-supported-regex
-                         (tu/with-err-str
-                           (validate-database-version #(reset! fail? true)))))
-            (is (true? @fail?))
-            (is (re-find not-supported-regex (last (first @log)))))))))
-  (testing "supported postgres version"
-    (let [fail? (atom false)]
-      (with-db-version "PostgreSQL" [9 3]
-        (fn []
-          (pllog/with-log-output log
-            (is (str/blank?
-                 (tu/with-err-str
-                   (validate-database-version #(reset! fail? true)))))
-            (is (false? @fail?))
-            (is (empty? @log))))))))
+  (doseq [product-name ["puppetdb" "pe-puppetdb"]]
+    (testing "unsupported postgres version"
+      (let [fail? (atom false)]
+        (with-db-version "PostgreSQL" [8 1]
+          (fn []
+            (pllog/with-log-output log
+              (is (re-find not-supported-regex
+                           (tu/with-err-str
+                             (validate-database-version
+                               product-name #(reset! fail? true)))))
+              (is (true? @fail?))
+              (is (re-find not-supported-regex (last (first @log)))))))))
+    (testing "supported postgres version"
+      (let [fail? (atom false)]
+        (with-db-version "PostgreSQL" [9 4]
+          (fn []
+            (pllog/with-log-output log
+              (is (str/blank?
+                    (tu/with-err-str
+                      (validate-database-version
+                        product-name #(reset! fail? true)))))
+              (is (false? @fail?))
+              (is (empty? @log)))))))))
 
 (deftest test-catalog-schemas
   (is (= (:basic catalogs) (s/validate catalog-schema (:basic catalogs)))))
