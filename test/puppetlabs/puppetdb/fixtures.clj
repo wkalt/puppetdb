@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.jdbc :as pjdbc]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.config :as cfg]
+            [puppetlabs.puppetdb.query.population :as population]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-test-logging]]
             [clojure.tools.macro :as tmacro]
             [clojure.test :refer [join-fixtures use-fixtures]]
@@ -68,6 +69,25 @@
   ([f]
    (binding [*command-app* (command/command-app {:command-mq *mq*})]
      (f))))
+
+(defn with-metrics-app
+  "Build the http metrics app and make it available as *app* within tests.
+   Should be nested within with-test-db or with-test-mq."
+  ([f]
+   (with-metrics-app {} f))
+  ([globals-overrides f]
+   (binding [*app* (server/build-app
+                       (merge
+                         {:scf-read-db          *db*
+                          :scf-write-db         *db*
+                          :command-mq           *mq*
+                          :product-name         "puppetdb"
+                          :url-prefix           ""}
+                         globals-overrides))]
+       (population/initialize-metrics *db*)
+       (f))
+   )
+  )
 
 (defn with-http-app
   "A fixture to build an HTTP app and make it available as `*app*` within

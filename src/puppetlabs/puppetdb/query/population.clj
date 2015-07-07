@@ -93,4 +93,5 @@
 (defn initialize-metrics
   "Initializes the set of population-wide metrics"
   [db]
+  (println "hello world")
   (compare-and-set! metrics nil (population-gauges db)))
