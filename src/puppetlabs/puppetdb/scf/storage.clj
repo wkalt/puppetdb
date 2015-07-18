@@ -1112,6 +1112,20 @@
                        (when cp
                          (sutils/to-jdbc-varchar-array cp)))))
 
+(defn wipe-aec
+  [certname]
+  (sql/delete-rows :aggregate_event_counts ["certname = ?" certname]))
+
+(defn update-aec
+  [{:keys [certname status containing-class resource-type resource-title timestamp]}]
+  (sql/insert-record :aggregate_event_counts
+                     {:certname certname
+                      :status status
+                      :containing_class containing-class
+                      :resource_type resource-type
+                      :resource_title resource-title
+                      :timestamp timestamp}))
+
 (pls/defn-validated add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1150,7 +1164,10 @@
                     (map (comp convert-containment-path assoc-ids))
                     (apply sql/insert-records :resource_events))
                (when update-latest-report?
-                 (update-latest-report! certname)))))))
+                 (update-latest-report! certname)))
+             
+             (clean-aec certname)
+             (update-aec certname status containing_class resource_type resource_title timestamp)))))
 
 (defn delete-reports-older-than!
   "Delete all reports in the database which have an `producer-timestamp` that is prior to

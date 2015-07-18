@@ -1418,6 +1418,16 @@
     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn create-aggregate-event-counts
+  []
+  (sql/create-table :aggregate_event_counts
+                    ["certname_id" "bigint NOT NULL references certnames(id)"]
+                    ["containing_class" "text"]
+                    ["resource_type" "text"]
+                    ["resource_title" "text"]
+                    ["timestamp" "timestamp with time zone NOT NULL"]
+                    ["status" "varchar(40) NOT NULL"]))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1453,7 +1463,8 @@
    31 coalesce-fact-values
    32 add-producer-timestamp-to-reports
    33 add-certname-id-to-certnames
-   34 add-certname-id-to-resource-events})
+   34 add-certname-id-to-resource-events
+   35 create-aggregate-event-counts})
 
 (def desired-schema-version (apply max (keys migrations)))
 
