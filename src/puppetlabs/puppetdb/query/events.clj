@@ -52,16 +52,16 @@
   [query]
   (format
     "WITH latest_events AS
-     (select certname,
+     (SELECT certname,
      configuration_version,
      start_time,
      end_time,
      receive_time,
      hash,
      status,
-     distinct_events.timestamp as timestamp,
-     distinct_events.resource_type as resource_type,
-     distinct_events.resource_title as resource_title,
+     distinct_events.timestamp AS timestamp,
+     distinct_events.resource_type AS resource_type,
+     distinct_events.resource_title AS resource_title,
      distinct_events.property as property,
      new_value,
      old_value,
@@ -71,28 +71,27 @@
      containment_path,
      containing_class,
      name
-     from
+     FROM
      (SELECT certname_id,
-     resource_type collate \"C\" as resource_type,
-     resource_title collate \"C\" as resource_title,
-     property collate \"C\" as property,
+     resource_type COLLATE \"C\" AS resource_type,
+     resource_title COLLATE \"C\" AS resource_title,
+     property COLLATE \"C\" AS property,
      MAX(resource_events.timestamp) AS timestamp
      FROM resource_events
      WHERE resource_events.timestamp >= ?
      AND resource_events.timestamp <= ?
      GROUP BY certname_id,
-     resource_type collate \"C\",
-     resource_title collate \"C\",
-     property collate \"C\") distinct_events
-     inner join resource_events
+     resource_type COLLATE \"C\",
+     resource_title COLLATE \"C\",
+     property COLLATE \"C\") distinct_events
+     INNER JOIN resource_events
      ON resource_events.resource_type = distinct_events.resource_type
      AND resource_events.resource_title = distinct_events.resource_title
-     AND resource_events.timestamp = distinct_events.timestamp
      AND ((resource_events.property = distinct_events.property) OR
      (resource_events.property IS NULL AND distinct_events.property IS NULL))
      AND resource_events.timestamp = distinct_events.timestamp
-     inner join reports on resource_events.report_id = reports.id
-     left outer join environments on reports.environment_id = environments.id)
+     INNER JOIN reports ON resource_events.report_id = reports.id
+     LEFT OUTER JOIN environments ON reports.environment_id = environments.id)
 
      %s" query))
 
