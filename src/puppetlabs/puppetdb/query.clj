@@ -655,7 +655,7 @@
               :params [pattern]}
 
              ["environment"]
-             {:where (legacy-sql-regexp-match "environments.name")
+             {:where (legacy-sql-regexp-match "latest_events.name")
               :params [pattern]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
