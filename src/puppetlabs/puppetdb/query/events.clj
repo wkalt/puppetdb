@@ -31,7 +31,7 @@
   is a list of parameters for the SQL query."
   [select-fields where params]
   {:pre [(string? select-fields)
-         (string? where)
+         ((some-fn string? nil?) where)
          ((some-fn nil? sequential?) params)]
    :post [(vector? %)
           (= 2 (count %))
@@ -98,24 +98,25 @@
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
-  we are filtering out multiple events on the same resource on the same node).
-  Returns a two-item vector whose first value is the SQL string and whose second value
-  is a list of parameters for the SQL query."
+   we are filtering out multiple events on the same resource on the same node).
+   Returns a two-item vector whose first value is the SQL string and whose second value
+   is a list of parameters for the SQL query."
   [select-fields where params distinct-start-time distinct-end-time]
   {:pre [(string? select-fields)
-         (string? where)
+         ( (some-fn nil? string?) where)
          ((some-fn nil? sequential?) params)]
    :post [(vector? %)
           (= 2 (count %))
           (string? (first %))
           ((some-fn nil? sequential?) (second %))]}
-  [(format
-    "SELECT %s
-         FROM latest_events
-         WHERE %s"
-    select-fields
-    where)
-   (concat [distinct-start-time distinct-end-time] params)])
+  (let [where-clause (if where (format "WHERE %s" where) "")]
+    [(format
+       "SELECT %s
+        FROM latest_events
+        %s"
+       select-fields
+       where-clause)
+     (concat [distinct-start-time distinct-end-time] params)]))
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."

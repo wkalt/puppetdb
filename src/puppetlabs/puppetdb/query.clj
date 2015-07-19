@@ -140,13 +140,22 @@
   function basically just checks that the operator is known, and then
   dispatches to the function implementing it."
   [ops [op & args :as term]]
-  (when-not (sequential? term)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must be an array" (vec term)))))
-  (when-not op
-    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" (vec term)))))
+
+  (cond
+
+    (empty? term)
+    {:where nil :params nil}
+    (not (sequential? term))
+    (throw (IllegalArgumentException.
+             (format "%s is not well-formed: queries must be an array" (vec term))))
+
+    (not op)
+    (throw (IllegalArgumentException. (format "%s is not well-formed: queries must contain at least one operator" (vec term))))
+
+    :else
   (if-let [f (ops op)]
     (apply f args)
-    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" (vec term) op)))))
+    (throw (IllegalArgumentException. (format "%s is not well-formed: query operator '%s' is unknown" (vec term) op))))))
 
 (defn compile-boolean-operator*
   "Compile a term for the boolean operator `op` (AND or OR) applied to
