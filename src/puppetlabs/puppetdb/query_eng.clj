@@ -26,7 +26,8 @@
   [entity version paging-options url-prefix]
   (let [[query->sql munge-fn]
         (case entity
-          :aggregate-event-counts [aggregate-event-counts/query->sql aggregate-event-counts/munge-result-rows]
+          :aggregate-event-counts [aggregate-event-counts/query->sql
+                                   aggregate-event-counts/munge-result-rows]
           :event-counts [event-counts/query->sql
                          (event-counts/munge-result-rows (first paging-options))]
           :facts [facts/query->sql facts/munge-result-rows]
@@ -57,7 +58,7 @@
          (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
 (defn produce-streaming-body
-  "DEPRECATED - this function will be replaced by produce-streaming-body'
+  " DEPRECATED - this function will be replaced by produce-streaming-body'
                 which accepts a query map
 
   Given a query, and database connection, return a Ring response with
