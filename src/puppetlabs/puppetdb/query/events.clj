@@ -69,16 +69,15 @@
   [query]
   (format
     "WITH latest_events AS
-           (SELECT certname collate \"C\" as certname,
+           (SELECT certname_id,
                    resource_type collate \"C\" as resource_type,
                    resource_title collate \"C\" as resource_title,
                    property collate \"C\" as property,
                    MAX(resource_events.timestamp) AS timestamp
                    FROM resource_events
-                   JOIN certnames ON resource_events.certname_id = certnames.id
                    WHERE resource_events.timestamp >= ?
                    AND resource_events.timestamp <= ?
-                   GROUP BY certname collate \"C\", resource_type collate \"C\", resource_title collate \"C\", property collate \"C\")
+                   GROUP BY certname_id, resource_type collate \"C\", resource_title collate \"C\", property collate \"C\")
            %s" query))
 
 
@@ -117,7 +116,7 @@
          JOIN reports ON resource_events.report_id = reports.id
          LEFT OUTER JOIN environments ON reports.environment_id = environments.id
          JOIN latest_events
-              ON reports.certname = latest_events.certname
+              ON reports.certname_id = latest_events.certname_id
                AND resource_events.resource_type = latest_events.resource_type
                AND resource_events.resource_title = latest_events.resource_title
                AND ((resource_events.property = latest_events.property) OR

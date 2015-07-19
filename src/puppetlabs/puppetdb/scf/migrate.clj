@@ -1418,6 +1418,65 @@
     "CREATE INDEX resource_events_timestamp_idx ON resource_events(timestamp)"
     "ALTER TABLE resource_events ADD CONSTRAINT resource_events_report_id_fkey FOREIGN KEY (report_id) REFERENCES reports(id) ON DELETE CASCADE"))
 
+(defn add-certname-id-to-reports
+  []
+  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
+        uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
+        json-type (if (sutils/postgres?) "json" "text")
+        munge-hash (if (sutils/postgres?) (fn [column] (format "('\\x' || %s)::bytea" column)) identity)
+        munge-uuid (if (sutils/postgres?) (fn [column] (format "%s::uuid" column)) identity)]
+
+    (sql/create-table :reports_transform
+                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq') primary key"]
+                      ["hash"                  hash-type "NOT NULL"]
+                      ["transaction_uuid"      uuid-type]
+                      ["certname"              "text NOT NULL references certnames(certname) on delete cascade"]
+                      ["certname_id"           "bigint not null references certnames(id) on delete cascade"]
+                      ["puppet_version"        "varchar(255) NOT NULL"]
+                      ["report_format"         "smallint NOT NULL"]
+                      ["configuration_version" "varchar(255) NOT NULL"]
+                      ["start_time"            "timestamp with time zone NOT NULL"]
+                      ["end_time"              "timestamp with time zone NOT NULL"]
+                      ["receive_time"          "timestamp with time zone NOT NULL"]
+                      ["producer_timestamp"    "timestamp with time zone not null"]
+                      ;; Insert a column in reports to be populated by boolean noop flag
+                      ["noop"                  "boolean"]
+                      ["environment_id"        "bigint references environments(id) on delete cascade"]
+                      ["status_id"             "bigint references report_statuses(id) on delete cascade"]
+                      ;; Insert columns in reports to be populated by metrics and logs.
+                      ;; Text for hsql, JSON for postgres.
+                      ["metrics" json-type]
+                      ["logs"    json-type])
+
+    (sql/do-commands
+      "INSERT INTO reports_transform (
+       id, hash, transaction_uuid, certname, certname_id, puppet_version,
+       report_format, configuration_version, start_time, end_time, receive_time,
+       producer_timestamp,
+       noop, environment_id, status_id, metrics, logs)
+       select reports.id as id, hash, transaction_uuid, reports.certname, certnames.id as certname_id,
+       puppet_version, report_format, configuration_version, start_time, end_time,
+       receive_time, producer_timestamp, noop, environment_id, status_id, metrics, logs
+       from
+       reports inner join certnames on reports.certname=certnames.certname")
+
+    (sql/do-commands
+      "alter table certnames drop constraint certnames_reports_id_fkey"
+      "alter table resource_events drop constraint resource_events_report_id_fkey"
+      "drop table reports"
+      "alter table reports_transform rename to reports"
+      "alter table reports add constraint reports_hash_key unique (hash)"
+      "create index idx_reports_producer_timestamp on reports(producer_timestamp)"
+      "create index reports_certname_idx on reports(certname)"
+      "create index reports_certname_id_idx on reports(certname_id)"
+      "create index reports_end_time_idx on reports(end_time)"
+      "create index reports_environment_id_idx on reports(environment_id)"
+      "create index reports_status_id_idx on reports(status_id)"
+      "create index reports_transaction_uuid_idx on reports(transaction_uuid)"
+      "alter table certnames add constraint certnames_reports_id_fkey FOREIGN KEY (latest_report_id) references reports (id)"
+      "alter table resource_events add constraint resource_events_report_id_fkey FOREIGN KEY (report_id) references reports (id)"
+      )))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
@@ -1453,7 +1512,8 @@
    31 coalesce-fact-values
    32 add-producer-timestamp-to-reports
    33 add-certname-id-to-certnames
-   34 add-certname-id-to-resource-events})
+   34 add-certname-id-to-resource-events
+   35 add-certname-id-to-reports})
 
 (def desired-schema-version (apply max (keys migrations)))
 
