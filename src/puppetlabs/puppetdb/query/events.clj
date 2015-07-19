@@ -47,55 +47,54 @@
     where)
    params])
 
-;;;(defn with-latest-events
-;;;  "CTE to wrap unioned queries when distinct_resources is used"
-;;;  [query]
-;;;  (format
-;;;    "WITH latest_events AS
-;;;           (SELECT certnames.certname,
-;;;                   resource_events.resource_type,
-;;;                   resource_events.resource_title,
-;;;                   resource_events.property,
-;;;                   MAX(resource_events.timestamp) AS timestamp
-;;;                   FROM resource_events
-;;;                   JOIN certnames ON resource_events.certname_id = certnames.id
-;;;                   WHERE resource_events.timestamp >= ?
-;;;                   AND resource_events.timestamp <= ?
-;;;                   GROUP BY certname, resource_type, resource_title, property)
-;;;           %s" query))
-
 (defn with-latest-events
   "CTE to wrap unioned queries when distinct_resources is used"
   [query]
   (format
     "WITH latest_events AS
-           (SELECT certname_id,
-                   resource_type collate \"C\" as resource_type,
-                   resource_title collate \"C\" as resource_title,
-                   property collate \"C\" as property,
-                   MAX(resource_events.timestamp) AS timestamp
-                   FROM resource_events
-                   WHERE resource_events.timestamp >= ?
-                   AND resource_events.timestamp <= ?
-                   GROUP BY certname_id, resource_type collate \"C\", resource_title collate \"C\", property collate \"C\")
-           %s" query))
+     (select certname,
+     configuration_version,
+     start_time,
+     end_time,
+     receive_time,
+     hash,
+     status,
+     distinct_events.timestamp as timestamp,
+     distinct_events.resource_type as resource_type,
+     distinct_events.resource_title as resource_title,
+     distinct_events.property as property,
+     new_value,
+     old_value,
+     message,
+     file,
+     line,
+     containment_path,
+     containing_class,
+     name
+     from
+     (SELECT certname_id,
+     resource_type collate \"C\" as resource_type,
+     resource_title collate \"C\" as resource_title,
+     property collate \"C\" as property,
+     MAX(resource_events.timestamp) AS timestamp
+     FROM resource_events
+     WHERE resource_events.timestamp >= ?
+     AND resource_events.timestamp <= ?
+     GROUP BY certname_id,
+     resource_type collate \"C\",
+     resource_title collate \"C\",
+     property collate \"C\") distinct_events
+     inner join resource_events
+     ON resource_events.resource_type = distinct_events.resource_type
+     AND resource_events.resource_title = distinct_events.resource_title
+     AND resource_events.timestamp = distinct_events.timestamp
+     AND ((resource_events.property = distinct_events.property) OR
+     (resource_events.property IS NULL AND distinct_events.property IS NULL))
+     AND resource_events.timestamp = distinct_events.timestamp
+     inner join reports on resource_events.report_id = reports.id
+     left outer join environments on reports.environment_id = environments.id)
 
-
-;;;(defn with-latest-events
-;;;  "CTE to wrap unioned queries when distinct_resources is used"
-;;;  [query]
-;;;  (format
-;;;    "WITH latest_events AS
-;;;     (with t as
-;;;     (select certname,resource_type,resource_title,property,timestamp,row_number() over
-;;;     (partition by (certname_id,resource_type,resource_title,property) order by timestamp desc) as rn
-;;;     from resource_events
-;;;     inner join certnames on resource_events.certname_id=certnames.id
-;;;     where timestamp >= ?
-;;;     and timestamp <= ?)
-;;;     select certname,resource_type,resource_title,property,timestamp
-;;;     from t where rn=1)
-;;;     %s" query))
+     %s" query))
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
@@ -112,16 +111,7 @@
           ((some-fn nil? sequential?) (second %))]}
   [(format
     "SELECT %s
-         FROM resource_events
-         JOIN reports ON resource_events.report_id = reports.id
-         LEFT OUTER JOIN environments ON reports.environment_id = environments.id
-         JOIN latest_events
-              ON reports.certname_id = latest_events.certname_id
-               AND resource_events.resource_type = latest_events.resource_type
-               AND resource_events.resource_title = latest_events.resource_title
-               AND ((resource_events.property = latest_events.property) OR
-                    (resource_events.property IS NULL AND latest_events.property IS NULL))
-               AND resource_events.timestamp = latest_events.timestamp
+         FROM latest_events
          WHERE %s"
     select-fields
     where)
@@ -147,7 +137,7 @@
                                                        (sutils/sql-hash-as-str (str table "." column))
                                                        (str table "." column))
                                                      (if alias (format " AS %s" alias) "")))
-                                              query/event-columns))
+                                              query/resource-event-columns))
         [sql params]            (if (:distinct_resources? query-options)
                                   (distinct-select select-fields where params
                                                    (:distinct_start_time query-options)
@@ -178,7 +168,7 @@
            (or
              (not (:count? paging-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (paging/validate-order-by! (map keyword (keys query/event-columns)) paging-options)
+   (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) paging-options)
    (if (:distinct_resources? query-options)
      ;; The new query engine does not support distinct-resources yet, so we
      ;; fall back to the old

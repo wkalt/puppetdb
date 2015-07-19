@@ -240,6 +240,27 @@
    "containing_class"       ["resource_events"]
    "name"                   ["environments" "environment"]})
 
+(def resource-event-columns
+  {"certname"               ["latest_events"]
+   "configuration_version"  ["latest_events"]
+   "start_time"             ["latest_events" "run_start_time"]
+   "end_time"               ["latest_events" "run_end_time"]
+   "receive_time"           ["latest_events" "report_receive_time"]
+   "hash"                   ["latest_events" "report"]
+   "status"                 ["latest_events"]
+   "timestamp"              ["latest_events"]
+   "resource_type"          ["latest_events"]
+   "resource_title"         ["latest_events"]
+   "property"               ["latest_events"]
+   "new_value"              ["latest_events"]
+   "old_value"              ["latest_events"]
+   "message"                ["latest_events"]
+   "file"                   ["latest_events"]
+   "line"                   ["latest_events"]
+   "containment_path"       ["latest_events"]
+   "containing_class"       ["latest_events"]
+   "name"                   ["latest_events" "environment"]})
+
 (def report-columns
   "Return the queryable set of fields and corresponding table names where they reside"
   {"hash"                  "reports"
@@ -630,7 +651,7 @@
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where (legacy-sql-regexp-match "reports.certname")
+             {:where (legacy-sql-regexp-match "latest_events.certname")
               :params [pattern]}
 
              ["environment"]
