@@ -47,22 +47,56 @@
     where)
    params])
 
+;;;(defn with-latest-events
+;;;  "CTE to wrap unioned queries when distinct_resources is used"
+;;;  [query]
+;;;  (format
+;;;    "WITH latest_events AS
+;;;           (SELECT certnames.certname,
+;;;                   resource_events.resource_type,
+;;;                   resource_events.resource_title,
+;;;                   resource_events.property,
+;;;                   MAX(resource_events.timestamp) AS timestamp
+;;;                   FROM resource_events
+;;;                   JOIN certnames ON resource_events.certname_id = certnames.id
+;;;                   WHERE resource_events.timestamp >= ?
+;;;                   AND resource_events.timestamp <= ?
+;;;                   GROUP BY certname, resource_type, resource_title, property)
+;;;           %s" query))
+
 (defn with-latest-events
   "CTE to wrap unioned queries when distinct_resources is used"
   [query]
   (format
     "WITH latest_events AS
-           (SELECT certnames.certname,
-                   resource_events.resource_type,
-                   resource_events.resource_title,
-                   resource_events.property,
+           (SELECT certname collate \"C\" as certname,
+                   resource_type collate \"C\" as resource_type,
+                   resource_title collate \"C\" as resource_title,
+                   property collate \"C\" as property,
                    MAX(resource_events.timestamp) AS timestamp
                    FROM resource_events
                    JOIN certnames ON resource_events.certname_id = certnames.id
                    WHERE resource_events.timestamp >= ?
                    AND resource_events.timestamp <= ?
-                   GROUP BY certname, resource_type, resource_title, property)
+                   GROUP BY certname collate \"C\", resource_type collate \"C\", resource_title collate \"C\", property collate \"C\")
            %s" query))
+
+
+;;;(defn with-latest-events
+;;;  "CTE to wrap unioned queries when distinct_resources is used"
+;;;  [query]
+;;;  (format
+;;;    "WITH latest_events AS
+;;;     (with t as
+;;;     (select certname,resource_type,resource_title,property,timestamp,row_number() over
+;;;     (partition by (certname_id,resource_type,resource_title,property) order by timestamp desc) as rn
+;;;     from resource_events
+;;;     inner join certnames on resource_events.certname_id=certnames.id
+;;;     where timestamp >= ?
+;;;     and timestamp <= ?)
+;;;     select certname,resource_type,resource_title,property,timestamp
+;;;     from t where rn=1)
+;;;     %s" query))
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
