@@ -252,9 +252,9 @@
 (def resource-event-columns
   {"certname"               ["latest_events"]
    "configuration_version"  ["latest_events"]
-   "start_time"             ["latest_events" "run_start_time"]
-   "end_time"               ["latest_events" "run_end_time"]
-   "receive_time"           ["latest_events" "report_receive_time"]
+   "run_start_time"         ["latest_events"]
+   "run_end_time"           ["latest_events"]
+   "report_receive_time"    ["latest_events"]
    "hash"                   ["latest_events" "report"]
    "status"                 ["latest_events"]
    "timestamp"              ["latest_events"]
@@ -363,7 +363,7 @@
         columns (case kind
                   :fact fact-columns
                   :resource resource-columns
-                  :event event-columns
+                  :event resource-event-columns
                   :report report-columns
                   :factset factset-columns)
         qualified-field (qualified-column field columns)]
@@ -584,9 +584,9 @@
                                                                                                                  args))))))
 
   (let [timestamp-fields {"timestamp"           "resource_events.timestamp"
-                          "run_start_time"      "reports.start_time"
-                          "run_end_time"        "reports.end_time"
-                          "report_receive_time" "reports.receive_time"}]
+                          "run_start_time"      "latest_events.run_start_time"
+                          "run_end_time"        "latest_events.run_end_time"
+                          "report_receive_time" "latest_events.report_receive_time"}]
     (match [path]
            [(field :guard (kitchensink/keyset timestamp-fields))]
            (if-let [timestamp (to-timestamp value)]
@@ -609,23 +609,23 @@
     (let [path (utils/dashes->underscores path)]
       (match [path]
              ["certname"]
-             {:where "reports.certname = ?"
+             {:where "latest_events.certname = ?"
               :params [value]}
 
              ["report"]
-             {:where (format "%s = ?" (sutils/sql-hash-as-str "reports.hash"))
+             {:where (format "%s = ?" (sutils/sql-hash-as-str "latest_events.hash"))
               :params [value]}
 
              ["latest_report?"]
-             {:where (format "resource_events.report_id %s (SELECT certnames.latest_report FROM certnames)"
+             {:where (format "latest_report.report_id %s (SELECT certnames.latest_report FROM certnames)"
                              (if value "IN" "NOT IN"))}
 
              ["environment"]
-             {:where "environments.name = ?"
+             {:where "latest_events.name = ?"
               :params [value]}
 
              [(field :guard #{"report" "resource_type" "resource_title" "status"})]
-             {:where (format "resource_events.%s = ?" field)
+             {:where (format "latest_events.%s = ?" field)
               :params [value] }
 
              ;; these fields allow NULL, which causes a change in semantics when
@@ -633,9 +633,9 @@
              ;; about the NULL case.
              [(field :guard #{"property" "message" "file" "line" "containing_class"})]
              (if-not (nil? value)
-               {:where (format "resource_events.%s = ? AND resource_events.%s IS NOT NULL" field field)
+               {:where (format "latest_events.%s = ? AND latest_events.%s IS NOT NULL" field field)
                 :params [value] }
-               {:where (format "resource_events.%s IS NULL" field)
+               {:where (format "latest_events.%s IS NULL" field)
                 :params nil })
 
              ;; these fields require special treatment for NULL (as described above),
@@ -675,8 +675,8 @@
              ;; wrapped in a NOT(...) clause, so we have to be very explicit
              ;; about the NULL case.
              [(field :guard #{"property" "message" "file" "line" "containing_class"})]
-             {:where (format "%s AND resource_events.%s IS NOT NULL"
-                             (legacy-sql-regexp-match (format "resource_events.%s" field))
+             {:where (format "%s AND latest_events.%s IS NOT NULL"
+                             (legacy-sql-regexp-match (format "latest_events.%s" field))
                              field)
               :params [pattern]}
 

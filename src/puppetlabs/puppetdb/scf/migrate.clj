@@ -1422,12 +1422,12 @@
   []
   (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
         uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
-        json-type (if (sutils/postgres?) "json" "text")
-        munge-hash (if (sutils/postgres?) (fn [column] (format "('\\x' || %s)::bytea" column)) identity)
-        munge-uuid (if (sutils/postgres?) (fn [column] (format "%s::uuid" column)) identity)]
+        json-type (if (sutils/postgres?) "json" "text")]
+
+
 
     (sql/create-table :reports_transform
-                      ["id"                    "bigint NOT NULL DEFAULT nextval('reports_id_seq') primary key"]
+                      ["id"                    "bigint NOT NULL PRIMARY KEY DEFAULT nextval('reports_id_seq')"]
                       ["hash"                  hash-type "NOT NULL"]
                       ["transaction_uuid"      uuid-type]
                       ["certname"              "text NOT NULL references certnames(certname) on delete cascade"]
@@ -1461,9 +1461,7 @@
        reports inner join certnames on reports.certname=certnames.certname")
 
     (sql/do-commands
-      "alter table certnames drop constraint certnames_reports_id_fkey"
-      "alter table resource_events drop constraint resource_events_report_id_fkey"
-      "drop table reports"
+      "drop table reports cascade"
       "alter table reports_transform rename to reports"
       "alter table reports add constraint reports_hash_key unique (hash)"
       "create index idx_reports_producer_timestamp on reports(producer_timestamp)"
@@ -1472,10 +1470,12 @@
       "create index reports_end_time_idx on reports(end_time)"
       "create index reports_environment_id_idx on reports(environment_id)"
       "create index reports_status_id_idx on reports(status_id)"
-      "create index reports_transaction_uuid_idx on reports(transaction_uuid)"
-      "alter table certnames add constraint certnames_reports_id_fkey FOREIGN KEY (latest_report_id) references reports (id)"
-      "alter table resource_events add constraint resource_events_report_id_fkey FOREIGN KEY (report_id) references reports (id)"
-      )))
+      "create index reports_transaction_uuid_idx on reports(transaction_uuid)")
+    (when (sutils/postgres?)
+      (sql/do-commands
+        "ALTER TABLE certnames ADD CONSTRAINT certnames_reports_id_fkey
+         FOREIGN KEY (latest_report_id)
+         REFERENCES reports(id) ON DELETE SET NULL"))))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
