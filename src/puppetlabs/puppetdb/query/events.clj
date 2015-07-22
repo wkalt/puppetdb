@@ -52,50 +52,39 @@
   [query]
   (let [collate (if (sutils/postgres?) "COLLATE \"C\"" "")]
     (format
-      "WITH latest_events AS
-       (SELECT certname,
+      "with latest_events as
+       (SELECT distinct_events.*,
+       certname,
        configuration_version,
        start_time as run_start_time,
        end_time as run_end_time,
        receive_time as report_receive_time,
        hash,
+       name
+       FROM
+       (SELECT DISTINCT ON (certname_id, resource_type, resource_title, property)
+       report_id,
+       certname_id,
        status,
-       distinct_events.timestamp AS timestamp,
-       distinct_events.resource_type AS resource_type,
-       distinct_events.resource_title AS resource_title,
-       distinct_events.property as property,
+       timestamp,
+       resource_type,
+       resource_title,
+       property,
        new_value,
        old_value,
        message,
        file,
        line,
        containment_path,
-       containing_class,
-       name
-       FROM
-       (SELECT certname_id,
-       resource_type %s AS resource_type,
-       resource_title %s AS resource_title,
-       property %s AS property,
-       MAX(resource_events.timestamp) AS timestamp
+       containing_class
        FROM resource_events
-       WHERE resource_events.timestamp >= ?
-       AND resource_events.timestamp <= ?
-       GROUP BY certname_id,
-       resource_type %s,
-       resource_title %s,
-       property %s) distinct_events
-       INNER JOIN resource_events
-       ON resource_events.resource_type = distinct_events.resource_type
-       AND resource_events.resource_title = distinct_events.resource_title
-       AND ((resource_events.property = distinct_events.property) OR
-       (resource_events.property IS NULL AND distinct_events.property IS NULL))
-       AND resource_events.timestamp = distinct_events.timestamp
-       AND resource_events.certname_id = distinct_events.certname_id
-       INNER JOIN reports ON resource_events.report_id = reports.id
-       LEFT OUTER JOIN environments ON reports.environment_id = environments.id)
-
-       %s" collate collate collate collate collate collate query)))
+       WHERE timestamp >= ?
+       AND timestamp <= ?
+       ORDER BY certname_id, resource_type, resource_title, property, timestamp DESC)
+       AS distinct_events
+       INNER JOIN reports ON reports.id = distinct_events.report_id
+       LEFT OUTER JOIN environments ON environments.id = reports.environment_id)
+       %s" query)))
 
 (defn distinct-select
   "Build the SELECT statement that we use in the `distinct-resources` case (where
