@@ -35,6 +35,7 @@
 (defrecord NotExpression [clause])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
+(def supported-fns #{"sum" "avg" "min" "max" "count"})
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -1175,6 +1176,11 @@
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
+            [["extract" [["function" (f :guard supported-fns) column]] expr]]
+            (-> query-rec
+                (assoc :call [f (str column "::float")])
+                (create-extract-node [] expr))
+
             [["extract" [["function" & fargs]] expr]]
             (-> query-rec
                 (assoc :call fargs)
@@ -1209,7 +1215,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-fns ["count"]
+  (let [supported-fns ["count" "min" "max" "avg"]
         supported-calls (set (map #(vector "function" %) supported-fns))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
