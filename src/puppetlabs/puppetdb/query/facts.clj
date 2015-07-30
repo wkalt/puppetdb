@@ -15,7 +15,6 @@
 (def row-schema
   (query/wrap-with-supported-fns
     {(s/optional-key :certname) s/Str
-     (s/optional-key :count) s/Int
      (s/optional-key :max) s/Any
      (s/optional-key :environment) (s/maybe s/Str)
      (s/optional-key :name) s/Str
@@ -24,7 +23,6 @@
 (def converted-row-schema
   (query/wrap-with-supported-fns
     {(s/optional-key :certname) s/Str
-     (s/optional-key :count) s/Int
      (s/optional-key :max) s/Any
      (s/optional-key :environment) (s/maybe s/Str)
      (s/optional-key :name) s/Str

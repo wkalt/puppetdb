@@ -1218,7 +1218,7 @@
 
 (defn unsupported-fields
   [field allowed-fields]
-  (let [supported-fns ["count" "min" "max" "avg"]
+  (let [supported-fns ["count" "min" "max" "avg" "sum"]
         supported-calls (set (map #(vector "function" %) supported-fns))]
     (remove #(or (contains? (set allowed-fields) %) (contains? supported-calls (take 2 %)))
             (ks/as-collection field))))
