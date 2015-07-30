@@ -1177,9 +1177,12 @@
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
 
             [["extract" [["function" (f :guard supported-fns) column]] expr]]
+            (let [column (if (= "value" column)
+                           "COALESCE(value_integer, value_float)"
+                           column)]
             (-> query-rec
-                (assoc :call [f (str column "::float")])
-                (create-extract-node [] expr))
+                (assoc :call [f column])
+                (create-extract-node [] expr)))
 
             [["extract" [["function" & fargs]] expr]]
             (-> query-rec
