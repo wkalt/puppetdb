@@ -1194,10 +1194,11 @@
 
             [["extract" columns expr ["group_by" & clauses]]]
             (let [[fargs cols] (strip-function-calls columns)]
+              (do (println "FARGS" fargs)
               (-> query-rec
                   (assoc :call fargs)
                   (assoc :group-by clauses)
-                  (create-extract-node cols expr)))
+                  (create-extract-node cols expr))))
 
             :else nil))
 
