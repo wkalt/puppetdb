@@ -26,7 +26,7 @@
               :event-counts
               version
               query
-              [query-options paging-options]
+              paging-options
               (:scf-read-db globals)
               (:url-prefix globals))))}))
 
@@ -40,5 +40,5 @@
                                                  "counts_filter" "count_by"
                                                  "distinct_resources" "distinct_start_time"
                                                  "distinct_end_time"]
-                                                paging/query-params) })
+                                                paging/query-params)})
       wrap-with-paging-options))

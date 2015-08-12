@@ -56,7 +56,7 @@
                 :events
                 version
                 (params "query")
-                [query-options paging-options]
+                paging-options
                 (:scf-read-db globals)
                 (:url-prefix globals)))
              (catch IllegalArgumentException e

@@ -29,7 +29,7 @@
           :aggregate-event-counts [aggregate-event-counts/query->sql
                                    aggregate-event-counts/munge-result-rows]
           :event-counts [event-counts/query->sql
-                         (event-counts/munge-result-rows (first paging-options))]
+                         (event-counts/munge-result-rows (:summarize_by paging-options))]
           :facts [facts/query->sql facts/munge-result-rows]
           :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
           :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]

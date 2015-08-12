@@ -19,6 +19,8 @@
   ([endpoint query summarize_by extra-query-params]
      (get-response endpoint query summarize_by extra-query-params false))
   ([endpoint query summarize_by extra-query-params ignore-failure?]
+   (println "PARAMS" extra-query-params)
+   (println "SUMMARIZE" summarize_by)
      (let [response (*app* (get-request endpoint
                                         query
                                         (-> extra-query-params
