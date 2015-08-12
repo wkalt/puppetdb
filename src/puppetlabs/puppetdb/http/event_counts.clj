@@ -18,13 +18,15 @@
                        " and may be altered or removed in the future."))
            (let [{:strs [query summarize_by counts_filter count_by] :as query-params} params
                  query-options (merge {:counts_filter (if counts_filter (json/parse-strict-string counts_filter true))
-                                       :count_by count_by}
-                                      (events-http/validate-distinct-options! query-params))]
+                                       :count_by count_by
+                                       :summarize_by summarize_by}
+                                      (events-http/validate-distinct-options! query-params))
+                 paging-options (merge query-options paging-options)]
              (produce-streaming-body
               :event-counts
               version
               query
-              [summarize_by query-options paging-options]
+              [query-options paging-options]
               (:scf-read-db globals)
               (:url-prefix globals))))}))
 

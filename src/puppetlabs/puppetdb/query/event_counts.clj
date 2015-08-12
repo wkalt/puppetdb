@@ -124,12 +124,12 @@
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.
   A second `counts-filter` query may be provided to further reduce the results, and
   the value to `count_by` may also be specified (defaults to `resource`)."
-  ([version query [summarize_by query-options paging-options]]
-   (query->sql false version query [summarize_by query-options paging-options]))
+  ([version query [query-options paging-options]]
+   (query->sql false version query [query-options paging-options]))
   ([will-union?
     version
     query
-    [summarize_by {:keys [counts_filter count_by] :as query-options} paging-options]]
+    [{:keys [summarize_by counts_filter count_by] :as query-options} paging-options]]
      {:pre  [((some-fn nil? sequential?) query)
              (string? summarize_by)
              ((some-fn nil? sequential?) counts_filter)

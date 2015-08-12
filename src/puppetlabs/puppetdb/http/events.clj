@@ -50,7 +50,8 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (try
-             (let [query-options (validate-distinct-options! params)]
+             (let [query-options (validate-distinct-options! params)
+                   paging-options (merge query-options paging-options)]
                (produce-streaming-body
                 :events
                 version
