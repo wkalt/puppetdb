@@ -50,12 +50,13 @@
    [""]
    {:get (fn [{:keys [params globals paging-options]}]
            (try
-             (let [query-options (validate-distinct-options! params)]
+             (let [query-options (validate-distinct-options! params)
+                   paging-options (merge query-options paging-options)]
                (produce-streaming-body
                 :events
                 version
                 (params "query")
-                [query-options paging-options]
+                paging-options
                 (:scf-read-db globals)
                 (:url-prefix globals)))
              (catch IllegalArgumentException e
