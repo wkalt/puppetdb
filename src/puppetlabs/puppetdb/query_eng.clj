@@ -74,14 +74,19 @@
           (jdbc/valid-jdbc-query? (:results-query %))
           (or (not (:count? paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
-  (case entity
-    :aggregate-event-counts (aggregate-event-counts/query->sql
-                              version query paging-options)
-    :event-counts (event-counts/query->sql
-                    version query paging-options)
+  (cond
+    (= :aggregate-event-counts entity)
+    (aggregate-event-counts/query->sql
+      version query paging-options)
 
-    :events (events/query->sql version query paging-options)
+    (= :event-counts entity)
+    (event-counts/query->sql
+      version query paging-options)
 
+    (and (= :events entity) (:distinct_resources? paging-options))
+    (events/query->sql version query paging-options)
+
+    :else
     (let [query-rec (get-in @entity-fn-idx [entity :rec])
           columns (orderable-columns query-rec)]
       (paging/validate-order-by! columns paging-options)
