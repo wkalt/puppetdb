@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc.deprecated :as sql]
             [clojure.tools.logging :as log]
             [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -20,7 +21,66 @@
             [puppetlabs.puppetdb.query.resources :as resources]
             [puppetlabs.puppetdb.scf.storage-utils :as su]
             [puppetlabs.puppetdb.schema :as pls]
+            [puppetlabs.puppetdb.query-eng.engine :as eng]
             [schema.core :as s]))
+
+(def entity-fn-idx
+  (atom
+    {
+     :aggregate-event-counts {:munge aggregate-event-counts/munge-result-rows
+                              :rec nil}
+     :event-counts {:munge event-counts/munge-result-rows
+                    :rec nil}
+     :facts {:munge facts/munge-result-rows
+             :rec eng/facts-query}
+     :fact-contents {:munge fact-contents/munge-result-rows
+                     :rec eng/fact-contents-query}
+     :fact-paths {:munge facts/munge-path-result-rows
+                  :rec eng/fact-paths-query}
+     :factsets {:munge factsets/munge-result-rows
+                :rec eng/factsets-query}
+     :catalogs {:munge catalogs/munge-result-rows
+                :rec eng/catalog-query}
+     :nodes {:munge (constantly identity)
+             :rec eng/nodes-query}
+     :environments {:munge (constantly identity)
+                    :rec eng/environments-query}
+     :events {:munge events/munge-result-rows
+              :rec eng/report-events-query}
+     :edges {:munge edges/munge-result-rows
+             :rec eng/edges-query}
+     :reports {:munge reports/munge-result-rows
+               :rec eng/reports-query}
+     :report-metrics {:munge (report-data/munge-result-rows :metrics)
+                      :rec eng/report-metrics-query}
+     :report-logs {:munge (report-data/munge-result-rows :logs)
+                   :rec eng/report-logs-query}
+     :resources {:munge resources/munge-result-rows
+                 :rec eng/resources-query}
+     }))
+
+(defn orderable-columns
+  ;; TODO queryable columns = orderable columns ?
+  [query-rec]
+  (let [projections (:projections (query-rec))]
+    (filter #(:queryable? (get projections %)) (keys projections))))
+
+(defn query->sql
+  "Converts a vector-structured `query` to a corresponding SQL query which will
+   return nodes matching the `query`."
+  ([version query]
+   (query->sql version query {}))
+  ([entity version query paging-options]
+   {:pre  [((some-fn nil? sequential?) query)]
+    :post [(map? %)
+           (jdbc/valid-jdbc-query? (:results-query %))
+           (or (not (:count? paging-options))
+               (jdbc/valid-jdbc-query? (:count-query %)))]}
+   (let [query-rec (get-in entity-fn-idx [entity :rec])
+         columns (orderable-columns query-rec)]
+     (paging/validate-order-by! columns paging-options)
+     (eng/compile-user-query->sql query-rec query paging-options))))
+
 
 (defn entity->sql-fns
   [entity version paging-options url-prefix]
