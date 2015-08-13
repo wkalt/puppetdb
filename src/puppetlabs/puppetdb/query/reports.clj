@@ -40,39 +40,6 @@
     (fn [rows]
       (map (row->report base-url) rows))))
 
-;; QUERY
-
-(def report-columns
-  [:hash
-   :puppet_version
-   :receive_time
-   :report_format
-   :start_time
-   :end_time
-   :producer_timestamp
-   :noop
-   :transaction_uuid
-   :status
-   :environment
-   :configuration_version
-   :metrics
-   :logs
-   :certname])
-
-(defn query->sql
-  "Converts a vector-structured `query` to a corresponding SQL query which will
-  return nodes matching the `query`."
-  ([version query]
-   (query->sql version query {}))
-  ([version query paging-options]
-   {:pre  [((some-fn nil? sequential?) query)]
-    :post [(map? %)
-           (jdbc/valid-jdbc-query? (:results-query %))
-           (or (not (:count? paging-options))
-               (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (paging/validate-order-by! report-columns paging-options)
-   (qe/compile-user-query->sql qe/reports-query query paging-options)))
-
 ;; SPECIAL
 
 (defn is-latest-report?

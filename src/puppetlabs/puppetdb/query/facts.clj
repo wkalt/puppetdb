@@ -48,23 +48,6 @@
   (fn [rows]
      (map #(utils/update-when % [:path] facts/string-to-factpath) rows)))
 
-;; QUERY
-
-(defn fact-paths-query->sql
-  [version query paging-options]
-  (qe/compile-user-query->sql qe/fact-paths-query query paging-options))
-
-(defn query->sql
-  "Compile a query into an SQL expression."
-  [version query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
-   :post [(map? %)
-          (string? (first (:results-query %)))
-          (every? (complement coll?) (rest (:results-query %)))]}
-  (let [columns (map keyword (keys (dissoc query/fact-columns "value")))]
-    (paging/validate-order-by! columns paging-options)
-    (qe/compile-user-query->sql qe/facts-query query paging-options)))
-
 ;; QUERY + MUNGE
 
 (defn fact-names

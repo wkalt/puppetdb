@@ -29,17 +29,3 @@
    url-prefix :- s/Str]
   (let [base-url (utils/as-path url-prefix (name version))]
     (partial map (row->factset base-url))))
-
-;; QUERY
-
-(pls/defn-validated query->sql
-  "Compile a query into an SQL expression."
-  [version :- s/Keyword
-   query paging-options]
-  {:pre [((some-fn nil? sequential?) query) ]
-   :post [(map? %)
-          (string? (first (:results-query %)))
-          (every? (complement coll?) (rest (:results-query %)))]}
-  (paging/validate-order-by! (map keyword (keys query/factset-columns)) paging-options)
-  (qe/compile-user-query->sql
-   qe/factsets-query query paging-options))

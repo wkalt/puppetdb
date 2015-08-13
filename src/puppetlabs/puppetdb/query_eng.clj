@@ -9,13 +9,11 @@
             [puppetlabs.puppetdb.query.aggregate-event-counts :as aggregate-event-counts]
             [puppetlabs.puppetdb.query.catalogs :as catalogs]
             [puppetlabs.puppetdb.query.edges :as edges]
-            [puppetlabs.puppetdb.query.environments :as environments]
             [puppetlabs.puppetdb.query.events :as events]
             [puppetlabs.puppetdb.query.event-counts :as event-counts]
             [puppetlabs.puppetdb.query.facts :as facts]
             [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
-            [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.reports :as reports]
             [puppetlabs.puppetdb.query.report-data :as report-data]
             [puppetlabs.puppetdb.query.resources :as resources]
@@ -60,50 +58,39 @@
      }))
 
 (defn orderable-columns
-  ;; TODO queryable columns = orderable columns ?
   [query-rec]
-  (let [projections (:projections (query-rec))]
-    (filter #(:queryable? (get projections %)) (keys projections))))
+  (if (nil? query-rec)
+    []
+    (let [projections (:projections (query-rec))]
+      (map keyword (filter #(:queryable? (get projections %))
+                           (remove #{"value"} (keys projections)))))))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
    return nodes matching the `query`."
-  ([version query]
-   (query->sql version query {}))
-  ([entity version query paging-options]
-   {:pre  [((some-fn nil? sequential?) query)]
-    :post [(map? %)
-           (jdbc/valid-jdbc-query? (:results-query %))
-           (or (not (:count? paging-options))
-               (jdbc/valid-jdbc-query? (:count-query %)))]}
-   (let [query-rec (get-in entity-fn-idx [entity :rec])
-         columns (orderable-columns query-rec)]
-     (paging/validate-order-by! columns paging-options)
-     (eng/compile-user-query->sql query-rec query paging-options))))
+  [query entity version paging-options]
+  {:pre  [((some-fn nil? sequential?) query)]
+   :post [(map? %)
+          (jdbc/valid-jdbc-query? (:results-query %))
+          (or (not (:count? paging-options))
+              (jdbc/valid-jdbc-query? (:count-query %)))]}
+  (cond
+    (= :aggregate-event-counts entity)
+    (aggregate-event-counts/query->sql
+      version query paging-options)
 
+    (= :event-counts entity)
+    (event-counts/query->sql
+      version query paging-options)
 
-(defn entity->sql-fns
-  [entity version paging-options url-prefix]
-  (let [[query->sql munge-fn]
-        (case entity
-          :aggregate-event-counts [aggregate-event-counts/query->sql
-                                   aggregate-event-counts/munge-result-rows]
-          :event-counts [event-counts/query->sql
-                         (event-counts/munge-result-rows (:summarize_by paging-options))]
-          :facts [facts/query->sql facts/munge-result-rows]
-          :fact-contents [fact-contents/query->sql fact-contents/munge-result-rows]
-          :fact-paths [facts/fact-paths-query->sql facts/munge-path-result-rows]
-          :factsets [factsets/query->sql factsets/munge-result-rows]
-          :catalogs [catalogs/query->sql catalogs/munge-result-rows]
-          :nodes [nodes/query->sql (constantly identity)]
-          :environments [environments/query->sql (constantly identity)]
-          :events [events/query->sql events/munge-result-rows]
-          :edges [edges/query->sql edges/munge-result-rows]
-          :reports [reports/query->sql reports/munge-result-rows]
-          :report-metrics [report-data/metrics-query->sql (report-data/munge-result-rows :metrics)]
-          :report-logs [report-data/logs-query->sql (report-data/munge-result-rows :logs)]
-          :resources [resources/query->sql resources/munge-result-rows])]
-    [#(query->sql version % paging-options) (munge-fn version url-prefix)]))
+    (and (= :events entity) (:distinct_resources? paging-options))
+    (events/query->sql version query paging-options)
+
+    :else
+    (let [query-rec (get-in @entity-fn-idx [entity :rec])
+          columns (orderable-columns query-rec)]
+      (paging/validate-order-by! columns paging-options)
+      (eng/compile-user-query->sql query-rec query paging-options))))
 
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
@@ -112,10 +99,15 @@
    ;; We default to doall because tests need this for the most part
    (stream-query-result entity version query paging-options db url-prefix doall))
   ([entity version query paging-options db url-prefix row-fn]
-   (let [munge-fn (get-in entity-fn-idx [entity :munge])]
+   (let [munge-fn (get-in @entity-fn-idx [entity :munge])
+         munge-fn (case entity
+                    :event-counts
+                    ((munge-fn (:summarize_by paging-options)) version url-prefix)
+
+                    (munge-fn version url-prefix))]
      (jdbc/with-transacted-connection db
        (let [{:keys [results-query]}
-             (query->sql entity version query paging-options)]
+             (query->sql query entity version paging-options)]
          (jdbc/with-query-results-cursor results-query (comp row-fn munge-fn)))))))
 
 (defn produce-streaming-body
@@ -132,27 +124,31 @@
   [entity version query paging-options db url-prefix]
   (try
     (jdbc/with-transacted-connection db
-      (let [query-rec (get-in entity-fn-idx [entity :rec])
-            munge-fn (get-in entitity-fn-idx [entity :munge])]
-        (let [[query->sql munge-fn] (entity->sql-fns entity version
-                                                     paging-options url-prefix)
-              {:keys [results-query count-query]} (-> query
-                                                      json/coerce-from-json
-                                                      query->sql)
-              query-error (promise)
-              resp (http/streamed-response
-                     buffer
-                     (try (jdbc/with-transacted-connection db
-                            (jdbc/with-query-results-cursor
-                              results-query (comp #(http/stream-json % buffer)
-                                                  #(do (first %) (deliver query-error nil) %)
-                                                  munge-fn)))
-                          (catch java.sql.SQLException e
-                            (deliver query-error e))))]
-          (if @query-error
-            (throw @query-error)
-            (cond-> (http/json-response* resp)
-              count-query (http/add-headers {:count (jdbc/get-result-count count-query)}))))))
+      (let [query-rec (get-in @entity-fn-idx [entity :rec])
+            munge-fn (get-in @entity-fn-idx [entity :munge])
+            munge-fn (case entity
+                       :event-counts
+                       ((munge-fn (:summarize_by paging-options)) version url-prefix)
+
+                       (munge-fn version url-prefix))
+
+            {:keys [results-query count-query]} (-> query
+                                                    json/coerce-from-json
+                                                    (query->sql entity version paging-options))
+            query-error (promise)
+            resp (http/streamed-response
+                   buffer
+                   (try (jdbc/with-transacted-connection db
+                          (jdbc/with-query-results-cursor
+                            results-query (comp #(http/stream-json % buffer)
+                                                #(do (first %) (deliver query-error nil) %)
+                                                munge-fn)))
+                        (catch java.sql.SQLException e
+                          (deliver query-error e))))]
+        (if @query-error
+          (throw @query-error)
+          (cond-> (http/json-response* resp)
+            count-query (http/add-headers {:count (jdbc/get-result-count count-query)})))))
     (catch com.fasterxml.jackson.core.JsonParseException e
       (log/errorf e (str "Error executing query '%s' for entity '%s' "
                          "with paging-options '%s'. Returning a 400 error code.")
