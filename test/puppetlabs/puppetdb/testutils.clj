@@ -209,7 +209,6 @@
   ([path query] (get-request path query {}))
   ([path query params] (get-request path query params {"accept" c-t}))
   ([path query params headers]
-   (println "PARAMS ARE " params)
      (let [request (mock/request :get path
                                  (if query
                                    (assoc params

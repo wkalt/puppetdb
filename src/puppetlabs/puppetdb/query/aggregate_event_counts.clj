@@ -31,7 +31,8 @@
                                (event-counts/query->sql
                                  true
                                  version
-                                 query [query-options {}]))]
+                                 query
+                                 query-options))]
     (vector (get-aggregate-sql count-sql summarize_by) params)))
 
 (defn query->sql
