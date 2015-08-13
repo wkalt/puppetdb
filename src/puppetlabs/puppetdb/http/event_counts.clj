@@ -20,13 +20,13 @@
                  query-options (merge {:counts_filter (if counts_filter (json/parse-strict-string counts_filter true))
                                        :count_by count_by
                                        :summarize_by summarize_by}
-                                      (events-http/validate-distinct-options! query-params))
-                 paging-options (merge query-options paging-options)]
+                                      (events-http/validate-distinct-options! query-params)
+                                      paging-options)]
              (produce-streaming-body
               :event-counts
               version
               query
-              paging-options
+              query-options
               (:scf-read-db globals)
               (:url-prefix globals))))}))
 

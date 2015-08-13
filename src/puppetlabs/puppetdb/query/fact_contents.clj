@@ -33,12 +33,3 @@
   [_ _]
   (fn [rows]
     (map munge-result-row rows)))
-
-(defn query->sql
-  "Compile a query into an SQL expression."
-  [version query paging-options]
-  {:pre [((some-fn nil? sequential?) query)]
-   :post [(map? %)
-          (string? (first (:results-query %)))
-          (every? (complement coll?) (rest (:results-query %)))]}
-  (qe/compile-user-query->sql qe/fact-contents-query query paging-options))
