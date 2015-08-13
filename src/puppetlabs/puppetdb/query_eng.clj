@@ -35,6 +35,8 @@
                      :rec eng/fact-contents-query}
      :fact-paths {:munge facts/munge-path-result-rows
                   :rec eng/fact-paths-query}
+     :fact-names {:munge (constantly identity)
+                  :rec eng/fact-names-query}
      :factsets {:munge factsets/munge-result-rows
                 :rec eng/factsets-query}
      :catalogs {:munge catalogs/munge-result-rows
@@ -84,7 +86,7 @@
       version query paging-options)
 
     (and (= :events entity) (:distinct_resources? paging-options))
-    (events/query->sql version query paging-options)
+    (events/legacy-query->sql false version query paging-options)
 
     :else
     (let [query-rec (get-in @entity-fn-idx [entity :rec])
