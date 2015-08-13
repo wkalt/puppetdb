@@ -14,7 +14,8 @@
   ([version query summarize_by]
      (aggregate-counts-query-result version query summarize_by {}))
   ([version query summarize_by extra-query-params]
-     (-> (aggregate-event-counts/query->sql version query [summarize_by extra-query-params])
+   (-> (aggregate-event-counts/query->sql version query (assoc extra-query-params
+                                                               :summarize_by summarize_by))
          (aggregate-event-counts/query-aggregate-event-counts))))
 
 (deftest ^{:hsqldb false} aggregate-event-count-queries
