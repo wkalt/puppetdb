@@ -14,7 +14,6 @@
             [puppetlabs.puppetdb.query.facts :as facts]
             [puppetlabs.puppetdb.query.factsets :as factsets]
             [puppetlabs.puppetdb.query.fact-contents :as fact-contents]
-            [puppetlabs.puppetdb.query.nodes :as nodes]
             [puppetlabs.puppetdb.query.reports :as reports]
             [puppetlabs.puppetdb.query.report-data :as report-data]
             [puppetlabs.puppetdb.query.resources :as resources]
