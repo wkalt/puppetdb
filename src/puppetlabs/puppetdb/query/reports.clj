@@ -3,15 +3,11 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query.events :as events]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s])
-  (:import  [org.postgresql.util PGobject]))
+            [schema.core :as s]))
 
 ;; MUNGE
 

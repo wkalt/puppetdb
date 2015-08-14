@@ -1,11 +1,6 @@
 (ns puppetlabs.puppetdb.query.edges
   "Fact query generation"
-  (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.facts :as facts]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.schema :as pls]
+  (:require [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 
 ;; SCHEMA

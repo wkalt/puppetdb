@@ -7,7 +7,6 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
-            [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
 
 ;; SCHEMA
@@ -15,7 +14,6 @@
 (def row-schema
   (query/wrap-with-supported-fns
     {(s/optional-key :certname) s/Str
-     (s/optional-key :max) s/Any
      (s/optional-key :environment) (s/maybe s/Str)
      (s/optional-key :name) s/Str
      (s/optional-key :value) s/Str}))
@@ -23,7 +21,6 @@
 (def converted-row-schema
   (query/wrap-with-supported-fns
     {(s/optional-key :certname) s/Str
-     (s/optional-key :max) s/Any
      (s/optional-key :environment) (s/maybe s/Str)
      (s/optional-key :name) s/Str
      (s/optional-key :value) s/Any}))

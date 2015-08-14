@@ -1,7 +1,5 @@
 (ns puppetlabs.puppetdb.query.report-data
-  (:require [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+  (:require [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.schema :as pls]
             [schema.core :as s]))
 

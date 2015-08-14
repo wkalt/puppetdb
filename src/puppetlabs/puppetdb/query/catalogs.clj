@@ -1,15 +1,8 @@
 (ns puppetlabs.puppetdb.query.catalogs
   "Catalog retrieval"
-  (:require [puppetlabs.kitchensink.core :as kitchensink]
-            [puppetlabs.puppetdb.catalogs :as catalogs]
-            [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
-            [puppetlabs.puppetdb.schema :as pls]
+  (:require [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
-            [schema.core :as s])
-  (:import  [org.postgresql.util PGobject]))
+            [schema.core :as s]))
 
 ;; MUNGE
 

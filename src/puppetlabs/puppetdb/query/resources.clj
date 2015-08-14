@@ -5,10 +5,7 @@
    `puppetlabs.puppetdb.query`, basically by munging the results into the
    right format and picking out the desired columns."
   (:require [puppetlabs.puppetdb.cheshire :as json]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]
-            [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng.engine :as qe]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.utils :as utils]
             [schema.core :as s]))
