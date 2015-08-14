@@ -67,7 +67,7 @@
 
 (defn orderable-columns
   [query-rec]
-  (if (nil? query-rec)
+  (if-not query-rec
     []
     (let [projections (:projections (query-rec))]
       (->> (keys projections)
