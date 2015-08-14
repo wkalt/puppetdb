@@ -24,8 +24,7 @@
 
 (def entity-fn-idx
   (atom
-    {
-     :aggregate-event-counts {:munge aggregate-event-counts/munge-result-rows
+    {:aggregate-event-counts {:munge aggregate-event-counts/munge-result-rows
                               :rec nil}
      :event-counts {:munge event-counts/munge-result-rows
                     :rec nil}
@@ -56,16 +55,25 @@
      :report-logs {:munge (report-data/munge-result-rows :logs)
                    :rec eng/report-logs-query}
      :resources {:munge resources/munge-result-rows
-                 :rec eng/resources-query}
-     }))
+                 :rec eng/resources-query}}))
+
+(defn get-munge
+  [entity]
+  (get-in @entity-fn-idx [entity :munge]))
+
+(defn get-rec
+  [entity]
+  (get-in @entity-fn-idx [entity :rec]))
 
 (defn orderable-columns
   [query-rec]
   (if (nil? query-rec)
     []
     (let [projections (:projections (query-rec))]
-      (map keyword (filter #(:queryable? (get projections %))
-                           (remove #{"value"} (keys projections)))))))
+      (->> (keys projections)
+           (remove #{"value"})
+           (filter #(:queryable? (get projections %)))
+           (map keyword)))))
 
 (defn query->sql
   "Converts a vector-structured `query` to a corresponding SQL query which will
@@ -78,12 +86,10 @@
               (jdbc/valid-jdbc-query? (:count-query %)))]}
   (cond
     (= :aggregate-event-counts entity)
-    (aggregate-event-counts/query->sql
-      version query paging-options)
+    (aggregate-event-counts/query->sql version query paging-options)
 
     (= :event-counts entity)
-    (event-counts/query->sql
-      version query paging-options)
+    (event-counts/query->sql version query paging-options)
 
     (and (= :events entity) (:distinct_resources? paging-options))
     (events/legacy-query->sql false version query paging-options)
@@ -101,7 +107,7 @@
    ;; We default to doall because tests need this for the most part
    (stream-query-result entity version query paging-options db url-prefix doall))
   ([entity version query paging-options db url-prefix row-fn]
-   (let [munge-fn (get-in @entity-fn-idx [entity :munge])
+   (let [munge-fn (get-munge entity)
          munge-fn (case entity
                     :event-counts
                     ((munge-fn (:summarize_by paging-options)) version url-prefix)
@@ -126,8 +132,8 @@
   [entity version query paging-options db url-prefix]
   (try
     (jdbc/with-transacted-connection db
-      (let [query-rec (get-in @entity-fn-idx [entity :rec])
-            munge-fn (get-in @entity-fn-idx [entity :munge])
+      (let [query-rec (get-rec entity)
+            munge-fn (get-munge entity)
             munge-fn (case entity
                        :event-counts
                        ((munge-fn (:summarize_by paging-options)) version url-prefix)
