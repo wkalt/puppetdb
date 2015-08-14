@@ -114,11 +114,10 @@
 
 (defn munge-result-rows
   "Helper function to transform the event count subject data from the raw format that we get back from the
-  database into the more structured format that the API specifies."
-  [summarize_by]
-  (fn [_ _]
-   (fn [rows]
-     (map (partial munge-subject summarize_by) rows))))
+   database into the more structured format that the API specifies."
+  [summarize_by _ _]
+  (fn [rows]
+    (map (partial munge-subject summarize_by) rows)))
 
 (defn query->sql
   "Convert an event-counts `query` and a value to `summarize_by` into a SQL string.

@@ -67,7 +67,7 @@
 
 (defn orderable-columns
   [query-rec]
-  (if (nil? query-rec)
+  (if-not query-rec
     []
     (let [projections (:projections (query-rec))]
       (->> (keys projections)
@@ -100,6 +100,15 @@
       (paging/validate-order-by! columns paging-options)
       (eng/compile-user-query->sql query-rec query paging-options))))
 
+(defn get-munge-fn
+  [entity version paging-options url-prefix]
+  (let [munge-fn (get-munge entity)]
+    (case entity
+      :event-counts
+      (munge-fn (:summarize_by paging-options) version url-prefix)
+
+      (munge-fn version url-prefix))))
+
 (defn stream-query-result
   "Given a query, and database connection, return a Ring response with the query
    results."
@@ -107,12 +116,7 @@
    ;; We default to doall because tests need this for the most part
    (stream-query-result entity version query paging-options db url-prefix doall))
   ([entity version query paging-options db url-prefix row-fn]
-   (let [munge-fn (get-munge entity)
-         munge-fn (case entity
-                    :event-counts
-                    ((munge-fn (:summarize_by paging-options)) version url-prefix)
-
-                    (munge-fn version url-prefix))]
+   (let [munge-fn (get-munge-fn entity version paging-options url-prefix)]
      (jdbc/with-transacted-connection db
        (let [{:keys [results-query]}
              (query->sql query entity version paging-options)]
@@ -133,13 +137,7 @@
   (try
     (jdbc/with-transacted-connection db
       (let [query-rec (get-rec entity)
-            munge-fn (get-munge entity)
-            munge-fn (case entity
-                       :event-counts
-                       ((munge-fn (:summarize_by paging-options)) version url-prefix)
-
-                       (munge-fn version url-prefix))
-
+            munge-fn (get-munge-fn entity version paging-options url-prefix)
             {:keys [results-query count-query]} (-> query
                                                     json/coerce-from-json
                                                     (query->sql entity version paging-options))

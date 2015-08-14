@@ -77,7 +77,7 @@
               result (vec (parse-result body))]
           (is (= status http/status-ok))
           (is (= result (reverse expected-result)))))
-      
+
       (testing "order by rejects invalid fields"
         (let [request (get-request endpoint nil
                                    {:order_by (json/generate-string [{:field "invalid"
