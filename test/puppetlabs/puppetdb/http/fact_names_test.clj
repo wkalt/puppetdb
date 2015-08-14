@@ -36,7 +36,7 @@
     (testing "should return an empty list if there are no facts"
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
-            result (json/parse-string body)]
+            result (parse-result body)]
         (is (= status http/status-ok))
         (is (empty? result))))
 
@@ -64,7 +64,7 @@
     (testing "should retrieve all fact names, order alphabetically, including deactivated nodes"
       (let [request (get-request endpoint)
             {:keys [status body]} (fixt/*app* request)
-            result (json/parse-string body)]
+            result (vec (parse-result body))]
         (is (= status http/status-ok))
         (is (= result ["domain" "hostname" "kernel" "memorysize" "operatingsystem" "uptime_seconds"]))))))
 

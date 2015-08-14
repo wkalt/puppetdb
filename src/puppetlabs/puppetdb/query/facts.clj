@@ -48,6 +48,11 @@
   (fn [rows]
      (map #(utils/update-when % [:path] facts/string-to-factpath) rows)))
 
+(defn munge-name-result-rows
+  [_ _]
+  (fn [rows]
+    (map :name rows)))
+
 ;; QUERY + MUNGE
 
 (defn fact-names

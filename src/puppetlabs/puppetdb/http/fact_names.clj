@@ -15,7 +15,7 @@
              (produce-streaming-body
                :fact-names
                version
-               []
+               (params "query")
                paging-options
                (:scf-read-db globals)
                (:url-prefix globals)))})))

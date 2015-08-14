@@ -35,7 +35,7 @@
                      :rec eng/fact-contents-query}
      :fact-paths {:munge facts/munge-path-result-rows
                   :rec eng/fact-paths-query}
-     :fact-names {:munge (constantly identity)
+     :fact-names {:munge facts/munge-name-result-rows
                   :rec eng/fact-names-query}
      :factsets {:munge factsets/munge-result-rows
                 :rec eng/factsets-query}
