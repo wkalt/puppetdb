@@ -58,7 +58,8 @@
 
     (doseq [res result]
       (is (= #{:certname :deactivated :expired :catalog_timestamp :facts_timestamp :report_timestamp
-               :catalog_environment :facts_environment :report_environment} (keyset res))
+               :catalog_environment :facts_environment :report_environment
+               :latest_report_status :latest_report_hash} (keyset res))
           (str "Query was: " query))
       (is (= (set expected) (set (mapv :certname result)))
           (str "Query was: " query)))
