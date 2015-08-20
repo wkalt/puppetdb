@@ -29,47 +29,48 @@
      :event-counts {:munge event-counts/munge-result-rows
                     :rec nil}
      :facts {:munge facts/munge-result-rows
-             :rec eng/facts-query}
+             :rec (eng/facts-query)}
      :fact-contents {:munge fact-contents/munge-result-rows
-                     :rec eng/fact-contents-query}
+                     :rec (eng/fact-contents-query)}
      :fact-paths {:munge facts/munge-path-result-rows
-                  :rec eng/fact-paths-query}
+                  :rec (eng/fact-paths-query)}
      :fact-names {:munge facts/munge-name-result-rows
-                  :rec eng/fact-names-query}
+                  :rec (eng/fact-names-query)}
      :factsets {:munge factsets/munge-result-rows
-                :rec eng/factsets-query}
+                :rec (eng/factsets-query)}
      :catalogs {:munge catalogs/munge-result-rows
-                :rec eng/catalog-query}
+                :rec (eng/catalog-query)}
      :nodes {:munge (constantly identity)
-             :rec eng/nodes-query}
+             :rec (eng/nodes-query)}
      :environments {:munge (constantly identity)
-                    :rec eng/environments-query}
+                    :rec (eng/environments-query)}
      :events {:munge events/munge-result-rows
-              :rec eng/report-events-query}
+              :rec (eng/report-events-query)}
      :edges {:munge edges/munge-result-rows
-             :rec eng/edges-query}
+             :rec (eng/edges-query)}
      :reports {:munge reports/munge-result-rows
-               :rec eng/reports-query}
+               :rec (eng/reports-query)}
      :report-metrics {:munge (report-data/munge-result-rows :metrics)
-                      :rec eng/report-metrics-query}
+                      :rec (eng/report-metrics-query)}
      :report-logs {:munge (report-data/munge-result-rows :logs)
-                   :rec eng/report-logs-query}
+                   :rec (eng/report-logs-query)}
      :resources {:munge resources/munge-result-rows
-                 :rec eng/resources-query}}))
+                 :rec (eng/resources-query)}}))
+
+(def foo eng/resources-query)
+
+(println foo)
+(:projections (foo))
 
 (defn get-munge
   [entity]
   (get-in @entity-fn-idx [entity :munge]))
 
-(defn get-rec
-  [entity]
-  (get-in @entity-fn-idx [entity :rec]))
-
 (defn orderable-columns
   [query-rec]
   (if-not query-rec
     []
-    (let [projections (:projections (query-rec))]
+    (let [projections (:projections query-rec)]
       (->> (keys projections)
            (remove #{"value"})
            (filter #(:queryable? (get projections %)))
@@ -98,11 +99,11 @@
     (let [query-rec (get-in @entity-fn-idx [entity :rec])
           columns (orderable-columns query-rec)]
       (paging/validate-order-by! columns paging-options)
-      (eng/compile-user-query->sql query-rec query paging-options))))
+      (eng/compile-user-query->sql (fn [] query-rec) query paging-options))))
 
 (defn get-munge-fn
   [entity version paging-options url-prefix]
-  (let [munge-fn (get-munge entity)]
+  (let [munge-fn (get-in @entity-fn-idx [entity :munge])]
     (case entity
       :event-counts
       (munge-fn (:summarize_by paging-options) version url-prefix)
@@ -136,8 +137,7 @@
   [entity version query paging-options db url-prefix]
   (try
     (jdbc/with-transacted-connection db
-      (let [query-rec (get-rec entity)
-            munge-fn (get-munge-fn entity version paging-options url-prefix)
+      (let [munge-fn (get-munge-fn entity version paging-options url-prefix)
             {:keys [results-query count-query]} (-> query
                                                     json/coerce-from-json
                                                     (query->sql entity version paging-options))
