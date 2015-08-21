@@ -57,13 +57,42 @@
      :resources {:munge resources/munge-result-rows
                  :rec eng/resources-query}}))
 
+(defn assoc-in-munge!
+  [entity [k & ks] v]
+  (let [rec (get-in @entity-fn-idx [entity :rec])
+        rec' (assoc-in-rec rec (cons k ks) v)]
+    (swap! entity-fn-idx #(assoc-in % [entity :rec] (fn [] rec')))))
+
 (defn get-munge
   [entity]
   (get-in @entity-fn-idx [entity :munge]))
 
-(defn get-rec
-  [entity]
-  (get-in @entity-fn-idx [entity :rec]))
+(assoc-in-munge! :fact-names [:projections "depth"] {:type :integer
+                                                     :queryable? true
+                                                     :field :depth})
+
+(println ((get-in @entity-fn-idx [:fact-names :rec])))
+
+(defn assoc-in-rec
+  "copy of update-in that takes and returns a function returning a map, rather
+   than a map" 
+  [query-rec [k & ks] v]
+  (let [rec (query-rec)]
+    (fn []
+      (if ks
+        (assoc rec k (assoc-in (get rec k) ks v))
+        (assoc rec k v)))))
+
+(defn update-in-rec
+  "copy of update-in that takes and returns a function returning a map, rather
+   than a map" 
+  [query-rec [k & ks] f & args]
+  (let [rec (query-rec)]
+    (fn []
+      (if ks
+        (assoc rec k (apply update-in (get rec k) ks f args))
+        (assoc rec k (apply f (get rec k) args))))))
+
 
 (defn orderable-columns
   [query-rec]
@@ -136,8 +165,7 @@
   [entity version query paging-options db url-prefix]
   (try
     (jdbc/with-transacted-connection db
-      (let [query-rec (get-rec entity)
-            munge-fn (get-munge-fn entity version paging-options url-prefix)
+      (let [munge-fn (get-munge-fn entity version paging-options url-prefix)
             {:keys [results-query count-query]} (-> query
                                                     json/coerce-from-json
                                                     (query->sql entity version paging-options))

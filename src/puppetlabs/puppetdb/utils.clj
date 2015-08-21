@@ -325,3 +325,17 @@
   (sp/transform [sp/ALL]
                 #(update % 0 underscores->dashes)
                 m))
+
+(defn swap-in!
+  "update-in for atoms"
+  [a [k & ks] f & args]
+  (if ks
+    (swap! a #(assoc % k (apply update-in (get % k) ks f args)))
+    (swap! a #(assoc % k (apply f (get % k) args)))))
+
+(defn assoc-in!
+  "assoc-in for atoms"
+  [a [k & ks] v]
+  (if ks
+    (swap! a #(assoc % k (assoc-in (get % k) ks v)))
+    (swap! a #(assoc % k v))))
