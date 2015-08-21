@@ -5,7 +5,7 @@
             [puppetlabs.puppetdb.query-eng :refer [entity-fn-idx assoc-in-munge!]]
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.fixtures :as fixt]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]  
+            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.utils :refer [swap-in! assoc-in!]]
             [puppetlabs.puppetdb.testutils :refer [get-request parse-result]]
             [puppetlabs.puppetdb.http :as http]
@@ -96,7 +96,7 @@
   (is (thrown-with-msg? IllegalArgumentException
                         #"'foo' is not a queryable object for resources, known queryable objects are.*"
                         (compile-user-query->sql resources-query ["=" "foo" "bar"]))))
-   
+
 (defn fact-names-tests
   []
   (let [version :v4

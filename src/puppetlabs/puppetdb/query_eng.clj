@@ -57,6 +57,15 @@
      :resources {:munge resources/munge-result-rows
                  :rec eng/resources-query}}))
 
+(defn assoc-in-rec
+  "copy of update-in that takes and returns a function returning a map, rather
+   than a map"
+  [query-rec [k & ks] v]
+  (let [rec (query-rec)]
+    (if ks
+      (assoc rec k (assoc-in (get rec k) ks v))
+      (assoc rec k v))))
+
 (defn assoc-in-munge!
   [entity [k & ks] v]
   (let [rec (get-in @entity-fn-idx [entity :rec])
@@ -67,25 +76,9 @@
   [entity]
   (get-in @entity-fn-idx [entity :munge]))
 
-(assoc-in-munge! :fact-names [:projections "depth"] {:type :integer
-                                                     :queryable? true
-                                                     :field :depth})
-
-(println ((get-in @entity-fn-idx [:fact-names :rec])))
-
-(defn assoc-in-rec
-  "copy of update-in that takes and returns a function returning a map, rather
-   than a map" 
-  [query-rec [k & ks] v]
-  (let [rec (query-rec)]
-    (fn []
-      (if ks
-        (assoc rec k (assoc-in (get rec k) ks v))
-        (assoc rec k v)))))
-
 (defn update-in-rec
   "copy of update-in that takes and returns a function returning a map, rather
-   than a map" 
+   than a map"
   [query-rec [k & ks] f & args]
   (let [rec (query-rec)]
     (fn []
