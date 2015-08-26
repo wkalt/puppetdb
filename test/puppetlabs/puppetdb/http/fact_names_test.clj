@@ -7,7 +7,7 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
                                                    parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
 (def fact-name-endpoints [[:v4 "/v4/fact-names"]])
@@ -73,7 +73,8 @@
                 including deactivated nodes"
         (let [{:keys [status body]} (query-response
                                       method endpoint nil
-                                      {:order_by (json/generate-string
+                                      {:order_by (order-param
+                                                   method
                                                    [{:field "name" :order "desc"}])})
               result (vec (parse-result body))]
           (is (= status http/status-ok))
@@ -82,8 +83,9 @@
       (testing "order by rejects invalid fields"
         (let [{:keys [status body]} (query-response
                                       method endpoint nil
-                                      {:order_by (json/generate-string [{:field "invalid"
-                                                                         :order "desc"}])})
+                                      {:order_by (order-param
+                                                   method [{:field "invalid"
+                                                            :order "desc"}])})
               result (parse-result body)]
           (is (= result
                 "Unrecognized column 'invalid' specified in :order_by; Supported columns are 'name'"))))
@@ -161,7 +163,8 @@
       (let [{:keys [status body]} (query-response
                                     method
                                     endpoint nil
-                                    {:order_by (json/generate-string
+                                    {:order_by (order-param
+                                                 method
                                                  [{:field "path" :order "asc"}])})
             result (parse-result body)]
         (is (= status http/status-ok))
@@ -170,8 +173,11 @@
     (testing "regex operator on path"
       (let [{:keys [status body]} (query-response
                                     method
-                                    endpoint (json/generate-string ["~" "path" "my"])
-                                    {:order_by (json/generate-string [{:field "path"}])})
+                                    endpoint
+                                    ["~" "path" "my"]
+                                    {:order_by (order-param
+                                                 method
+                                                 [{:field "path"}])})
             result (parse-result body)]
         (is (= status http/status-ok))
         (is (= result
@@ -181,7 +187,8 @@
     (testing "paging for fact-paths"
       (let [{:keys [status body]} (query-response
                                     method endpoint nil
-                                    {:order_by (json/generate-string
+                                    {:order_by (order-param
+                                                 method
                                                  [{:field "path" :order "desc"}])
                                      :offset 2})
             result (parse-result body)]
@@ -196,8 +203,7 @@
                 {:path ["domain"], :type "string"}]))))
     (testing "invalid query throws an error"
       (let [{:keys [status body]} (query-response
-                                    method endpoint (json/generate-string
-                                                      ["=" "myfield" "myval"]))
+                                    method endpoint ["=" "myfield" "myval"])
             result (parse-result body)]
         (is (= status http/status-bad-request))
         (is (re-find #"is not a queryable object" result))))))
