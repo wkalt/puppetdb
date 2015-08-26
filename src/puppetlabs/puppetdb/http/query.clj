@@ -17,10 +17,10 @@
 
 (def puppetdb-query-schema
   "This schema defines a PuppetDB query and its available
-  parameters. In a GET request this is contained in various query
-  parameters, for POST requests this should be contained in the body
-  of the request"
-  {:query (s/maybe [s/Any])
+   parameters. In a GET request this is contained in various query
+   parameters, for POST requests this should be contained in the body
+   of the request"
+  {(s/optional-key :query) (s/maybe [s/Any])
    :count? s/Bool
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
