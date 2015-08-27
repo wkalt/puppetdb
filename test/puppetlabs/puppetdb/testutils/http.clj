@@ -20,7 +20,8 @@
 (defn query-response
   ([method endpoint]      (query-response method endpoint nil))
   ([method endpoint query] (query-response method endpoint query {}))
-  ([method endpoint query params] (fixt/*app* (tu/query-request method endpoint query {:params params}))))
+  ([method endpoint query params]
+   (fixt/*app* (tu/query-request method endpoint query {:params params}))))
 
 (defn order-param
   [method order-by]

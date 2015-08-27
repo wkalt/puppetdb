@@ -809,13 +809,19 @@
     (testing "order_by"
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
-                        (:body (*app* (get-request endpoint nil {:order_by (order-param method [{"field" "invalid-field" "order" "ASC"}])}))))))
+                        (:body (query-response method endpoint nil
+                                               {:order_by (order-param method
+                                                                       [{"field" "invalid-field"
+                                                                         "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (order-param method [{"field" "certname" "order" order}])}})]
+            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
+                              (query-response method endpoint nil)
+                              :body
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version)))))
@@ -824,12 +830,10 @@
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (query-endpoint
-                           endpoint
-                           ["extract" "environment" ["~" "certname" ".*"]]
-                           {:params {:order_by
-                                     (order-param method
-                                       [{"field" "certname" "order" order}])}})]
+            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
+                              (query-response method endpoint ["extract" "environment" ["~" "certname" ".*"]])
+                              :body
+                              slurp)]
               (compare-structured-response
                 (map (comp :environment unkeywordize-values) actual)
                 (map :environment expected)
@@ -841,9 +845,12 @@
                                                         [["ASC" "DESC"]  [f3 f1 f5 f4 f2]]
                                                         [["ASC" "ASC"]   [f1 f3 f5 f2 f4]]]]
           (testing (format "name %s certname %s" name-order certname-order)
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (order-param method [{"field" "name" "order" name-order}
-                                                                                    {"field" "certname" "order" certname-order}])}})]
+            (let [actual (->> {:order_by (order-param method [{"field" "name" "order" name-order}
+                                                              {"field" "certname" "order" certname-order}])}
+                              (query-response method endpoint nil)
+                              :body
+                              slurp
+                              #(json/parse-string % true))]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))))
@@ -864,18 +871,22 @@
 
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual (query-endpoint endpoint
-                                         {:params {:order_by (order-param method [{"field" "certname" "order" order}])}
-                                          :offset offset})]
+            (let [actual #spy/d (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
+                              #(assoc % :offset offset)
+                              (query-response method endpoint nil)
+                              :body
+                              slurp
+                              #(json/parse-string % true))]
+              (println "ACTUAL IS" actual)
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))
         (testing "rejects order by value on v4+"
           (is (re-matches #"Unrecognized column 'value' specified in :order_by.*"
-                          (:body (*app*(get-request endpoint nil
-                                                    {:order_by
-                                                     (order-param method
-                                                      [{"field" "value" "order" "ASC"}])}))))))))))
+                          (:body (query-response method endpoint nil
+                                                 {:order_by
+                                                  (order-param method
+                                                               [{"field" "value" "order" "ASC"}])})))))))))
 
 (deftestseq facts-environment-paging
   [[version endpoint] facts-endpoints
@@ -927,12 +938,14 @@
                                                  [["ASC" "ASC"]  [f1 f4 f2 f3 f5]]]]
 
         (testing (format "environment %s name %s" env-order name-order)
-          (let [actual (query-endpoint
-                        endpoint
-                        {:params {:order_by
-                                  (order-param method [{"field" "environment" "order" env-order}
-                                                         {"field" "name" "order" name-order}])}})]
-            (compare-structured-response (map unkeywordize-values actual)
+          (println "ENDPOINT IS" endpoint)
+          (let [actual (query-response method
+                                       endpoint
+                                       nil
+                                       {:order_by
+                                                 (order-param method [{"field" "environment" "order" env-order}
+                                                                      {"field" "name" "order" name-order}])})]
+            (compare-structured-response (map unkeywordize-values (json/parse-string (slurp (:body actual)) true))
                                          expected
                                          version)))))))
 
@@ -1155,11 +1168,11 @@
     (testing "order_by"
       (testing "rejects invalid fields"
         (is (re-matches #"Unrecognized column 'invalid-field' specified in :order_by.*"
-                        (:body (*app*
-                                (get-request endpoint nil
-                                             {:order_by (order-param method
+                        (:body (query-response
+                                 method endpoint nil
+                                 {:order_by (order-param method
                                                          [{"field" "invalid-field"
-                                                           "order" "ASC"}])}))))))
+                                                           "order" "ASC"}])})))))
       (testing "alphabetical fields"
         (doseq [[order expected] [["ASC" (sort-by #(get % "certname") (factset-results version))]
                                   ["DESC" (reverse (sort-by #(get % "certname") (factset-results version)))]]]

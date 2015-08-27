@@ -166,15 +166,14 @@
   (restrict-query ["=" "environment" environment]
                   req))
 
-(defn restrict-environment-query-to-environment
-  "Restricts queries to the providied environment. This differs from
-  restrict-query-to-environment in that it is only used on the environments
-  end-point."
+(defn restrict-query-to-environment'
+  "Restrict the query parameter of the supplied request so that it
+   only returns results for the supplied environment"
   [environment req]
   {:pre  [(string? environment)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "name" environment]
-                  req))
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "environment" environment]
+                   req))
 
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
@@ -304,7 +303,7 @@
   (app
    extract-query
    (apply comp
-          (fn [{:keys [params globals puppetdb-query] :as foo}]
+          (fn [{:keys [params globals puppetdb-query]}]
             (produce-streaming-body'
              entity
              version
