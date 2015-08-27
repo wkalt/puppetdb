@@ -42,7 +42,7 @@
         (validate-query-params {}))}
 
    [environment "facts" &]
-   (-> (comp (f/facts-app version true (partial http-q/restrict-query-to-environment' environment)))
+   (-> (f/facts-app version true (partial http-q/restrict-query-to-environment' environment))
        (wrap-with-parent-check version :environment environment))
 
    [environment "resources" &]
