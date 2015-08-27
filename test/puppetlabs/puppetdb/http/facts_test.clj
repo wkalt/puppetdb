@@ -757,12 +757,12 @@
   [[version endpoint] facts-endpoints
    method [:get :post]]
 
-  (let [f1         {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
-        f2         {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
-        f3         {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
-        f4         {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
-        f5         {:certname "e.local" :name "my_structured_fact"
-                    :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
+  (let [f1 {:certname "a.local" :name "hostname"    :value "a-host" :environment "DEV"}
+        f2 {:certname "b.local" :name "uptime_days" :value "4" :environment "DEV"}
+        f3 {:certname "c.local" :name "hostname"    :value "c-host" :environment "DEV"}
+        f4 {:certname "d.local" :name "uptime_days" :value "2" :environment "DEV"}
+        f5 {:certname "e.local" :name "my_structured_fact"
+            :value {"a" [1 2 3 4 5 6 7 8 9 10]} :environment "DEV"}
         fact-count 5]
 
     (scf-store/add-certname! "c.local")
@@ -833,7 +833,8 @@
             (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
                               (query-response method endpoint ["extract" "environment" ["~" "certname" ".*"]])
                               :body
-                              slurp)]
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response
                 (map (comp :environment unkeywordize-values) actual)
                 (map :environment expected)
@@ -849,8 +850,8 @@
                                                               {"field" "certname" "order" certname-order}])}
                               (query-response method endpoint nil)
                               :body
-                              slurp
-                              #(json/parse-string % true))]
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))))
@@ -871,13 +872,11 @@
 
         (testing order
           (doseq [[offset expected] expected-sequences]
-            (let [actual #spy/d (->> {:order_by (order-param method [{"field" "certname" "order" order}])}
-                              #(assoc % :offset offset)
+            (let [actual (->> {:order_by (order-param method [{"field" "certname" "order" order}]) :offset offset}
                               (query-response method endpoint nil)
                               :body
-                              slurp
-                              #(json/parse-string % true))]
-              (println "ACTUAL IS" actual)
+                              slurp)
+                  actual (json/parse-string actual true)]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version))))
