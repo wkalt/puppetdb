@@ -185,6 +185,15 @@
   (restrict-query ["=" "name" fact]
                   req))
 
+(defn restrict-fact-query-to-name'
+  "Restrict the query parameter of the supplied request so that it
+   only returns facts with the given name"
+  [fact req]
+  {:pre  [(string? fact)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "name" fact]
+                   req))
+
 (defn restrict-fact-query-to-value
   "Restrict the query parameter of the supplied request so that it
   only returns facts with the given name"
@@ -192,6 +201,15 @@
   {:pre  [(string? value)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "value" value]
+                  req))
+
+(defn restrict-fact-query-to-value'
+  "Restrict the query parameter of the supplied request so that it
+  only returns facts with the given name"
+  [value req]
+  {:pre  [(string? value)]
+   :post [(are-queries-different?' req %)]}
+  (restrict-query' ["=" "value" value]
                   req))
 
 (defn restrict-resource-query-to-type
