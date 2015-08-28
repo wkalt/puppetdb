@@ -14,7 +14,7 @@
         handlers (if optional-handlers
                    (cons handler optional-handlers)
                    [handler])
-        query-route #(apply (partial http-q/query-route :facts version) %)]
+        query-route #(apply (partial http-q/query-route :resources version) %)]
     (app
       []
       (query-route handlers)
