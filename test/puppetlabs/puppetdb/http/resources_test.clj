@@ -43,7 +43,7 @@ to the result of the form supplied to this method."
   (let [{:keys [foo1 bar1 foo2 bar2] :as expected} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
-            body     (json/parse-string (slurp) (get response :body "null") true)]
+            body     (json/parse-string (slurp (get response :body "null")) true)]
         (is (= 200 (:status response)))))
 
     (testing "query with filter"
@@ -69,7 +69,7 @@ to the result of the form supplied to this method."
     (testing "only v4 or after queries"
       (doseq [[query result] [[["~" ["parameter" "owner"] "ro.t"] #{foo1 bar1}]
                               [["not" ["~" ["parameter" "owner"] "ro.t"]] #{foo2 bar2}]]]
-        (is-response-equal (query-response method endpoint query) result)))
+        (is (= (query-result (query-response method endpoint query)) result))))
 
     (testing "fact subqueries are supported"
       (let [{:keys [body status]} (query-response method endpoint
@@ -80,14 +80,14 @@ to the result of the form supplied to this method."
                                                                                           ["=" "name" "operatingsystem"]
                                                                                           ["=" "value" "Debian"]]]]]])]
         (is (= status http/status-ok))
-        (is (= (set (json/parse-string body true)) #{foo1})))
+        (is (= (set (json/parse-string (slurp body) true)) #{foo1})))
 
       ;; Using the value of a fact as the title of a resource
       (let [{:keys [body status]} (query-response method endpoint
                                                 ["in" "title" ["extract" "value" ["select_facts"
                                                                                   ["=" "name" "message"]]]])]
         (is (= status http/status-ok))
-        (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
+        (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2}))))
 
     (testing "resource subqueries are supported"
       ;; Fetch exported resources and their corresponding collected versions
@@ -99,7 +99,7 @@ to the result of the form supplied to this method."
                                                   ["in" "title" ["extract" "title" ["select_resources"
                                                                                     ["=" "exported" true]]]]]])]
         (is (= status http/status-ok))
-        (is (= (set (json/parse-string body true)) #{foo2 bar2}))))
+        (is (= (set (json/parse-string (slurp body) true)) #{foo2 bar2}))))
 
     (testing "error handling"
       (let [response (query-response method endpoint ["="])
