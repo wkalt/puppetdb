@@ -25,7 +25,7 @@ to the result of the form supplied to this method."
   (is (= http/status-ok (:status response)))
   (is (= http/json-response-content-type (tu/content-type response)))
   (is (= body (if (:body response)
-                (set (json/parse-string (:body response) true))
+                (set (json/parse-string (slurp (:body response)) true))
                 nil))))
 
 (defn query-result
@@ -223,10 +223,10 @@ to the result of the form supplied to this method."
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
     (testing "ordering results with order_by"
-      (let [order_by {:order_by (json/generate-string [{"field" "certname" "order" "DESC"}
-                                                       {"field" "resource" "order" "DESC"}])}
+      (let [order_by {:order_by (order-param method [{"field" "certname" "order" "DESC"}
+                                                     {"field" "resource" "order" "DESC"}])}
             response (query-response method endpoint nil order_by)
-            actual   (json/parse-string (get response :body "null") true)]
+            actual   (json/parse-string (slurp (get response :body "null")) true)]
         (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
 
