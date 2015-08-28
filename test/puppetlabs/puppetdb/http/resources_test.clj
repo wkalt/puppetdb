@@ -43,7 +43,7 @@ to the result of the form supplied to this method."
   (let [{:keys [foo1 bar1 foo2 bar2] :as expected} (store-example-resources)]
     (testing "query without filter should not fail"
       (let [response (query-response method endpoint)
-            body     (get response :body "null")]
+            body     (json/parse-string (slurp) (get response :body "null") true)]
         (is (= 200 (:status response)))))
 
     (testing "query with filter"
