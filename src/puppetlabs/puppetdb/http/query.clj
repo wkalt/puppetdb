@@ -316,20 +316,18 @@
   (fn [{:keys [request-method body params puppetdb-query] :as req}]
     (handler (assoc req :puppetdb-query (create-query-map req)))))
 
-(defn-validated validate-distinct-options!
+(defn validate-distinct-options!
   "Validate the HTTP query params related to a `distinct_resources` query.  Return a
   map containing the validated `distinct_resources` options, parsed to the correct
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
-  [params :- {s/Any s/Any}]
+  [params]
   (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
         {:strs [distinct_start_time distinct_end_time] :as distinct-params}
         (select-keys params distinct-params-names)]
     (condp = (kitchensink/keyset distinct-params)
      #{}
-     {:distinct_resources false
-      :distinct_start_time nil
-      :distinct_end_time   nil}
+      params
 
      distinct-params-names
      (let [start (to-timestamp distinct_start_time)
@@ -338,9 +336,10 @@
          (throw (IllegalArgumentException.
                  (str "query parameters 'distinct_start_time' and 'distinct_end_time' must be valid datetime strings: "
                       distinct_start_time " " distinct_end_time))))
-       {:distinct_resources (http/parse-boolean-query-param distinct-params "distinct_resources")
-        :distinct_start_time start
-        :distinct_end_time   end})
+       (merge params
+              {:distinct_resources (http/parse-boolean-query-param distinct-params "distinct_resources")
+               :distinct_start_time start
+               :distinct_end_time   end}))
 
      #{"distinct_start_time" "distinct_end_time"}
      (throw (IllegalArgumentException.
@@ -362,7 +361,7 @@
             (produce-streaming-body'
              entity
              version
-             puppetdb-query
+             (validate-distinct-options! puppetdb-query)
              (:scf-read-db globals)
              (:url-prefix globals)))
           optional-handlers)))
