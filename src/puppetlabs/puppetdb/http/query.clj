@@ -4,6 +4,7 @@
    Functions that aid in the parsing, serialization, and manipulation
    of PuppetDB queries embedded in HTTP parameters."
   (:require [puppetlabs.puppetdb.cheshire :as json]
+            [clojure.walk :refer [keywordize-keys]]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body produce-streaming-body']]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -276,7 +277,6 @@
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
   [{:keys [order_by limit offset] :as full-query}]
-  (println "FULL QUERY IS" full-query)
   (-> full-query
       (update :order_by parse-order-by')
       (update :limit parse-limit')
@@ -325,15 +325,14 @@
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
   [params]
-  (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
-        {:keys [distinct_start_time distinct_end_time] :as distinct-params}
-        (select-keys params distinct-params-names)]
-    (println "PARAMS ARE" params)
-    (condp = (kitchensink/keyset distinct-params)
+  (let [distinct-param-names #{:distinct_resources :distinct_start_time :distinct_end_time}
+        {:keys [distinct_start_time distinct_end_time distinct_resources] :as distinct-params} params
+        params-present (filter distinct-param-names (kitchensink/keyset distinct-params))]
+    (condp = (set params-present)
      #{}
       params
 
-     distinct-params-names
+     distinct-param-names
      (let [start (to-timestamp distinct_start_time)
            end   (to-timestamp distinct_end_time)]
        (when (some nil? [start end])
@@ -341,11 +340,11 @@
                  (str "query parameters 'distinct_start_time' and 'distinct_end_time' must be valid datetime strings: "
                       distinct_start_time " " distinct_end_time))))
        (merge params
-              {:distinct_resources (http/parse-boolean-query-param distinct-params "distinct_resources")
+              {:distinct_resources (boolean distinct_resources)
                :distinct_start_time start
                :distinct_end_time   end}))
 
-     #{"distinct_start_time" "distinct_end_time"}
+     #{:distinct_start_time :distinct_end_time}
      (throw (IllegalArgumentException.
              "'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"))
      (throw (IllegalArgumentException.
@@ -361,11 +360,10 @@
    extract-query
    (apply comp
           (fn [{:keys [params globals puppetdb-query]}]
-            (println "PARAMS ARE" params "PUPPETDB QUERY" puppetdb-query)
             (produce-streaming-body'
              entity
              version
-             (validate-distinct-options! puppetdb-query)
+             (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
              (:scf-read-db globals)
              (:url-prefix globals)))
           optional-handlers)))
