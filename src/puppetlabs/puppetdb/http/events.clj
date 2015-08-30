@@ -2,11 +2,11 @@
   (:import (java.sql Timestamp))
   (:require [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
-                                                   produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body']]
             [puppetlabs.puppetdb.middleware :as middleware]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http :as http]
+            [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [schema.core :as s]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]))
@@ -62,10 +62,18 @@
         (catch IllegalArgumentException e
           (http/error-response e))))))
 
+(defn routes
+  [version optional-handlers]
+  (let [handlers (or optional-handlers [identity])
+        query-route #(apply (partial http-q/query-route :events version) %)]
+    (app
+      []
+      (query-route handlers))))
+
 (defn events-app
   "Ring app for querying events"
-  [version]
-  (-> (routes version)
+  [version & optional-handlers]
+  (-> (routes version optional-handlers)
       middleware/verify-accepts-json
       (middleware/validate-query-params {:optional (concat
                                                     ["query"
