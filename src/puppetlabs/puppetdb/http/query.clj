@@ -6,10 +6,13 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.core.match :as cm]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body produce-streaming-body']]
+            [puppetlabs.kitchensink.core :as kitchensink]
             [net.cgrand.moustache :refer [app]]
             [schema.core :as s]
+            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
+            [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [puppetlabs.puppetdb.utils :as utils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -323,8 +326,9 @@
   or invalid."
   [params]
   (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
-        {:strs [distinct_start_time distinct_end_time] :as distinct-params}
+        {:keys [distinct_start_time distinct_end_time] :as distinct-params}
         (select-keys params distinct-params-names)]
+    (println "PARAMS ARE" params)
     (condp = (kitchensink/keyset distinct-params)
      #{}
       params
