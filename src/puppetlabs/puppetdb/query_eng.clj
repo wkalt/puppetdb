@@ -96,7 +96,7 @@
     (= :event-counts entity)
     (event-counts/query->sql version query paging-options)
 
-    (and (= :events entity) (:distinct_resources? paging-options))
+    (and (= :events entity) (:distinct_resources paging-options))
     (events/legacy-query->sql false version query paging-options)
 
     :else
