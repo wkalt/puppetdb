@@ -522,6 +522,7 @@
   (doseq [[query msg] (get versioned-invalid-queries endpoint)]
     (testing (str "query: " query " should fail with msg: " msg)
       (let [{:keys [status body] :as result} (query-response method endpoint query)]
+        (println "METHOD IS" method)
         (is (re-find msg body))
         (is (= status http/status-bad-request))))))
 
