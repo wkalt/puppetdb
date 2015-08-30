@@ -14,7 +14,8 @@
                                                    get-request
                                                    paged-results
                                                    deftestseq]]
-            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report! enumerated-resource-events-map]]
+            [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!
+                                                           enumerated-resource-events-map]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         order-param
                                                         query-result]]
@@ -260,7 +261,7 @@
              body))))
 
     (testing "should return only one event for a given resource"
-      (let [expected  (http-expected-resource-events version basic3-events basic3)
+      (let [expected (http-expected-resource-events version basic3-events basic3)
             response  (query-result method endpoint ["=" "certname" "foo.local"]
                                     {:distinct_resources true
                                      :distinct_start_time 0
