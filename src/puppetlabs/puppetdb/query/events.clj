@@ -172,6 +172,7 @@
              (not (:count? query-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) query-options)
+   (println "QUERY OPTIONS ARE" query-options)
    (if (:distinct_resources query-options)
      ;; The new query engine does not support distinct-resources yet, so we
      ;; fall back to the old

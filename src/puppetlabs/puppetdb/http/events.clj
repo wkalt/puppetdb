@@ -46,23 +46,6 @@
              "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn routes
-  [version]
-  (app
-    [""]
-    (fn [{:keys [params globals paging-options]}]
-      (try
-        (let [query-options (merge paging-options
-                                   (validate-distinct-options! params))]
-          (produce-streaming-body'
-            :events
-            version
-            (assoc query-options :query (params "query"))
-            (:scf-read-db globals)
-            (:url-prefix globals)))
-        (catch IllegalArgumentException e
-          (http/error-response e))))))
-
-(defn routes
   [version optional-handlers]
   (let [handlers (or optional-handlers [identity])
         query-route #(apply (partial http-q/query-route :events version) %)]
