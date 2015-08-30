@@ -321,11 +321,13 @@
   map containing the validated `distinct_resources` options, parsed to the correct
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
-  [{:keys [distinct_start_time distinct_end_time distinct_resources] :as params}]
-  (let [distinct-params (select-keys params [:distinct_start_time :distinct_end_time :distinct_resources])]
-    (condp = (set distinct-params)
+  [params :- {s/Any s/Any}]
+  (let [distinct-params-names #{"distinct_resources" "distinct_start_time" "distinct_end_time"}
+        {:strs [distinct_start_time distinct_end_time] :as distinct-params}
+        (select-keys params distinct-params-names)]
+    (condp = (kitchensink/keyset distinct-params)
      #{}
-     {:distinct_resources? false
+     {:distinct_resources false
       :distinct_start_time nil
       :distinct_end_time   nil}
 
@@ -336,7 +338,7 @@
          (throw (IllegalArgumentException.
                  (str "query parameters 'distinct_start_time' and 'distinct_end_time' must be valid datetime strings: "
                       distinct_start_time " " distinct_end_time))))
-       {:distinct_resources? (http/parse-boolean-query-param distinct-params "distinct_resources")
+       {:distinct_resources (http/parse-boolean-query-param distinct-params "distinct_resources")
         :distinct_start_time start
         :distinct_end_time   end})
 
