@@ -146,11 +146,11 @@
            {counts-filter-where  :where
             counts-filter-params :params}  (get-counts-filter-where-clause counts_filter)
            distinct-opts                   (select-keys query-options
-                                                        [:distinct_resources?
+                                                        [:distinct_resources
                                                          :distinct_start_time
                                                          :distinct_end_time])
            [event-sql & event-params]      (:results-query
-                                            (if (:distinct_resources? query-options)
+                                            (if (:distinct_resources query-options)
                                               ;;The query engine does not support distinct-resources!
                                               (events/query->sql will-union? version query distinct-opts)
                                               (qe/compile-user-query->sql qe/report-events-query query)))
