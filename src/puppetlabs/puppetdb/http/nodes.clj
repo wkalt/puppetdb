@@ -4,12 +4,11 @@
             [puppetlabs.puppetdb.http.facts :as f]
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.http :as pl-http]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options wrap-with-parent-check]]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]
             [puppetlabs.puppetdb.http :as http]))
 
 (defn node-status
@@ -22,7 +21,7 @@
                                          {}
                                          db
                                          url-prefix))]
-    (if status 
+    (if status
       (http/json-response status)
       (http/status-not-found-response "node" node))))
 
@@ -44,11 +43,11 @@
         (validate-query-params {}))}
 
    [node "facts" &]
-   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+   (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
        (wrap-with-parent-check version :node node))
 
    [node "resources" &]
-   (-> (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))
+   (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
        (wrap-with-parent-check version :node node))))
 
 (defn node-app

@@ -26,7 +26,7 @@
   ([method endpoint query params]
    (fixt/*app* (tu/query-request method endpoint query {:params params}))))
 
-(defn order-param
+(defn vector-param
   [method order-by]
   (if (= :get method)
     (json/generate-string order-by)
@@ -46,4 +46,3 @@
          (json/parse-string true)
          handle-fn
          set))))
-
