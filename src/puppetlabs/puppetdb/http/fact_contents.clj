@@ -14,6 +14,5 @@
 (defn fact-contents-app
   [version]
   (-> (routes version)
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
+      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))
