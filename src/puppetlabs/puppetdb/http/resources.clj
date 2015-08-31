@@ -1,9 +1,9 @@
 (ns puppetlabs.puppetdb.http.resources
   (:require [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params
                                                     wrap-with-paging-options]]))
 
 (defn routes

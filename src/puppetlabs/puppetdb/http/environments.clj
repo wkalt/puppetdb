@@ -1,17 +1,16 @@
 (ns puppetlabs.puppetdb.http.environments
   (:require [puppetlabs.puppetdb.query-eng :as eng]
             [puppetlabs.puppetdb.http :as http]
-            [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.facts :as f]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.resources :as r]
             [puppetlabs.puppetdb.http.events :as ev]
             [puppetlabs.puppetdb.http.reports :as rp]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options wrap-with-parent-check]]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection get-result-count]]))
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    validate-query-params
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]))
 
 (defn environment-status
   "Produce a response body for a single environment."
@@ -58,7 +57,7 @@
        (wrap-with-parent-check version :environment environment))))
 
 (defn environments-app
-  [version]
+  [version & optional-handlers]
   (-> (routes version)
       verify-accepts-json
       wrap-with-paging-options))

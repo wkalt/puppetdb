@@ -1,11 +1,8 @@
 (ns puppetlabs.puppetdb.http.edges
   (:require [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.puppetdb.query.paging :as paging]))
 
 (defn routes
