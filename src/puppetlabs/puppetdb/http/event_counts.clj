@@ -3,6 +3,7 @@
             [puppetlabs.puppetdb.http.events :as events-http]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
+            [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
                                                     wrap-with-paging-options]]
             [clojure.tools.logging :as log]
@@ -30,10 +31,18 @@
               (:scf-read-db globals)
               (:url-prefix globals))))}))
 
+(defn routes
+  [version optional-handlers]
+  (let [handlers (or optional-handlers [identity])
+        query-route #(apply (partial http-q/query-route :event-counts version) %)]
+    (app
+      []
+      (query-route handlers))))
+
 (defn event-counts-app
   "Ring app for querying for summary information about resource events."
-  [version]
-  (-> (routes version)
+  [version & optional-handlers]
+  (-> (routes version optional-handlers)
       verify-accepts-json
       (validate-query-params {:required ["summarize_by"]
                               :optional (concat ["query"

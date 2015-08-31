@@ -32,6 +32,9 @@
    (s/optional-key :distinct_start_time) s/Any
    (s/optional-key :distinct_end_time) s/Any
    (s/optional-key :limit) (s/maybe s/Int)
+   (s/optional-key :counts_filter) s/Any
+   (s/optional-key :count_by) s/Any
+   (s/optional-key :summarize_by) s/Any
    (s/optional-key :offset) (s/maybe s/Int)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -277,6 +280,7 @@
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
   [{:keys [order_by limit offset] :as full-query}]
+  (println "FULL QURY" full-query)
   (-> full-query
       (update :order_by parse-order-by')
       (update :limit parse-limit')
@@ -289,6 +293,7 @@
   [{:keys [params] :as req}]
   (conj {:query (json/parse-strict-string (get params "query") true)
          :order_by (json/parse-strict-string (get params "order_by") true)
+         :counts_filter (json/parse-strict-string (get params "counts_filter") true)
          :limit (get params "limit")
          :offset (get params "offset")}
         (let [include-total? (get params "include_total" ::not-found)]
@@ -298,6 +303,7 @@
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
   [req]
+  (println "REQ IS " req)
   (with-open [reader (-> req :body clojure.java.io/reader)]
     (json/parse-stream reader true)))
 

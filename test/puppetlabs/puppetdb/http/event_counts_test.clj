@@ -10,6 +10,7 @@
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.testutils :refer [response-equal? paged-results deftestseq]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response query-result order-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
 
@@ -24,24 +25,27 @@
       (assoc :certname "foo.local")))
 
 (deftestseq query-event-counts
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (store-example-report! (:basic reports) (now))
 
   (testing "summarize_by rejects unsupported values"
-    (let [response  (get-response endpoint
-                                  ["=" "certname" "foo.local"] "illegal-summarize-by" {} true)
-          body      (get response :body "null")]
-      (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'" body))))
+    (let [{:keys [body status]} (query-response method endpoint
+                                                ["=" "certname" "foo.local"]
+                                                {:summarize_by "illegal-summarize-by"})]
+      (is (= status http/status-bad-request))
+      (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
+                   body))))
 
   (testing "count_by rejects unsupported values"
-    (let [response  (get-response endpoint
-                                  ["=" "certname" "foo.local"] "certname"
-                                  {"count_by" "illegal-count-by"} true)
-          body      (get response :body "null")]
-      (is (= (:status response) http/status-bad-request))
-      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
+    (let [{:keys [status body]}  (query-response
+                                   method endpoint
+                                   ["=" "certname" "foo.local"]
+                                   {:summarize_by "certname" :count_by "illegal-count-by"})]
+      (is (= status http/status-bad-request))
+      (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
+                   body))))
 
   (testing "nontrivial query using all the optional parameters"
     (let [expected  #{{:subject_type "containing_class"
@@ -91,7 +95,8 @@
         (is (= expected (set results)))))))
 
 (deftestseq query-distinct-event-counts
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (:basic3 reports) (now))
@@ -243,7 +248,8 @@
             :subject {:type "Notify" :title "hi"}}})))
 
 (deftestseq query-with-environment
-  [[version endpoint] endpoints]
+  [[version endpoint] endpoints
+   method [:get :post]]
 
   (store-example-report! (:basic reports) (now))
   (store-example-report! (assoc (:basic2 reports)
