@@ -7,10 +7,9 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [puppetlabs.puppetdb.testutils :refer [response-equal? paged-results deftestseq]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response query-result order-param]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response query-result vector-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
 
@@ -42,7 +41,8 @@
     (let [{:keys [status body]}  (query-response
                                    method endpoint
                                    ["=" "certname" "foo.local"]
-                                   {:summarize_by "certname" :count_by "illegal-count-by"})]
+                                   {:summarize_by "certname"
+                                    :count_by "illegal-count-by"})]
       (is (= status http/status-bad-request))
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
                    body))))
@@ -58,7 +58,7 @@
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   {:summarize_by "containing_class"
                                    :count_by      "certname"
-                                   :counts_filter ["<" "successes" 1]})]
+                                   :counts_filter (vector-param method ["<" "successes" 1])})]
       (is (= response expected))))
 
   (doseq [[label count?] [["without" false]
@@ -87,7 +87,7 @@
                       endpoint
                       [">" "timestamp" 0]
                       {:summarize_by "resource"
-                       :order_by (order-param method [{"field" "resource_title"}])
+                       :order_by (vector-param method [{"field" "resource_title"}])
                        :include_total true})]
         (is (= (count expected) (count results)))
         (is (= expected results))))))
@@ -101,14 +101,11 @@
   (testcat/replace-catalog (json/generate-string example-catalog))
   (testing "should only count the most recent event for each resource"
     (are [query result]
-         (is (= (query-result
-                  method
-                  endpoint
-                  query
-                  {:summarize_by "resource"
-                   :distinct_resources true
-                   :distinct_start_time 0
-                   :distinct_end_time (now)})
+         (is (= (query-result method endpoint query
+                              {:summarize_by "resource"
+                               :distinct_resources true
+                               :distinct_start_time 0
+                               :distinct_end_time (now)})
                 result))
 
          ["=" "certname" "foo.local"]
@@ -255,9 +252,7 @@
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"
                            :environment "PROD") (now))
-  (are [result query] (is (= (query-result method
-                                           endpoint
-                                           query
+  (are [result query] (is (= (query-result method endpoint query
                                            {:summarize_by "resource"})
                              result))
        #{{:subject_type "resource"

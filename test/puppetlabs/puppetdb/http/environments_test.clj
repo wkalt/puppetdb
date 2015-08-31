@@ -7,7 +7,7 @@
             [puppetlabs.puppetdb.testutils :refer [get-request deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         query-result
-                                                        order-param]]
+                                                        vector-param]]
             [puppetlabs.puppetdb.testutils.nodes :as tu-nodes]))
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
