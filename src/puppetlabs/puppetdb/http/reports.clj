@@ -1,7 +1,6 @@
 (ns puppetlabs.puppetdb.http.reports
   (:require [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body
-                                                   produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body']]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.events :as e]
@@ -11,17 +10,6 @@
                                                     validate-no-query-params
                                                     wrap-with-paging-options
                                                     wrap-with-parent-check]]))
-
-(defn report-responder
-  "Respond with reports."
-  [version]
-  (app
-   []
-   {:get
-    (fn [{:keys [params globals paging-options]}]
-      (let [{db :scf-read-db url-prefix :url-prefix} globals
-            {:strs [query]} params]
-        (produce-streaming-body :reports version query paging-options db url-prefix)))}))
 
 (defn report-data-responder
   "Respond with either metrics or logs for a given report hash.
