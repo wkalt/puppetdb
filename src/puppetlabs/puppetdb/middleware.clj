@@ -139,7 +139,6 @@
          (every? string? (:required param-specs))
          (every? string? (:optional param-specs))]}
   (fn [{:keys [params] :as req}]
-    (println "REQ IS" req "SPEC IS" param-specs)
     (kitchensink/cond-let [p]
                           (kitchensink/excludes-some params (:required param-specs))
                           (http/error-response (str "Missing required query parameter '" p "'"))

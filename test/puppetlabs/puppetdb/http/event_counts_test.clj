@@ -54,12 +54,12 @@
                        :successes 0
                        :noops 0
                        :skips 1}}
-          response  (get-response endpoint
+          response  (query-result method endpoint
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
-                                  "containing_class"
-                                  {"count_by"      "certname"
-                                   "counts_filter" ["<" "successes" 1]})]
-      (response-equal? response expected)))
+                                  {:summarize_by "containing_class"
+                                   :count_by      "certname"
+                                   :counts_filter ["<" "successes" 1]})]
+      (is (= response expected))))
 
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
@@ -82,17 +82,15 @@
                          :successes       0
                          :noops           0
                          :skips           1}}
-            results (paged-results
-                     {:app-fn  fixt/*app*
-                      :path    endpoint
-                      :query   [">" "timestamp" 0]
-                      :params  {:summarize_by "resource"
-                                :order_by (json/generate-string [{"field" "resource_title"}])}
-                      :limit   1
-                      :total   (count expected)
-                      :include_total count?})]
+            results (query-result
+                      method
+                      endpoint
+                      [">" "timestamp" 0]
+                      {:summarize_by "resource"
+                       :order_by (order-param method [{"field" "resource_title"}])
+                       :include_total true})]
         (is (= (count expected) (count results)))
-        (is (= expected (set results)))))))
+        (is (= expected results))))))
 
 (deftestseq query-distinct-event-counts
   [[version endpoint] endpoints
@@ -103,13 +101,15 @@
   (testcat/replace-catalog (json/generate-string example-catalog))
   (testing "should only count the most recent event for each resource"
     (are [query result]
-         (response-equal? (get-response endpoint
-                                        query
-                                        "resource"
-                                        {"distinct_resources" true
-                                         "distinct_start_time" 0
-                                         "distinct_end_time" (now)})
-                          result)
+         (is (= (query-result
+                  method
+                  endpoint
+                  query
+                  {:summarize_by "resource"
+                   :distinct_resources true
+                   :distinct_start_time 0
+                   :distinct_end_time (now)})
+                result))
 
          ["=" "certname" "foo.local"]
          #{{:subject_type "resource"
@@ -255,10 +255,11 @@
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"
                            :environment "PROD") (now))
-  (are [result query] (response-equal? (get-response endpoint
-                                                     query
-                                                     "resource")
-                                       result)
+  (are [result query] (is (= (query-result method
+                                           endpoint
+                                           query
+                                           {:summarize_by "resource"})
+                             result))
        #{{:subject_type "resource"
           :subject {:type "Notify" :title "notify, yo"}
           :failures 0

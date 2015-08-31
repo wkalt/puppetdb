@@ -179,7 +179,6 @@
 (defn produce-streaming-body'
   "Same as `produce-streaming-body` but accepts a query map instead. These two functions will eventually merge"
   [entity version query-map db url-prefix]
-  (println "QUERY MAP IS" query-map)
   (produce-streaming-body entity version (:query query-map) (dissoc query-map :query) db url-prefix))
 
 (pls/defn-validated object-exists? :- s/Bool

@@ -279,8 +279,7 @@
 
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
-  [{:keys [order_by limit offset] :as full-query}]
-  (println "FULL QURY" full-query)
+  [full-query]
   (-> full-query
       (update :order_by parse-order-by')
       (update :limit parse-limit')
@@ -293,9 +292,10 @@
   [{:keys [params] :as req}]
   (conj {:query (json/parse-strict-string (get params "query") true)
          :order_by (json/parse-strict-string (get params "order_by") true)
-         :counts_filter (json/parse-strict-string (get params "counts_filter") true)
+         :counts_filter (get params "counts_filter")
          :limit (get params "limit")
-         :offset (get params "offset")}
+         :offset (get params "offset")
+         :summarize_by (get params "summarize_by")}
         (let [include-total? (get params "include_total" ::not-found)]
           (when (not= include-total? ::not-found)
             [:include_total include-total?]))))
@@ -303,7 +303,6 @@
 (defn post-req->query
   "Takes a POST body and parses the JSON to create a pdb query map"
   [req]
-  (println "REQ IS " req)
   (with-open [reader (-> req :body clojure.java.io/reader)]
     (json/parse-stream reader true)))
 

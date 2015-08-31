@@ -44,8 +44,8 @@
   [version & optional-handlers]
   (-> (routes version optional-handlers)
       verify-accepts-json
-      (validate-query-params {:required ["summarize_by"]
-                              :optional (concat ["query"
+      (validate-query-params {:optional (concat ["query"
+                                                 "summarize_by"
                                                  "counts_filter" "count_by"
                                                  "distinct_resources" "distinct_start_time"
                                                  "distinct_end_time"]
