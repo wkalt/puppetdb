@@ -14,17 +14,6 @@
 
 (def endpoints [[:v4 "/v4/environments"]])
 
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-   (get-response endpoint nil))
-  ([endpoint query]
-   (let [resp (fixt/*app* (get-request endpoint query))]
-     (if (string? (:body resp))
-       resp
-       (update-in resp [:body] slurp)))))
-
 ;; TESTS
 
 (deftestseq test-all-environments
