@@ -21,12 +21,12 @@
 
     [fact value &]
     (query-route (concat handlers
-                         [(partial http-q/restrict-fact-query-to-name' fact)
-                          (partial http-q/restrict-fact-query-to-value' value)]))
+                         [(partial http-q/restrict-fact-query-to-name fact)
+                          (partial http-q/restrict-fact-query-to-value value)]))
 
     [fact &]
     (query-route (concat handlers
-                         [(partial http-q/restrict-fact-query-to-name' fact)])))))
+                         [(partial http-q/restrict-fact-query-to-name fact)])))))
 
 (defn facts-app
   ([version]

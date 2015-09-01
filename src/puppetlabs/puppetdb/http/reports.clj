@@ -33,8 +33,7 @@
       (query-route handlers)
 
       [hash "events" &]
-      (-> (comp (e/events-app version)
-                (partial http-q/restrict-query-to-report hash))
+      (-> (e/events-app version (partial http-q/restrict-query-to-report hash))
           (wrap-with-parent-check version :report hash))
 
       [hash "metrics" &]

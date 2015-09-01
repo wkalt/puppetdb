@@ -41,13 +41,6 @@
 ;;; Query munging functions
 
 (defn- are-queries-different?
-  "DEPRECATED - only works on GET requests, will be replaced by are-queries-different?'"
-  {:deprecated "3.0.0"}
-  [req1 req2]
-  (not= (get-in req1 [:params "query"])
-        (get-in req2 [:params "query"])))
-
-(defn- are-queries-different?'
   [req1 req2]
   (not= (:puppetdb-query req1)
         (:puppetdb-query req2)))
@@ -91,42 +84,13 @@
             crit)))
 
 (defn restrict-query
-  "DEPRECATED - this function only works on GETs, will be replaced by restrict-query'
-
-  Given a criteria that will restrict a query, modify the supplied
-  request so that its query parameter is now restricted according to
-  the criteria."
-  {:deprecated "3.0.0"}
-  [restriction {:keys [params] :as req}]
-  {:pre  [(coll? restriction)]
-   :post [(are-queries-different? req %)]}
-  (let [restricted-query (let [query (params "query")
-                               q     (when query (json/parse-strict-string query true))]
-                           (add-criteria restriction q))]
-    (assoc-in req [:params "query"] (json/generate-string restricted-query))))
-
-(defn restrict-query'
   "Given a criteria that will restrict a query, modify the supplied
   request so that its query parameter is now restricted according to
   `restriction`"
   [restriction req]
   {:pre  [(coll? restriction)]
-   :post [(are-queries-different?' req %)]}
+   :post [(are-queries-different? req %)]}
   (update-in req [:puppetdb-query :query] #(add-criteria restriction %)))
-
-(defn restrict-query-to-active-nodes
-  "DEPRECATED - only works on GET requests, will be replaced by restrict-query-to-active-nodes'
-
-  Restrict the query parameter of the supplied request so that it only returns
-  results for the supplied node, unless a node-active criteria is already
-  explicitly specified."
-  {:deprecated "3.0.0"}
-  [req]
-  (if (some-> (get-in req [:params "query"])
-              (json/parse-strict-string true)
-              find-active-node-restriction-criteria)
-    req
-    (restrict-query ["=" ["node" "active"] true] req)))
 
 (defn restrict-query-to-active-nodes'
   "Restrict the query parameter of the supplied request so that it only returns
@@ -138,7 +102,7 @@
               :query
               find-active-node-restriction-criteria)
     req
-    (restrict-query' ["=" ["node" "active"] true] req)))
+    (restrict-query ["=" ["node" "active"] true] req)))
 
 
 (defn restrict-query-to-node
@@ -151,20 +115,11 @@
 
 (defn restrict-query-to-report
   "Restrict the query parameter of the supplied request so that it
-  only returns results for the supplied active node"
+   only returns results for the supplied active node"
   [hash req]
   {:pre  [(string? hash)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "report" hash]
-                  req))
-
-(defn restrict-catalog-query-to-node
-  "Restrict the query parameter of the supplied request so that it
-  only returns results for the supplied active node"
-  [node req]
-  {:pre  [(string? node)]
-   :post [(are-queries-different? req %)]}
-  (restrict-query ["=" "name" node]
                   req))
 
 (defn restrict-query-to-environment
@@ -176,32 +131,14 @@
   (restrict-query ["=" "environment" environment]
                   req))
 
-(defn restrict-query-to-environment'
-  "Restrict the query parameter of the supplied request so that it
-   only returns results for the supplied environment"
-  [environment req]
-  {:pre  [(string? environment)]
-   :post [(are-queries-different?' req %)]}
-  (restrict-query' ["=" "environment" environment]
-                   req))
-
 (defn restrict-fact-query-to-name
   "Restrict the query parameter of the supplied request so that it
-  only returns facts with the given name"
+   only returns facts with the given name"
   [fact req]
   {:pre  [(string? fact)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "name" fact]
                   req))
-
-(defn restrict-fact-query-to-name'
-  "Restrict the query parameter of the supplied request so that it
-   only returns facts with the given name"
-  [fact req]
-  {:pre  [(string? fact)]
-   :post [(are-queries-different?' req %)]}
-  (restrict-query' ["=" "name" fact]
-                   req))
 
 (defn restrict-fact-query-to-value
   "Restrict the query parameter of the supplied request so that it
@@ -210,15 +147,6 @@
   {:pre  [(string? value)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "value" value]
-                  req))
-
-(defn restrict-fact-query-to-value'
-  "Restrict the query parameter of the supplied request so that it
-  only returns facts with the given name"
-  [value req]
-  {:pre  [(string? value)]
-   :post [(are-queries-different?' req %)]}
-  (restrict-query' ["=" "value" value]
                   req))
 
 (defn restrict-resource-query-to-type
@@ -230,32 +158,14 @@
   (restrict-query ["=" "type" type]
                   req))
 
-(defn restrict-resource-query-to-type'
-  "Restrict the query parameter of the supplied request so that it
-  only returns resources with the given type"
-  [type req]
-  {:pre  [(string? type)]
-   :post [(are-queries-different?' req %)]}
-  (restrict-query' ["=" "type" type]
-                  req))
-
 (defn restrict-resource-query-to-title
   "Restrict the query parameter of the supplied request so that it
-  only returns resources with the given title"
+   only returns resources with the given title"
   [title req]
   {:pre  [(string? title)]
    :post [(are-queries-different? req %)]}
   (restrict-query ["=" "title" title]
                   req))
-
-(defn restrict-resource-query-to-title'
-  "Restrict the query parameter of the supplied request so that it
-   only returns resources with the given title"
-  [title req]
-  {:pre  [(string? title)]
-   :post [(are-queries-different?' req %)]}
-  (restrict-query' ["=" "title" title]
-                   req))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Conversion/validation of query parameters
