@@ -7,7 +7,8 @@
             [clj-time.core :refer [now]]
             [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq
                                                    parse-result]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response order-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        order-param]]
             [puppetlabs.puppetdb.jdbc :refer [with-transacted-connection]]))
 
 (def fact-name-endpoints [[:v4 "/v4/fact-names"]])

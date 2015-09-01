@@ -142,8 +142,8 @@
                [["or"
                  ["=" "status" "skipped"]
                  ["<" "timestamp" "2011-01-01T12:00:02-03:00"]]  [0 2]]]]
-        (let [response  (query-result method endpoint query {} munge-event-values)
-              expected  (http-expected-resource-events
+        (let [response (query-result method endpoint query {} munge-event-values)
+              expected (http-expected-resource-events
                          version
                          (kitchensink/select-values basic-events-map matches)
                          basic)]
@@ -204,19 +204,18 @@
 
     (testing "order_by field names"
       (testing "should accept underscores"
-        (let [expected  (http-expected-resource-events version basic-events basic)
-              {:keys [status body]}  (query-response method endpoint [">" "timestamp" 0]
-                                                     {:order_by
-                                                      (order-param method
-                                                                   [{:field "resource_title"}])})]
+        (let [expected (http-expected-resource-events version basic-events basic)
+              {:keys [status body]} (query-response
+                                      method endpoint [">" "timestamp" 0]
+                                      {:order_by (order-param method [{:field "resource_title"}])})]
           (is (= status http/status-ok))
           (is (= (set (munge-event-values (json/parse-string (slurp body) true))) expected))))
 
       (testing "should reject dashes"
-        (let [response  (query-response method endpoint [">" "timestamp" 0]
+        (let [response (query-response method endpoint [">" "timestamp" 0]
                                         {:order_by (order-param method
                                                                 [{:field "resource-title"}])})
-              body      (get response :body "null")]
+              body (get response :body "null")]
           (is (= (:status response) http/status-bad-request))
           (is (re-find #"Unrecognized column 'resource-title' specified in :order_by" body)))))))
 
@@ -231,9 +230,9 @@
         basic3-events     (get-in reports [:basic3 :resource_events])]
 
     (testing "should return an error if the caller passes :distinct_resources without timestamps"
-      (let [response  (query-response method endpoint ["=" "certname" "foo.local"]
+      (let [response (query-response method endpoint ["=" "certname" "foo.local"]
                                       {:distinct_resources true})
-            body      (get response :body "null")]
+            body (get response :body "null")]
         (is (= (:status response) http/status-bad-request))
         (is (re-find
              #"'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'"
