@@ -1,7 +1,7 @@
 (ns puppetlabs.puppetdb.http.edges
   (:require [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
                                                     wrap-with-paging-options]]
             [puppetlabs.puppetdb.query.paging :as paging]))
 

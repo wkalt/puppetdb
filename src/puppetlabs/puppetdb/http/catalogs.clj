@@ -7,8 +7,9 @@
             [puppetlabs.puppetdb.http.resources :as resources]
             [schema.core :as s]
             [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options wrap-with-parent-check]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]
             [net.cgrand.moustache :refer [app]]))
 
 (defn catalog-status

@@ -6,7 +6,6 @@
             [puppetlabs.puppetdb.http.events :as e]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
-                                                    validate-query-params
                                                     validate-no-query-params
                                                     wrap-with-paging-options
                                                     wrap-with-parent-check]]))

@@ -3,8 +3,9 @@
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.http.facts :as facts]
             [puppetlabs.puppetdb.http.query :as http-q]
-            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json validate-query-params
-                                                    wrap-with-paging-options wrap-with-parent-check]]
+            [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
+                                                    wrap-with-paging-options
+                                                    wrap-with-parent-check]]
             [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.query-eng :as eng]))
 
