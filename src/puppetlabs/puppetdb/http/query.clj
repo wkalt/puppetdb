@@ -6,7 +6,7 @@
   (:require [puppetlabs.puppetdb.cheshire :as json]
             [clojure.walk :refer [keywordize-keys]]
             [clojure.core.match :as cm]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [puppetlabs.kitchensink.core :as kitchensink]
             [net.cgrand.moustache :refer [app]]
             [schema.core :as s]
@@ -365,7 +365,7 @@
    extract-query
    (apply comp
           (fn [{:keys [params globals puppetdb-query]}]
-            (produce-streaming-body'
+            (produce-streaming-body
              entity
              version
              (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
