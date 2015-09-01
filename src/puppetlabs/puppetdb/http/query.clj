@@ -34,8 +34,8 @@
    (s/optional-key :distinct_end_time) s/Any
    (s/optional-key :limit) (s/maybe s/Int)
    (s/optional-key :counts_filter) s/Any
-   (s/optional-key :count_by) s/Any
-   (s/optional-key :summarize_by) s/Any
+   (s/optional-key :count_by) (s/maybe s/Str)
+   (s/optional-key :summarize_by) (s/maybe s/Str)
    (s/optional-key :offset) (s/maybe s/Int)})
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
