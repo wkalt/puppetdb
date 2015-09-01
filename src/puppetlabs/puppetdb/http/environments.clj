@@ -32,7 +32,7 @@
   (let [param-spec {:optional (cons "query" paging/query-params)}]
     (app
       []
-      (http-q/query-route :environments version param-spec identity)
+      (http-q/query-route :environments version param-spec)
 
       [environment]
       (-> (fn [{:keys [globals]}]
