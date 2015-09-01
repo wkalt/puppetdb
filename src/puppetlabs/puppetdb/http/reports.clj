@@ -17,11 +17,10 @@
   [version entity hash]
   (app
     []
-
-     (fn [{:keys [globals]}]
-       (let [{db :scf-read-db url-prefix :url-prefix} globals
-             query (json/generate-string ["=" "hash" hash])]
-         (produce-streaming-body entity version {:query query} db url-prefix)))))
+    (fn [{:keys [globals]}]
+      (let [{db :scf-read-db url-prefix :url-prefix} globals
+            query (json/generate-string ["=" "hash" hash])]
+        (produce-streaming-body entity version {:query query} db url-prefix)))))
 
 (defn routes
   [version optional-handlers]

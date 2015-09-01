@@ -141,8 +141,9 @@
   (testing "paging options"
     (doseq [p (keys paging-options)]
       (testing (format "checking ordering %s" p)
-      (let [{:keys [status body] :as response} (query-response method endpoint nil {:order_by
-                                                                                    (order-param method p)})
+        (let [{:keys [status body]} (query-response
+                                      method endpoint nil
+                                      {:order_by (order-param method p)})
             response-body (strip-hash (json/parse-stream (reader body) true))
             expected (get paging-options p)]
         (is (= (map :certname expected) (map :certname response-body)))))))
