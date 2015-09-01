@@ -130,7 +130,7 @@
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
           (or
-           (not (:count? query-options))
+           (not (:include_total query-options))
            (jdbc/valid-jdbc-query? (:count-query %)))]}
   (let [{:keys [where params]}  (query/compile-term (query/resource-event-ops version) query)
         select-fields           (string/join ", "
@@ -152,7 +152,7 @@
                        ;; with-latest-events must be applied higher up
                        (not will-union?) with-latest-events)
         result {:results-query (apply vector paged-select params)}]
-    (if (:count? query-options)
+    (if (:include_total query-options)
       (let [count-sql (jdbc/count-sql (with-latest-events sql))]
         (assoc result :count-query (apply vector count-sql params)))
       result)))
@@ -169,7 +169,7 @@
     :post [(map? %)
            (jdbc/valid-jdbc-query? (:results-query %))
            (or
-             (not (:count? query-options))
+             (not (:include_total query-options))
              (jdbc/valid-jdbc-query? (:count-query %)))]}
    (paging/validate-order-by! (map keyword (keys query/resource-event-columns)) query-options)
    (if (:distinct_resources query-options)

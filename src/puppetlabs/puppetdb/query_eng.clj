@@ -87,7 +87,7 @@
   {:pre  [((some-fn nil? sequential?) query)]
    :post [(map? %)
           (jdbc/valid-jdbc-query? (:results-query %))
-          (or (not (:count? paging-options))
+          (or (not (:include_total paging-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
 
   (cond

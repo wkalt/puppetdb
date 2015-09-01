@@ -136,7 +136,7 @@
       :post [(map? %)
              (jdbc/valid-jdbc-query? (:results-query %))
              (or
-              (not (:count? query-options))
+              (not (:include_total query-options))
               (jdbc/valid-jdbc-query? (:count-query %)))]}
      (let [count_by                        (or count_by "resource")
            group-by                        (get-group-by summarize_by)
@@ -160,5 +160,5 @@
            params                          (concat event-params counts-filter-params)
            paged-select                    (jdbc/paged-sql sql query-options)]
        (conj {:results-query (apply vector paged-select params)}
-             (when (:count? query-options)
+             (when (:include_total query-options)
                [:count-query (apply vector (jdbc/count-sql sql) params)])))))
