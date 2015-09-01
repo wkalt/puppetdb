@@ -715,7 +715,7 @@
     (throw (IllegalArgumentException. (format "%s requires exactly two arguments, but %d were supplied" op (dec (count args))))))
   (match [path]
          [(field :guard #{"successes" "failures" "noops" "skips"})]
-         {:where (format "%s %s ?" field op)
+         {:where (format "%s %s ?::integer" field op)
           :params [value]}
 
          :else (throw (IllegalArgumentException. (format "%s operator does not support object '%s' for event counts" op path)))))
