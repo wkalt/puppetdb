@@ -251,15 +251,15 @@
   map containing the validated `distinct_resources` options, parsed to the correct
   data types.  Throws `IllegalArgumentException` if any arguments are missing
   or invalid."
-  [params]
-  (let [distinct-param-names #{:distinct_resources :distinct_start_time :distinct_end_time}
-        {:keys [distinct_start_time distinct_end_time distinct_resources]} params
-        params-present (filter distinct-param-names (kitchensink/keyset params))]
+  [{:keys [distinct_start_time distinct_end_time distinct_resources] :as params}]
+  (let [distinct-params #{:distinct_resources :distinct_start_time
+                          :distinct_end_time}
+        params-present (filter distinct-params (kitchensink/keyset params))]
     (condp = (set params-present)
      #{}
       params
 
-     distinct-param-names
+     distinct-params
      (let [start (to-timestamp distinct_start_time)
            end   (to-timestamp distinct_end_time)]
        (when (some nil? [start end])
