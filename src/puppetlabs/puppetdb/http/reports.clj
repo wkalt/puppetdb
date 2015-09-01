@@ -1,6 +1,6 @@
 (ns puppetlabs.puppetdb.http.reports
   (:require [puppetlabs.puppetdb.query.paging :as paging]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [net.cgrand.moustache :refer [app]]
             [puppetlabs.puppetdb.http.query :as http-q]
             [puppetlabs.puppetdb.http.events :as e]
@@ -21,7 +21,7 @@
      (fn [{:keys [globals]}]
        (let [{db :scf-read-db url-prefix :url-prefix} globals
              query (json/generate-string ["=" "hash" hash])]
-         (produce-streaming-body' entity version {:query query} db url-prefix)))))
+         (produce-streaming-body entity version {:query query} db url-prefix)))))
 
 (defn routes
   [version optional-handlers]

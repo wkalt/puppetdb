@@ -2,7 +2,7 @@
   (:require [puppetlabs.puppetdb.query.paging :as paging]
             [puppetlabs.puppetdb.http.query :as http-q]
             [net.cgrand.moustache :refer [app]]
-            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body']]
+            [puppetlabs.puppetdb.query-eng :refer [produce-streaming-body]]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.utils :refer [assoc-when]]
             [puppetlabs.puppetdb.middleware :refer [verify-accepts-json
@@ -22,7 +22,7 @@
              (let [puppetdb-query (if (nil? (:order_by puppetdb-query))
                                     (assoc puppetdb-query :order_by [[:name :ascending]])
                                     puppetdb-query)]
-               (produce-streaming-body'
+               (produce-streaming-body
                  entity
                  version
                  (http-q/validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
