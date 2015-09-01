@@ -14,6 +14,7 @@
             [puppetlabs.puppetdb.schema :as pls]
             [puppetlabs.puppetdb.query.paging :refer [parse-limit' parse-offset' parse-order-by']]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
+            [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.utils :as utils]))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -265,20 +266,32 @@
      (throw (IllegalArgumentException.
              "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
+(defn warn-experimental
+  [entity experimental-entities product-name]
+  (when (and (= "puppetdb" product-name)
+             (contains? experimental-entities entity))
+    (log/warn (format
+                "The %s endpoint is experimental and may be altered or removed in the future."
+                (name entity)))))
+
+(warn-experimental :event-counts #{:event-counts} {:product-name "puppetdb"})
+
 (defn query-route
   "Returns a route for querying PuppetDB that supports the standard
-  paging parameters. Also accepts GETs and POSTs. Composes
-  `optional-handlers` with the middleware function that executes the
-  query."
+   paging parameters. Also accepts GETs and POSTs. Composes
+   `optional-handlers` with the middleware function that executes the
+   query."
   [entity version & optional-handlers]
-  (app
-   extract-query
-   (apply comp
-          (fn [{:keys [params globals puppetdb-query]}]
-            (produce-streaming-body
-             entity
-             version
-             (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-             (:scf-read-db globals)
-             (:url-prefix globals)))
-          optional-handlers)))
+  (let [experimental-entities #{:event-counts :aggregate-event-counts}]
+    (app
+      extract-query
+      (apply comp
+             (fn [{:keys [params globals puppetdb-query]}]
+               (warn-experimental entity experimental-entities (:product-name globals))
+               (produce-streaming-body
+                 entity
+                 version
+                 (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+                 (:scf-read-db globals)
+                 (:url-prefix globals)))
+             optional-handlers))))
