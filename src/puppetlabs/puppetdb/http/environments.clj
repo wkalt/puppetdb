@@ -32,13 +32,12 @@
    []
     (http-q/query-route :environments version identity)
 
-   [environment]
-   {:get
+    [environment]
     (-> (fn [{:keys [globals]}]
           (environment-status version environment (:scf-read-db globals)))
         ;; Being a singular item, querying and pagination don't really make
         ;; sense here
-        (validate-query-params {}))}
+        (validate-query-params {}))
 
    [environment "facts" &]
    (-> (f/facts-app version true (partial http-q/restrict-query-to-environment environment))
