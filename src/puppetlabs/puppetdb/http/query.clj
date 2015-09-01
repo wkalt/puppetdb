@@ -180,27 +180,25 @@
     (Boolean/parseBoolean b)))
 
 (defn validate-query-params
-  "Ring middleware that verifies that the query params in the request
-   are legal based on the map `param-specs`, which contains a list of
-   `:required` and `:optional` query parameters.  If the validation fails,
-   a 400 Bad Request is returned, with an explanation of the invalid
-   parameters."
-  [params param-specs]
+  "Given a set of params and a param spec, throw and error if required params
+   are missing or unsupported params are present, otherwise return the params."
+  [params param-spec]
   (let [params (stringify-keys params)]
-    (kitchensink/cond-let [p]
-                          (kitchensink/excludes-some params (:required param-specs))
-                          (throw (IllegalArgumentException.
-                                   (str "Missing required query parameter '" p "'")))
+    (kitchensink/cond-let
+      [p]
+      (kitchensink/excludes-some params (:required param-spec))
+      (throw (IllegalArgumentException.
+               (str "Missing required query parameter '" p "'")))
 
-                          (let [diff (set/difference (kitchensink/keyset params)
-                                                     (set (:required param-specs))
-                                                     (set (:optional param-specs)))]
-                            (seq diff))
-                          (throw (IllegalArgumentException.
-                                   (str "Unsupported query parameter '" (first p) "'")))
+      (let [diff (set/difference (kitchensink/keyset params)
+                                 (set (:required param-spec))
+                                 (set (:optional param-spec)))]
+        (seq diff))
+      (throw (IllegalArgumentException.
+               (str "Unsupported query parameter '" (first p) "'")))
 
-                          :else
-                          params)))
+      :else
+      params)))
 
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
