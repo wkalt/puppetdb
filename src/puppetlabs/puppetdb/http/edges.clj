@@ -14,7 +14,8 @@
          handlers (if optional-handlers
                     (cons handler optional-handlers)
                     [handler])
-         query-route #(apply (partial http-q/query-route :edges version) %)]
+         param-spec {:optional (cons "query" paging/query-params)}
+         query-route #(apply (partial http-q/query-route :edges version param-spec) %)]
      (app
        [""]
        (query-route handlers)))))
@@ -24,6 +25,4 @@
   ([version restrict-to-active-nodes & optional-handlers]
    (-> (routes version restrict-to-active-nodes optional-handlers)
        verify-accepts-json
-       (validate-query-params
-         {:optional (cons "query" paging/query-params)})
        wrap-with-paging-options)))

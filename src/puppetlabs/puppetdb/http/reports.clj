@@ -25,7 +25,8 @@
 (defn routes
   [version optional-handlers]
   (let [handlers (or optional-handlers [identity])
-        query-route #(apply (partial http-q/query-route :reports version) %)]
+        param-spec {:optional (cons "query" paging/query-params)}
+        query-route #(apply (partial http-q/query-route :reports version param-spec) %)]
 
     (app
       []
@@ -50,6 +51,4 @@
 (defn reports-app
   [version & optional-handlers]
   (-> (routes version optional-handlers)
-      (validate-query-params
-        {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))

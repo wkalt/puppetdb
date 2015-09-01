@@ -9,7 +9,8 @@
             [puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
-                                                        query-result]]
+                                                        query-result
+                                                        order-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]))
 
 (def endpoints [[:v4 "/v4/aggregate-event-counts"]])
@@ -67,7 +68,7 @@
                                  ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                  {:summarize_by "containing_class"
                                   :count_by      "certname"
-                                  :counts_filter ["<" "successes" 1]})]
+                                  :counts_filter (order-param method ["<" "successes" 1])})]
       (is (= (first response) expected)))))
 
 (deftestseq ^{:hsqldb false} query-distinct-event-counts

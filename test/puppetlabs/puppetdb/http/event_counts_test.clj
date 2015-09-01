@@ -24,7 +24,7 @@
       keywordize-keys
       (assoc :certname "foo.local")))
 
-(deftestseq query-event-counts
+(deftestseq ^{:hsqldb false} query-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -58,7 +58,7 @@
                                   ["or" ["=" "status" "success"] ["=" "status" "skipped"]]
                                   {:summarize_by "containing_class"
                                    :count_by      "certname"
-                                   :counts_filter ["<" "successes" 1]})]
+                                   :counts_filter (order-param method ["<" "successes" 1])})]
       (is (= response expected))))
 
   (doseq [[label count?] [["without" false]
@@ -92,7 +92,7 @@
         (is (= (count expected) (count results)))
         (is (= expected results))))))
 
-(deftestseq query-distinct-event-counts
+(deftestseq ^{:hsqldb false} query-distinct-event-counts
   [[version endpoint] endpoints
    method [:get :post]]
 
@@ -247,7 +247,7 @@
             :subject_type "resource"
             :subject {:type "Notify" :title "hi"}}})))
 
-(deftestseq query-with-environment
+(deftestseq ^{:hsqldb false} query-with-environment
   [[version endpoint] endpoints
    method [:get :post]]
 

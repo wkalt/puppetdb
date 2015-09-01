@@ -7,12 +7,13 @@
 
 (defn routes
   [version]
-  (app
-    []
-    (http-q/query-route :fact-contents version http-q/restrict-query-to-active-nodes')))
+  (let [param-spec {:optional (cons "query" paging/query-params)}]
+    (app
+      []
+      (http-q/query-route :fact-contents version param-spec
+                          http-q/restrict-query-to-active-nodes'))))
 
 (defn fact-contents-app
   [version]
   (-> (routes version)
-      (validate-query-params {:optional (cons "query" paging/query-params)})
       wrap-with-paging-options))
