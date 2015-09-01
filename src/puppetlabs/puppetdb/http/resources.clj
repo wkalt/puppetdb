@@ -21,12 +21,12 @@
 
       [type title &]
       (query-route (concat handlers
-                           [(partial http-q/restrict-resource-query-to-type' type)
-                            (partial http-q/restrict-resource-query-to-title' title)]))
+                           [(partial http-q/restrict-resource-query-to-type type)
+                            (partial http-q/restrict-resource-query-to-title title)]))
 
       [type &]
       (query-route (concat handlers
-                           [(partial http-q/restrict-resource-query-to-type' type)])))))
+                           [(partial http-q/restrict-resource-query-to-type type)])))))
 
 (defn resources-app
   ([version] (resources-app version true))

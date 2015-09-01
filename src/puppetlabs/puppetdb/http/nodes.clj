@@ -43,11 +43,11 @@
         (validate-query-params {}))}
 
    [node "facts" &]
-   (-> (comp (f/facts-app version) (partial http-q/restrict-query-to-node node))
+   (-> (f/facts-app version true (partial http-q/restrict-query-to-node node))
        (wrap-with-parent-check version :node node))
 
    [node "resources" &]
-   (-> (comp (r/resources-app version) (partial http-q/restrict-query-to-node node))
+   (-> (r/resources-app version true (partial http-q/restrict-query-to-node node))
        (wrap-with-parent-check version :node node))))
 
 (defn node-app
