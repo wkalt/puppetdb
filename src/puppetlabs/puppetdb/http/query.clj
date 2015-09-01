@@ -26,7 +26,7 @@
   parameters, for POST requests this should be contained in the body
   of the request"
   {(s/optional-key :query) (s/maybe [s/Any])
-   :count? s/Bool
+   (s/optional-key :include_total) (s/maybe s/Bool)
    (s/optional-key :order_by) (s/maybe [[(s/one s/Keyword "field")
                                          (s/one (s/enum :ascending :descending) "order")]])
    (s/optional-key :distinct_resources) (s/maybe s/Bool)
@@ -178,16 +178,6 @@
     b
     (Boolean/parseBoolean b)))
 
-(defn count?
-  "If the original query contains the include_total w/o a a value, it
-  will show up here as nil.  We assume that in that case, the caller
-  intended to use it as a flag"
-  [query-map]
-  (let [total (get query-map :include_total ::not-found)]
-    (if (= total ::not-found)
-      false
-      (coerce-to-boolean total))))
-
 (pls/defn-validated convert-query-params :- puppetdb-query-schema
   "This will update a query map to contain the parsed and validated query parameters"
   [full-query]
@@ -195,8 +185,7 @@
       (update :order_by parse-order-by')
       (update :limit parse-limit')
       (update :offset parse-offset')
-      (assoc :count? (count? full-query))
-      (dissoc :include_total)))
+      (utils/update-when [:include_total] coerce-to-boolean)))
 
 (defn get-req->query
   "Converts parameters of a GET request to a pdb query map"
