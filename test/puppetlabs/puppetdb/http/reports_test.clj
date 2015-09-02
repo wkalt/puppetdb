@@ -28,17 +28,6 @@
 
 (use-fixtures :each fixt/with-test-db fixt/with-http-app)
 
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-   (get-response endpoint nil))
-  ([endpoint query]
-   (let [resp (fixt/*app* (get-request endpoint query))]
-     (if (string? (:body resp))
-       resp
-       (update-in resp [:body] slurp)))))
-
 ;; TRANSFORMATIONS
 
 (defn strip-expanded

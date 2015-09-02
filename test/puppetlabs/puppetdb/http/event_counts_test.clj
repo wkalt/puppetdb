@@ -7,7 +7,6 @@
             [clojure.test :refer :all]
             [clojure.walk :refer [keywordize-keys]]
             [puppetlabs.puppetdb.examples.reports :refer :all]
-            [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
             [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response query-result order-param]]

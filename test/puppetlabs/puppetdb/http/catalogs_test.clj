@@ -17,18 +17,6 @@
 
 (def c-t "application/json")
 
-;; RETRIEVAL
-
-(defn get-response
-  ([endpoint]
-     (get-response endpoint nil))
-  ([endpoint node]
-     (fixt/*app* (get-request (str endpoint "/" node))))
-  ([endpoint node query]
-   (fixt/*app* (get-request (str endpoint "/" node) query)))
-  ([endpoint node query params]
-   (fixt/*app* (get-request (str endpoint "/" node) query params))))
-
 ;; TEST DATA
 
 (def catalog1

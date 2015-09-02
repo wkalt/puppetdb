@@ -42,11 +42,6 @@
 (def c-t http/json-response-content-type)
 (def reference-time "2014-10-28T20:26:21.727Z")
 
-(defn get-response
-  ([endpoint]      (get-response endpoint nil))
-  ([endpoint query] (*app* (get-request endpoint query)))
-  ([endpoint query params] (*app* (get-request endpoint query params))))
-
 (defn is-query-result
   [endpoint query expected-results]
   (let [request (get-request endpoint (json/generate-string query))

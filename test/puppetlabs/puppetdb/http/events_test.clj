@@ -29,18 +29,6 @@
 
 (use-fixtures :each with-test-db with-http-app)
 
-(defn get-response
-  ([endpoint query]
-   (get-response endpoint query {}))
-  ([endpoint query extra-query-params]
-   (let [resp (*app* (get-request endpoint query extra-query-params))]
-     (update-in resp
-                [:body]
-                (fn [body]
-                  (if (string? body)
-                    body
-                    (slurp body)))))))
-
 (defn parse-result
   "Stringify (if needed) then parse the response"
   [body]

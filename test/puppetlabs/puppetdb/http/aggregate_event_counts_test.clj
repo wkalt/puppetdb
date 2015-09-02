@@ -7,7 +7,6 @@
             [clj-time.core :refer [now]]
             [clj-time.coerce :as coerce]
             [puppetlabs.puppetdb.testutils :refer [assert-success! deftestseq]]
-            [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
                                                         query-result
                                                         order-param]]
