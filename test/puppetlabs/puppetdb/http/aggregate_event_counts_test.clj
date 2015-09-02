@@ -39,23 +39,22 @@
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'" body))))
 
   (testing "summarize_by accepts multiple parameters"
-    (let [expected [{:successes 1
-                     :failures 0
-                     :noops 0
-                     :skips 1
-                     :total 1
-                     :summarize_by "certname"}
-                    {:successes 2
-                     :skips 1
-                     :failures 0
-                     :noops 0
-                     :total 3
-                     :summarize_by "resource"}]
+    (let [expected #{{:successes 1
+                      :failures 0
+                      :noops 0
+                      :skips 1
+                      :total 1
+                      :summarize_by "certname"}
+                     {:successes 2
+                      :skips 1
+                      :failures 0
+                      :noops 0
+                      :total 3
+                      :summarize_by "resource"}}
           result (query-result method endpoint
                                ["=" "certname" "foo.local"]
                                {:summarize_by "certname,resource"})]
-      (is (= (sort-by :summarize_by result)
-             (sort-by :summarize_by expected)))))
+      (is (= result expected))))
 
   (testing "nontrivial query using all the optional parameters"
     (let [expected {:successes 0
