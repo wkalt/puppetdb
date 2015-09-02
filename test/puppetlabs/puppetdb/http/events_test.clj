@@ -9,9 +9,7 @@
             [clj-time.core :refer [ago now seconds]]
             [clojure.set :as clj-set]
             [clj-time.coerce :refer [to-string to-long to-timestamp]]
-            [puppetlabs.puppetdb.testutils :refer [response-equal?
-                                                   assert-success!
-                                                   get-request
+            [puppetlabs.puppetdb.testutils :refer [get-request
                                                    paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!

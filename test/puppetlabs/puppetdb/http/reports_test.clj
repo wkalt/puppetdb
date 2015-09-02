@@ -14,8 +14,7 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
-            [puppetlabs.puppetdb.testutils :refer [response-equal?
-                                                   assert-success!
+            [puppetlabs.puppetdb.testutils :refer [assert-success!
                                                    get-request
                                                    paged-results
                                                    deftestseq]]

@@ -9,7 +9,7 @@
             [puppetlabs.puppetdb.examples.reports :refer :all]
             [puppetlabs.puppetdb.testutils.event-counts :refer [get-response]]
             [puppetlabs.puppetdb.testutils.catalogs :as testcat]
-            [puppetlabs.puppetdb.testutils :refer [response-equal? paged-results deftestseq]]
+            [puppetlabs.puppetdb.testutils :refer [paged-results deftestseq]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response query-result order-param]]
             [puppetlabs.puppetdb.testutils.reports :refer [store-example-report!]]
             [clj-time.core :refer [now]]))
