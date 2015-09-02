@@ -42,7 +42,8 @@
     (let [{:keys [status body]}  (query-response
                                    method endpoint
                                    ["=" "certname" "foo.local"]
-                                   {:summarize_by "certname" :count_by "illegal-count-by"})]
+                                   {:summarize_by "certname"
+                                    :count_by "illegal-count-by"})]
       (is (= status http/status-bad-request))
       (is (re-find #"Unsupported value for 'count_by': 'illegal-count-by'"
                    body))))
