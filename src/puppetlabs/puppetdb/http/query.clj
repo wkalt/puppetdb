@@ -42,6 +42,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Query munging functions
 
+(def experimental-entities
+  #{:event-counts :aggregate-event-counts})
+
 (defn- are-queries-different?
   [req1 req2]
   (not= (:puppetdb-query req1)
@@ -278,14 +281,12 @@
              "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn warn-experimental
-  [entity experimental-entities product-name]
+  [entity {:keys [product-name]}]
   (when (and (= "puppetdb" product-name)
              (contains? experimental-entities entity))
     (log/warn (format
                 "The %s endpoint is experimental and may be altered or removed in the future."
                 (name entity)))))
-
-(warn-experimental :event-counts #{:event-counts} {:product-name "puppetdb"})
 
 (defn query-route
   "Returns a route for querying PuppetDB that supports the standard
@@ -293,16 +294,15 @@
    `optional-handlers` with the middleware function that executes the
    query."
   [entity version param-spec & optional-handlers]
-  (let [experimental-entities #{:event-counts :aggregate-event-counts}]
-    (app
-      (extract-query param-spec)
-      (apply comp
-             (fn [{:keys [params globals puppetdb-query]}]
-               (warn-experimental entity experimental-entities (:product-name globals))
-               (produce-streaming-body
-                 entity
-                 version
-                 (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
-                 (:scf-read-db globals)
-                 (:url-prefix globals)))
-             optional-handlers))))
+  (app
+    (extract-query param-spec)
+    (apply comp
+           (fn [{:keys [params globals puppetdb-query]}]
+             (warn-experimental entity globals)
+             (produce-streaming-body
+               entity
+               version
+               (validate-distinct-options! (merge (keywordize-keys params) puppetdb-query))
+               (:scf-read-db globals)
+               (:url-prefix globals)))
+           optional-handlers)))
