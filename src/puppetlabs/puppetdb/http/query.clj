@@ -275,10 +275,12 @@
                :distinct_end_time   end}))
 
      #{:distinct_start_time :distinct_end_time}
-     (throw (IllegalArgumentException.
-             "'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"))
-     (throw (IllegalArgumentException.
-             "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
+     (throw
+       (IllegalArgumentException.
+         "'distinct_resources' query parameter must accompany parameters 'distinct_start_time' and 'distinct_end_time'"))
+     (throw
+       (IllegalArgumentException.
+         "'distinct_resources' query parameter requires accompanying parameters 'distinct_start_time' and 'distinct_end_time'")))))
 
 (defn warn-experimental
   [entity {:keys [product-name]}]
