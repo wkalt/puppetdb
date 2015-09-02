@@ -101,14 +101,11 @@
   (testcat/replace-catalog (json/generate-string example-catalog))
   (testing "should only count the most recent event for each resource"
     (are [query result]
-         (is (= (query-result
-                  method
-                  endpoint
-                  query
-                  {:summarize_by "resource"
-                   :distinct_resources true
-                   :distinct_start_time 0
-                   :distinct_end_time (now)})
+         (is (= (query-result method endpoint query
+                              {:summarize_by "resource"
+                               :distinct_resources true
+                               :distinct_start_time 0
+                               :distinct_end_time (now)})
                 result))
 
          ["=" "certname" "foo.local"]
@@ -255,9 +252,7 @@
   (store-example-report! (assoc (:basic2 reports)
                            :certname "bar.local"
                            :environment "PROD") (now))
-  (are [result query] (is (= (query-result method
-                                           endpoint
-                                           query
+  (are [result query] (is (= (query-result method endpoint query
                                            {:summarize_by "resource"})
                              result))
        #{{:subject_type "resource"
