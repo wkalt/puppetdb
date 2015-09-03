@@ -8,7 +8,9 @@
             [puppetlabs.puppetdb.testutils :refer [get-request paged-results
                                                    deftestseq]]
             [puppetlabs.puppetdb.testutils.resources :refer [store-example-resources]]
-            [puppetlabs.puppetdb.testutils.http :refer [query-response vector-param]]
+            [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        ordered-query-result
+                                                        vector-param]]
             [flatland.ordered.map :as omap]))
 
 (def v4-endpoint "/v4/resources")
@@ -223,9 +225,9 @@ to the result of the form supplied to this method."
    method [:get :post]]
   (let [{:keys [foo1 foo2 bar1 bar2] :as expected} (store-example-resources)]
     (testing "ordering results with order_by"
-      (let [order_by {:order_by (vector-param method [{"field" "certname" "order" "DESC"}
-                                                     {"field" "resource" "order" "DESC"}])}
-            response (query-response method endpoint nil order_by)
+      (let [params {:order_by (vector-param method [{"field" "certname" "order" "DESC"}
+                                                    {"field" "resource" "order" "DESC"}])}
+            response (query-response method endpoint nil params)
             actual   (json/parse-string (slurp (get response :body "null")) true)]
         (is (= http/status-ok (:status response)))
         (is (= actual [bar2 bar1 foo2 foo1]))))))
@@ -265,6 +267,42 @@ to the result of the form supplied to this method."
             ["group_by" "type"]]
            #{{:type "File" :count 1}
              {:type "Notify" :count 1}}))))
+
+#_ (paging-results)
+(deftestseq paging-results
+  [[version endpoint] endpoints
+   method [:get :post]]
+  (let [{:keys [foo1 foo2 bar1 bar2]} (store-example-resources)]
+
+    (testing "limit results"
+      (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
+        (let [results (ordered-query-result method endpoint
+                                            nil
+                                            {:limit limit})]
+          (is (= expected (count results))))))
+
+    (testing "offset results"
+      (doseq [[order offset expected] [
+                                       ["asc" 0 [foo1 foo2 bar1 bar2]]
+                                       ["asc" 1 [foo2 bar1 bar2]]
+                                       ["asc" 2 [bar1 bar2]]
+                                       ["asc" 3 [bar2]]
+                                       ["asc" 4 []]
+                                       ["desc" 0 [bar2 bar1 foo2 foo1]]
+                                      ; ["desc" 1 [bar1 foo2 foo1]]
+                                      ; ["desc" 2 [foo2 foo1]]
+                                      ; ["desc" 3 [foo1]]
+                                      ; ["desc" 4 []]
+
+                                       ]]
+        (testing order
+          (let [actual (ordered-query-result method endpoint
+                                             nil
+                                             {:order_by (vector-param method
+                                                                      [{"field" "producer_timestamp"
+                                                                        "order" order }])
+                                              :offset offset})]
+            (is (= (map :producer_timestamp actual) (map :producer_timestamp expected)))))))))
 
 (deftestseq query-null-environments
   [[version endpoint] endpoints
