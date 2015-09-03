@@ -8,6 +8,8 @@
                                                    paged-results
                                                    deftestseq
                                                    query-request]]
+            [puppetlabs.puppetdb.testutils.http :refer [ordered-query-result
+                                                        vector-param]]
             [puppetlabs.puppetdb.testutils.nodes :refer [store-example-nodes]]
             [flatland.ordered.map :as omap]))
 
@@ -79,6 +81,8 @@
 
 ;; TESTS
 
+#_ (node-queries)
+
 (deftestseq node-queries
   [[version endpoint] endpoints
    method [:get :post]]
@@ -102,6 +106,10 @@
 
     (testing "basic equality is supported for name"
       (is-query-result' ["=" (certname version) "web1.example.com"] [web1]))
+
+    (testing "equality is supported on facts_environment"
+      (is-query-result' ["=" "facts_environment" "DEV"]
+                        [web1 web2 puppet db]))
 
     (testing "regular expressions are supported for name"
       (is-query-result' ["~" (certname version) "web\\d+.example.com"] [web1 web2])
@@ -222,11 +230,76 @@
           (is (= status http/status-bad-request))
           (is (re-find msg body)))))))
 
-(deftestseq node-query-paging
+(deftestseq paging-results
   [[version endpoint] endpoints
    method [:get :post]]
 
   (let [expected (store-example-nodes)]
+
+    (testing "limit"
+      (doseq [[limit expected] [[1 1] [2 2] [100 4]]]
+        (let [results (query-result method endpoint nil {:limit limit})]
+          (is (= (count results) expected)))))
+
+    (testing "order by"
+      (testing "rejects invalid fields"
+        (let [result (query-result method endpoint nil {:order_by
+                                                        (vector-param
+                                                          [{"field" "invalid-field"}])})]
+          (is (re-find #"Unrecognized column 'invalid-field' specified in :order_by"
+                       result))))
+
+      (testing "alphabetical fields"
+        (let [ordered-names ["db.example.com" "puppet.example.com"
+                             "web1.example.com" "web2.example.com"]]
+        (doseq [[order expected] [[:ascending ordered-names]
+                                  [:descending (reverse ordered-names)]]])
+          (let [result (ordered-query-result method endpoint nil
+                                             {:order_by (vector-param
+                                                          [{"field" "certname"}
+                                                           {"order" order}])})]
+            (is (= (map :certname result) expected)))))
+
+      (testing "timestamp fields"
+        (let [ordered-names  ["db.example.com" "puppet.example.com"
+                              "web2.example.com" "web1.example.com"]])
+        (doseq [[order expected] [[:ascending ordred-names]
+                                  [:descending (reverse ordered-names)]]]
+          (let [result (ordered-query-result method endpoint nil
+                                             {:order_by (vector-param
+                                                          [{"field" "facts_timestamp"
+                                                            "order" order}])})]
+            (is (= (map :certname result) expected)))))
+
+      (testing "multiple fields"
+        (let [ordered-names  ["db.example.com" "puppet.example.com"
+                              "web2.example.com" "web1.example.com"]]
+          (doseq [[[timestamp-order name-order] expected]
+                  [[[:ascending :descending] ordered-names]
+                   [[:ascending :ascending] ordered-names]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param
+                                                            [{"field" "facts_timestamp"
+                                                              "order" timestamp-order}
+                                                             {"field" "certname"
+                                                              "order" name-order}])})]))))
+
+      (testing "offset"
+        (let [ordered-names ["db.example.com" "puppet.example.com" "web2.example.com" "web1.example.com"]
+              reversed-names (reverse ordered-names)]
+          (doseq [[order [offset expected]] [[:ascending [[0 ordered-names]
+                                                          [1 (drop 1 ordered-names)]
+                                                          [2 (drop 2 ordered-names)]
+                                                          [3 (drop 3 ordered-names)]]]
+                                             [:descending [[0 reversed-names]
+                                                           [1 (drop 1 reversed-names)]
+                                                           [2 (drop 2 reversed-names)]
+                                                           [3 (drop 3 reversed-names)]]]]]
+            (let [result (ordered-query-result method endpoint nil
+                                               {:order_by (vector-param [{"field" "certname"
+                                                                          "order" order}])
+                                                :offset offset})]
+              (is (= (map :certname result) expected)))))))
 
     (doseq [[label count?] [["without" false]
                             ["with" true]]]

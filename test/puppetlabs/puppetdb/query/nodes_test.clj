@@ -85,24 +85,6 @@
                            :environment "production"
                            :producer_timestamp timestamp})
 
-    (testing "basic combination testing"
-      (let [test-cases {["=" ["fact" "kernel"] "Linux"]
-                        #{"node_a" "node_b"}
-                        ["=" ["fact" "kernel"] "Darwin"]
-                        #{"node_c"}
-                        ["=" ["fact" "kernel"] "Nothing"]
-                        #{}
-                        ["=" ["fact" "uptime"] "Linux"]
-                        #{}
-                        ["=" ["fact" "uptime_seconds"] "10000"]
-                        #{"node_d" "node_e"}}]
-        (combination-tests [:v4] test-cases)))
-
-    (testing "environment testing"
-      (let [test-cases {["=" "facts_environment" "production"]
-                        #{"node_a" "node_b" "node_c" "node_d" "node_e"}}]
-        (combination-tests [:v4] test-cases)))
-
     (testing "node-exists? function"
       (is (= true (eng/object-exists? :node "node_a")))
       (is (= true (eng/object-exists? :node "node_d")))
