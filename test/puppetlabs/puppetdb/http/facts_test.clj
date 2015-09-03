@@ -813,11 +813,9 @@
         (doseq [[order expected] [["ASC" [f1 f2 f3 f4 f5]]
                                   ["DESC" [f5 f4 f3 f2 f1]]]]
           (testing order
-            (let [actual (->> {:order_by (vector-param method [{"field" "certname" "order" order}])}
-                              (query-response method endpoint nil)
-                              :body
-                              slurp)
-                  actual (json/parse-string actual true)]
+            (let [actual (ordered-query-result
+                           method endpoint
+                           nil {:order_by (vector-param method [{"field" "certname" "order" order}])})]
               (compare-structured-response (map unkeywordize-values actual)
                                            expected
                                            version)))))

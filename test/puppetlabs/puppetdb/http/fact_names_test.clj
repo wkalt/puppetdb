@@ -72,22 +72,19 @@
 
       (testing "should retrieve all fact names, ordered reverse-alphabetically,
                 including deactivated nodes"
-        (let [{:keys [status body]} (query-response
-                                      method endpoint nil
-                                      {:order_by (vector-param
-                                                   method
-                                                   [{:field "name" :order "desc"}])})
-              result (vec (parse-result body))]
-          (is (= status http/status-ok))
+        (let [result (ordered-query-result
+                       method endpoint nil
+                       {:order_by (vector-param
+                                    method
+                                    [{:field "name" :order "desc"}])})]
           (is (= result (reverse expected-result)))))
 
       (testing "order by rejects invalid fields"
-        (let [{:keys [status body]} (query-response
-                                      method endpoint nil
-                                      {:order_by (vector-param
-                                                   method [{:field "invalid"
-                                                            :order "desc"}])})
-              result (parse-result body)]
+        (let [result (ordered-query-result
+                       method endpoint nil
+                       {:order_by (vector-param
+                                    method [{:field "invalid"
+                                             :order "desc"}])})]
           (is (= result
                 "Unrecognized column 'invalid' specified in :order_by; Supported columns are 'name'"))))
 
@@ -161,39 +158,32 @@
                              :producer_timestamp (now)}))
 
     (testing "query should return appropriate results"
-      (let [{:keys [status body]} (query-response
-                                    method
-                                    endpoint nil
-                                    {:order_by (vector-param
-                                                 method
-                                                 [{:field "path" :order "asc"}])})
-            result (parse-result body)]
-        (is (= status http/status-ok))
+      (let [result (ordered-query-result
+                     method
+                     endpoint nil
+                     {:order_by
+                      (vector-param method [{:field "path" :order "asc"}])})]
         (is (= result expected))))
 
     (testing "regex operator on path"
-      (let [{:keys [status body]} (query-response
-                                    method
-                                    endpoint
-                                    ["~" "path" "my"]
-                                    {:order_by (vector-param
-                                                 method
-                                                 [{:field "path"}])})
-            result (parse-result body)]
-        (is (= status http/status-ok))
+      (let [result (ordered-query-result
+                     method
+                     endpoint
+                     ["~" "path" "my"]
+                     {:order_by
+                      (vector-param method [{:field "path"}])})]
         (is (= result
                [{:path ["my_SF" "baz" 0], :type "float"}
                 {:path ["my_SF" "baz" 1], :type "float"}
                 {:path ["my_SF" "foo"], :type "string"}]))))
+
     (testing "paging for fact-paths"
-      (let [{:keys [status body]} (query-response
-                                    method endpoint nil
-                                    {:order_by (vector-param
-                                                 method
-                                                 [{:field "path" :order "desc"}])
-                                     :offset 2})
-            result (parse-result body)]
-        (is (= status http/status-ok))
+      (let [result (ordered-query-result
+                     method endpoint nil
+                     {:order_by (vector-param
+                                  method
+                                  [{:field "path" :order "desc"}])
+                      :offset 2})]
         (is (= result
                [{:path ["my_SF" "foo"], :type "string"}
                 {:path ["my_SF" "baz" 1], :type "float"}

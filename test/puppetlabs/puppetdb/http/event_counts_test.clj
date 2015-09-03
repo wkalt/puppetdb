@@ -64,25 +64,25 @@
   (doseq [[label count?] [["without" false]
                           ["with" true]]]
     (testing (str "should support paging through event-counts " label " counts")
-      (let [expected  #{{:subject_type "resource"
-                         :subject {:type "Notify" :title "notify, yar"}
-                         :failures        0
-                         :successes       1
-                         :noops           0
-                         :skips           0}
-                        {:subject_type "resource"
-                         :subject {:type "Notify" :title "notify, yo"}
-                         :failures        0
-                         :successes       1
-                         :noops           0
-                         :skips           0}
-                        {:subject_type "resource"
-                         :subject {:type "Notify" :title "hi"}
-                         :failures        0
-                         :successes       0
-                         :noops           0
-                         :skips           1}}
-            results (query-result
+      (let [expected  [{:subject_type "resource"
+                        :subject {:type "Notify" :title "notify, yar"}
+                        :failures        0
+                        :successes       1
+                        :noops           0
+                        :skips           0}
+                       {:subject_type "resource"
+                        :subject {:type "Notify" :title "notify, yo"}
+                        :failures        0
+                        :successes       1
+                        :noops           0
+                        :skips           0}
+                       {:subject_type "resource"
+                        :subject {:type "Notify" :title "hi"}
+                        :failures        0
+                        :successes       0
+                        :noops           0
+                        :skips           1}]
+            results (ordered-query-result
                       method
                       endpoint
                       [">" "timestamp" 0]

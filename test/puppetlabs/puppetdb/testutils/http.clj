@@ -32,9 +32,9 @@
     (json/generate-string order-by)
     order-by))
 
-(defn query-result
-  ([method endpoint] (query-result method endpoint nil))
-  ([method endpoint query] (query-result method endpoint query {}))
+(defn ordered-query-result
+  ([method endpoint] (ordered-query-result method endpoint nil))
+  ([method endpoint query] (ordered-query-result method endpoint query {}))
   ([method endpoint query params & optional-handlers]
    (let [handlers (or optional-handlers [identity])
          handle-fn (apply comp (vec handlers))
@@ -44,5 +44,11 @@
          :body
          slurp
          (json/parse-string true)
-         handle-fn
-         set))))
+         handle-fn))))
+
+(defn query-result
+  ([method endpoint] (query-result method endpoint nil))
+  ([method endpoint query] (query-result method endpoint query {}))
+  ([method endpoint query params & optional-handlers]
+   (apply #(ordered-query-result method endpoint query params set %)
+          (or optional-handlers [identity]))))

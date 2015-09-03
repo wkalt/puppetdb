@@ -129,12 +129,11 @@
   (testing "paging options"
     (doseq [p (keys paging-options)]
       (testing (format "checking ordering %s" p)
-        (let [{:keys [status body]} (query-response
-                                      method endpoint nil
-                                      {:order_by (vector-param method p)})
-            response-body (strip-hash (json/parse-stream (reader body) true))
-            expected (get paging-options p)]
-        (is (= (map :certname expected) (map :certname response-body)))))))
+        (let [result (ordered-query-result
+                       method endpoint nil
+                       {:order_by (vector-param method p)})
+              expected (get paging-options p)]
+          (is (= (map :certname expected) (map :certname response-body)))))))
 
   (testing "endpoint is still responsive to old-style node queries"
     (let [{:keys [body]} (query-response method (str endpoint "/myhost.localdomain"))
