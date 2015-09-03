@@ -283,26 +283,29 @@ to the result of the form supplied to this method."
 
     (testing "offset results"
       (doseq [[order offset expected] [
-                                       ["asc" 0 [foo1 foo2 bar1 bar2]]
-                                       ["asc" 1 [foo2 bar1 bar2]]
-                                       ["asc" 2 [bar1 bar2]]
+                                       ["asc" 0 [foo1 bar1 foo2 bar2]]
+                                       ["asc" 1 [bar1 foo2 bar2]]
+                                       ["asc" 2 [foo2 bar2]]
                                        ["asc" 3 [bar2]]
                                        ["asc" 4 []]
-                                       ["desc" 0 [bar2 bar1 foo2 foo1]]
-                                      ; ["desc" 1 [bar1 foo2 foo1]]
-                                      ; ["desc" 2 [foo2 foo1]]
-                                      ; ["desc" 3 [foo1]]
-                                      ; ["desc" 4 []]
+                                       ["desc" 0 [bar2 foo2 bar1 foo1]]
+                                       ["desc" 1 [foo2 bar1 foo1]]
+                                       ["desc" 2 [bar1 foo1]]
+                                       ["desc" 3 [foo1]]
+                                       ["desc" 4 []]
 
                                        ]]
         (testing order
           (let [actual (ordered-query-result method endpoint
                                              nil
                                              {:order_by (vector-param method
-                                                                      [{"field" "producer_timestamp"
-                                                                        "order" order }])
+                                                                      [{"field" "title"
+                                                                        "order" order}
+                                                                       {"field" "certname"
+                                                                       "order" order}])
                                               :offset offset})]
-            (is (= (map :producer_timestamp actual) (map :producer_timestamp expected)))))))))
+            (is (= actual
+                   expected))))))))
 
 (deftestseq query-null-environments
   [[version endpoint] endpoints
