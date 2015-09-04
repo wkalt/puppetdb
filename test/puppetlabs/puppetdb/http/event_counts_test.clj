@@ -39,6 +39,11 @@
       (is (re-find #"Unsupported value for 'summarize_by': 'illegal-summarize-by'"
                    body))))
 
+  (testing "limit works"
+    (doseq [[limit expected] [[1 1] [2 2] [3 3] [100 3]]]
+      (let [result (query-result method endpoint nil {:limit limit :summarize_by "resource"})]
+        (is (= expected (count result))))))
+
   (testing "count_by rejects unsupported values"
     (let [{:keys [status body]}  (query-response
                                    method endpoint
