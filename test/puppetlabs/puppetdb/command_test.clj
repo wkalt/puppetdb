@@ -551,9 +551,8 @@
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
@@ -595,9 +594,8 @@
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
@@ -632,9 +630,8 @@
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
@@ -661,9 +658,8 @@
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
@@ -687,9 +683,8 @@
           (is (= (query-to-vec
                   "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname
                    FROM factsets fs
@@ -725,9 +720,8 @@
       (is (= (query-to-vec
               "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname,
                           e.environment,
@@ -761,9 +755,8 @@
       (is (= (query-to-vec
               "SELECT fp.path as name,
                           COALESCE(fv.value_string,
-                                   cast(fv.value_integer as text),
+                                   cast(fv.value_numeric as text),
                                    cast(fv.value_boolean as text),
-                                   cast(fv.value_float as text),
                                    '') as value,
                           fs.certname,
                           e.environment

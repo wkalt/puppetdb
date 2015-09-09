@@ -39,7 +39,7 @@
   (testing "test to see if an index doesn't exists"
     (is (false? (index-exists? "somerandomname"))))
   (testing "test to see if an index does exist"
-    (sql/do-commands "CREATE INDEX foobar ON fact_values(value_float)")
+    (sql/do-commands "CREATE INDEX foobar ON fact_values(value_numeric)")
     (is (true? (index-exists? "foobar")))))
 
 (deftest ^{:postgres false} test-postgres?-hsql

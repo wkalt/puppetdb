@@ -203,14 +203,10 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :number
+                             "value_numeric" {:type :number
                                               :query-only? true
                                               :queryable? false
-                                              :field :fv.value_integer}
-                             "value_float" {:type :number
-                                            :query-only? true
-                                            :queryable? false
-                                            :field :fv.value_float}
+                                              :field :fv.value_numeric}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
@@ -258,14 +254,10 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :env.environment}
-                             "value_integer" {:type :number
+                             "value_numeric" {:type :number
                                               :queryable? false
-                                              :field :fv.value_integer
+                                              :field :fv.value_numeric
                                               :query-only? true}
-                             "value_float" {:type :number
-                                            :queryable? false
-                                            :field :fv.value_float
-                                            :query-only? true}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type
@@ -913,11 +905,7 @@
   (cm/match [node]
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
-            ["or" [op "value_integer" value] [op "value_float" value]]
-
-            [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
-            (when (= :facts (get-in (meta node) [:query-context :entity]))
-              ["and" ["=" "depth" 0] [op "value" value]])
+            [op "value_numeric" (bigdec value)]
 
             [["=" ["node" "active"] value]]
             ["in" "certname"
@@ -954,9 +942,7 @@
                 ["select_facts"
                  ["and"
                   ["=" "name" fact-name]
-                  ["or"
-                   [op "value_float" fact-value]
-                   [op "value_integer" fact-value]]]]]])
+                  [op "value_numeric" (bigdec fact-value)]]]]])
 
             [["=" "latest_report?" value]]
             (let [entity (get-in (meta node) [:query-context :entity])
@@ -1022,10 +1008,9 @@
                               value (name field))))))
 
               [[(:or ">" ">=" "<" "<=") field _]]
-              (let [col-type (get-in query-context [:projections field :type])]
+              (when-let [col-type (get-in query-context [:projections field :type])]
                 (when-not (or (vec? field)
-                              (contains? #{:number :timestamp :multi}
-                                         col-type))
+                              (contains? #{:number :timestamp :multi} col-type))
                   (throw (IllegalArgumentException. (format "Query operators >,>=,<,<= are not allowed on field %s" field)))))
 
               [["~>" field _]]
@@ -1109,7 +1094,7 @@
 
 (defn replace-numeric-args
   [fargs]
-  (mapv #(string/replace % #"value" "COALESCE(value_integer,value_float)") fargs))
+  (mapv #(string/replace % #"value" "value_numeric") fargs))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"

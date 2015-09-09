@@ -246,6 +246,14 @@ must be supplied as the value to be matched."
   [value]
   (json/generate-string (kitchensink/sort-nested-maps value)))
 
+(defn munge-fact-value-for-storage
+  [m value-keyword value]
+  (let [[value value-keyword] (if (or (= :value_integer value-keyword)
+                                      (= :value_float value-keyword))
+                                [(bigdec value) :value_numeric]
+                                [value value-keyword])]
+    (assoc m value-keyword value :value (db-serialize value))))
+
 (defn fix-identity-sequence
   "Resets a sequence to the maximum value used in a column. Useful when a
   sequence gets out of sync due to a bug or after a transfer."

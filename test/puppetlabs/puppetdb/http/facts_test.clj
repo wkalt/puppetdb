@@ -22,6 +22,7 @@
                                                    create-hsqldb-map
                                                    parse-result]]
             [puppetlabs.puppetdb.testutils.http :refer [query-response
+                                                        query-result
                                                         vector-param]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.testutils.services :as svc-utils]
@@ -377,7 +378,7 @@
 
           ["and" ["=" "name" "uptime_seconds"]
            [">=" "value" 4000]
-           ["<" "value" 6000.0]]
+           ["<" "value" 6000]]
           [{:certname "foo1" :name "uptime_seconds" :value 4000 :environment "DEV"}]
 
           ["and" ["=" "name" "domain"]
@@ -748,6 +749,26 @@
    (:results (raw-query-endpoint endpoint nil paging-options)))
   ([endpoint query paging-options]
    (:results (raw-query-endpoint endpoint query paging-options))))
+
+(deftestseq large-integer-storage
+  [[version endpoint] facts-endpoints
+   method [:get :post]]
+
+  (let [f {:certname "a.local" :name "large-int" :environment "DEV"
+           :value 3546565741691827463891754698375639827814623789421387401348}]
+
+    (scf-store/add-certname! "a.local")
+    (scf-store/add-facts! {:certname "a.local"
+                           :values {"large-int" (:value f)}
+                           :timestamp (now)
+                           :environment "DEV"
+                           :producer_timestamp (now)})
+
+    (testing "retreival of large value works"
+      (let [actual (query-result
+                     method endpoint
+                     [">" "value" 129847130945730945709234875093428750934750])]
+        (is (= actual #{f}))))))
 
 (deftestseq paging-results
   [[version endpoint] facts-endpoints
@@ -1417,7 +1438,7 @@
       {:value  {:d  {:n ""} :b 3.14 :a 1 :e "1" :c  ["a" "b" "c"]} :name "my_structured_fact" :environment "DEV" :certname "foo2"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
@@ -1452,7 +1473,7 @@
       {:value {:b 3.14 :a 1 :d {:n ""} :c ["a" "b" "c"] :e "1"} :name "my_structured_fact" :environment "PROD" :certname "foo3"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]
@@ -1491,7 +1512,7 @@
       {:value "{\"b\":3.14,\"a\":1,\"d\":{\"n\":\"\"},\"c\":[\"a\",\"b\",\"c\"],\"e\":\"1\"}" :name "my_structured_fact" :certname "foo3"}]
 
      ["extract" [["function" "max" "value"]] ["=" "name" "uptime_seconds"]]
-     [{:max 6000.0}]
+     [{:max 6000}]
 
      ["extract" [["function" "avg" "value"]] ["=" "name" "uptime_seconds"]]
      [{:avg 5000.0}]

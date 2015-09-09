@@ -35,9 +35,8 @@
 
 (def valuemap-schema
   {:value_hash s/Str
-   :value_float (s/maybe Double)
    :value_string (s/maybe s/Str)
-   :value_integer (s/maybe s/Int)
+   :value_numeric (s/maybe BigDecimal)
    :value_boolean (s/maybe s/Bool)
    :value (s/maybe s/Str)
    :value_type_id s/Int})
@@ -139,8 +138,7 @@
         initial-map {:value_type_id type-id
                      :value_hash (hash/generic-identity-hash value)
                      :value_string nil
-                     :value_integer nil
-                     :value_float nil
+                     :value_numeric nil
                      :value_boolean nil
                      :value nil}]
     (if (nil? value)
@@ -151,8 +149,7 @@
                             2 :value_float
                             3 :value_boolean
                             5 :value)]
-        (assoc initial-map value-keyword value
-          :value (sutils/db-serialize value))))))
+        (sutils/munge-fact-value-for-storage initial-map value-keyword value)))))
 
 (defn flatten-facts-with
   "Returns a collection of (leaf-fn path leaf) for all of the paths

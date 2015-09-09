@@ -159,12 +159,12 @@
       (catch com.fasterxml.jackson.core.JsonParseException e
         (log/errorf e (str "Error executing query '%s' for entity '%s' "
                            "with query-options '%s'. Returning a 400 error code.")
-                    (name entity) query query-options)
+                    query (name entity) query-options)
         (http/error-response e))
       (catch IllegalArgumentException e
         (log/errorf e (str "Error executing query '%s' for entity '%s' "
                            "with query-options '%s'. Returning a 400 error code.")
-                    (name entity) query query-options)
+                    query (name entity) query-options)
         (http/error-response e))
       (catch org.postgresql.util.PSQLException e
         (if (= (.getSQLState e) "2201B")

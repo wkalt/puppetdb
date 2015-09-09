@@ -44,9 +44,8 @@
   (sql/with-query-results result-set
     ["SELECT fp.path as name,
              COALESCE(fv.value_string,
-                      cast(fv.value_integer as text),
+                      cast(fv.value_numeric as text),
                       cast(fv.value_boolean as text),
-                      cast(fv.value_float as text),
                       '') as value
              FROM factsets fs
                   INNER JOIN facts as f on fs.id = f.factset_id
@@ -82,9 +81,8 @@
         (is (= (query-to-vec
                 "SELECT fp.path as name,
                         COALESCE(fv.value_string,
-                                 cast(fv.value_integer as text),
+                                 cast(fv.value_numeric as text),
                                  cast(fv.value_boolean as text),
-                                 cast(fv.value_float as text),
                                  '') as value,
                         fs.certname
                  FROM factsets fs
@@ -126,9 +124,8 @@
               (is (= (query-to-vec
                       "SELECT fp.path as name,
                               COALESCE(fv.value_string,
-                                       cast(fv.value_integer as text),
+                                       cast(fv.value_numeric as text),
                                        cast(fv.value_boolean as text),
-                                       cast(fv.value_float as text),
                                        '') as value
                        FROM factsets fs
                          INNER JOIN facts as f on fs.id = f.factset_id
@@ -250,9 +247,8 @@
                              (query-to-vec
                               "SELECT fp.path as name,
                                       COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
+                                               cast(fv.value_numeric as text),
                                                cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
                                                '') as value
                                FROM factsets fs
                                  INNER JOIN facts as f on fs.id = f.factset_id
@@ -280,9 +276,8 @@
                              (query-to-vec
                               "SELECT fp.path as name,
                                       COALESCE(fv.value_string,
-                                               cast(fv.value_integer as text),
+                                               cast(fv.value_numeric as text),
                                                cast(fv.value_boolean as text),
-                                               cast(fv.value_float as text),
                                                '') as value
                                FROM factsets fs
                                  INNER JOIN facts as f on fs.id = f.factset_id
@@ -308,9 +303,8 @@
             (set (mapv :value (query-to-vec
                                ;; Note: currently can't distinguish 10 from "10".
                                "SELECT COALESCE(fv.value_string,
-                                                cast(fv.value_integer as text),
+                                                cast(fv.value_numeric as text),
                                                 cast(fv.value_boolean as text),
-                                                cast(fv.value_float as text),
                                                 '') as value
                                   FROM fact_values fv"))))]
     (testing "during add/replace (generally)"
