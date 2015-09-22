@@ -1459,7 +1459,8 @@
       (rename-column "reports" "metrics" "metrics_json")
       (rename-column "reports" "logs" "logs_json")
       (format "ALTER TABLE reports ADD COLUMN metrics %s DEFAULT NULL" jsonb-type)
-      (format "ALTER TABLE reports ADD COLUMN logs %s DEFAULT NULL" jsonb-type))))
+      (format "ALTER TABLE reports ADD COLUMN logs %s DEFAULT NULL" jsonb-type)
+      (format "ALTER TABLE reports ADD COLUMN resources %s DEFAULT NULL"))))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1568,7 +1569,6 @@
     (throw (IllegalStateException.
             (format "Your PuppetDB database contains a schema migration numbered %d, but this version of PuppetDB does not recognize that version."
                     unexpected))))
-  (try
   (if-let [pending (seq (pending-migrations))]
     (do
       (jdbc/with-db-transaction []
@@ -1588,9 +1588,7 @@
                         (-> (doto (:connection (jdbc/db)) (.setAutoCommit true))
                             .createStatement
                             (.execute "vacuum (analyze, verbose)")))))))
-    (log/info "There are no pending migrations"))
-    (catch Exception e (println (.getNextException e)))
-    ))
+    (log/info "There are no pending migrations")))
 
 ;; SPECIAL INDEX HANDLING
 
