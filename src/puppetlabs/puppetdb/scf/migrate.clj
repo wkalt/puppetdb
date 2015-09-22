@@ -1460,7 +1460,7 @@
       (rename-column "reports" "logs" "logs_json")
       (format "ALTER TABLE reports ADD COLUMN metrics %s DEFAULT NULL" jsonb-type)
       (format "ALTER TABLE reports ADD COLUMN logs %s DEFAULT NULL" jsonb-type)
-      (format "ALTER TABLE reports ADD COLUMN resources %s DEFAULT NULL"))))
+      (format "ALTER TABLE reports ADD COLUMN resources %s DEFAULT NULL" jsonb-type))))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
