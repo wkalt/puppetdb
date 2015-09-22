@@ -359,12 +359,17 @@
       "metrics" {:type :json
                  :queryable? false
                  :field {:select [(h/row-to-json :t)]
-                         :from [[{:select [[:metrics :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                         :from [[{:select
+                                  [[(h/coalesce :metrics
+                                                (h/scast :metrics_json :jsonb)) :data]
+                                           [(hsql-hash-as-str :hash) :href]]} :t]]}
                  :expandable? true}
       "logs" {:type :json
               :queryable? false
               :field {:select [(h/row-to-json :t)]
-                      :from [[{:select [[:logs :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
+                      :from [[{:select [[(h/coalesce :logs
+                                                     (h/scast :logs_json))
+                                         :data] [(hsql-hash-as-str :hash) :href]]} :t]]}
               :expandable? true}
       "receive_time"    {:type :timestamp
                          :queryable? true

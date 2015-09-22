@@ -1445,6 +1445,18 @@
       "ALTER TABLE environments RENAME COLUMN name TO environment"
       "ALTER TABLE environments ALTER COLUMN name RENAME TO environment")))
 
+(defn add-jsonb-columns-for-metrics-and-logs
+  []
+  (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
+        uuid-type (if (sutils/postgres?) "uuid" "varchar(255)")
+        jsonb-type (if (sutils/postgres?) "jsonb" "text")]
+
+    (jdbc/do-commands
+      "ALTER TABLE reports RENAME COLUMN metrics TO metrics_json"
+      "ALTER TABLE reports RENAME COLUMN logs to logs_json"
+      (format "ALTER TABLE reports ADD COLUMN metrics %s DEFAULT NULL" jsonb-type)
+      (format "ALTER TABLE reports ADD COLUMN logs %s DEFAULT NULL" jsonb-type))))
+
 (defn move-to-jsonb-for-metrics-logs-resources
   []
   (let [hash-type (if (sutils/postgres?) "bytea" "varchar(40)")
@@ -1561,7 +1573,7 @@
    ;; still analyze their existing databases.
    35 (fn [] true)
    36 rename-environments-name-to-environment
-   37 move-to-jsonb-for-metrics-logs-resources
+   37 add-jsonb-columns-for-metrics-and-logs
    })
 
 (def desired-schema-version (apply max (keys migrations)))
