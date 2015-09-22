@@ -53,6 +53,7 @@
    :resources [resource-wireformat-schema]
    :noop (s/maybe s/Bool)
    :transaction_uuid (s/maybe s/Str)
+   :code_id (s/maybe s/Str)
    :metrics (s/maybe [metric-wireformat-schema])
    :logs (s/maybe [log-wireformat-schema])
    :environment s/Str
@@ -63,8 +64,12 @@
       (dissoc :skipped :events)
       (merge event-wireformat-schema)))
 
-(def report-v5-wireformat-schema
+(def report-v6-wireformat-schema
   (-> report-wireformat-schema
+      (dissoc :code_id)))
+
+(def report-v5-wireformat-schema
+  (-> report-v6-wireformat-schema
       (dissoc :resources)
       (assoc :resource_events [resource-event-v5-wireformat-schema])))
 
