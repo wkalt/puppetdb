@@ -56,6 +56,19 @@
     (zipmap (map :name result)
             (map :value result))))
 
+(deftest escaped-string-factnames
+  (testing "should work with escaped strings"
+    (let [certname "some_certname"
+          facts {"\"hello_world\"" "hello wyatt"
+                 "delimited#~facts" "are not a crime"}]
+      (add-certname! certname)
+
+      (add-facts! {:certname certname
+                   :values facts
+                   :timestamp previous-time
+                   :environment nil
+                   :producer_timestamp previous-time}))))
+
 (deftest fact-persistence
   (testing "Persisted facts"
     (let [certname "some_certname"
