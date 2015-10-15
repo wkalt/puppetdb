@@ -1411,6 +1411,35 @@
    "ALTER TABLE reports ADD COLUMN logs jsonb DEFAULT NULL"
    "ALTER TABLE reports ADD COLUMN resources jsonb DEFAULT NULL"))
 
+(defn create-latest-events-table
+  []
+  (jdbc/do-commands
+    (sql/create-table-ddl
+      :latest_resource_events
+      ["report_id" "bigint NOT NULL"]
+      ["certname_id" "bigint NOT NULL"]
+      ["status" "varchar(40) NOT NULL"]
+      ["timestamp" "timestamp with time zone NOT NULL"]
+      ["resource_type" "text NOT NULL"]
+      ["resource_title" "text NOT NULL"]
+      ["property" "varchar (40)"]
+      ["new_value" "text"]
+      ["old_value" "text"]
+      ["message" "text"]
+      ["file" "varchar(1024) DEFAULT NULL"]
+      ["line" "integer"]
+      ["containment_path" (sutils/sql-array-type-string "TEXT")]
+      ["containing_class" "varchar(255)"])
+
+    "INSERT INTO latest_resource_events (
+     report_id, certname_id, status, timestamp, resource_type, resource_title,
+     property, new_value, old_value, message, file, line, containment_path,
+     containing_class)
+     SELECT report_id, certname_id, status, timestamp, resource_type,
+     resource_title, property, new_value, old_value, message, file, line,
+     containment_path, containing_class from resource_events
+     WHERE timestamp > NOW() - '1 day'::INTERVAL"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {1 initialize-store
