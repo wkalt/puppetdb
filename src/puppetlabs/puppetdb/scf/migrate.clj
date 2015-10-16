@@ -1415,7 +1415,7 @@
   []
   (jdbc/do-commands
     (sql/create-table-ddl
-      :latest_resource_events
+      :latest_events
       ["report_id" "bigint NOT NULL"]
       ["certname_id" "bigint NOT NULL"]
       ["status" "varchar(40) NOT NULL"]
@@ -1431,14 +1431,34 @@
       ["containment_path" (sutils/sql-array-type-string "TEXT")]
       ["containing_class" "varchar(255)"])
 
-    "INSERT INTO latest_resource_events (
+    "INSERT INTO latest_events (
      report_id, certname_id, status, timestamp, resource_type, resource_title,
      property, new_value, old_value, message, file, line, containment_path,
      containing_class)
      SELECT report_id, certname_id, status, timestamp, resource_type,
      resource_title, property, new_value, old_value, message, file, line,
      containment_path, containing_class from resource_events
-     WHERE timestamp > NOW() - '1 day'::INTERVAL"))
+     WHERE timestamp > NOW() - '1 day'::INTERVAL"
+
+    "ALTER TABLE latest_events ADD CONSTRAINT
+     latest_events UNIQUE (report_id, resource_type, resource_title, property)"
+
+    "CREATE INDEX latest_events_containing_class_idx ON
+     latest_events(containing_class)"
+
+    "CREATE INDEX latest_events_reports_id_idx ON latest_events(report_id)"
+
+    "CREATE INDEX latest_events_resource_timestamp ON
+     latest_events(timestamp,resource_type,resource_title)"
+
+    "CREATE INDEX latest_events_resource_title_idx ON
+     latest_events(resource_title)"
+
+    "CREATE INDEX latest_events_resource_type_idx ON latest_events(resource_type)"
+
+    "CREATE INDEX latest_events_status_idx ON latest_events(status)"
+
+    "CREATE INDEX latest_events_timestamp_idx ON latest_events(timestamp)"))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1483,6 +1503,7 @@
    36 rename-environments-name-to-environment
    37 add-jsonb-columns-for-metrics-and-logs
    38 add-code-id-to-catalogs
+   39 create-latest-events-table
    })
 
 (def desired-schema-version (apply max (keys migrations)))
