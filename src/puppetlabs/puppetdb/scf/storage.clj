@@ -744,6 +744,14 @@
 
 ;; ## Database compaction
 
+(defn trim-latest-events!
+  "Deletes latest_events older than 24 hours"
+  []
+  (time! (:gc-params performance-metrics)
+         (jdbc/delete!
+           :latest_events
+           ["timestamp < NOW() - '1 day'::INTERVAL"])))
+
 (defn delete-unassociated-params!
   "Remove any resources that aren't associated with a catalog"
   []
@@ -1126,6 +1134,11 @@
                                    reports/resources->resource-events
                                    (map normalize-resource-event)))))
 
+(defn insert-events
+  [events]
+  (apply jdbc/insert! :resource_events events)
+  (apply jdbc/insert! :latest_events events))
+
 (pls/defn-validated add-report!*
   "Helper function for adding a report.  Accepts an extra parameter, `update-latest-report?`, which
   is used to determine whether or not the `update-latest-report!` function will be called as part of
@@ -1169,7 +1182,7 @@
                  (->> resource_events
                       (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                       (map assoc-ids)
-                      (apply jdbc/insert! :resource_events)))
+                      insert-events))
                (when update-latest-report?
                  (update-latest-report! certname)))))))
 
@@ -1324,6 +1337,7 @@
    (jdbc/with-transacted-connection db
      (delete-unassociated-params!)
      (delete-unassociated-environments!)
+     (trim-latest-events!)
      (delete-unassociated-statuses!))
    ;; These require serializable because they make the decision to
    ;; delete based on row counts in another table.

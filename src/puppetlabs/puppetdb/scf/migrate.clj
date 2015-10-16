@@ -1441,7 +1441,7 @@
      WHERE timestamp > NOW() - '1 day'::INTERVAL"
 
     "ALTER TABLE latest_events ADD CONSTRAINT
-     latest_events UNIQUE (report_id, resource_type, resource_title, property)"
+     latest_events_unique UNIQUE (report_id, resource_type, resource_title, property)"
 
     "CREATE INDEX latest_events_containing_class_idx ON
      latest_events(containing_class)"
