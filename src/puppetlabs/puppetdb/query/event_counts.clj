@@ -1,5 +1,5 @@
 (ns puppetlabs.puppetdb.query.event-counts
-  (:require [puppetlabs.puppetdb.query.events :as events]
+  (:require [puppetlabs.puppetdb.query.latest-events :as events]
             [clojure.string :as string]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [puppetlabs.puppetdb.query :as query]

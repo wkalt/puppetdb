@@ -276,6 +276,27 @@
    "containing_class"       ["latest_events"]
    "environment"            ["latest_events" "environment"]})
 
+(def resource-event-columns
+  {"certname"               ["latest_events_cte"]
+   "configuration_version"  ["latest_events_cte"]
+   "run_start_time"         ["latest_events_cte"]
+   "run_end_time"           ["latest_events_cte"]
+   "report_receive_time"    ["latest_events_cte"]
+   "hash"                   ["latest_events_cte" "report"]
+   "status"                 ["latest_events_cte"]
+   "timestamp"              ["latest_events_cte"]
+   "resource_type"          ["latest_events_cte"]
+   "resource_title"         ["latest_events_cte"]
+   "property"               ["latest_events_cte"]
+   "new_value"              ["latest_events_cte"]
+   "old_value"              ["latest_events_cte"]
+   "message"                ["latest_events_cte"]
+   "file"                   ["latest_events_cte"]
+   "line"                   ["latest_events_cte"]
+   "containment_path"       ["latest_events_cte"]
+   "containing_class"       ["latest_events_cte"]
+   "environment"            ["latest_events_cte" "environment"]})
+
 (def report-columns
   "Return the queryable set of fields and corresponding table names where they reside"
   {"hash"                  "reports"

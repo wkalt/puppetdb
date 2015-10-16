@@ -580,6 +580,80 @@
                :subquery? false
                :source-table "catalog_resources"}))
 
+(defn latest-events-query
+  "Query for the top level reports entity"
+  []
+  (map->Query {:projections {"certname" {:type :string
+                                         :queryable? true
+                                         :field :reports.certname}
+                             "configuration_version" {:type :string
+                                                      :queryable? true
+                                                      :field :reports.configuration_version}
+                             "run_start_time" {:type :timestamp
+                                               :queryable? true
+                                               :field :reports.start_time}
+                             "run_end_time" {:type :timestamp
+                                             :queryable? true
+                                             :field :reports.end_time}
+                             "report_receive_time" {:type :timestamp
+                                                    :queryable? true
+                                                    :field :reports.receive_time}
+                             "report" {:type :string
+                                       :queryable? true
+                                       :field (hsql-hash-as-str :reports.hash)}
+                             "status" {:type :string
+                                       :queryable? true
+                                       :field :status}
+                             "timestamp" {:type :timestamp
+                                          :queryable? true
+                                          :field :timestamp}
+                             "resource_type" {:type :string
+                                              :queryable? true
+                                              :field :resource_type}
+                             "resource_title" {:type :string
+                                               :queryable? true
+                                               :field :resource_title}
+                             "property" {:type :string
+                                         :queryable? true
+                                         :field :property}
+                             "new_value" {:type :string
+                                          :queryable? true
+                                          :field :new_value}
+                             "old_value" {:type :string
+                                          :queryable? true
+                                          :field :old_value}
+                             "message" {:type :string
+                                        :queryable? true
+                                        :field :message}
+                             "file" {:type :string
+                                     :queryable? true
+                                     :field :file}
+                             "line" {:type :number
+                                     :queryable? true
+                                     :field :line}
+                             "containment_path" {:type :array
+                                                 :queryable? true
+                                                 :field :containment_path}
+                             "containing_class" {:type :string
+                                                 :queryable? true
+                                                 :field :containing_class}
+                             "environment" {:type :string
+                                            :queryable? true
+                                            :field :environments.environment}
+                             "latest_report?" {:type :boolean
+                                               :queryable? true
+                                               :query-only? true}}
+               :selection {:from [[:latest_events :events]]
+                           :join [:reports
+                                  [:= :events.report_id :reports.id]]
+                           :left-join [:environments
+                                       [:= :reports.environment_id :environments.id]]}
+
+               :alias "events"
+               :subquery? false
+               :entity :events
+               :source-table "latest_events"}))
+
 (defn report-events-query
   "Query for the top level reports entity"
   []

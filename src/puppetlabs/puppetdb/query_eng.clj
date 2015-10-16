@@ -46,6 +46,8 @@
                     :rec eng/environments-query}
      :events {:munge events/munge-result-rows
               :rec eng/report-events-query}
+     :latest-events {:munge events/munge-result-rows
+                     :rec eng/latest-events-query}
      :edges {:munge edges/munge-result-rows
              :rec eng/edges-query}
      :reports {:munge reports/munge-result-rows
