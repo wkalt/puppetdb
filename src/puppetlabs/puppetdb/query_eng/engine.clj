@@ -211,6 +211,14 @@
                                             :query-only? true
                                             :queryable? false
                                             :field :fv.value_float}
+                             "value_string" {:type :string
+                                            :query-only? true
+                                            :queryable? false
+                                            :field :fv.value_string}
+                             "value_boolean" {:type :boolean
+                                              :query-only? true
+                                              :queryable? false
+                                              :field :fv.value_boolean}
                              "name" {:type :string
                                      :queryable? true
                                      :field :fp.name}
@@ -266,6 +274,14 @@
                                             :queryable? false
                                             :field :fv.value_float
                                             :query-only? true}
+                             "value_string" {:type :string
+                                            :query-only? true
+                                            :queryable? false
+                                            :field :fv.value_string}
+                             "value_boolean" {:type :boolean
+                                              :query-only? true
+                                              :queryable? false
+                                              :field :fv.value_boolean}
                              "type" {:type :string
                                      :queryable? false
                                      :field :vt.type
@@ -935,6 +951,12 @@
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
 
+            [[(op :guard #{"="}) "value" (value :guard string?)]]
+            [op "value_string" value]
+
+            [[(op :guard #{"="}) "value" (value :guard ks/boolean?)]]
+            [op "value_boolean" value]
+
             [[(op :guard #{"=" "~" ">" "<" "<=" ">="}) "value" value]]
             (when (= :facts (get-in (meta node) [:query-context :entity]))
               ["and" ["=" "depth" 0] [op "value" value]])
@@ -1157,11 +1179,6 @@
                (map->BinaryExpression {:operator :=
                                        :column field
                                        :value (facts/factpath-to-string value)})
-
-               :multi
-               (map->BinaryExpression {:operator :=
-                                       :column (hsql-hash-as-str (keyword (str column "_hash")))
-                                       :value (hash/generic-identity-hash value)})
 
                (map->BinaryExpression {:operator :=
                                        :column field
