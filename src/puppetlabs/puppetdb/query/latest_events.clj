@@ -117,7 +117,7 @@
         %s"
        select-fields
        where-clause)
-     (concat [distinct-start-time "NOW()"] params)]))
+     (concat [distinct-start-time distinct-end-time] params)]))
 
 (defn legacy-query->sql
   "Compile a resource event `query` into an SQL expression."
