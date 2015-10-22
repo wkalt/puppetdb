@@ -12,6 +12,7 @@
 (def tk-version "1.1.1")
 (def tk-jetty9-version "1.3.1")
 (def ks-version "1.1.0")
+(def tk-status-version "0.2.0")
 
 (def pdb-jvm-opts
   (case (System/getProperty "java.specification.version")
@@ -72,6 +73,7 @@
                  [puppetlabs/kitchensink ~ks-version]
                  [puppetlabs/trapperkeeper ~tk-version]
                  [puppetlabs/trapperkeeper-webserver-jetty9 ~tk-jetty9-version]
+                 [puppetlabs/trapperkeeper-status ~tk-status-version :exclusions [trptcolin/versioneer]]
                  [prismatic/schema "0.4.1"]
                  [org.clojure/tools.macro "0.1.5"]
                  [com.novemberain/pantomime "2.1.0"]

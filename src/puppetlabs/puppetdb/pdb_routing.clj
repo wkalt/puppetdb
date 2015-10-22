@@ -7,6 +7,7 @@
             [ring.util.request :as rreq]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
+            [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
             [puppetlabs.puppetdb.http.command :as cmd]
             [puppetlabs.puppetdb.http.server :as server]
@@ -90,6 +91,7 @@
    [:PuppetDBCommandDispatcher
     enqueue-command enqueue-raw-command response-pub]
    [:MaintenanceMode enable-maint-mode maint-mode? disable-maint-mode]
+   [:StatusService register-status]
    [:DefaultedConfig get-config]]
   (init [this context]
         (let [context-root (get-route this)
@@ -110,6 +112,12 @@
                                                            enqueue-raw-command
                                                            response-pub))))
         (enable-maint-mode)
+        (register-status "puppetdb-status"
+                         (status-core/get-artifact-version "puppetlabs" "puppetdb")
+                         1
+                         (fn [level]
+                           {:state :running
+                            :status {:maintenance-mode (maint-mode?)}}))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
