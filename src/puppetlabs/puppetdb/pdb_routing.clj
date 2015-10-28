@@ -5,6 +5,7 @@
             [puppetlabs.trapperkeeper.services :as tksvc]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
+            [puppetlabs.jdbc-util.core :refer [db-up?]]
             [ring.util.response :as rr]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
@@ -110,14 +111,16 @@
                                                            enqueue-command
                                                            query
                                                            enqueue-raw-command
-                                                           response-pub))))
-        (enable-maint-mode)
-        (register-status "puppetdb-status"
-                         (status-core/get-artifact-version "puppetlabs" "puppetdb")
-                         1
-                         (fn [level]
-                           {:state :running
-                            :status {:maintenance-mode (maint-mode?)}}))
+                                                           response-pub)))
+          (enable-maint-mode)
+          (register-status "puppetdb-status"
+                           (status-core/get-artifact-version "puppetlabs" "puppetdb")
+                           1
+                           (fn [level]
+                             {:state :running
+                              :status {:maintenance-mode? (maint-mode?)
+                                       :read_db_up? (db-up? (:read-database config))
+                                       :write_db_up? (db-up? (:database config))}})))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
