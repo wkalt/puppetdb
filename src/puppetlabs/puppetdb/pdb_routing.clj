@@ -117,10 +117,16 @@
                            (status-core/get-artifact-version "puppetlabs" "puppetdb")
                            1
                            (fn [level]
-                             {:state :running
-                              :status {:maintenance-mode? (maint-mode?)
-                                       :read_db_up? (db-up? (:read-database config))
-                                       :write_db_up? (db-up? (:database config))}})))
+                             (let [globals (shared-globals)
+                                   read-db-up? (db-up? (:scf-read-db globals))
+                                   write-db-up? (db-up? (:scf-write-db globals))
+                                   state (if (and read-db-up? write-db-up?)
+                                           :running
+                                           :error)]
+                               {:state state
+                                :status {:maintenance-mode? (maint-mode?)
+                                         :read_db_up? read-db-up?
+                                         :write_db_up? write-db-up?}}))))
         context)
   (start [this context]
          (log/info "PuppetDB finished starting, disabling maintenance mode")
