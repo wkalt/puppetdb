@@ -23,7 +23,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity call group-by])
+                  subquery? entity call group-by order-by limit offset])
 (defrecord BinaryExpression [operator column value])
 (defrecord InArrayExpression [table column value])
 (defrecord RegexExpression [column value])
@@ -880,7 +880,7 @@
 
 (defn honeysql-from-query
   "Convert a query to honeysql format"
-  [{:keys [projected-fields group-by call selection projections entity]}]
+  [{:keys [projected-fields group-by call selection projections entity limit offset]}]
   (let [call (when-let [[f & args] (some-> call utils/vector-maybe)]
                (apply vector f (or (seq (map keyword args)) [:*])))
         new-select (if (and call (empty? projected-fields))
@@ -888,10 +888,13 @@
                      (->> (sort projections)
                           (remove (comp :query-only? val))
                           (mapv #(extract-fields % entity))))]
-    (-> selection
-        (assoc :select new-select)
-        (merge-function-options call group-by)
-        log/spy)))
+    (println "LIMIT IS" limit)
+    (cond-> selection
+        new-select (assoc :select new-select)
+        true (merge-function-options call group-by)
+        limit (assoc :limit limit)
+        offset (assoc :offset offset)
+        true log/spy)))
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -1269,17 +1272,25 @@
 
 (defn create-from-node
   "Create an explicit subquery declaration to mimic the select_<entity>
-  syntax."
-  [entity expr]
-  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))]
-    (if (extract-expression? expr)
-      (let [[extract columns remaining-expr] expr
-            column-list (utils/vector-maybe columns)]
-        (assoc query-rec
-          :projected-fields column-list
-          :where (user-node->plan-node query-rec remaining-expr)))
-      (assoc query-rec
-        :where (user-node->plan-node query-rec expr)))))
+   syntax."
+  ([entity expr]
+   (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))]
+     (if (extract-expression? expr)
+       (let [[extract columns remaining-expr] expr
+             column-list (utils/vector-maybe columns)]
+         (assoc query-rec
+                :projected-fields column-list
+                :where (user-node->plan-node query-rec remaining-expr)))
+       (assoc query-rec :where (user-node->plan-node query-rec expr)))))
+  ([entity expr clauses]
+   (let [[_ order-by] (first (filter #(= (first %) "order_by") clauses))
+         [_ offset] (first (filter #(= (first %) "offset") clauses))
+         [_ limit] (first (filter #(= (first %) "limit") clauses))
+         query-rec (create-from-node entity expr)]
+     (println "LIMIT CLAUSE IS" limit)
+     (cond-> query-rec
+       offset (assoc :offset offset)
+       limit (assoc :limit limit)))))
 
 (pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
@@ -1419,7 +1430,11 @@
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
             [["from" entity expr]]
-            (create-from-node entity expr)
+            (do (clojure.pprint/pprint (create-from-node entity expr))
+                (create-from-node entity expr))
+
+            [["from" entity expr & clauses]]
+            (create-from-node entity expr clauses)
 
             [["extract" column]]
             (let [[fargs cols] (strip-function-calls column)
