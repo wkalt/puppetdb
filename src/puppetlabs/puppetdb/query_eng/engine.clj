@@ -1655,23 +1655,45 @@
                 "The %s entity is experimental and may be altered or removed in the future."
                 (name entity)))))
 
+(defn get-clause
+  [clause clauses]
+  (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
+    (if (> (count candidates) 1)
+      (throw (IllegalArgumentException.
+               (format "Multiple %s clauses are not permitted" clause)))
+      (second (first candidates)))))
+
+(defn process-clauses
+  [clauses]
+  {:limit (get-clause "limit" clauses)
+   :offset (get-clause "offset" clauses)
+   :order-by (get-clause "order_by" clauses)})
+
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
-  a map."
+   a map."
   [version query warn]
   (cm/match
-   query
-   ["from" (entity-str :guard #(string? %)) & remaining-query]
-   (let [remaining-query (cm/match
-                          remaining-query
-                          [(q :guard #(vector? %))] q
-                          [] []
-                          :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
-         entity (keyword (utils/underscores->dashes entity-str))]
-     (when warn
-       (warn-experimental entity))
-     {:remaining-query remaining-query
-      :entity entity})
+    query
+    ["from" (entity-str :guard #(string? %)) & remaining-query]
+    (let [remaining-query (cm/match
+                            remaining-query
+                            [(q :guard vector?)]
+                            {:query q}
+
+                            [(q :guard vector?) & clauses]
+                            (let [paging-clauses (process-clauses clauses)]
+                              {:query q :paging-clauses paging-clauses})
+
+                            []
+                            {:query []}
+                            :else (throw (IllegalArgumentException. "Your `from` query accepts an optional query only as a second argument. Check your query and try again.")))
+          entity (keyword (utils/underscores->dashes entity-str))]
+      (when warn
+        (warn-experimental entity))
+      {:remaining-query (:query remaining-query)
+       :paging-clauses (:paging-clauses remaining-query)
+       :entity entity})
 
    :else (throw (IllegalArgumentException. (format "Your initial query must be of the form: [\"from\",<entity>,(<optional-query>)]. Check your query and try again.")))))
 

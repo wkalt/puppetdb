@@ -144,8 +144,8 @@
          :or {warn-experimental true
               pretty-print false}} options
         query (:query query-map)
-        query-options (dissoc query-map :query)
-        {:keys [remaining-query entity]} (eng/parse-query-context version query warn-experimental)]
+        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context version query warn-experimental)
+        query-options (merge (dissoc query-map :query) paging-clauses)]
     (try
       (jdbc/with-transacted-connection scf-read-db
         (let [munge-fn (get-munge-fn entity version query-options url-prefix)
