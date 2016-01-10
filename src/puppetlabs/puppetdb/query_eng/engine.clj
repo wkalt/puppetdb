@@ -23,7 +23,7 @@
 ;;; Plan - functions/transformations of the internal query plan
 
 (defrecord Query [projections selection source-table alias where
-                  subquery? entity call group-by])
+                  subquery? entity call group-by limit offset order-by])
 (defrecord BinaryExpression [operator column value])
 (defrecord InArrayExpression [table column value])
 (defrecord RegexExpression [column value])
@@ -1267,19 +1267,40 @@
   (let [f (first expr)]
     (and (str f) (= f "extract"))))
 
+(defn get-clause
+  [clause clauses]
+  (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
+    (if (> (count candidates) 1)
+      (throw (IllegalArgumentException.
+               (format "Multiple %s clauses are not permitted" clause)))
+      (second (first candidates)))))
+
+(defn process-clauses
+  [clauses]
+  {:limit (get-clause "limit" clauses)
+   :offset (get-clause "offset" clauses)
+   :order-by (get-clause "order_by" clauses)})
+
 (defn create-from-node
   "Create an explicit subquery declaration to mimic the select_<entity>
-  syntax."
-  [entity expr]
-  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))]
+   syntax."
+  [entity expr clauses]
+  (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))
+        {:keys [limit offset order-by]} (process-clauses clauses)]
+    (println "LIMIT IS" limit)
     (if (extract-expression? expr)
       (let [[extract columns remaining-expr] expr
             column-list (utils/vector-maybe columns)]
-        (assoc query-rec
-          :projected-fields column-list
-          :where (user-node->plan-node query-rec remaining-expr)))
-      (assoc query-rec
-        :where (user-node->plan-node query-rec expr)))))
+        (cond-> query-rec
+          true (assoc :projected-fields column-list :where (user-node->plan-node query-rec remaining-expr))
+          offset (assoc-in [:selection :offset] offset)
+          limit (assoc-in [:selection :limit] limit)
+          order-by (assoc-in [:selection :order-by] order-by)))
+      (cond-> query-rec
+          true (assoc :where (user-node->plan-node query-rec expr))
+          limit (assoc-in [:selection :limit] limit)
+          offset (assoc-in [:selection :offset] offset)
+          order-by (assoc-in [:selection :order-by] order-by)))))
 
 (pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
   "Convert a list of columns to their true SQL field names."
@@ -1413,13 +1434,16 @@
             (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["in" column subquery-expression]]
+            (do (println "IN IN PART")
+                (println "SUBQUERY")
+                (clojure.pprint/pprint subquery-expression)
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
-                                :subquery (user-node->plan-node query-rec subquery-expression)})
+                                :subquery (user-node->plan-node query-rec subquery-expression)}))
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
-            [["from" entity expr]]
-            (create-from-node entity expr)
+            [["from" entity expr & clauses]]
+            (create-from-node entity expr clauses)
 
             [["extract" column]]
             (let [[fargs cols] (strip-function-calls column)
@@ -1655,20 +1679,6 @@
                 "The %s entity is experimental and may be altered or removed in the future."
                 (name entity)))))
 
-(defn get-clause
-  [clause clauses]
-  (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
-    (if (> (count candidates) 1)
-      (throw (IllegalArgumentException.
-               (format "Multiple %s clauses are not permitted" clause)))
-      (second (first candidates)))))
-
-(defn process-clauses
-  [clauses]
-  {:limit (get-clause "limit" clauses)
-   :offset (get-clause "offset" clauses)
-   :order-by (get-clause "order_by" clauses)})
-
 (defn parse-query-context
   "Parses a top-level query with a 'from', validates it and returns the entity and remaining-query in
    a map."
@@ -1716,6 +1726,8 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
+        _(println "PLAN IS")
+        _(clojure.pprint/pprint plan)
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
