@@ -1267,6 +1267,11 @@
   (let [f (first expr)]
     (and (str f) (= f "extract"))))
 
+(defn order-by->hsql
+  [order-by]
+  (for [x order-by]
+    (if (vector? x) [(keyword (first x) (keyword (second x)))] x)))
+
 (defn get-clause
   [clause clauses]
   (when-let [candidates (seq (filter #(= (first %) clause) clauses))]
@@ -1287,7 +1292,6 @@
   [entity expr clauses]
   (let [query-rec (user-query->logical-obj (str "select_" (utils/dashes->underscores entity)))
         {:keys [limit offset order-by]} (process-clauses clauses)]
-    (println "LIMIT IS" limit)
     (if (extract-expression? expr)
       (let [[extract columns remaining-expr] expr
             column-list (utils/vector-maybe columns)]
@@ -1434,11 +1438,8 @@
             (map->NotExpression {:clause (user-node->plan-node query-rec expression)})
 
             [["in" column subquery-expression]]
-            (do (println "IN IN PART")
-                (println "SUBQUERY")
-                (clojure.pprint/pprint subquery-expression)
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
-                                :subquery (user-node->plan-node query-rec subquery-expression)}))
+                                :subquery (user-node->plan-node query-rec subquery-expression)})
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
@@ -1726,8 +1727,6 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        _(println "PLAN IS")
-        _(clojure.pprint/pprint plan)
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}

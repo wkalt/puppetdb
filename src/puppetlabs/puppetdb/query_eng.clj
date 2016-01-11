@@ -60,7 +60,9 @@
   [entity]
   (if-let [munge-result (get-in @entity-fn-idx [entity :munge])]
     munge-result
-    (throw (IllegalArgumentException. (format "Invalid entity '%s' in query" (utils/dashes->underscores (name entity)))))))
+    (throw (IllegalArgumentException.
+             (format "Invalid entity '%s' in query"
+                     (utils/dashes->underscores (name entity)))))))
 
 (defn orderable-columns
   [query-rec]
@@ -144,7 +146,8 @@
          :or {warn-experimental true
               pretty-print false}} options
         query (:query query-map)
-        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context version query warn-experimental)
+        {:keys [remaining-query entity paging-clauses]} (eng/parse-query-context
+                                                          version query warn-experimental)
         query-options (merge (dissoc query-map :query) paging-clauses)]
     (try
       (jdbc/with-transacted-connection scf-read-db
