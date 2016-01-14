@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.sync.services
-  (:import [org.joda.time Period])
+  (:import [org.joda.time Period]
+           [java.net URI])
   (:require [clj-time.core :as time]
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
@@ -32,8 +33,17 @@
 
 (def sync-request-schema {:remote_host_path s/Str})
 
+(defn remote-url->server-url
+  "Given a 'remote-url' of form <path>/pdb/query/v4, return <path>. Currently
+   used for logging and tests."
+  [remote-url]
+  (let [uri (URI. remote-url)
+        prefix (str (.getScheme uri) "://" (.getHost uri) ":" (.getPort uri))
+        suffix (re-find #"^\/[a-zA-Z0-9-_\/]*(?=/pdb/query/v4)" (.getPath uri))]
+    (str prefix suffix)))
+
 (defn- query-endpoint
-  "Given a base server-url, but the query endpoint onto the end of it. Don't do
+  "Given a base server-url, put the query endpoint onto the end of it. Don't do
   this if it looks like one is already there. "
   [^String server-url]
   (if (.contains (str server-url) "/v4")
@@ -42,14 +52,21 @@
 
 (defn make-remote-server
   "Create a remote-server structure out the given url, pulling ssl options from
-  jetty-config."
-  [server-url jetty-config]
-  (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
-      (assoc :url (query-endpoint server-url))))
+   jetty-config."
+  [remote-config jetty-config]
+  (let [server-url (str (:server-url remote-config))]
+    (-> (select-keys jetty-config [:ssl-cert :ssl-key :ssl-ca-cert])
+        (assoc :url (query-endpoint server-url)))))
 
-(defn- sync-with! [remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl]
+(defn- sync-with!
+  [remote-server
+   query-fn
+   bucketed-summary-query-fn
+   enqueue-command-fn
+   node-ttl]
   (if (compare-and-set! currently-syncing false true)
-    (try (sync-from-remote! query-fn bucketed-summary-query-fn enqueue-command-fn remote-server node-ttl)
+    (try (sync-from-remote! query-fn bucketed-summary-query-fn
+                            enqueue-command-fn remote-server node-ttl)
          {:status 200 :body "success"}
          (catch Exception ex
            (let [err "Remote sync from %s failed"
@@ -75,9 +92,6 @@
       (log/warn "No remotes specified, sync disabled")
       false)
 
-    (and remotes (> (count remotes) 1))
-    (throw+-cli-error! "Only a single remote is allowed")
-
     :else
     (let [interval (-> remotes first (get :interval ::none))]
       (cond
@@ -85,7 +99,8 @@
         false
 
         (not (period? interval))
-        (throw+-cli-error! (format "Specified sync interval %s does not appear to be a time period" interval))
+        (throw+-cli-error!
+          (format "Specified sync interval %s does not appear to be a time period" interval))
 
         (neg? (time/in-millis interval))
         (throw+-cli-error! (str "Sync interval must be positive or zero: " interval))
@@ -99,11 +114,12 @@
 (defn validate-trigger-sync
   "Validates `remote-server' as a valid sync target given user config items"
   [allow-unsafe-sync-triggers remotes-config jetty-config remote-server]
-  (let [valid-remotes (map (comp #(make-remote-server % jetty-config) :server-url) remotes-config)]
+  (let [valid-remotes (map #(make-remote-server % jetty-config) remotes-config)]
     (or allow-unsafe-sync-triggers
         (ks/seq-contains? valid-remotes remote-server))))
 
-(defn wait-for-sync [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
+(defn wait-for-sync
+  [submitted-commands-chan processed-commands-chan process-command-timeout-ms]
   (async/go-loop [pending-commands #{}
                   done-submitting-commands false]
     (cond
@@ -139,7 +155,9 @@
 
                   :priority true))))
 
-(defn blocking-sync [remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult]
+(defn blocking-sync
+  [remote-server query-fn bucketed-summary-query-fn
+   enqueue-command-fn node-ttl response-mult]
   (let [remote-url (:url remote-server)
         submitted-commands-chan (async/chan)
         processed-commands-chan (async/chan 10000)
@@ -167,7 +185,8 @@
 
 (defn sync-handler
   "Top level route for PuppetDB sync"
-  [get-config query-fn bucketed-summary-query-fn enqueue-command-fn response-mult get-shared-globals]
+  [get-config query-fn bucketed-summary-query-fn
+   enqueue-command-fn response-mult get-shared-globals]
   (let [{{node-ttl :node-ttl} :database
          sync-config :sync
          jetty-config :jetty} (get-config)
@@ -178,37 +197,47 @@
                                   remotes-config
                                   jetty-config)]
     (mid/make-pdb-handler
-     (cmdi/context "/v1"
-                   (cmdi/GET "/reports-summary" []
-                             (let [summary-map (bucketed-summary-query-fn :reports)]
-                               (http/json-response (ks/mapkeys str summary-map))))
+      (cmdi/context "/v1"
+                    (cmdi/GET "/reports-summary" []
+                              (let [summary-map (bucketed-summary-query-fn :reports)]
+                                (http/json-response (ks/mapkeys str summary-map))))
 
-                   (cmdi/POST "/trigger-sync" {:keys [body params] :as request}
-                              (let [sync-request (json/parse-string (slurp body) true)
-                                    remote-url (:remote_host_path sync-request)
-                                    completion-timeout-ms (some-> params
-                                                                  (get "secondsToWaitForCompletion")
-                                                                  Double/parseDouble
-                                                                  (* 1000))]
-                                (s/validate sync-request-schema sync-request)
-                                (let [remote-server (make-remote-server remote-url jetty-config)]
-                                  (cond
-                                    (not (validate-sync-fn remote-server))
-                                    {:status 503 :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}
+                    (cmdi/POST
+                      "/trigger-sync" {:keys [body params] :as request}
+                      ;; Note: This handler is only used in tests.
+                      (let [sync-request (json/parse-string (slurp body) true)
+                            remote-url (:remote_host_path sync-request)
+                            completion-timeout-ms (some-> params
+                                                          (get "secondsToWaitForCompletion")
+                                                          Double/parseDouble
+                                                          (* 1000))]
+                        (s/validate sync-request-schema sync-request)
+                        (let [server-url (remote-url->server-url remote-url)
+                              remote-server (make-remote-server
+                                              {:server-url remote-url}
+                                              jetty-config)]
+                          (cond
+                            (not (validate-sync-fn remote-server))
+                            {:status 503
+                             :body (format "Refusing to sync. PuppetDB is not configured to sync with %s" remote-url)}
+                            completion-timeout-ms
+                            (do
+                              (maplog [:sync :info] {:remote (:url remote-server)}
+                                      "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
+                              (async/alt!!
+                                (async/go (blocking-sync
+                                            remote-server query-fn
+                                            bucketed-summary-query-fn
+                                            enqueue-command-fn node-ttl response-mult))
+                                (http/json-response {:timed_out false} 200)
 
-                                    completion-timeout-ms
-                                    (do
-                                      (maplog [:sync :info] {:remote (:url remote-server)}
-                                              "Performing blocking sync with timeout of %s ms" completion-timeout-ms)
-                                      (async/alt!!
-                                        (async/go (blocking-sync remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl response-mult))
-                                        (http/json-response {:timed_out false} 200)
+                                (async/timeout completion-timeout-ms)
+                                (http/json-response {:timed_out true} 503)))
 
-                                        (async/timeout completion-timeout-ms)
-                                        (http/json-response {:timed_out true} 503)))
-
-                                    :else
-                                    (sync-with! remote-server query-fn bucketed-summary-query-fn enqueue-command-fn node-ttl)))))))))
+                            :else
+                            (sync-with! remote-server query-fn
+                                        bucketed-summary-query-fn
+                                        enqueue-command-fn node-ttl)))))))))
 
 (defn start-bucketed-summary-cache-invalidation-job [response-mult cache-atom]
   (let [processed-commands-chan (async/chan)]
@@ -219,6 +248,33 @@
         (recur)))
     #(do (async/untap response-mult processed-commands-chan)
          (async/close! processed-commands-chan))))
+
+(defn attempt-initial-sync
+  "Attempt an initial sync against a remote-server. On success, return :success,
+   on exception other than message-processing-timeout, log warning and return
+   nil."
+  [remote-server query-fn shared-globals cache-atom response-mult node-ttl
+   enqueue-command-fn]
+  (let [server-url (remote-url->server-url (:url remote-server))]
+    (try+
+      (maplog [:sync :info] {:remote (str server-url)}
+              "Performing initial blocking sync from {remote}...")
+      (blocking-sync remote-server query-fn
+                     (partial bucketed-summary/bucketed-summary-query
+                              (:scf-read-db (shared-globals))
+                              cache-atom)
+                     enqueue-command-fn node-ttl response-mult)
+      :success
+      (catch [:type ::message-processing-timeout] _
+        ;; Something is very wrong if we hit this timeout; rethrow the
+        ;; exception to crash the server.
+        (throw+))
+      ;; any other exception is basically ok; just log a warning and
+      ;; keep on going.
+      (catch [] ex
+        (log/warn ex (format "Could not perform initial sync with %s" server-url)))
+      (catch Exception ex
+        (log/warn ex (format "Could not perform initial sync with %s" server-url))))))
 
 (defservice puppetdb-sync-service
   PuppetDBSync
@@ -254,41 +310,37 @@
                      "then restart PuppetDB.\n"))))
 
            (if (enable-periodic-sync? remotes-config)
-             (let [{:keys [interval server-url]} (first remotes-config)
-                   remote-server (make-remote-server (str server-url) jetty-config)]
-               (try+
-                (maplog [:sync :info] {:remote (str server-url)}
-                        "Performing initial blocking sync from {remote}...")
-                (blocking-sync remote-server query
-                               (partial bucketed-summary/bucketed-summary-query
-                                        (:scf-read-db (shared-globals))
-                                        cache-atom)
-                               enqueue-command node-ttl response-mult)
-                (catch [:type ::message-processing-timeout] _
-                  ;; Something is very wrong if we hit this timeout; rethrow the
-                  ;; exception to crash the server.
-                  (throw+))
-                ;; any other exception is basically ok; just log a warning and
-                ;; keep on going.
-                (catch [] ex
-                  (log/warn ex "Could not perform initial sync"))
-                (catch Exception ex
-                  (log/warn ex "Could not perform initial sync")))
-               (assoc context
-                      :scheduled-sync
-                      (atat/interspaced (to-millis interval)
-                                        #(sync-with! remote-server
-                                                     query (partial bucketed-summary-query this) enqueue-command
-                                                     node-ttl)
-                                        (atat/mk-pool))))
+             (let [remote-servers (map #(make-remote-server % jetty-config) remotes-config)
+                   _ (some #(attempt-initial-sync % query shared-globals
+                                                  cache-atom response-mult
+                                                  node-ttl enqueue-command)
+                           remote-servers)]
+               (let [pool (atat/mk-pool)
+                     nremotes (count remote-servers)]
+                 (assoc context
+                        :scheduled-sync
+                        (doall
+                          (map (fn [interval remote-server]
+                                 (let [interval-millis (to-millis interval)]
+                                   {:job (atat/interspaced
+                                           interval-millis
+                                           #(sync-with!
+                                              remote-server query
+                                              (partial bucketed-summary-query this)
+                                              enqueue-command node-ttl)
+                                           pool :initial-delay (rand-int interval-millis))
+                                    :remote (remote-url->server-url (:url remote-server))}))
+                               (map :interval remotes-config)
+                               remote-servers)))))
              context)))
 
   (stop [this context]
         (jmx-reporter/stop (:reporter events/sync-metrics))
-        (when-let [s (:scheduled-sync context)]
-          (log/info "Stopping pe-puppetdb sync")
-          (atat/stop s)
-          (log/info "Stopped pe-puppetdb sync"))
+        (when-let [scheduled-syncs (:scheduled-sync context)]
+          (doseq [{:keys [job remote]} scheduled-syncs]
+            (log/infof "Stopping pe-puppetdb sync with %s" remote)
+            (atat/stop job)
+            (log/infof "Stopped pe-puppetdb sync with %s" remote)))
         (when-let [stop-fn (:cache-invalidation-job-stop-fn context)]
           (stop-fn))
         (dissoc context
@@ -296,6 +348,7 @@
                 :cache-invalidation-job-stop-fn))
 
   (bucketed-summary-query [this entity]
-    (bucketed-summary/bucketed-summary-query (:scf-read-db (shared-globals))
-                                             (:bucketed-summary-cache-atom (service-context this))
-                                             entity)))
+    (bucketed-summary/bucketed-summary-query
+      (:scf-read-db (shared-globals))
+      (:bucketed-summary-cache-atom (service-context this))
+      entity)))
