@@ -125,6 +125,11 @@ sqstring = (<singlequote>, stringwithoutsinglequotes, <singlequote>);
 <modifier> = groupby;
 groupby  = <'group by '>, fieldlist;
 
+(* Paging *)
+<pagingclause> = limit | offset;
+limit = <'limit '>, integer;
+offset = <'offset '>, integer;
+
 (* Parens *)
 <lparens> = '(';
 <rparens> = ')';
