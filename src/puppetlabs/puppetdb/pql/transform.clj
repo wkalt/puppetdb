@@ -108,12 +108,13 @@
   ["offset" arg])
 
 (defn transform-orderby
-  [arg]
-  (println "arg is" arg)
+  [& args]
+  (println "arg is" args)
   ["order_by"
-   (if (= 2 (count arg))
-     [(second arg)]
-     (rest arg))])
+   (vec (for [arg args]
+          (if (= 2 (count arg))
+            (second arg)
+            (vec (rest arg)))))])
 
 (def transform-specification
   {:from               transform-from

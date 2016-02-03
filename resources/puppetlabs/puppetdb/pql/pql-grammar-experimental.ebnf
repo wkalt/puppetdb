@@ -133,8 +133,9 @@ groupby  = <'group by '>, fieldlist;
 <pagingclause> = limit | offset | orderby;
 limit = <'limit '>, integer;
 offset = <'offset '>, integer;
-orderby = <'order by '>, orderparam+;
-orderparam = field, [direction];
+orderby = <'order by '>, orderparam, [orderparamlist];
+<orderparamlist> = (<','>, [<whitespace>], orderparam)+;
+orderparam = !('asc' | 'desc') field, [<whitespace> direction], [<whitespace>];
 <direction> = 'asc' | 'desc';
 
 
