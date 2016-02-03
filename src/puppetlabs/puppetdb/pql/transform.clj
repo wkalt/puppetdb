@@ -2,15 +2,14 @@
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]))
 
+(defn transform-statement
+  [statement]
+  (rest statement))
+
 (defn transform-from
-  ([entity]
-   ["from" entity])
-  ([entity arg2]
-   ["from" entity arg2])
-  ([entity extract expression]
-   ["from" entity (vec (concat extract [expression]))])
-  ([entity extract expression modifier]
-   ["from" entity (vec (concat extract [expression modifier]))]))
+  [entity statement]
+  (println "transformed" (vec (concat ["from" entity] (transform-statement statement))))
+  (vec (concat ["from" entity] (transform-statement statement))))
 
 (defn transform-subquery
   ([entity]
@@ -108,6 +107,14 @@
   [arg]
   ["offset" arg])
 
+(defn transform-orderby
+  [arg]
+  (println "arg is" arg)
+  ["order_by"
+   (if (= 2 (count arg))
+     [(second arg)]
+     (rest arg))])
+
 (def transform-specification
   {:from               transform-from
    :subquery           transform-subquery
@@ -130,4 +137,5 @@
    :exp                transform-exp
    :groupby            transform-groupby
    :limit              transform-limit
-   :offset             transform-offset})
+   :offset             transform-offset
+   :orderby            transform-orderby})

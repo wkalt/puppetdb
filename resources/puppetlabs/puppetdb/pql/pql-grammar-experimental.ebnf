@@ -23,14 +23,18 @@
 <query> = [<whitespace>], from, [<whitespace>];
 
 (* From - Setting context and providing filtering and projection *)
-from = entity, [[<whitespace>], extract], [<whitespace>], where;
+from = entity, [[<whitespace>], extract], [<whitespace>], <lbrace>, statement, <rbrace>;
 
 (* Extract - projection *)
 extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket>;
 <extractfields> = fieldlist;
 
 (* Filtering *)
-<where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause [<whitespace>]}, [<whitespace>], <rbrace>;
+<where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause, [<whitespace>]}, [<whitespace>], <rbrace>;
+
+(* Statement *)
+statement = [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause, [<whitespace>]}, [<whitespace>];
+
 
 (* Static list of entity types *)
 <entity> = 'facts' |
@@ -126,9 +130,13 @@ sqstring = (<singlequote>, stringwithoutsinglequotes, <singlequote>);
 groupby  = <'group by '>, fieldlist;
 
 (* Paging *)
-<pagingclause> = limit | offset;
+<pagingclause> = limit | offset | orderby;
 limit = <'limit '>, integer;
 offset = <'offset '>, integer;
+orderby = <'order by '>, orderparam+;
+orderparam = field, [direction];
+<direction> = 'asc' | 'desc';
+
 
 (* Parens *)
 <lparens> = '(';
