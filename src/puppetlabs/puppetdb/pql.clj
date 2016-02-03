@@ -11,8 +11,6 @@
 (defn transform
   "Transform parsed PQL to AST."
   [tree]
-  (println "tree is")
-  (clojure.pprint/pprint tree)
   (insta/transform transform/transform-specification tree))
 
 (def parse

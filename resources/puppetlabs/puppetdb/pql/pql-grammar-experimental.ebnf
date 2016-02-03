@@ -23,7 +23,7 @@
 <query> = [<whitespace>], from, [<whitespace>];
 
 (* From - Setting context and providing filtering and projection *)
-from = entity, [[<whitespace>], extract], [<whitespace>], <lbrace>, statement, <rbrace>;
+from = entity, [<whitespace>], statement;
 
 (* Extract - projection *)
 extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket>;
@@ -33,7 +33,7 @@ extract = <lbracket>, [<whitespace>], [extractfields], [<whitespace>], <rbracket
 <where> = <lbrace>, [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause, [<whitespace>]}, [<whitespace>], <rbrace>;
 
 (* Statement *)
-statement = [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause, [<whitespace>]}, [<whitespace>];
+statement = [[<whitespace>], extract], [<whitespace>], <lbrace> [<whitespace>], [expression], [<whitespace>], {modifier | pagingclause, [<whitespace>]}, [<whitespace>], <rbrace>;
 
 
 (* Static list of entity types *)
@@ -54,7 +54,7 @@ statement = [<whitespace>], [expression], [<whitespace>], {modifier | pagingclau
    This structure preserves precedence rules after parsing, so for reference the number
    after expr is the order of precedence. One should be careful when modifying
    this structure, and ensure that precedence rules continue to be kept. *)
-<expression> = expr-or;
+expression = expr-or;
 expr-or      = expr-and { <whitespace>, or, <whitespace>, expr-or };
 expr-and     = expr-not { <whitespace>, and, <whitespace>, expr-and };
 expr-not     = ( not, [<whitespace>], expr-not ) | expr-rest;

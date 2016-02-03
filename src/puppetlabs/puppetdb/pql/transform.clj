@@ -4,11 +4,22 @@
 
 (defn transform-statement
   [statement]
-  (rest statement))
+  (let [extract (->> statement
+                     (filter #(and (vector? %) (= (first %) :extract)))
+                     first)
+        expression (->> statement
+                        (filter #(and (vector? %) (= (first %) :expression)))
+                        first)
+        paging-clauses (->> statement
+                            (filter #(or (not (vector? %)) (not (contains? #{:extract :expression} (first %)))))
+                            rest
+                            vec)]
+    (if (empty? paging-clauses)
+      [["extract" (vec (rest extract)) (second expression)]] 
+      [["extract" (vec (rest extract)) (second expression) paging-clauses]])))
 
 (defn transform-from
   [entity statement]
-  (println "transformed" (vec (concat ["from" entity] (transform-statement statement))))
   (vec (concat ["from" entity] (transform-statement statement))))
 
 (defn transform-subquery
@@ -109,7 +120,6 @@
 
 (defn transform-orderby
   [& args]
-  (println "arg is" args)
   ["order_by"
    (vec (for [arg args]
           (if (= 2 (count arg))
@@ -119,7 +129,7 @@
 (def transform-specification
   {:from               transform-from
    :subquery           transform-subquery
-   :extract            transform-extract
+   ;:extract            transform-extract
    :expr-or            transform-expr-or
    :expr-and           transform-expr-and
    :expr-not           transform-expr-not
