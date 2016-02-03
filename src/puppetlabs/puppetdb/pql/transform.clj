@@ -100,6 +100,14 @@
   [& args]
   (vec (concat ["group_by"] args)))
 
+(defn transform-limit
+  [arg]
+  ["limit" arg])
+
+(defn transform-offset
+  [arg]
+  ["offset" arg])
+
 (def transform-specification
   {:from               transform-from
    :subquery           transform-subquery
@@ -120,4 +128,6 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupby})
+   :groupby            transform-groupby
+   :limit              transform-limit
+   :offset             transform-offset})
