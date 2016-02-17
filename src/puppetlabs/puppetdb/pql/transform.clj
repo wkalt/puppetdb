@@ -9,17 +9,17 @@
 
 (defn slurp-expr->extract
   [clauses]
-  (println "slurp tree")
-  (clojure.pprint/pprint clauses)
   (let [extract-clause (filter #(= (first %) :extract) clauses)
-        extract-groups (group-by #(= (first %) :groupedfield) (second extract-clause))
         paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
-        other-clauses (get paging-groups false)]
-    (println "extract groups")
-    (clojure.pprint/pprint extract-groups)
+        other-clauses (get paging-groups false)
+        grouped-clauses (filter #(= (first %) :groupedfield)
+                                (second (first extract-clause)))
+        ]
     (println "extract clause")
     (clojure.pprint/pprint extract-clause)
+    (println "groyup clause")
+    (clojure.pprint/pprint grouped-clauses)
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
       clauses)))
