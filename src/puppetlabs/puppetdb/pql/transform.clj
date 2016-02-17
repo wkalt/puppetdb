@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.pql.transform
   (:require [clojure.string :as str]
-            [puppetlabs.puppetdb.cheshire :as json]))
+            [puppetlabs.puppetdb.cheshire :as json]
+            [clojure.zip :as zip]))
 
 (defn paging-clause?
   [v]
@@ -8,15 +9,26 @@
 
 (defn slurp-expr->extract
   [clauses]
-  (let [paging-groups (group-by paging-clause? clauses)
+  (println "slurp tree")
+  (clojure.pprint/pprint clauses)
+  (let [extract-clause (filter #(= (first %) :extract) clauses)
+        extract-groups (group-by #(= (first %) :groupedfield) (second extract-clause))
+        paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
         other-clauses (get paging-groups false)]
+    (println "extract groups")
+    (clojure.pprint/pprint extract-groups)
+    (println "extract clause")
+    (clojure.pprint/pprint extract-clause)
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
       clauses)))
 
 (defn transform-from
   [entity & args]
+  (println "transform from")
+  (println "entity" entity)
+  (clojure.pprint/pprint args)
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
@@ -27,7 +39,7 @@
 
 (defn transform-extract
   [& args]
-  ["extract" (vec args)])
+  [:extract (vec args)])
 
 (defn transform-expr-or
   ;; Single arg? collapse
@@ -133,9 +145,9 @@
    :function           transform-function
    :condexpression     transform-condexpression
    :condexpnull        transform-condexpnull
-   :groupedarglist     transform-groupedlist
-   :groupedfieldlist   transform-groupedlist
-   :groupedregexplist  transform-groupedlist
+;   :groupedarglist     transform-groupedlist
+   ;:groupedfieldlist   transform-groupedlist
+;   :groupedregexplist  transform-groupedlist
    :groupedliterallist transform-groupedliterallist
    :sqstring           transform-sqstring
    :dqstring           transform-dqstring
@@ -143,7 +155,7 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupby
+   ;:groupby            transform-groupby
    :limit              transform-limit
    :offset             transform-offset
    :orderby            transform-orderby})

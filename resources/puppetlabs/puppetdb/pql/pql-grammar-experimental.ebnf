@@ -72,7 +72,7 @@ condisnotnull = <'is not null'>;
 
 (* Conditional expression parts *)
 groupedfieldlist = <lbracket>, [<whitespace>], fieldlist, [<whitespace>], <rbracket>;
-<fieldlist>      = (field | function), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
+<fieldlist>      = (field | function | groupedfield), [ [<whitespace>], <','>, [<whitespace>], fieldlist ];
 function         = functionname, [<whitespace>], groupedarglist;
 <functionname>   = 'count' | 'avg' | 'sum' | 'min' | 'max';
 
@@ -80,6 +80,7 @@ groupedarglist = <lparens>, [<whitespace>], [arglist], [<whitespace>], <rparens>
 <arglist>      = field, [ [<whitespace>], <','>, [<whitespace>], arglist ];
 
 (* Represents a field from an entity *)
+groupedfield = <langle>, field, <rangle>;
 <field> = #'[a-zA-Z_]+';
 
 <condregexp>      = '~';
@@ -143,6 +144,10 @@ orderparam = !('asc' | 'desc') field, [<whitespace> direction], [<whitespace>];
 (* Bracket *)
 <lbracket> = '[';
 <rbracket> = ']';
+
+(* Angle Brackets *)
+<langle> = '<';
+<rangle> = '>';
 
 (* Booleans *)
 boolean = true | false;
