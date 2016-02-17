@@ -19,6 +19,7 @@
             [clojure.tools.logging :as log]
             [puppetlabs.puppetdb.config :as conf]
             [puppetlabs.puppetdb.middleware :as mid]
+            [trptcolin.versioneer.core :as versioneer]
             [puppetlabs.kitchensink.core :as ks]))
 
 
@@ -93,6 +94,16 @@
                    true
                    @maint-mode-atom))))
 
+(defn get-artifact-version
+  [group-id artifact-id]
+  (let [version (versioneer/get-version group-id artifact-id)]
+    (when (empty? version)
+      (throw (IllegalStateException.
+               (format "Unable to find version number for '%s/%s'"
+                 group-id
+                 artifact-id))))
+    version))
+
 (tk/defservice pdb-routing-service
   [[:WebroutingService add-ring-handler get-route]
    [:PuppetDBServer shared-globals query set-url-prefix]
@@ -122,7 +133,7 @@
 
           (enable-maint-mode)
           (register-status "puppetdb-status"
-                           (status-core/get-artifact-version "puppetlabs" "puppetdb")
+                           (get-artifact-version "puppetlabs" "puppetdb")
                            1
                            (fn [level]
                              (let [globals (shared-globals)
