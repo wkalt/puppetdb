@@ -7,19 +7,24 @@
   [v]
   (contains? #{"limit" "offset" "order_by"} (first v)))
 
+(defn transform-groupby
+  [groupby]
+  (when (seq groupby)
+    (vec (concat ["group_by"] (map second groupby)))))
+
 (defn slurp-expr->extract
   [clauses]
-  (let [extract-clause (filter #(= (first %) :extract) clauses)
+  (let [extract-clause (filter #(= (first %) "extract") clauses)
         paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
         other-clauses (get paging-groups false)
         grouped-clauses (filter #(= (first %) :groupedfield)
                                 (second (first extract-clause)))
+        group-by-statement (transform-groupby grouped-clauses)
+        other-clauses (vec (concat other-clauses group-by-statement))
+        extract-clause (update-in (vec extract-clause) [0 1] (fn [x] (mapv #(if (vector %) (second %) %) x)))
+        other-clauses (vec (concat extract-clause [group-by-statement]))
         ]
-    (println "extract clause")
-    (clojure.pprint/pprint extract-clause)
-    (println "groyup clause")
-    (clojure.pprint/pprint grouped-clauses)
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
       clauses)))
@@ -27,8 +32,9 @@
 (defn transform-from
   [entity & args]
   (println "transform from")
-  (println "entity" entity)
-  (clojure.pprint/pprint args)
+  (clojure.pprint/pprint
+    (vec (concat ["from" entity] (slurp-expr->extract args)))
+    )
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
@@ -39,7 +45,7 @@
 
 (defn transform-extract
   [& args]
-  [:extract (vec args)])
+  ["extract" (vec args)])
 
 (defn transform-expr-or
   ;; Single arg? collapse
@@ -115,9 +121,9 @@
   ([mod int]
    (str "E" mod int)))
 
-(defn transform-groupby
-  [& args]
-  (vec (concat ["group_by"] args)))
+;(defn transform-groupby
+;  [& args]
+;  (vec (concat ["group_by"] args)))
 
 (defn transform-limit
   [arg]
