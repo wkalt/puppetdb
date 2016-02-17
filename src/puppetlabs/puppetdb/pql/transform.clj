@@ -33,8 +33,7 @@
   [entity & args]
   (println "transform from")
   (clojure.pprint/pprint
-    (vec (concat ["from" entity] (slurp-expr->extract args)))
-    )
+    (vec (concat ["from" entity] (slurp-expr->extract args))))
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
@@ -121,9 +120,9 @@
   ([mod int]
    (str "E" mod int)))
 
-;(defn transform-groupby
-;  [& args]
-;  (vec (concat ["group_by"] args)))
+(defn transform-groupbyfoo
+  [& args]
+  (vec (concat ["group_by"] args)))
 
 (defn transform-limit
   [arg]
@@ -151,9 +150,9 @@
    :function           transform-function
    :condexpression     transform-condexpression
    :condexpnull        transform-condexpnull
-;   :groupedarglist     transform-groupedlist
-   ;:groupedfieldlist   transform-groupedlist
-;   :groupedregexplist  transform-groupedlist
+   :groupedarglist     transform-groupedlist
+   :groupedfieldlist   transform-groupedlist
+   :groupedregexplist  transform-groupedlist
    :groupedliterallist transform-groupedliterallist
    :sqstring           transform-sqstring
    :dqstring           transform-dqstring
@@ -161,7 +160,7 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   ;:groupby            transform-groupby
+   :groupby            transform-groupbyfoo
    :limit              transform-limit
    :offset             transform-offset
    :orderby            transform-orderby})
