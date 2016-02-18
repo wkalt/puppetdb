@@ -7,7 +7,7 @@
   [v]
   (contains? #{"limit" "offset" "order_by"} (first v)))
 
-(defn transform-groupby
+(defn transform-angle-groupby
   [groupby]
   (when (seq groupby)
     (vec (concat ["group_by"] (map second groupby)))))
@@ -20,20 +20,16 @@
         other-clauses (get paging-groups false)
         grouped-clauses (filter #(= (first %) :groupedfield)
                                 (second (first extract-clause)))
-        group-by-statement (transform-groupby grouped-clauses)
+        group-by-statement (transform-angle-groupby grouped-clauses)
         other-clauses (vec (concat other-clauses group-by-statement))
         extract-clause (update-in (vec extract-clause) [0 1] (fn [x] (mapv #(if (vector %) (second %) %) x)))
-        other-clauses (vec (concat extract-clause [group-by-statement]))
-        ]
+        other-clauses (vec (concat extract-clause [group-by-statement]))]
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
       clauses)))
 
 (defn transform-from
   [entity & args]
-  (println "transform from")
-  (clojure.pprint/pprint
-    (vec (concat ["from" entity] (slurp-expr->extract args))))
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
@@ -120,7 +116,7 @@
   ([mod int]
    (str "E" mod int)))
 
-(defn transform-groupbyfoo
+(defn transform-groupby
   [& args]
   (vec (concat ["group_by"] args)))
 
@@ -160,7 +156,7 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupbyfoo
+   :groupby            transform-groupby
    :limit              transform-limit
    :offset             transform-offset
    :orderby            transform-orderby})
