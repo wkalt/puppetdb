@@ -1,7 +1,9 @@
 (ns puppetlabs.puppetdb.pql.transform
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
-            [clojure.zip :as zip]))
+            [clojure.zip :as zip]
+            [clojure.walk :as walk]
+            ))
 
 (defn paging-clause?
   [v]
@@ -12,35 +14,40 @@
   (when (seq groupby)
     (vec (concat ["group_by"] (map second groupby)))))
 
+(defn strip-groupfields
+  [loc]
+  (if (zip/end? loc)
+    loc
+    (if (and (vector? (zip/node loc)) (= :groupedfield (first (zip/node loc))))
+      (-> loc
+          (zip/edit second))
+      (recur (zip/next loc)))))
+
+(defn strip-nils
+  [loc]
+  (cond
+    (nil? (zip/node loc)) (zip/remove loc)
+    (zip/end? loc) loc
+    :else (recur (zip/next loc))))
+
 (defn slurp-expr->extract
   [clauses]
   (let [extract-clause (filter #(= (first %) "extract") clauses)
         paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
         other-clauses (get paging-groups false)
-        _ (println "org")
-        _ (clojure.pprint/pprint other-clauses)
         grouped-clauses (filter #(= (first %) :groupedfield)
                                 (second (first extract-clause)))
         group-by-statement (transform-angle-groupby grouped-clauses)
         other-clauses (vec (concat other-clauses [group-by-statement]))
-
-        _ (println "next")
-        _ (clojure.pprint/pprint other-clauses)
-        extract-clause (update-in (vec extract-clause) [0 1] (fn [x] (mapv #(if (vector %) (second %) %) x)))
-
- ;       other-clauses (vec (concat extract-clause [group-by-statement]))
-
- ;       _ (println "last")
- ;       _ (clojure.pprint/pprint other-clauses)
-
-        ]
-
-
-    (println "other-clauses")
-    (clojure.pprint/pprint other-clauses)
-
-
+        other-clauses (-> other-clauses
+                          zip/vector-zip
+                          strip-groupfields
+                          zip/root
+                          zip/vector-zip
+                          strip-nils
+                          zip/root
+                          )]
 
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
@@ -48,10 +55,6 @@
 
 (defn transform-from
   [entity & args]
-  (println "transform from")
-  (clojure.pprint/pprint
-(vec (concat ["from" entity] (slurp-expr->extract args)))
-    )
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery

@@ -44,7 +44,20 @@
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]
-       ["order_by" [["certname" "desc"]]]]))
+       ["order_by" [["certname" "desc"]]]]
+
+
+      ["nodes" ["extract" [[:groupedfield "a"]] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a"] ["=" "a" 1] ["group_by" "a"]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
+
+
+         ))
 
   (testing "transform"
     (are [in expected] (= (transform in) expected)
