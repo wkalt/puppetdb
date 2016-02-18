@@ -20,7 +20,6 @@
       zip/root
       zip/vector-zip))
 
-
 (defn zip-to-extract
   [loc]
   (if (zip/end? loc)
@@ -47,6 +46,12 @@
     (zip/end? loc) loc
     :else (recur (zip/next loc))))
 
+(def foo
+  [["extract"  [[:groupedfield "certname"]  [:groupedfield "value"]]]
+    ["=" "certname" "host-1"]
+     ["group_by" "certname" "value"]]
+  )
+
 (defn slurp-expr->extract
   [clauses]
   (let [extract-clause (filter #(= (first %) "extract") clauses)
@@ -56,6 +61,8 @@
                                 (second (first extract-clause)))
         group-by-statement (transform-angle-groupby grouped-clauses)
         _ (println "hello")
+        _ (clojure.pprint/pprint
+            (vec (concat (get paging-groups false) [group-by-statement])))
         other-clauses (-> (get paging-groups false)
                           (concat [group-by-statement])
                           vec
