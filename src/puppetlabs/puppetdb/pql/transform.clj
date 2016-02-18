@@ -18,18 +18,40 @@
         paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
         other-clauses (get paging-groups false)
+        _ (println "org")
+        _ (clojure.pprint/pprint other-clauses)
         grouped-clauses (filter #(= (first %) :groupedfield)
                                 (second (first extract-clause)))
         group-by-statement (transform-angle-groupby grouped-clauses)
-        other-clauses (vec (concat other-clauses group-by-statement))
+        other-clauses (vec (concat other-clauses [group-by-statement]))
+
+        _ (println "next")
+        _ (clojure.pprint/pprint other-clauses)
         extract-clause (update-in (vec extract-clause) [0 1] (fn [x] (mapv #(if (vector %) (second %) %) x)))
-        other-clauses (vec (concat extract-clause [group-by-statement]))]
+
+ ;       other-clauses (vec (concat extract-clause [group-by-statement]))
+
+ ;       _ (println "last")
+ ;       _ (clojure.pprint/pprint other-clauses)
+
+        ]
+
+
+    (println "other-clauses")
+    (clojure.pprint/pprint other-clauses)
+
+
+
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
       clauses)))
 
 (defn transform-from
   [entity & args]
+  (println "transform from")
+  (clojure.pprint/pprint
+(vec (concat ["from" entity] (slurp-expr->extract args)))
+    )
   (vec (concat ["from" entity] (slurp-expr->extract args))))
 
 (defn transform-subquery
