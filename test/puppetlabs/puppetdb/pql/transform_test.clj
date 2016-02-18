@@ -56,6 +56,11 @@
       ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
       ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
 
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]] ["limit" 1]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]] ["limit" 1]]
+
+      ["nodes" ["extract" [[:groupedfield "a"] [:groupedfield "b"]] ["=" "a" 1]] ["limit" 1]]
+      ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a" "b"]] ["limit" 1]]
 
          ))
 

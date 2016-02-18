@@ -14,13 +14,30 @@
   (when (seq groupby)
     (vec (concat ["group_by"] (map second groupby)))))
 
+(defn zip-to-top
+  [loc]
+  (-> loc
+      zip/root
+      zip/vector-zip))
+
+
+(defn zip-to-extract
+  [loc]
+  (if (zip/end? loc)
+    (zip-to-top loc)
+    (if (and (vector? (zip/node loc)) (= "extract" (first (zip/node loc))))
+      loc
+      (recur (zip/next loc)))))
+
 (defn strip-groupfields
   [loc]
   (if (zip/end? loc)
-    loc
+    (zip-to-top loc)
     (if (and (vector? (zip/node loc)) (= :groupedfield (first (zip/node loc))))
       (-> loc
-          (zip/edit second))
+          (zip/edit second)
+          zip/next
+          recur)
       (recur (zip/next loc)))))
 
 (defn strip-nils
@@ -35,19 +52,17 @@
   (let [extract-clause (filter #(= (first %) "extract") clauses)
         paging-groups (group-by paging-clause? clauses)
         paging-clauses (get paging-groups true)
-        other-clauses (get paging-groups false)
         grouped-clauses (filter #(= (first %) :groupedfield)
                                 (second (first extract-clause)))
         group-by-statement (transform-angle-groupby grouped-clauses)
-        other-clauses (vec (concat other-clauses [group-by-statement]))
-        other-clauses (-> other-clauses
+        _ (println "hello")
+        other-clauses (-> (get paging-groups false)
+                          (concat [group-by-statement])
+                          vec
                           zip/vector-zip
                           strip-groupfields
-                          zip/root
-                          zip/vector-zip
                           strip-nils
-                          zip/root
-                          )]
+                          zip/root)]
 
     (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
       (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
