@@ -1,9 +1,10 @@
 (ns puppetlabs.puppetdb.pql.transform
   (:require [clojure.string :as str]
             [puppetlabs.puppetdb.cheshire :as json]
+            [puppetlabs.puppetdb.zip :as pzip]
+            [clojure.core.match :as cm]
             [clojure.zip :as zip]
-            [clojure.walk :as walk]
-            ))
+            [clojure.walk :as walk]))
 
 (defn paging-clause?
   [v]
@@ -14,66 +15,43 @@
   (when (seq groupby)
     (vec (concat ["group_by"] (map second groupby)))))
 
-(defn zip-to-top
-  [loc]
-  (-> loc
-      zip/root
-      zip/vector-zip))
+(defn slurp-where->extract
+  [clauses]
+  (cm/match (vec clauses)
 
-(defn zip-to-extract
-  [loc]
-  (if (zip/end? loc)
-    (zip-to-top loc)
-    (if (and (vector? (zip/node loc)) (= "extract" (first (zip/node loc))))
-      loc
-      (recur (zip/next loc)))))
+            [["extract" args] [:where where]]
+            [["extract" args where]]
+            
+            [["extract" args] [:where where] & r]
+            (concat [["extract" args where]] r)
+          
+            :else
+            clauses))
 
-(defn strip-groupfields
-  [loc]
-  (if (zip/end? loc)
-    (zip-to-top loc)
-    (if (and (vector? (zip/node loc)) (= :groupedfield (first (zip/node loc))))
-      (-> loc
-          (zip/edit second)
-          zip/next
-          recur)
-      (recur (zip/next loc)))))
-
-(defn strip-nils
-  [loc]
-  (cond
-    (nil? (zip/node loc)) (zip/remove loc)
-    (zip/end? loc) loc
-    :else (recur (zip/next loc))))
-
-(def foo
-  [["extract"  [[:groupedfield "certname"]  [:groupedfield "value"]]]
-    ["=" "certname" "host-1"]
-     ["group_by" "certname" "value"]]
-  )
+(defn strip-and-move-groupedfields
+  [v]
+  (let [result (pzip/post-order-visit (pzip/tree-zipper v)
+                         #{}
+                         [(fn  [node state]
+                            (when  (and  (coll? node)
+                                        (seq node)
+                                        (= :groupedfield  (first node)))
+                              {:node (second node) :state  (conj state (second node))}))
+                          (fn  [node state]
+                            (when  (and (coll? node)
+                                        (seq node)
+                                        (= "extract"  (first node))
+                                        (not (empty? state)))
+                              {:node  (conj node (vec (cons "group_by" state)))}))])]
+    (:node result)))
 
 (defn slurp-expr->extract
   [clauses]
-  (let [extract-clause (filter #(= (first %) "extract") clauses)
-        paging-groups (group-by paging-clause? clauses)
-        paging-clauses (get paging-groups true)
-        grouped-clauses (filter #(= (first %) :groupedfield)
-                                (second (first extract-clause)))
-        group-by-statement (transform-angle-groupby grouped-clauses)
-        _ (println "hello")
-        _ (clojure.pprint/pprint
-            (vec (concat (get paging-groups false) [group-by-statement])))
-        other-clauses (-> (get paging-groups false)
-                          (concat [group-by-statement])
-                          vec
-                          zip/vector-zip
-                          strip-groupfields
-                          strip-nils
-                          zip/root)]
-
-    (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
-      (cons (vec (concat (first other-clauses) (rest other-clauses))) (vec paging-clauses))
-      clauses)))
+  (clojure.pprint/pprint clauses)
+  (let [clauses (slurp-where->extract clauses)]
+    (-> clauses
+        strip-and-move-groupedfields
+        vec)))
 
 (defn transform-from
   [entity & args]

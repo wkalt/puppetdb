@@ -9,7 +9,7 @@
       ["nodes"]
       ["from" "nodes"]
 
-      ["nodes" ["=" "a" 1]]
+      ["nodes" [:where ["=" "a" 1]]]
       ["from" "nodes"
        ["=" "a" 1]]
 
@@ -17,49 +17,49 @@
       ["from" "nodes"
        ["extract" ["a" "b" "c"]]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1]]
+      ["nodes" ["extract" ["a" "b" "c"]] [:where ["=" "a" 1]]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["group_by" "a"]]
+      ["nodes" ["extract" ["a" "b" "c"]] [:where ["=" "a" 1]] ["group_by" "a"]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]
         ["group_by" "a"]]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["limit" 1]]
+      ["nodes" ["extract" ["a" "b" "c"]] [:where ["=" "a" 1]] ["limit" 1]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]
         ["limit" 1]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["order_by" ["certname"]]]
+      ["nodes" ["extract" ["a" "b" "c"]] [:where ["=" "a" 1]] ["order_by" ["certname"]]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]
        ["order_by" ["certname"]]]
 
-      ["nodes" ["extract" ["a" "b" "c"]] ["=" "a" 1] ["order_by" [["certname" "desc"]]]]
+      ["nodes" ["extract" ["a" "b" "c"]] [:where ["=" "a" 1]] ["order_by" [["certname" "desc"]]]]
       ["from" "nodes"
        ["extract" ["a" "b" "c"]
         ["=" "a" 1]]
        ["order_by" [["certname" "desc"]]]]
 
 
-      ["nodes" ["extract" [[:groupedfield "a"]] ["=" "a" 1]]]
+      ["nodes" ["extract" [[:groupedfield "a"]] [:where ["=" "a" 1]]]]
       ["from" "nodes" ["extract" ["a"] ["=" "a" 1] ["group_by" "a"]]]
 
-      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] [:where ["=" "a" 1]]]]
       ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
 
-      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]]]
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] [:where ["=" "a" 1]]]]
       ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]]]
 
-      ["nodes" ["extract" [[:groupedfield "a"] "b"] ["=" "a" 1]] ["limit" 1]]
+      ["nodes" ["extract" [[:groupedfield "a"] "b"] [:where ["=" "a" 1]]] ["limit" 1]]
       ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a"]] ["limit" 1]]
 
-      ["nodes" ["extract" [[:groupedfield "a"] [:groupedfield "b"]] ["=" "a" 1]] ["limit" 1]]
+      ["nodes" ["extract" [[:groupedfield "a"] [:groupedfield "b"]] [:where ["=" "a" 1]]] ["limit" 1]]
       ["from" "nodes" ["extract" ["a" "b"] ["=" "a" 1] ["group_by" "a" "b"]] ["limit" 1]]
 
          ))
