@@ -723,25 +723,6 @@
       "'"
       "")))
 
-(deftest test-groupbyclause
-  (testing "groupbyclause"
-    (are [in expected] (= (parse in :start :groupbyclause) expected)
-      "group by name" [[:groupby "name"]]
-      "group by name, value" [[:groupby "name" "value"]])
-
-    (are [in] (insta/failure? (insta/parse parse in :start :groupbyclause))
-      "group by 'name'"
-      ""))
-
-  (testing "groupby"
-    (are [in expected] (= (parse in :start :groupby) expected)
-      "group by name" [:groupby "name"]
-      "group by name, value" [:groupby "name" "value"])
-
-    (are [in] (insta/failure? (insta/parse parse in :start :groupby))
-      "group by 'name'"
-      "")))
-
 (deftest test-paging
   (testing "offset"
     (are [in expected] (= (parse in :start :pagingclause) expected)

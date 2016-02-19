@@ -10,24 +10,6 @@
   [v]
   (contains? #{"limit" "offset" "order_by"} (first v)))
 
-(defn transform-angle-groupby
-  [groupby]
-  (when (seq groupby)
-    (vec (concat ["group_by"] (map second groupby)))))
-
-(defn slurp-where->extract
-  [clauses]
-  (cm/match (vec clauses)
-
-            [["extract" args] [:where where]]
-            [["extract" args where]]
-            
-            [["extract" args] [:where where] & r]
-            (concat [["extract" args where]] r)
-          
-            :else
-            clauses))
-
 (defn strip-and-move-groupedfields
   [v]
   (let [result (pzip/post-order-visit (pzip/tree-zipper v)
@@ -47,9 +29,14 @@
 
 (defn slurp-expr->extract
   [clauses]
-  (clojure.pprint/pprint clauses)
-  (let [clauses (slurp-where->extract clauses)]
-    (-> clauses
+  (let [paging-groups (group-by paging-clause? clauses)
+        paging-clauses (get paging-groups true)
+        other-clauses (get paging-groups false)
+        result (if (and (= (ffirst other-clauses) "extract") (second other-clauses))
+                 (cons (vec (concat (first other-clauses) (rest other-clauses)))
+                       (vec paging-clauses))
+                 clauses)]
+    (-> result
         strip-and-move-groupedfields
         vec)))
 
@@ -141,10 +128,6 @@
   ([mod int]
    (str "E" mod int)))
 
-(defn transform-groupby
-  [& args]
-  (vec (concat ["group_by"] args)))
-
 (defn transform-limit
   [arg]
   ["limit" arg])
@@ -181,7 +164,6 @@
    :integer            transform-integer
    :real               transform-real
    :exp                transform-exp
-   :groupby            transform-groupby
    :limit              transform-limit
    :offset             transform-offset
    :orderby            transform-orderby})
