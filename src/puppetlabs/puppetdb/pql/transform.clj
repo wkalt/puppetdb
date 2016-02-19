@@ -24,7 +24,7 @@
                                         (seq node)
                                         (= "extract"  (first node))
                                         (not (empty? state)))
-                              {:node  (conj node (vec (cons "group_by" state)))}))])]
+                              {:node  (conj node (vec (cons "group_by" (reverse state))))}))])]
     (:node result)))
 
 (defn slurp-expr->extract
