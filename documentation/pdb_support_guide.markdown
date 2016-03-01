@@ -10,52 +10,51 @@ layout: default
 [pgstattuple]: http://www.postgresql.org/docs/9.4/static/pgstattuple.html
 [pgtune]: https://github.com/gregs1104/pgtune
 [postgres-config]: http://www.postgresql.org/docs/current/static/runtime-config-resource.html
+[fact-precedence]: https://docs.puppetlabs.com/facter/3.1/custom_facts.html#fact-precedence
 
 ## Support and Troubleshooting for PuppetDB
 
-This document aims to be a technical guide for troubleshooting PuppetDB (PDB)
-and understanding its internals.
+This is a technical guide for troubleshooting PuppetDB (PDB) and understanding
+its internals.
 
 ## PDB Architectural Overview
-Data stored in PuppetDB flows through four distinct components: the terminus, a
-message queue, the actual application, and the database. From an ordering
-perspective, it goes terminus -> application -> queue -> application ->
-database. When thinking about PuppetDB abstractly it may be useful to consider
+Data stored in PDB flows through four components: the terminus, a message
+queue, the actual application, and the database. The ordering is terminus ->
+application -> queue -> application -> database. It may be useful to consider
 the terminus, application plus queue, and database as residing on three
 separate machines.
 
-### terminus
-The terminus is a ruby plugin that is installed on the Puppet master and serves
-to redirect agent/client data to PuppetDB in the form of "commands". PuppetDB
-has four commands, as described in the [commands documentation][commands].
+### Terminus
+The terminus resides on the Puppet master and redirects agent/client data to
+PDB in the form of "commands". PDB has four commands, as described in the
+[commands documentation][commands].
 
-### queue
-When the terminus sends a command to the PDB application, the command is
-immediately dumped to an ActiveMQ message queue on disk, essentially
-unprocessed. The command sits on the queue until it is processed, at which
-point it is sent to the database. Note that commands may be processed out of
-order, though an approximate ordering can generally be assumed.
+### Queue
+When the terminus sends a command to PDB, the command is dumped to an ActiveMQ
+message queue on disk unprocessed, where it waits for processing and submission
+to the database. Commands may be processed out of order, though an approximate
+ordering by submission time can be loosely assumed.
 
-### command processing
-Queue processing is handled by a set of concurrently running threads, the
-number of which is defined [in configuration][threads].  When a command is
-pulled off the queue, it will be parsed as JSON and modified for storage in the
-database. Depending on which type of command it is, there may also be some
-chatter with the database to determine whether storing the whole command is
-needed.
+### Command processing
+PDB processes the queue concurrently with the numberof threads specified [in
+configuration][threads].
 
-* `store-report`: store-report commands are the least expensive of the three.
-  Storing a report is mainly a matter of inserting a row in the reports table.
-* `replace-catalog`: When a replace-catalog command is received, PuppetDB will
-  first check if a more recent catalog already exists for the node in the
-  database. If so, the catalog is discarded and no action is taken. If not, PDB
-  will perform a diff of the catalog in hand and the catalog in the database,
-  and insert only the resources and edges that have changed.
-* `replace-facts`: At a high level, PuppetDB stores facts as key-value
-  associations between "paths" and "values". The term "path" refers to a
-  specific path from the root of a tree (e.g structured fact) to a leaf value,
-  and "value" refers to the leaf value itself. Conceptually, every fact is
-  stored as a tree. To illustrate, the fact
+Commands are taken from the queue and modified for
+storate in the database. The mechanism by which commands are processed depends
+on the command:
+
+* `store-report`: store-report commands are relatively inexpensive, consisting
+  mainly of inserting a row in the reports table.
+* `replace-catalog`: When a replace-catalog command is received, PDB will first
+  check if a more recent catalog already exists in the database for the node.
+  If so, the catalog is discarded and no action is taken. If not, PDB will
+  execute a diff of the catalog in hand and the catalog in the database, and
+  insert only the resources and edges that have changed.
+* `replace-facts`: PDB stores facts as key-value associations between "paths"
+  and "values". The term "path" refers to a specific route from the root of a
+  tree (e.g structured fact) to a leaf value, and "value" refers to the leaf
+  value itself. Conceptually, every fact is stored as a tree. To
+  illustrate, the fact
 
       "foo" => "bar"
 
@@ -82,35 +81,34 @@ needed.
       "foo#~1" => "baz"
 
   The same rules apply recursively for larger structures. When a replace-facts
-  command is received, PDB will compare the fact in hand against the fact paths
+  command is received, PDB will compare the fact in hand against the paths
   and values in the database, add whatever new paths/values are required, and
-  delete any pairs that have become invalidated.
+  delete any invalidated pairs.
 
 * `deactivate-node`: The deactivate-node command just updates a column in the
   certnames table, and isn't likely to be the source of performance issues.
 
-### database
+### Database
 
-PuppetDB uses PostgreSQL. The only good way to get familiar with the schema is
+PDB uses PostgreSQL. The only good way to get familiar with the schema is
 to examine an [erd diagram][erd] and investigate for yourself on a running
-instance via the psql interactive console. The PuppetDB team is available for
+instance via the psql interactive console. The PDB team is available for
 questions on the mailing list and in #puppet and #puppet-dev on freenode to
 answer any questions.
 
 ## PDB Diagnostics
 
-When any issue is encountered with PuppetDB, the first priority should be
+When any issue is encountered with PDB, the first priority should be
 collecting and inspecting the following:
 
-* PuppetDB logs (puppetdb.log, puppetdb-daemon.log, .hprof files in the log
+* PDB logs (puppetdb.log, puppetdb-daemon.log, .hprof files in the log
   directory)
 * PostgreSQL logs
-* Screenshot of PuppetDB dashboard
-* PostgreSQL table, index, and database sizes
+* Screenshot of PDB dashboard
 * atop output on PDB system
 
-### PuppetDB logs
-Search the PuppetDB logs for recurring errors that line up with the timing of
+### PDB Logs
+Search the PDB logs for recurring errors that line up with the timing of
 the issue. Some common errors that may show in the PDB logs
 are:
 * database constraint violations: These will appear from time to time in most
@@ -119,12 +117,12 @@ are:
   when a command fails to process due to a constraint violation, it will be
   retried 16 times over a period of a day or so, with the retry count displayed
   in the log.
-* ActiveMQ/KahaDB errors: PuppetDB can occasionally get into a state where
+* ActiveMQ/KahaDB errors: PDB can occasionally get into a state where
   ActiveMQ becomes corrupt and the queue itself needs to be deleted. This can
   be caused by a failed PDB upgrade, a JVM crash, or running out of space on
   disk, among other things. If you see frequent errors in the logs related to
-  ActiveMQ, you try stopping PuppetDB, moving the mq directory somewhere else,
-  and restarting PuppetDB (which will recreate the mq directory). Note that
+  ActiveMQ, you try stopping PDB, moving the mq directory somewhere else,
+  and restarting PDB (which will recreate the mq directory). Note that
   this message:
 
       2016-02-29 15:20:53,571 WARN  [o.a.a.b.BrokerService] Store limit is
@@ -133,15 +131,15 @@ are:
       usable space. - resetting to maximum available disk space: 71730 mb
 
   is harmless noise and does not indicate an issue. Users can make it go away
-  by lowering the store-usage or temp-usage settings in their PuppetDB
+  by lowering the store-usage or temp-usage settings in their PDB
   configuration.
 
-  Note additionally that 2.x versions of PuppetDB will sometimes throw harmless
+  Note additionally that 2.x versions of PDB will sometimes throw harmless
   AMQ noise on shutdown. If you are on 2.x and the errors you're seeing occur
   on shutdown only, you are probably running into [PDB-880][PDB-880] and your
   problem likely lies somewhere else.
 
-* Out of memory errors: PuppetDB can crash if it receives a command too large
+* Out of memory errors: PDB can crash if it receives a command too large
   for its heap. This can be trivially fixed by raising the Xmx setting in the
   JAVA_ARGS entry in /etc/sysconfig/puppetdb on redhat or
   /etc/defaults/puppetdb on Debian derivatives. Usually though, crashes due to
@@ -167,7 +165,7 @@ Check the postgres logs for:
     * Slow queries
 
 Slow queries are the main concern here, since most errors here have already
-been seen in the PuppetDB logs. Slow queries frequently occur on deletes
+been seen in the PDB logs. Slow queries frequently occur on deletes
 related to garbage collection and in queries against event-counts and
 aggregate-event-counts. Garbage collection deletes only run periodically, so
 some degree of slowness there is not generally an issue.
@@ -196,20 +194,67 @@ meaningful options to look at are typically `work_mem`, `shared_buffers`, and
 `effective_cache_size`. Consult the [PostgreSQL documentation][postgres-config]
 for information on these settings.
 
-### PuppetDB dashboard screenshot
+### PDB dashboard screenshot
 
-There are a few things to watch for in the PuppetDB dashboard:
+There are a few things to watch for in the PDB dashboard:
 
-* Deep command queue: Under sustainable conditions, the command queue should be
-  in the neighborhood of 0-100 most of the time, with occasional spikes
-  allowed. If the command queue is deeper than 10,000 for any extended period
-  of time, then commands are being processed too slow. Causes of slow command
-  processing include:
+* Deep command queue: Under sustainable conditions, the command queue depth
+  should be in the neighborhood of 0-100 most of the time, with occasional
+  spikes allowed. If the command queue is deeper than 10,000 for any extended
+  period of time, then commands are being processed too slow. Causes of slow
+  command processing include:
 
   - large, particularly array-valued, structured facts
+  - large commands in general
   - insufficient hardware
 
-  Large array-valued structured facts are problematic because as illustrated in
-  the 
+  Per the command-processing section above, array-valued structured facts are
+  stored with the index of each element embedded in the fact path. Imagining an
+  array of hashes, the fact
+      
+      "foo" => [{"bar" => "baz", "biz" => "qux"}, {"spam" => "eggs", "zig" => "zag}]
 
+  is stored as
 
+      "foo#~0#~bar" => "baz"
+      "foo#~0#~biz" => "qux"
+      "foo#~1#~spam" => "eggs"
+      "foo#~1#~zig" => "zag"
+
+  if an element is inserted at the front of the array, note that all subsequent
+  paths must be invalidated and recomputed, and invalidated paths must be
+  deleted:
+
+      "foo" => [{"alpha" => "beta", "gamma" => "delta"}, {"bar" => "baz", "biz" => "qux"}, {"spam" => "eggs", "zig" => "zag}]
+
+  is stored as:
+
+      "foo#~0#~alpha" => "beta"
+      "foo#~0#~gamma" => "delta"
+      "foo#~1#~bar" => "baz"
+      "foo#~1#~biz" => "qux"
+      "foo#~2#~spam" => "eggs"
+      "foo#~2#~zig" => "zag"
+
+  The worst case is a long array of large hashes, where a single replace-facts
+  command can trigger the recomputation and deletion of thousands of paths.
+  The mitigative solution is to change the top-level structure of the fact from
+  an array to a hash, which may narrow the scope of the tree to which the
+  recomputed paths are contained.  If this is infeasible, or if the fact in
+  question is irrelevant to your needs, the fact may be overridden by creating
+  a custom fact with the same name and weight 100. Refer to [fact
+  precedence][fact-precedence] for examples.
+
+### atop output
+
+  atop is a useful tool for determining which parts of a system are
+  bottlenecking PDB. Download atop via your package manager. The manpage
+  for atop can and should be consulted for definitive documentation. The
+  default page shows disk, cpu, and memory usage. If any of these appear out of
+  the ordinary, you can get further information by typing `d`, `s`, and `m`
+  within atop.
+
+## Contact Us
+If none of the above lead to a solution, there is a good chance that others are
+encountering your issue. Please contact us via the puppet-users mailing list or
+on freenode in #puppet or #puppet-dev so we can update this document.
