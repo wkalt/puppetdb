@@ -38,6 +38,10 @@
       factsets/factsets-query->wire-v4
       vec))
 
+(defn get-summary-stats []
+  (-> (svc-utils/pdb-admin-url)
+      (svc-utils/get-summary-stats)))
+
 (def example-certname "foo.local")
 
 (def example-facts
@@ -49,11 +53,23 @@
             :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
    :producer_timestamp (time-coerce/to-string (time/now))})
 
+(def example-facts2
+  {:certname example-certname
+   :environment "DEV"
+   :values {:foo "the foo"
+            :bar "the bar"
+            :spam "eggs"
+            :biz {:a [3.14 2.71] :b "the b" :c [1 2 3] :d {:e nil}}}
+   :producer_timestamp (time-coerce/to-string (time/now))})
+
 (def example-catalog
   (-> examples/wire-catalogs
       (get-in [8 :empty])
       (assoc :certname example-certname
              :producer_timestamp (time/now))))
+
+(def example-catalog2
+  (get-in examples/wire-catalogs [8 :basic]))
 
 (def example-report
   (-> examples-reports/reports
