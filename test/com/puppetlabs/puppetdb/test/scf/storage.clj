@@ -549,7 +549,7 @@
       ;; Lets intercept the insert/update/delete level so we can test it later
       ;; Here we only replace edges, so we can capture those specific SQL
       ;; operations
-      (tu/with-wrapped-fn-args [adds sql/insert-rows
+      (tu/with-wrapped-fn-args [adds insert-records*
                                 deletes sql/delete-rows]
         (let [resources    (:resources modified-catalog)
               refs-to-hash (reduce-kv (fn [i k v]
@@ -576,10 +576,10 @@
                              "contains"]]]
                    @deletes)))
           (testing "should only insert the 1 edge"
-            (is (= [[:edges ["basic.catalogs.com"
-                             "57495b553981551c5194a21b9a26554cd93db3d9"
-                             "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
-                             "before"]]]
+            (is (= [[:edges [{:certname "basic.catalogs.com"
+                              :source "57495b553981551c5194a21b9a26554cd93db3d9"
+                              :target "e247f822a0f0bbbfff4fe066ce4a077f9c03cdb1"
+                              :type "before"}]]]
                    @adds)))
           (testing "when reran to check for idempotency"
             (reset! adds [])
@@ -845,7 +845,7 @@
             ;; 1 catalog_resource delete
             (is (= 8.0 (apply + (sample (:catalog-volatility metrics))))))
 
-          (is (sort= [:resource_params_cache :resource_params :catalog_resources]
+          (is (sort= [:resource_params_cache :resource_params :catalog_resources :edges]
                      (table-args @inserts)))
           (is (= [:catalogs]
                  (table-args @updates)))
@@ -1117,7 +1117,7 @@
 
         (is (empty? (remove-edge-changes @deletes)))
 
-        (is (sort= [:resource_params_cache :resource_params]
+        (is (sort= [:resource_params_cache :resource_params :edges]
                    (table-args @inserts))))
 
       (is (not= orig-resource-hash (foobar-param-hash)))

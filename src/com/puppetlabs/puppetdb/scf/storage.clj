@@ -357,21 +357,24 @@
   {:post [(map? %)]}
   (first (sql/insert-records :catalogs
                              (assoc (catalog-row-map hash catalog timestamp)
-                               :certname name))))
+                                    :certname name))))
 
 (pls/defn-validated resources-exist? :- #{String}
   "Given a collection of resource-hashes, return the subset that
-  already exist in the database."
+   already exist in the database."
   [resource-hashes :- #{String}]
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
-        query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
-        sql-params (vec (cons query resource-hashes))]
-    (sql/with-query-results result-set
-      sql-params
-      (set (map :resource result-set)))))
+  (let [partitioned-hashes (partition-all 32767 resource-hashes)]
+    (set (flatten (for [hashes partitioned-hashes]
+                    (let [qmarks (str/join "," (repeat (count hashes) "?"))
+                          query (format
+                                  "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
+                          sql-params (vec (cons query hashes))]
+                      (sql/with-query-results result-set
+                        sql-params
+                        (doall (map :resource result-set)))))))))
 
 ;;The schema definition of this function should be
 ;;resource-ref->resource-schema, but there are a lot of tests that
@@ -404,7 +407,11 @@
   [table :- s/Keyword
    record-coll :- [{s/Keyword s/Any}]]
   (when (seq record-coll)
-    (apply sql/insert-records table record-coll)))
+    (let [params-per-record (count (first record-coll))
+          max-records-per-statement (int (/ 32000 params-per-record))
+          partitioned-records (partition-all max-records-per-statement record-coll)]
+      (doseq [p partitioned-records]
+        (apply sql/insert-records table p)))))
 
 (pls/defn-validated add-params!
   "Persists the new parameters found in `refs-to-resources` and populates the
@@ -589,10 +596,10 @@
   ;; earlier.
   (when (seq edges)
     (let [rows (for [[source target type] edges]
-                 [certname source target type])]
+                 {:certname certname :source source :target target :type type})]
 
       (update! (:catalog-volatility metrics) (count rows))
-      (apply sql/insert-rows :edges rows))))
+      (insert-records* :edges rows))))
 
 (pls/defn-validated replace-edges!
   "Persist the given edges in the database
