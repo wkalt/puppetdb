@@ -366,9 +366,9 @@
   {:pre  [(coll? resource-hashes)
           (every? string? resource-hashes)]
    :post [(set? %)]}
-  (let [qmarks     (str/join "," (repeat (count resource-hashes) "?"))
-        query      (format "SELECT DISTINCT resource FROM resource_params_cache WHERE resource IN (%s)" qmarks)
-        sql-params (vec (cons query resource-hashes))]
+  (let [resource-array (sutils/array-to-param "text" String (vec resource-hashes))
+        query "SELECT DISTINCT resource FROM resource_params_cache WHERE resource=ANY(?)"
+        sql-params [query resource-array]]
     (sql/with-query-results result-set
       sql-params
       (set (map :resource result-set)))))
