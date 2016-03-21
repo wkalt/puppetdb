@@ -1527,11 +1527,28 @@
          resources-1
          resources-2)))
 
-(deftest giant-catalog-storage
-  (let [giant-catalog (:basic catalogs)]
+(defn generate-resource []
+  (let [title (random/random-string 8)
+        type (random/random-string 8)]
+    [{:type type ,
+      :title title}
+     {:tags #{}, :file "/tmp/bar", :type type
+      :title title, :line 20, :parameters
+      {:group "root", :require "File[/etc/foobar]",
+       :ensure "directory", :user "root"}, :exported false}]))
 
-    )
-  )
+(deftest giant-catalog-storage
+  (let [giant-catalog (-> (:basic catalogs)
+                          (update-in [:resources]
+                                     #(apply conj %
+                                             (take 5000 (repeatedly generate-resource))))) ]
+    (add-certname! (:name giant-catalog))
+    (add-catalog! giant-catalog)
+    (testing "5003 resources stored"
+      (is (= 5003
+             (->> (query-to-vec "SELECT count(*) as c from catalog_resources")
+                  first
+                  :c))))))
 
 (deftest test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}
