@@ -1132,7 +1132,7 @@
                                 deletes sql/delete-rows]
         (add-catalog! catalog nil old-date)
 
-        (is (empty? @inserts))
+        (is (empty? (remove-edge-changes @inserts)))
         (is (empty? (remove #(= :edges (first %)) @deletes)))
         (is (= (sort [:catalog_resources :catalogs])
                (sort (map first @updates)))))
@@ -1526,6 +1526,12 @@
            :tags       #{"file" "class" "foobar" "baz"}}}
          resources-1
          resources-2)))
+
+(deftest giant-catalog-storage
+  (let [giant-catalog (:basic catalogs)]
+
+    )
+  )
 
 (deftest test-merge-resource-hash
   (let [ref->resource {{:type "File" :title "/tmp/foo"}
