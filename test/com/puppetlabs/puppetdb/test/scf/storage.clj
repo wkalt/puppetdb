@@ -1530,23 +1530,33 @@
 (defn generate-resource []
   (let [title (random/random-string 8)
         type (random/random-string 8)]
-    [{:type type ,
-      :title title}
-     {:tags #{}, :file "/tmp/bar", :type type
-      :title title, :line 20, :parameters
-      {:group "root", :require "File[/etc/foobar]",
-       :ensure "directory", :user "root"}, :exported false}]))
+    [{:type type :title title} {:tags #{} :type type :title title
+                                :exported false}]))
 
 (deftest giant-catalog-storage
   (let [giant-catalog (-> (:basic catalogs)
-                          (update-in [:resources]
-                                     #(apply conj %
-                                             (take 5000 (repeatedly generate-resource))))) ]
+                          (assoc :edges #{})
+                          (assoc :resources
+                                 (into {} (take 40000 (repeatedly generate-resource)))))]
     (add-certname! (:name giant-catalog))
     (add-catalog! giant-catalog)
-    (testing "5003 resources stored"
-      (is (= 5003
+    (testing "40000 resources stored"
+      (is (= 40000
              (->> (query-to-vec "SELECT count(*) as c from catalog_resources")
+                  first
+                  :c))))))
+
+(deftest giant-catalogs
+  (testing "resources-exist?"
+    (is (= #{} (resources-exist? (set (take 40000 (repeatedly random/random-string)))))))
+  (testing "insert-edges!"
+    (let [edges (set (take 40000 (repeatedly #(vector (random/random-string)
+                                                      (random/random-string)
+                                                      (random/random-string)))))]
+      (add-certname! "scale.com")
+      (insert-edges! "scale.com" edges)
+      (is (= 40000
+             (->> (query-to-vec "SELECT count(*) as c from edges")
                   first
                   :c))))))
 
