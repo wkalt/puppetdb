@@ -169,6 +169,12 @@
                           "ELSE NULL END")
                      column column column column)))
 
+(defn sql-function-call
+  [f & args]
+  (let [[column & params] args
+        column (if column column "*")]
+    (hcore/raw (format "%s(%s%s"))))
+
 (defn sql-array-type-string
   "Returns the SQL to declare an array of the supplied base database
   type."

@@ -34,9 +34,10 @@
 (defrecord AndExpression [clauses])
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
+(defrecord FnExpression [f & args])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
-(def supported-fns #{"sum" "avg" "min" "max" "count"})
+(def supported-fns #{"sum" "avg" "min" "max" "count" "to_char"})
 
 (defn hsql-hash-as-str
   [column-keyword]
@@ -885,8 +886,11 @@
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
+  (println "HONEYSQL CALL" call)
   (let [fs (seq (map (fn [f]
                        [(apply hcore/call f) (first f)]) call))
+        _ (println "FS")
+        _ (clojure.pprint/pprint fs)
         select (if (and fs
                         (empty? projected-fields))
                  (vec fs)
@@ -897,6 +901,10 @@
         new-selection (cond-> (assoc selection :select select)
                         group-by (assoc :group-by group-by))]
     (log/spy new-selection)))
+
+(def call [[:date_trunc "day" "reports.receive_time"]])
+(hcore/format (map (fn [f] [ (apply hcore/call f) (first f)]) call))
+
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -913,16 +921,25 @@
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
+    (println "INPUT")
+    (clojure.pprint/pprint query)
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
           sql (-> query
                   (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
                   (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
+      (println "OUTPUT")
+      (clojure.pprint/pprint sql)
 
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
+
+  FnExpression
+  (-plan->sql [expr]
+
+    )
 
   InExpression
   (-plan->sql [expr]
@@ -1355,7 +1372,7 @@
                                            (if (and (= "facts" (:source-table query-rec))
                                                     (= "value" col))
                                              (h/coalesce :fv.value_integer :fv.value_float)
-                                             (get-in query-rec [:projections col :field])))
+                                             (or (get-in query-rec [:projections col :field]) col)))
                                          args))))
                          fcols))]
       (-> query-rec
@@ -1476,6 +1493,11 @@
             [["in" column subquery-expression]]
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
+
+            [["function" f & clauses]]
+            (map->FnExpression {:function f
+                                :clauses clauses})
+
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
@@ -1760,7 +1782,11 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
+        _ (println "PLAN IS")
+        _ (clojure.pprint/pprint plan)
         sql (plan->sql plan)
+        _ (println "SQL IS")
+        _ (clojure.pprint/pprint sql)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
