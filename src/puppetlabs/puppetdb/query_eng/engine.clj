@@ -34,7 +34,7 @@
 (defrecord AndExpression [clauses])
 (defrecord OrExpression [clauses])
 (defrecord NotExpression [clause])
-(defrecord FnExpression [f & args])
+(defrecord FnExpression [function column params args])
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 (def supported-fns #{"sum" "avg" "min" "max" "count" "to_char"})
@@ -886,11 +886,7 @@
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
-  (println "HONEYSQL CALL" call)
-  (let [fs (seq (map (fn [f]
-                       [(apply hcore/call f) (first f)]) call))
-        _ (println "FS")
-        _ (clojure.pprint/pprint fs)
+  (let [fs (map su/fnexpression->sql call)
         select (if (and fs
                         (empty? projected-fields))
                  (vec fs)
@@ -901,10 +897,6 @@
         new-selection (cond-> (assoc selection :select select)
                         group-by (assoc :group-by group-by))]
     (log/spy new-selection)))
-
-(def call [[:date_trunc "day" "reports.receive_time"]])
-(hcore/format (map (fn [f] [ (apply hcore/call f) (first f)]) call))
-
 
 (pls/defn-validated sql-from-query :- String
   "Convert a query to honeysql, then to sql"
@@ -921,25 +913,19 @@
 (extend-protocol SQLGen
   Query
   (-plan->sql [query]
-    (println "INPUT")
-    (clojure.pprint/pprint query)
     (let [has-where? (boolean (:where query))
           has-projections? (not (empty? (:projected-fields query)))
           sql (-> query
                   (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
                   (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
-      (println "OUTPUT")
-      (clojure.pprint/pprint sql)
-
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
 
   FnExpression
   (-plan->sql [expr]
-
-    )
+    (su/fnexpression->sql expr))
 
   InExpression
   (-plan->sql [expr]
@@ -1009,11 +995,16 @@
 
 (defn extract-params
   "Extracts the node's expression value, puts it in state
-  replacing it with `?`, used in a prepared statement"
+   replacing it with `?`, used in a prepared statement"
   [node state]
-  (when (binary-expression? node)
+  (cond
+    (binary-expression? node)
     {:node (assoc node :value "?")
-     :state (conj state (:value node))}))
+     :state (conj state (:value node))}  
+
+    (instance? FnExpression node)
+    {:node (assoc node :args (repeat (count (:args node)) "?"))
+     :state (apply conj (vec (:params node)) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
@@ -1024,7 +1015,6 @@
                                                    [extract-params])]
     {:plan node
      :params state}))
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Query - functions/transformations of the user defined query
@@ -1359,26 +1349,44 @@
     [(vec (map rest functions))
      (vec nonfunctions)]))
 
+(defn create-fnexpression
+  [calls]
+  (for [c calls]
+    (let [[f & args] c
+          [column params] (if (seq args)
+                            [(first args) (rest args)]
+                            ["*" nil])
+          qmarks (when (seq params)
+                   (repeat (count params) "?"))]
+      (map->FnExpression {:function f
+                          :column column
+                          :params (vec params)
+                          :args (vec qmarks)}))))
+
 (defn create-extract-node
   [query-rec column expr]
   (let [[fcols cols] (strip-function-calls column)]
     (if-let [calls (seq
-                    (map (fn [[name & args]]
-                           (apply vector
-                                  name
-                                  (if (empty? args)
-                                    [:*]
-                                    (map (fn [col]
-                                           (if (and (= "facts" (:source-table query-rec))
-                                                    (= "value" col))
-                                             (h/coalesce :fv.value_integer :fv.value_float)
-                                             (or (get-in query-rec [:projections col :field]) col)))
-                                         args))))
-                         fcols))]
+                     (map (fn [[name & args]]
+                            (apply vector
+                                   name
+                                   (if (empty? args)
+                                     [:*]
+                                     (map (fn [col]
+                                            (if (and (= "facts" (:source-table query-rec))
+                                                     (= "value" col))
+                                              (h/coalesce :fv.value_integer :fv.value_float)
+                                              (or (get-in query-rec [:projections col :field]) col)))
+                                          args))))
+                          fcols))]
+
       (-> query-rec
-          (assoc :call calls)
+          (assoc :call (create-fnexpression calls))
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
+
+
+(def calls [["to_char" :reports.receive_time "HH24"]])
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -1493,11 +1501,6 @@
             [["in" column subquery-expression]]
             (map->InExpression {:column (columns->fields query-rec (utils/vector-maybe column))
                                 :subquery (user-node->plan-node query-rec subquery-expression)})
-
-            [["function" f & clauses]]
-            (map->FnExpression {:function f
-                                :clauses clauses})
-
 
             ;; This provides the from capability to replace the select_<entity> syntax from an
             ;; explicit subquery.
@@ -1782,11 +1785,7 @@
                                    expand-user-query
                                    (convert-to-plan query-rec paging-options)
                                    extract-all-params)
-        _ (println "PLAN IS")
-        _ (clojure.pprint/pprint plan)
         sql (plan->sql plan)
-        _ (println "SQL IS")
-        _ (clojure.pprint/pprint sql)
         paged-sql (jdbc/paged-sql sql paging-options)]
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
