@@ -1007,7 +1007,7 @@
 
     (instance? FnExpression node)
     {:node (assoc node :args (repeat (count (:args node)) "?"))
-     :state (apply conj state (vec (:params node)))}))
+     :state (apply conj (vec (:params node)) state)}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
