@@ -886,12 +886,9 @@
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
-  (println "group by is")
-  (clojure.pprint/pprint group-by)
-  (println "types are")
-  (clojure.pprint/pprint (map type group-by))
   (let [fs (map su/fnexpression->sql call)
-        group-bys (map #(if (instance? FnExpression %) (su/fnexpression->sql % false) %) group-by)
+        group-bys (when group-by
+                    (map #(if (instance? FnExpression %) (su/fnexpression->sql % false) %) group-by))
         select (if (and (seq fs)
                         (empty? projected-fields))
                  (vec fs)
@@ -1362,7 +1359,7 @@
   [query-rec c]
   (if (string? c)
     (get-in query-rec [:projections c :field])
-    (assoc c :column (get-in query-rec [:projections (:column c) :field]))))
+    (keyword (:function c))))
 
 (pls/defn-validated columns->fields
   "Convert a list of columns to their true SQL field names."
@@ -1371,7 +1368,8 @@
   (->> columns
        (map #(if (fnclause? %) (create-fnexpression (rest %)) %))
        (sort-by #(if (string? %) % (:column %)))
-       (map (partial alias-columns query-rec))))
+       (map (partial alias-columns query-rec))
+       vec))
 
 (defn strip-function-calls
   [column-or-columns]
@@ -1809,7 +1807,5 @@
                                    extract-all-params)
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
-    (println "FINAL STATEMENT IS")
-    (clojure.pprint/pprint (apply vector paged-sql params))
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))
