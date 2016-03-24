@@ -886,7 +886,12 @@
 (defn honeysql-from-query
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
+  (println "group by is")
+  (clojure.pprint/pprint group-by)
+  (println "types are")
+  (clojure.pprint/pprint (map type group-by))
   (let [fs (map su/fnexpression->sql call)
+        group-bys (map #(if (instance? FnExpression %) (su/fnexpression->sql % false) %) group-by)
         select (if (and (seq fs)
                         (empty? projected-fields))
                  (vec fs)
@@ -895,7 +900,7 @@
                                    (mapv #(extract-fields % entity)))
                               fs)))
         new-selection (cond-> (assoc selection :select select)
-                        group-by (assoc :group-by group-by))]
+                        group-bys (assoc :group-by group-bys))]
     (log/spy new-selection)))
 
 (pls/defn-validated sql-from-query :- String
@@ -1005,7 +1010,7 @@
 
     (instance? FnExpression node)
     {:node (assoc node :args (repeat (count (:args node)) "?"))
-     :state (apply conj (vec (:params node)) state)}))
+     :state (apply conj state (vec (:params node)))}))
 
 (defn extract-all-params
   "Zip through the query plan, replacing each user provided query parameter with '?'
@@ -1332,15 +1337,41 @@
           (assoc :where (user-node->plan-node query-rec expr))
           (update-selection offset limit order-by)))))
 
-(pls/defn-validated columns->fields :- [(s/cond-pre s/Keyword SqlCall SqlRaw)]
+(defn create-fnexpression
+  [[f & args]]
+  (let [[column params] (if (seq args)
+                          [(first args) (rest args)]
+                          ["*" nil])
+        qmarks (when (seq params)
+                 (repeat (count params) "?"))]
+    (map->FnExpression {:function f
+                        :column column
+                        :params (vec params)
+                        :args (vec qmarks)})))
+
+(defn create-fnexpressions
+  [calls]
+  (for [c calls]
+    (create-fnexpression c)))
+
+(defn fnclause?
+  [v]
+  (= "function" (first v)))
+
+(defn alias-columns
+  [query-rec c]
+  (if (string? c)
+    (get-in query-rec [:projections c :field])
+    (assoc c :column (get-in query-rec [:projections (:column c) :field]))))
+
+(pls/defn-validated columns->fields
   "Convert a list of columns to their true SQL field names."
   [query-rec
-   columns :- [s/Str]]
-  ; This case expression here could be eliminated if we just used a projections list
-  ; and had the InExpression use that to generate the sql, but as it is the zipper we
-  ; use to walk the plan won't see instances of hashes and uuids among fields that have
-  ; gone through this function
-  (map #(get-in query-rec [:projections % :field]) (sort columns)))
+   columns]
+  (->> columns
+       (map #(if (fnclause? %) (create-fnexpression (rest %)) %))
+       (sort-by #(if (string? %) % (:column %)))
+       (map (partial alias-columns query-rec))))
 
 (defn strip-function-calls
   [column-or-columns]
@@ -1350,20 +1381,6 @@
                                   (group-by (comp #(= "function" %) first)))]
     [(vec (map rest functions))
      (vec nonfunctions)]))
-
-(defn create-fnexpression
-  [calls]
-  (for [c calls]
-    (let [[f & args] c
-          [column params] (if (seq args)
-                            [(first args) (rest args)]
-                            ["*" nil])
-          qmarks (when (seq params)
-                   (repeat (count params) "?"))]
-      (map->FnExpression {:function f
-                          :column column
-                          :params (vec params)
-                          :args (vec qmarks)}))))
 
 (defn create-extract-node
   [query-rec column expr]
@@ -1383,9 +1400,15 @@
                                      (map coalesce-fact-values args))))
                           fcols))]
       (-> query-rec
-          (assoc :call (create-fnexpression calls))
+          (assoc :call (create-fnexpressions calls))
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
+
+(defn groupby-args->vector
+  [v]
+  (if (= (first v) "function")
+    [v]
+    (utils/vector-maybe v)))
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"
@@ -1511,7 +1534,7 @@
 
             [["extract" column ["group_by" & clauses]]]
             (-> query-rec
-                (assoc :group-by (columns->fields query-rec clauses))
+                (assoc :group-by (columns->fields query-rec (groupby-args->vector clauses)))
                 (create-extract-node column nil))
 
             [["extract" column expr]]
@@ -1519,7 +1542,7 @@
 
             [["extract" column expr ["group_by" & clauses]]]
             (-> query-rec
-                (assoc :group-by (columns->fields query-rec clauses))
+                (assoc :group-by (columns->fields query-rec (groupby-args->vector clauses)))
                 (create-extract-node column expr))
 
             :else nil))
@@ -1786,5 +1809,7 @@
                                    extract-all-params)
         sql (plan->sql plan)
         paged-sql (jdbc/paged-sql sql paging-options)]
+    (println "FINAL STATEMENT IS")
+    (clojure.pprint/pprint (apply vector paged-sql params))
     (cond-> {:results-query (apply vector paged-sql params)}
       include_total (assoc :count-query (apply vector (jdbc/count-sql sql) params)))))

@@ -194,12 +194,17 @@
    (format "ARRAY[?::text] <@ %s" (name column))))
 
 (defn fnexpression->sql
-  [{:keys [function column args] :as foo}]
-  (let [qmarks (if (seq args)
-                 (str ", " (str/join ", " args))
-                 "")]
-    (hcore/raw (format "%s(%s%s) AS %s"
-                       function (name column) qmarks function))))
+  ([expr]
+   (fnexpression->sql expr true))
+  ([{:keys [function column args]} alias?]
+   (let [qmarks (if (seq args)
+                  (str ", " (str/join ", " args))
+                  "")
+         column-alias (if alias?
+                        (format " AS %s" function)
+                        "")]
+     (hcore/raw (format "%s(%s%s)%s"
+                        function (name column) qmarks column-alias)))))
 
 (defn sql-regexp-match
   "Returns db code for performing a regexp match."
