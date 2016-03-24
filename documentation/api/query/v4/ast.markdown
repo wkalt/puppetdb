@@ -182,10 +182,27 @@ or
 ### `function`
 
 The **function** operator is used to call a function on the result of a
-subquery. Supported functions are `count`, `avg`, `sum`, `min`, and `max`. The
-function operator is applied within the first argument of an extract, as in
-the examples above. The `avg`, `sum`, `min`, and `max` functions will ignore
-non-numeric fact values.
+subquery. Supported functions are described below.
+
+#### `avg`, `sum`, `min`, `max`
+These functions will operator on any numeric column and take the column name as
+an argument, as in the examples above.
+
+#### `count`
+The `count` function can be used with or without a column. When no column is
+supplied, it will return the number of results in the associated subquery.
+Using the function with a column will return the number of results where the
+specified column is not null.
+
+#### `to_char`
+The `to_char` function operates on timestamps, allowing them to be formatted in
+a user-defined manner before being returned from puppetdb.
+
+The **function** operator is used to call a function on the result of a
+subquery. Supported functions are `count`, `avg`, `sum`, `min`, `max`, and
+`to_char`. The function operator is applied within the first argument of an
+extract, as in the examples above. The `avg`, `sum`, `min`, and `max` functions
+will ignore non-numeric fact values.
 
 ### `group_by`
 

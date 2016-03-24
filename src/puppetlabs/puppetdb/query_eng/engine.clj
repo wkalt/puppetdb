@@ -887,7 +887,7 @@
   "Convert a query to honeysql format"
   [{:keys [projected-fields group-by call selection projections entity]}]
   (let [fs (map su/fnexpression->sql call)
-        select (if (and fs
+        select (if (and (seq fs)
                         (empty? projected-fields))
                  (vec fs)
                  (vec (concat (->> (sort projections)
@@ -919,6 +919,7 @@
                   (utils/update-cond has-where? [:selection] #(hsql/merge-where % (-plan->sql (:where query))))
                   (utils/update-cond has-projections? [:projections] #(select-keys % (:projected-fields query)))
                   sql-from-query)]
+
       (if (:subquery? query)
         (htypes/raw (str " ( " sql " ) "))
         sql)))
@@ -1000,7 +1001,7 @@
   (cond
     (binary-expression? node)
     {:node (assoc node :value "?")
-     :state (conj state (:value node))}  
+     :state (conj state (:value node))}
 
     (instance? FnExpression node)
     {:node (assoc node :args (repeat (count (:args node)) "?"))
@@ -1015,6 +1016,7 @@
                                                    [extract-params])]
     {:plan node
      :params state}))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; User Query - functions/transformations of the user defined query
@@ -1365,28 +1367,25 @@
 
 (defn create-extract-node
   [query-rec column expr]
-  (let [[fcols cols] (strip-function-calls column)]
+  (let [[fcols cols] (strip-function-calls column)
+        coalesce-fact-values (fn [col]
+                               (if (and (= "facts" (:source-table query-rec))
+                                        (= "value" col))
+                                 "COALESCE(fv.value_integer, fv.value_float)"
+                                 (or (get-in query-rec [:projections col :field])
+                                     col)))]
     (if-let [calls (seq
                      (map (fn [[name & args]]
                             (apply vector
                                    name
                                    (if (empty? args)
                                      [:*]
-                                     (map (fn [col]
-                                            (if (and (= "facts" (:source-table query-rec))
-                                                     (= "value" col))
-                                              (h/coalesce :fv.value_integer :fv.value_float)
-                                              (or (get-in query-rec [:projections col :field]) col)))
-                                          args))))
+                                     (map coalesce-fact-values args))))
                           fcols))]
-
       (-> query-rec
           (assoc :call (create-fnexpression calls))
           (create-extract-node* cols expr))
       (create-extract-node* query-rec cols expr))))
-
-
-(def calls [["to_char" :reports.receive_time "HH24"]])
 
 (defn user-node->plan-node
   "Create a query plan for `node` in the context of the given query (as `query-rec`)"

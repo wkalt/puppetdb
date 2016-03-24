@@ -198,7 +198,8 @@
   (let [qmarks (if (seq args)
                  (str ", " (str/join ", " args))
                  "")]
-    (hcore/raw (format "%s(%s%s)" function (name column) qmarks))))
+    (hcore/raw (format "%s(%s%s) AS %s"
+                       function (name column) qmarks function))))
 
 (defn sql-regexp-match
   "Returns db code for performing a regexp match."
