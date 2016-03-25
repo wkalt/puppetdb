@@ -38,6 +38,13 @@
 
 (def json-agg-row (comp h/json-agg h/row-to-json))
 (def supported-fns #{"sum" "avg" "min" "max" "count" "to_char"})
+(def pdb-fns->pg-fns
+  {"sum" "sum"
+   "avg" "avg"
+   "min" "min"
+   "max" "max"
+   "count" "count"
+   "to_string" "to_char"})
 
 (defn hsql-hash-as-str
   [column-keyword]
