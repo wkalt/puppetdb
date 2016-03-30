@@ -334,4 +334,3 @@
           (handler-fn handler)
           (update req :route-params merge (kitchensink/mapvals url-decode route-params))
           (apply dissoc match-context :handler (keys req))))))))
-

@@ -45,7 +45,6 @@
   (:require [clj-time.core :refer [ago]]
             [clojure.java.io :as io]
             [clojure.tools.logging :as log]
-            [compojure.core :as compojure]
             [metrics.reporters.jmx :as jmx-reporter]
             [overtone.at-at :refer [mk-pool interspaced]]
             [puppetlabs.kitchensink.core :as kitchensink]

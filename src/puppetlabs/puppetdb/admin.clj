@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.admin
-  (:require [compojure.core :as compojure]
-            [puppetlabs.puppetdb.export :as export]
+  (:require [puppetlabs.puppetdb.export :as export]
             [puppetlabs.puppetdb.import :as import]
             [puppetlabs.puppetdb.http :as http]
             [ring.middleware.multipart-params :as mp]
