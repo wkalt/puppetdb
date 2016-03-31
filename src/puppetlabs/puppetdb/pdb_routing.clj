@@ -2,9 +2,9 @@
   (:require [puppetlabs.trapperkeeper.core :as tk]
             [compojure.core :as compojure]
             [compojure.route :as route]
-            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.services :as tksvc]
+            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.mq :as mq]
             [ring.middleware.resource :refer [resource-request]]
             [ring.util.request :as rreq]
@@ -41,49 +41,37 @@
                        query-fn enqueue-raw-command-fn response-pub]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
-    (map #(apply wrap-with-context %)
-         (partition
-          2
-          ;; The remaining get-shared-globals args are for wrap-with-globals.
-          ["/meta" (meta/build-app db-cfg defaulted-config)
-           "/cmd" (cmd/command-app get-shared-globals
-                                   enqueue-raw-command-fn
-                                   get-response-pub
-                                   (conf/reject-large-commands? defaulted-config)
-                                   (conf/max-command-size defaulted-config))
-           "/query" (server/build-app get-shared-globals)
-           "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
-           (route/not-found "Not Found")]))))
+    (cmdi/routes
+      (apply cmdi/context "/pdb"
+             (map (fn [[route-str handler]]
+                    (cmdi/context route-str handler))
+                  {"/meta" (meta/build-app db-cfg defaulted-config)
+                   ;"/cmd" (cmd/command-app get-shared-globals
+                   ;                        enqueue-raw-command-fn
+                   ;                        get-response-pub
+                   ;                        (conf/reject-large-commands? defaulted-config)
+                   ;                        (conf/max-command-size defaulted-config))
+                   ;"/query" (server/build-app get-shared-globals)
+                   ;"/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
+                   ;true (route/not-found "Not Found")
+
+
+                   })))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
-  (println "root is " root)
-  (-> (cmdi/context root
-                    (cmdi/routes (cmdi/GET "/" req
-                                           "hello world!"
+  (-> (compojure/context root []
+                         resource-request-handler
+                         (maint-mode-handler maint-mode-fn)
+                         (compojure/GET "/" req
+                                        (->> req
+                                             rreq/request-url
+                                             (format "%s/dashboard/index.html")
+                                             rr/redirect))
+                         (apply compojure/routes
+                                (concat app-routes
+                                        [(route/not-found "Not Found")])))
+      (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
 
-                                          ; (->> req
-                                          ;      rreq/request-url
-                                          ;      (format "%s/dashboard/index.html")
-                                          ;      rr/redirect)
-                                           ))
-                         ; (cmdi/routes app-routes
-                         ;        (concat app-routes
-                         ;                [(route/not-found "Not Found")]))
-
-                          )
-     ; (mid/wrap-with-puppetdb-middleware (get-in defaulted-config [:puppetdb :certificate-whitelist]))
-
-      ))
-
-(defn pdb-routes
-  [root defaulted-config get-shared-globals enqueue-command-fn
-   query-fn enqueue-raw-command-fn response-pub maint-mode-fn]
-  (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
-        get-response-pub #(response-pub)]
-    (cmdi/context root
-                  (cmdi/routes (cmdi/GET "/" req "hello world!")
-                               (cmdi/context "/meta"
-                                             (meta/build-app db-cfg defaulted-config))))))
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
   (disable-maint-mode [this])
@@ -177,15 +165,15 @@
                                      (assoc :warn-experimental true))]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
-          (add-ring-handler this (-> ( pdb-routes context-root
-                                                  config
-                                                  augmented-globals
-                                                  enqueue-command
-                                                  query
-                                                  enqueue-raw-command
-                                                  response-pub
-                                                  maint-mode?)
-                                     cmdi/routes->handler))
+          (add-ring-handler this (pdb-app context-root
+                                          config
+                                          maint-mode?
+                                          (pdb-core-routes config
+                                                           augmented-globals
+                                                           enqueue-command
+                                                           query
+                                                           enqueue-raw-command
+                                                           response-pub)))
 
           (enable-maint-mode)
           (enable-status-service))

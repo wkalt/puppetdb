@@ -147,28 +147,31 @@
 
 (defn validate-query-params
   "Ring middleware that verifies that the query params in the request
-  are legal based on the map `param-specs`, which contains a list of
-  `:required` and `:optional` query parameters.  If the validation fails,
-  a 400 Bad Request is returned, with an explanation of the invalid
-  parameters."
+   are legal based on the map `param-specs`, which contains a list of
+   `:required` and `:optional` query parameters.  If the validation fails,
+   a 400 Bad Request is returned, with an explanation of the invalid
+   parameters."
   [app param-specs]
   {:pre [(map? param-specs)
          (= #{} (kitchensink/keyset (dissoc param-specs :required :optional)))
          (every? string? (:required param-specs))
          (every? string? (:optional param-specs))]}
   (fn [{:keys [params] :as req}]
-    (kitchensink/cond-let [p]
-                          (kitchensink/excludes-some params (:required param-specs))
-                          (http/error-response (str "Missing required query parameter '" p "'"))
+    (let [params (or params {})]
+      (println "REQUEST IS" )
+      (clojure.pprint/pprint req)
+      (kitchensink/cond-let [p]
+                            (kitchensink/excludes-some params (:required param-specs))
+                            (http/error-response (str "Missing required query parameter '" p "'"))
 
-                          (let [diff (set/difference (kitchensink/keyset params)
-                                                     (set (:required param-specs))
-                                                     (set (:optional param-specs)))]
-                            (seq diff))
-                          (http/error-response (str "Unsupported query parameter '" (first p) "'"))
+                            (let [diff (set/difference (kitchensink/keyset params)
+                                                       (set (:required param-specs))
+                                                       (set (:optional param-specs)))]
+                              (seq diff))
+                            (http/error-response (str "Unsupported query parameter '" (first p) "'"))
 
-                          :else
-                          (app req))))
+                            :else
+                            (app req)))))
 
 (defn validate-no-query-params
   "Ring middleware that verifies that there are no query params on the request.

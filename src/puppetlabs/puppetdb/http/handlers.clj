@@ -171,7 +171,7 @@
    (cmdi/routes
     (cmdi/ANY "" []
               (create-query-handler version "resources"  http-q/restrict-query-to-active-nodes))
-    
+
     (cmdi/context ["/" (route-param :type)]
                   (cmdi/ANY "" []
                             (create-query-handler version "resources"
@@ -204,10 +204,10 @@
                   (cmdi/context "/edges"
                                 (-> (edge-routes version)
                                     (wrap-with-parent-check version :catalog :node)))
-                                
+
                   (cmdi/context "/resources"
                                 (-> (resources-routes version)
-                                    (append-handler http-q/restrict-query-to-node) 
+                                    (append-handler http-q/restrict-query-to-node)
                                     (wrap-with-parent-check version :catalog :node)))))))
 
 (pls/defn-validated facts-routes :- bidi-schema/RoutePair
@@ -218,10 +218,10 @@
               (create-query-handler version "facts" http-q/restrict-query-to-active-nodes))
 
     (cmdi/context ["/" (route-param :fact)]
-                  
+
                   (cmdi/ANY "" []
                             (create-query-handler version "facts"
-                                            http-q/restrict-fact-query-to-name 
+                                            http-q/restrict-fact-query-to-name
                                             http-q/restrict-query-to-active-nodes))
 
                   (cmdi/ANY ["/" (route-param :value)] []
@@ -352,4 +352,3 @@
    (cmdi/ANY "" []
              (create-query-handler version
                                    "aggregate_event_counts"))))
-

@@ -54,20 +54,21 @@
 (pls/defn-validated meta-routes :- bidi-schema/RoutePair
   [get-shared-globals :- (s/pred fn?)
    config :- {s/Any s/Any}]
-  (-> (cmdi/context "/v1"
-                    (cmdi/routes
-                      (cmdi/context "/version"
-                                    (cmdi/ANY "" []
-                                              (current-version-fn (v/version)))
-                                    (cmdi/ANY "/latest" []
-                                              (latest-version-fn get-shared-globals config)))
-                      (cmdi/ANY "/server-time" []
-                                (http/json-response {:server_time (now)}))))))
+  (cmdi/routes
+    (cmdi/context "/v1"
+                  (cmdi/context "/version"
+                                (cmdi/ANY "" []
+                                          (current-version-fn (v/version)))
+                                (cmdi/ANY "/latest" []
+                                          (latest-version-fn get-shared-globals config)))
+                  (cmdi/ANY "/server-time" []
+                            (http/json-response {:server_time (now)})))))
 
 (defn build-app
   [get-shared-globals config]
-  (-> (meta-routes get-shared-globals config)
-     ; mid/make-pdb-handler
-     ; mid/verify-accepts-json
-     ; mid/validate-no-query-params
-      ))
+  (fn [req]
+    (let [handler (-> (meta-routes get-shared-globals config)
+                      (cmdi/wrap-routes mid/verify-accepts-json)
+                      (cmdi/wrap-routes mid/validate-no-query-params)
+                       mid/make-pdb-handler)]
+      (handler req))))
