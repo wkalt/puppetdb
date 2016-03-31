@@ -82,8 +82,8 @@
         get-response-pub #(response-pub)]
     (cmdi/context root
                   (cmdi/routes (cmdi/GET "/" req "hello world!")
-                               (cmdi/GET "/meta" req (cmdi/wrap-routes (meta/build-app db-cfg defaulted-config)))))))
-
+                               (cmdi/context "/meta"
+                                             (meta/build-app db-cfg defaulted-config))))))
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
   (disable-maint-mode [this])
