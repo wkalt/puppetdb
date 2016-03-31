@@ -75,6 +75,15 @@
 
       ))
 
+(defn pdb-routes
+  [root defaulted-config get-shared-globals enqueue-command-fn
+   query-fn enqueue-raw-command-fn response-pub maint-mode-fn]
+  (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
+        get-response-pub #(response-pub)]
+    (cmdi/context root
+                  (cmdi/routes (cmdi/GET "/" req "hello world!")
+                               (cmdi/GET "/meta" req (cmdi/wrap-routes (meta/build-app db-cfg defaulted-config)))))))
+
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
   (disable-maint-mode [this])
@@ -168,15 +177,14 @@
                                      (assoc :warn-experimental true))]
           (set-url-prefix query-prefix)
           (log/info "Starting PuppetDB, entering maintenance mode")
-          (add-ring-handler this (-> (pdb-app context-root
-                                          config
-                                          maint-mode?
-                                          (pdb-core-routes config
-                                                           augmented-globals
-                                                           enqueue-command
-                                                           query
-                                                           enqueue-raw-command
-                                                           response-pub))
+          (add-ring-handler this (-> ( pdb-routes context-root
+                                                  config
+                                                  augmented-globals
+                                                  enqueue-command
+                                                  query
+                                                  enqueue-raw-command
+                                                  response-pub
+                                                  maint-mode?)
                                      cmdi/routes->handler))
 
           (enable-maint-mode)
