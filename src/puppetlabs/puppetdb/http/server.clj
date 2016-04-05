@@ -51,6 +51,19 @@
                 "/aggregate-event-counts" handlers/agg-event-counts-routes
                 "/reports" handlers/reports-routes}))))
 
+(defn server-routes
+  [get-shared-globals]
+  (-> routes
+      (cmdi/wrap-routes (fn [x]
+                          (-> x
+                              wrap-with-illegal-argument-catch
+                              verify-accepts-json
+                              (wrap-with-metrics (atom {}) http/leading-uris)
+                              (wrap-with-globals get-shared-globals)
+                              ;(make-pdb-handler identity)
+
+                              )))))
+
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.
    If get-authorizer is nil or false, all requests will be accepted.

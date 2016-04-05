@@ -326,7 +326,9 @@
    (make-pdb-handler route identity))
   ([route :- bidi-schema/RoutePair
     handler-fn :- handler-schema]
-   (fn [{:keys [uri path-info] :as req}]
+   (fn [{:keys [uri path-info body] :as req}]
+     (println "REQUEST IS")
+     (clojure.pprint/pprint req)
      (let [path (or path-info uri)
            {:keys [handler route-params] :as match-context} (bidi/match-route* route path req)]
        (when handler
