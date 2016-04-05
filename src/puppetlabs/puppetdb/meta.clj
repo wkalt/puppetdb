@@ -70,10 +70,3 @@
                           (-> x
                               mid/verify-accepts-json
                               mid/validate-no-query-params)))))
-
-(defn build-app
-  [get-shared-globals config]
-  (-> (meta-routes get-shared-globals config)
-      mid/make-pdb-handler
-      mid/verify-accepts-json
-      mid/validate-no-query-params))

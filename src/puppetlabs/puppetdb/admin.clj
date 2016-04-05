@@ -31,7 +31,3 @@
 
                 (cmdi/ANY "/summary-stats" []
                           (ss/collect-metadata get-shared-globals))))
-
-(defn build-app
-  [submit-command-fn query-fn get-shared-globals]
-  (mid/make-pdb-handler (admin-routes submit-command-fn query-fn get-shared-globals)))

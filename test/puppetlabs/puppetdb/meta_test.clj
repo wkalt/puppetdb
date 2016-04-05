@@ -7,6 +7,7 @@
             [puppetlabs.puppetdb.testutils
              :refer [assert-success! dotestseq get-request]]
             [puppetlabs.puppetdb.meta :as meta]
+            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.meta.version :as version]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.trapperkeeper.testutils.logging :refer [with-log-output]]
@@ -19,18 +20,24 @@
    ring response."
   (comp #(json/parse-string % true) :body))
 
+(defn test-app
+  [get-shared-globals config]
+  (mid/make-pdb-handler
+    (cmdi/wrap-routes
+      (meta/meta-routes
+        get-shared-globals config)
+      #(mid/wrap-with-puppetdb-middleware % nil))))
+
 (defn with-meta-app
   ([request]
    (with-meta-app request {} {}))
   ([request config-overrides]
    (with-meta-app request config-overrides {}))
   ([request config-overrides shared-globals-overrides]
-   (let [app (mid/wrap-with-puppetdb-middleware
-              (meta/build-app (fn [] shared-globals-overrides)
-                              {:global (merge {:product-name "puppetdb"
-                                               :update-server "FOO"}
-                                              config-overrides)})
-              nil)]
+   (let [app (test-app (fn [] shared-globals-overrides)
+                       {:global (merge {:product-name "puppetdb"
+                                        :update-server "FOO"}
+                                       config-overrides)})]
      (app request))))
 
 (deftest test-latest-version

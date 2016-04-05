@@ -3,11 +3,12 @@
             [clojure.test :refer :all]
             [puppetlabs.puppetdb.http.server :as server]
             [puppetlabs.puppetdb.testutils :as tu]
+            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.testutils.db :refer [*db* with-test-db]]
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.http :as http]
             [puppetlabs.puppetdb.middleware
-             :refer [wrap-with-puppetdb-middleware]]
+             :refer [wrap-with-puppetdb-middleware make-pdb-handler]]
             [puppetlabs.puppetdb.cheshire :as json])
   (:import
    [java.io ByteArrayInputStream]))
@@ -95,18 +96,23 @@
                 :product-name         "puppetdb"}
       :body (ByteArrayInputStream. (.getBytes body "utf8"))}))
 
+(defn test-app
+  [get-shared-globals]
+  (make-pdb-handler
+    (cmdi/wrap-routes
+      (server/server-routes get-shared-globals)
+      #(wrap-with-puppetdb-middleware % nil))))
+
 (defn call-with-http-app
   "Builds an HTTP app and make it available as *app* during the
-  execution of (f).  Calls (adjust-globals default-globals) if
-  adjust-globals is provided."
+   execution of (f).  Calls (adjust-globals default-globals) if
+   adjust-globals is provided."
   ([f] (call-with-http-app f identity))
   ([f adjust-globals]
    (let [get-shared-globals #(adjust-globals {:scf-read-db *db*
                                               :scf-write-db *db*
                                               :url-prefix ""})]
-     (binding [*app* (wrap-with-puppetdb-middleware
-                      (server/build-app get-shared-globals)
-                      nil)]
+     (binding [*app* (test-app get-shared-globals)]
        (f)))))
 
 (defmacro with-http-app

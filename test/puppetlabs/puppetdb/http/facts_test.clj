@@ -6,6 +6,7 @@
             [clojure.java.io :as io]
             [clojure.test :refer :all]
             [flatland.ordered.map :as omap]
+            [puppetlabs.comidi :as cmdi]
             [puppetlabs.puppetdb.scf.storage :as scf-store]
             [puppetlabs.puppetdb.cli.services :as cli-svc]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
@@ -491,12 +492,14 @@
   ([read-write-db]
    (test-app read-write-db read-write-db))
   ([read-db write-db]
-   (mid/wrap-with-puppetdb-middleware
-    (server/build-app #(hash-map :scf-read-db read-db
-                                 :scf-write-db write-db
-                                 :product-name "puppetdb"
-                                 :url-prefix "/pdb"))
-    nil)))
+   (mid/make-pdb-handler
+     (cmdi/wrap-routes
+       (server/server-routes
+         #(hash-map :scf-read-db read-db
+                    :scf-write-db write-db
+                    :product-name "puppetdb"
+                    :url-prefix "/pdb"))
+       #(mid/wrap-with-puppetdb-middleware % nil)))))
 
 (deftest-http-app fact-queries
   [[version endpoint] facts-endpoints

@@ -60,19 +60,3 @@
                               verify-accepts-json
                               (wrap-with-metrics (atom {}) http/leading-uris)
                               (wrap-with-globals get-shared-globals))))))
-
-(defn build-app
-  "Generates a Ring application that handles PuppetDB requests.
-   If get-authorizer is nil or false, all requests will be accepted.
-   Otherwise it must accept no arguments and return an authorize
-   function that accepts a request.  The request will be allowed only
-   if authorize returns :authorized.  Otherwise, the return value
-   should be a message describing the reason that access was denied."
-  [get-shared-globals]
-  (fn [req]
-    (let [handler (-> (make-pdb-handler routes identity)
-                      wrap-with-illegal-argument-catch
-                      verify-accepts-json
-                      (wrap-with-metrics (atom {}) http/leading-uris)
-                      (wrap-with-globals get-shared-globals))]
-      (handler req))))

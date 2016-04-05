@@ -1,6 +1,5 @@
 (ns puppetlabs.puppetdb.pdb-routing
   (:require [puppetlabs.trapperkeeper.core :as tk]
-            [compojure.core :as compojure]
             [compojure.route :as route]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.trapperkeeper.services :as tksvc]
@@ -9,6 +8,7 @@
             [ring.util.request :as rreq]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [ring.util.response :as rr]
+            [puppetlabs.puppetdb.dashboard :as dashboard]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
@@ -34,30 +34,6 @@
       {:status 503
        :body "PuppetDB is currently down. Try again later."})))
 
-(defn wrap-with-context [uri route]
-  (compojure/context uri [] route))
-
-;(defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
-;                       query-fn enqueue-raw-command-fn response-pub]
-;  (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
-;        get-response-pub #(response-pub)]
-;    (map #(apply wrap-with-context %)
-;         (partition
-;          2
-;          ;; The remaining get-shared-globals args are for wrap-with-globals.
-;          [
-;          ; "/meta" (meta/build-app db-cfg defaulted-config)
-;          ; "/cmd" (cmd/command-app get-shared-globals
-;          ;                         enqueue-raw-command-fn
-;          ;                         get-response-pub
-;          ;                         (conf/reject-large-commands? defaulted-config)
-;          ;                         (conf/max-command-size defaulted-config))
-;           "/query" (server/build-app get-shared-globals)
-;          ; "/admin" (admin/build-app enqueue-command-fn query-fn db-cfg)
-;          ; (route/not-found "Not Found")
-;
-;           ]))))
-
 (defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
                        query-fn enqueue-raw-command-fn response-pub]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
@@ -70,11 +46,18 @@
                                                get-response-pub
                                                (conf/reject-large-commands? defaulted-config)
                                                (conf/max-command-size defaulted-config)))
-      (cmdi/context "/admin" (admin/admin-routes enqueue-command-fn query-fn db-cfg)))))
+      (cmdi/context "/admin" (admin/admin-routes enqueue-command-fn query-fn db-cfg))
+      ["/" #(->> %
+                 rreq/request-url
+                 (format "%s/dashboard/index.html")
+                 rr/redirect)]
+      [true (route/not-found "Not Found")])))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (-> (cmdi/context root app-routes)
-      (cmdi/wrap-routes #(mid/wrap-with-puppetdb-middleware % (get-in defaulted-config [:puppetdb :certificate-whitelist])))))
+      (cmdi/wrap-routes
+        #(mid/wrap-with-puppetdb-middleware
+           % (get-in defaulted-config [:puppetdb :certificate-whitelist])))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
