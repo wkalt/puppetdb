@@ -62,11 +62,19 @@
                        query-fn enqueue-raw-command-fn response-pub]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
         get-response-pub #(response-pub)]
-    (cmdi/routes (cmdi/context "/query"
-                               (server/server-routes get-shared-globals)))))
+    (cmdi/routes
+      (cmdi/context "/query" (server/server-routes get-shared-globals))
+      (cmdi/context "/meta" (meta/meta-routes db-cfg defaulted-config))
+      (cmdi/context "/cmd" (cmd/command-routes get-shared-globals
+                                               enqueue-raw-command-fn
+                                               get-response-pub
+                                               (conf/reject-large-commands? defaulted-config)
+                                               (conf/max-command-size defaulted-config)))
+      (cmdi/context "/admin" (admin/admin-routes enqueue-command-fn query-fn db-cfg)))))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
-  (cmdi/context root app-routes))
+  (-> (cmdi/context root app-routes)
+      (cmdi/wrap-routes #(mid/wrap-with-puppetdb-middleware % (get-in defaulted-config [:puppetdb :certificate-whitelist])))))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])

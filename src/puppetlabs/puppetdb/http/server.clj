@@ -59,10 +59,7 @@
                               wrap-with-illegal-argument-catch
                               verify-accepts-json
                               (wrap-with-metrics (atom {}) http/leading-uris)
-                              (wrap-with-globals get-shared-globals)
-                              ;(make-pdb-handler identity)
-
-                              )))))
+                              (wrap-with-globals get-shared-globals))))))
 
 (defn build-app
   "Generates a Ring application that handles PuppetDB requests.

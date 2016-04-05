@@ -51,7 +51,7 @@
           (http/error-response
            (format "Error when checking for latest version: %s" e)))))))
 
-(pls/defn-validated meta-routes :- bidi-schema/RoutePair
+(pls/defn-validated routes :- bidi-schema/RoutePair
   [get-shared-globals :- (s/pred fn?)
    config :- {s/Any s/Any}]
   (cmdi/context "/v1"
@@ -62,6 +62,14 @@
                                         (latest-version-fn get-shared-globals config)))
                 (cmdi/ANY "/server-time" []
                           (http/json-response {:server_time (now)}))))
+
+(defn meta-routes
+  [get-shared-globals config]
+  (-> (routes get-shared-globals config)
+      (cmdi/wrap-routes (fn [x]
+                          (-> x
+                              mid/verify-accepts-json
+                              mid/validate-no-query-params)))))
 
 (defn build-app
   [get-shared-globals config]

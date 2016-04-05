@@ -238,6 +238,24 @@
 ;; The below fns expect to be called from a ring handler and
 ;; return functions that accept a ring request map
 
+(defn command-routes
+  [get-shared-globals enqueue-fn get-response-pub
+   reject-large-commands? max-command-size]
+  (-> (routes enqueue-fn get-response-pub
+              (when reject-large-commands? max-command-size))
+      (cmdi/wrap-routes (fn [x]
+                          (-> x
+                              validate-command-version
+                              wrap-with-request-normalization
+                              add-received-param
+                              (mid/validate-query-params {:optional ["checksum" "secondsToWaitForCompletion"
+                                                                     "certname" "command" "version"]})
+                              mid/verify-accepts-json
+                              (mid/verify-content-type ["application/json"])
+                              (mid/fail-when-payload-too-large reject-large-commands? max-command-size)
+                              (mid/wrap-with-metrics (atom {}) http/leading-uris)
+                              (mid/wrap-with-globals get-shared-globals))))))
+
 (defn command-app
   [get-shared-globals enqueue-fn get-response-pub
    reject-large-commands? max-command-size]

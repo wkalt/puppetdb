@@ -327,8 +327,6 @@
   ([route :- bidi-schema/RoutePair
     handler-fn :- handler-schema]
    (fn [{:keys [uri path-info body] :as req}]
-     (println "REQUEST IS")
-     (clojure.pprint/pprint req)
      (let [path (or path-info uri)
            {:keys [handler route-params] :as match-context} (bidi/match-route* route path req)]
        (when handler
@@ -336,4 +334,3 @@
           (handler-fn handler)
           (update req :route-params merge (kitchensink/mapvals url-decode route-params))
           (apply dissoc match-context :handler (keys req))))))))
-
