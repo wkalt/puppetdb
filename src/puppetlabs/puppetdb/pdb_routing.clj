@@ -57,6 +57,7 @@
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (cmdi/context root 
+                (cmdi/GET ["/" [#".*" :any]] ((maint-mode-handler maint-mode-fn)))
                 (-> app-routes
                     (cmdi/wrap-routes
                       #(mid/wrap-with-puppetdb-middleware
