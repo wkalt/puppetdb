@@ -8,7 +8,8 @@
 (def dashboard-routes
   (cmdi/context "/"
                 (cmdi/GET "" []
-                          (rr/redirect "/pdb/dashboard/index.html"))))
+                          (rr/redirect "/pdb/dashboard/index.html"))
+                (cmdi/resources "")))
 
 (defservice dashboard-redirect-service
   [[:WebroutingService add-ring-handler get-route]]
