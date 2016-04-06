@@ -7,14 +7,15 @@
 
 (def dashboard-routes
   (cmdi/context "/"
-                (cmdi/GET "" []
-                          (rr/redirect "/pdb/dashboard/index.html"))
-                (cmdi/resources "")))
+                (cmdi/routes
+                  (cmdi/resources "pdb/")
+                  (cmdi/GET "" []
+                            (rr/redirect "/pdb/dashboard/index.html")))))
 
 (defservice dashboard-redirect-service
   [[:WebroutingService add-ring-handler get-route]]
 
   (start [this context]
          (log/info "Redirecting / to the PuppetDB dashboard")
-         (add-ring-handler this (mid/make-pdb-handler dashboard-routes))
+         (add-ring-handler this (cmdi/routes->handler dashboard-routes))
          context))

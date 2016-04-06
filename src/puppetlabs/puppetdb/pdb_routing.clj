@@ -8,7 +8,6 @@
             [ring.util.request :as rreq]
             [puppetlabs.puppetdb.jdbc :as jdbc]
             [ring.util.response :as rr]
-            [puppetlabs.puppetdb.dashboard :as dashboard]
             [puppetlabs.puppetdb.meta :as meta]
             [puppetlabs.trapperkeeper.services.status.status-core :as status-core]
             [puppetlabs.puppetdb.admin :as admin]
@@ -47,17 +46,24 @@
                                                (conf/reject-large-commands? defaulted-config)
                                                (conf/max-command-size defaulted-config)))
       (cmdi/context "/admin" (admin/admin-routes enqueue-command-fn query-fn db-cfg))
-      ["/" #(->> %
-                 rreq/request-url
-                 (format "%s/dashboard/index.html")
-                 rr/redirect)]
-      [true (route/not-found "Not Found")])))
+;      ["/" #(->> %
+;                 rreq/request-url
+;                 (format "%s/dashboard/index.html")
+;                 rr/redirect)]
+     ; [true (route/not-found "Not Found")]
+      )))
+
+(def static-route
+  (cmdi/resources "/"))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
-  (-> (cmdi/context root app-routes)
-      (cmdi/wrap-routes
-        #(mid/wrap-with-puppetdb-middleware
-           % (get-in defaulted-config [:puppetdb :certificate-whitelist])))))
+  (cmdi/context root 
+                (-> app-routes
+                    (cmdi/wrap-routes
+                      #(mid/wrap-with-puppetdb-middleware
+                         % (get-in defaulted-config [:puppetdb :certificate-whitelist]))))
+                (cmdi/resources "/")
+                [true (route/not-found "Not Found")]))
 
 (defprotocol MaintenanceMode
   (enable-maint-mode [this])
