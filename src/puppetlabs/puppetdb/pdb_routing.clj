@@ -36,7 +36,11 @@
 (defn pdb-core-routes [defaulted-config get-shared-globals enqueue-command-fn
                        query-fn enqueue-raw-command-fn response-pub]
   (let [db-cfg #(select-keys (get-shared-globals) [:scf-read-db])
-        get-response-pub #(response-pub)]
+        get-response-pub #(response-pub)
+        dashboard-redirect #(->> %
+                                rreq/request-url
+                                (format "%s/dashboard/index.html")
+                                rr/redirect)]
     (cmdi/routes
       (cmdi/context "/query" (server/server-routes get-shared-globals))
       (cmdi/context "/meta" (meta/meta-routes db-cfg defaulted-config))
@@ -46,15 +50,10 @@
                                                (conf/reject-large-commands? defaulted-config)
                                                (conf/max-command-size defaulted-config)))
       (cmdi/context "/admin" (admin/admin-routes enqueue-command-fn query-fn db-cfg))
-;      ["/" #(->> %
-;                 rreq/request-url
-;                 (format "%s/dashboard/index.html")
-;                 rr/redirect)]
+      ["/" dashboard-redirect]
+      ["" dashboard-redirect]
      ; [true (route/not-found "Not Found")]
       )))
-
-(def static-route
-  (cmdi/resources "/"))
 
 (defn pdb-app [root defaulted-config maint-mode-fn app-routes]
   (cmdi/context root 

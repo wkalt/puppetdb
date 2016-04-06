@@ -1130,6 +1130,7 @@
 
   This function will return true iff any migrations were run."
   [db-connection-pool]
+  (Thread/sleep 10000)
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
         known-migrations (apply sorted-set (keys migrations))]
