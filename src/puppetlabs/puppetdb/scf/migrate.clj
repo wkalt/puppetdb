@@ -1048,6 +1048,26 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn add-awesome-historical-resources
+  []
+  (jdbc/do-commands
+   "create table hist_resources(id serial primary key,
+                                type text,
+                                title text,
+                                hash text,
+                                parameters jsonb)"
+
+   "create table hist_resource_lifetimes(certname_id integer,
+                                         hist_resource_id integer,
+                                         time_range tstzrange)"
+
+   "create table hist_edges(certname_id integer,
+                            source_id integer,
+                            dest_id integer,
+                            type text,
+                            id serial primary key,
+                            time_range tstzrange)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1070,7 +1090,8 @@
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id})
+   45 index-certnames-latest-report-id
+   46 add-awesome-historical-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 
