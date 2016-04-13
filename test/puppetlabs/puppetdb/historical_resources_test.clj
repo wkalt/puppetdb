@@ -33,7 +33,7 @@
 (def previous-time "2014-10-26T20:26:21.727Z")
 
 
-(def catalog (update (:basic catalogs) :resources vals))
+(def catalog (:basic catalogs))
 (def certname (:certname catalog))
 (def current-time (str (now)))
 
@@ -49,6 +49,7 @@
     (store-historical-resources (assoc catalog :producer_timestamp (-> 1 days ago)))
     (store-historical-resources (assoc catalog :producer_timestamp current-time :resources {}))
     (clojure.pprint/pprint (query-to-vec "SELECT * FROM hist_resource_lifetimes"))))
+    (store-historical-resources (assoc catalog :producer_timestamp current-time) nil)))
 
 ;; (testing "should contain proper catalog metadata"
 ;;   (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
