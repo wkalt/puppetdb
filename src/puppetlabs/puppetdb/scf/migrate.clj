@@ -1054,7 +1054,7 @@
    "create table hist_resources(id serial primary key,
                                 type text,
                                 title text,
-                                hash text,
+                                hash bytea,
                                 parameters jsonb)"
 
    "create table hist_resource_lifetimes(certname_id integer,
@@ -1065,7 +1065,6 @@
                             source_id integer,
                             dest_id integer,
                             type text,
-                            id serial primary key,
                             time_range tstzrange)"))
 
 (def migrations

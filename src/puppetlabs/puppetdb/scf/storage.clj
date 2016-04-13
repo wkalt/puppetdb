@@ -947,12 +947,45 @@ RETURNING hrl.hist_resource_id
       nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+=======
+(defn find-certname-id [certname]
+  (:id (first (jdbc/query-to-vec "select id from certnames where certname=?" certname))))
+
+;; store the new report+resource params thing
+(defn store-historical-resources [catalog report]
+  ;; v1: store shit naively
+  (jdbc/with-db-transaction []
+    (let [resources-to-store (->> (vals (:resources catalog))
+                                  (map (fn [cat]
+                                         (select-keys cat [:type :title :parameters])))
+                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
+          {:keys [producer_timestamp certname]} catalog
+          certname-id (find-certname-id certname)
+          created-resources (insert-records* :hist_resources resources-to-store)
+          lifetimes_to_store (->> created-resources
+                                  (map (fn [{:keys [id]}]
+                                         {:resource_id id
+                                          :certname_id certname-id
+                                          :time_range [producer_timestamp nil]})))]
+      (clojure.pprint/pprint
+       (insert-records* :hist_resource_lifetimes lifetimes_to_store))
+
+      ))
+
+  ;; v1.5: add resource shas
+
+  ;; v2:
+  ;; 1. figure out what hist_resources need to be stored
+  ;; 2. store the new hist_resources
+  ;; 3. Figure out how hist_resource_lifetimes needs to change (what rows to add, what rows to EOL)
+  ;; 4. Store new hist_resource_lifetime rows, apply EOLs
+  )
 
 (pls/defn-validated replace-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
   ([catalog :- catalog-schema]
-   (replace-catalog! catalog (now)))
+   #_(replace-catalog! catalog (now)))
   ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
     received-timestamp :- pls/Timestamp]
 
