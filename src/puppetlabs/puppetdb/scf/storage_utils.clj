@@ -274,6 +274,11 @@
   (let [json-str (json/generate-string value)]
     (str->pgobject "json" json-str)))
 
+;; (defn munge-uuid-for-storage
+;;   [value]
+;;   (str->pgobject "tstzrange" ))
+
+
 (defn munge-jsonb-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]
