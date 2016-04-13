@@ -1024,6 +1024,27 @@
    "UPDATE catalogs SET catalog_uuid=catalogs.transaction_uuid WHERE hash is NULL"
    "UPDATE reports SET catalog_uuid=reports.transaction_uuid WHERE hash is NULL"))
 
+
+(defn add-awesome-historical-resources
+  []
+  (jdbc/do-commands
+   "create table hist_resources(id serial primary key,
+                                type text,
+                                title text,
+                                hash text,
+                                parameters jsonb)"
+
+   "create table hist_resource_lifetimes(certname_id integer,
+                                         hist_resource_id integer,
+                                         time_range tstzrange)"
+
+   "create table hist_edges(certname_id integer,
+                            source_id integer,
+                            dest_id integer,
+                            type text,
+                            id serial primary key,
+                            time_range tstzrange)"))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1045,7 +1066,8 @@
    41 factset-hash-field-not-nullable
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
-   44 add-catalog-uuid-to-reports-and-catalogs})
+   44 add-catalog-uuid-to-reports-and-catalogs
+   45 add-awesome-historical-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 
