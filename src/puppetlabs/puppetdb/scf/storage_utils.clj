@@ -268,6 +268,11 @@
   [hash]
   (str->pgobject "bytea" (bytea-escape hash)))
 
+(defn munge-tstzrange-for-storage
+  "Prepare a clojure object for storage depending on db type."
+  [range]
+  (str->pgobject "tstzrange" range))
+
 (defn munge-json-for-storage
   "Prepare a clojure object for storage depending on db type."
   [value]

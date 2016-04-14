@@ -798,26 +798,50 @@
 (defn find-certname-id [certname]
   (:id (first (jdbc/query-to-vec "select id from certnames where certname=?" certname))))
 
+(defn foo [resources]
+  (let [hash-to-resource (into {} (for [res resources]
+                                    [(:hash res) res]))]
+    (into hash-to-resource (for [[{:keys [hash id]}]
+                                 (jdbc/query-to-vec
+                                  "select id, hash from hist_resources where hash in ?"
+                                  (sutils/array-to-param "text" String (keys hash-to-resource)))]
+                             [hash id]))))
+
 ;; store the new report+resource params thing
-(defn store-historical-resources [catalog report]
+(defn store-historical-resources [{:keys [resources producer_timestamp certname edges]}]
   ;; v1: store shit naively
   (jdbc/with-db-transaction []
-    (let [resources-to-store (->> (vals (:resources catalog))
-                                  (map (fn [cat]
-                                         (select-keys cat [:type :title :parameters])))
-                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
-          {:keys [producer_timestamp certname]} catalog
-          certname-id (find-certname-id certname)
-          created-resources (insert-records* :hist_resources resources-to-store)
-          lifetimes_to_store (->> created-resources
-                                  (map (fn [{:keys [id]}]
-                                         {:resource_id id
-                                          :certname_id certname-id
-                                          :time_range [producer_timestamp nil]})))]
-      (clojure.pprint/pprint
-       (insert-records* :hist_resource_lifetimes lifetimes_to_store))
+    (let [certname-id (find-certname-id certname)
+          time-range (sutils/munge-tstzrange-for-storage (format "[%s,infinity]" producer_timestamp))
 
-      ))
+          resources-to-store (->> (vals resources)
+                                  (map #(select-keys % [:type :title :parameters]))
+                                  (map #(assoc % :hash (shash/generic-identity-hash %)))
+                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
+          created-resources (->> resources-to-store
+                                 (insert-records* :hist_resources)
+                                 (map (fn [{:keys [id type title]}]
+                                        [{:type type :title title} id]))
+                                 (into {}))
+
+          edges-to-store (for [{:keys [source target relationship]} edges]
+                           {:source_id (get created-resources source)
+                            :certname_id certname-id
+                            :dest_id (get created-resources target)
+                            :type (name relationship)
+                            :time_range time-range})
+          created-edges (insert-records* :hist_edges edges-to-store)
+
+          lifetimes-to-store (->> (vals created-resources)
+                                  (map (fn [id]
+                                         {:hist_resource_id id
+                                          :certname_id certname-id
+                                          :time_range time-range})))
+          created-lifetimes (insert-records* :hist_resource_lifetimes lifetimes-to-store)]
+
+      (prn "EDGES: ") (clojure.pprint/pprint created-edges)
+      (prn "RESOURCES: ") (clojure.pprint/pprint created-resources)
+      (prn "LIFETIMES: ") (clojure.pprint/pprint created-lifetimes)))
 
   ;; v1.5: add resource shas
 

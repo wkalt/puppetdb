@@ -44,7 +44,7 @@
 (deftest-db historical-resources-persistence
   (testing "Persisted catalogs"
     (add-certname! certname)
-    (store-historical-resources (assoc catalog :producer_timestamp current-time) nil)))
+    (store-historical-resources (assoc catalog :producer_timestamp current-time))))
 
 ;; (testing "should contain proper catalog metadata"
 ;;   (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
