@@ -1024,6 +1024,58 @@
    "UPDATE catalogs SET catalog_uuid=catalogs.transaction_uuid WHERE hash is NULL"
    "UPDATE reports SET catalog_uuid=reports.transaction_uuid WHERE hash is NULL"))
 
+(defn add-pks-to-resource-events-and-reports
+  []
+  (jdbc/do-commands
+
+    "CREATE SEQUENCE resource_event_id_seq CYCLE"
+
+    (sql/create-table-ddl
+      :resource_events_transform
+      ["resource_event_id" "bigint default nextval(resource_event_id_seq)"]
+      ["report_id" "bigint   not null"]
+      ["certname_id" "bigint not null"]
+      ["status" "varchar(40) not null" ]
+      ["timestamp" "timestamp with time zone"]
+      ["resource_type" "text not null"]
+      ["resource_title" "text not null"]
+      ["property" "varchar(40)"]
+      ["new_value" "text"]
+      ["old_value" "text"]
+      ["message" "text"]
+      ["file" "varchar(1024) default null"]
+      ["line" "integer"]
+      ["containment_path" (sutils/sql-array-type-string "TEXT")]
+      ["containing_class" "varchar(255)"])
+
+    "INSERT INTO resource_events_transform
+     (report_id, certname_id, status, timestamp, resource_type, resource_title,
+     property, new_value, old_value, message, file, line, containment_path,
+     containing_class)
+
+     SELECT report_id, certname_id, status, timestamp, resource_type,
+     resource_title, property, new_value, old_value, message, file, line,
+     containment_path, containing_class FROM resource_events"
+
+    "DROP TABLE resource_events"
+    "alter table resource_events_transform rename to resource_events"
+
+    "alter table resource_events add constraint unique(report_id, resource_type, resource_title, property)"
+    "create index resource_events_containing_class_idx on resource_events(containing_class)"
+    "create index resource_events_property_idx on resource_events(property)"
+    "create index resource_events_report_id_idx on resource_events(report_id)"
+    "create index resource_events_resource_timestamp on resource_events(resource_type, resource_title, timestamp)"
+    "create index resource_events_resource_title_idx on resource_events(resource_title)"
+    "create index resource_events_resource_type_idx on resource_events(resource_type)"
+    "create indes resource_events_status_idx on resource_events(status)"
+    "create index resource_events_timestamp_idx on resource_events(timestamp)"
+
+    "alter table resource_events add constraint resource_events_report_id_fkey
+     foreign key report_id references reports(id) on delete cascade"
+
+
+
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
