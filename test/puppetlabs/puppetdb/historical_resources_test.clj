@@ -47,8 +47,7 @@
     (store-historical-resources (assoc catalog :producer_timestamp (-> 3 days ago)))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 2 days ago) :resources {}))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 1 days ago)))
-    (store-historical-resources (assoc catalog :producer_timestamp current-time :resources {}))
-    (clojure.pprint/pprint (query-to-vec "SELECT * FROM hist_resource_lifetimes"))))
+    (store-historical-resources (assoc catalog :producer_timestamp current-time :resources {}))))
 
 ;; (testing "should contain proper catalog metadata"
 ;;   (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
