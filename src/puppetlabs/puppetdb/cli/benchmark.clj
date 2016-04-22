@@ -229,8 +229,6 @@
       (update :resources conj (random-resource))
       (update :resources vec)))
 
-(def foo (json/parse-string (slurp "/Users/wyatt/data/storage-optimization/staples-sampling/example_resource-graph_from_aj.json") true))
-
 (defn delete-resource
   [r]
   (update r :resources butlast)
@@ -261,9 +259,6 @@
   {:classname "org.postgresql.Driver"
    :subprotocol "postgresql"
    :subname "//localhost:5432/puppetdb"})
-
-(def foo (json/parse-string (slurp "/Users/wyatt/data/storage-optimization/staples-sampling/example_resource-graph_from_aj.json") true))
-
 
 ;(jdbc/with-db-connection db
 ;  (doseq [n (range 50)]
