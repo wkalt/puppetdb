@@ -220,20 +220,35 @@
               :message "foobar"}}))
 
 (def edge-types
-  #{"notifies" "required-by" "subscription-of" "contains" "before"})
+  ["notifies" "required-by" "subscription-of" "contains" "before"])
 
 (defn add-resource
   [r]
   (let [new-resource (random-resource)
-
-        ]
+        random-resource (rand-nth (:resources r))
+        new-edge {:source {:type (:type random-resource)
+                           :title (:title random-resource)}
+                  :target {:type (:type new-resource)
+                           :title (:title new-resource)}
+                  :relationship (rand-nth edge-types)}]
     (-> r
         (update :resources conj new-resource)
-        (update :resources vec))))
+        (update :resources vec)
+        (update :edges conj new-edge)
+        (update :edge vec))))
+
 
 (defn delete-resource
   [r]
-  (update r :resources butlast))
+  (let [{:keys [type title] :as rand-resource} (rand-nth (:resources r))]
+    (-> r
+        (update :resources (fn [x]
+                             (filter #(not (and (= (:type %) type)
+                                                (= (:title %) title))) x)))
+        (update :edges (fn [x]
+                         (filter #(not (and (= (get-in % [:source :type]) type)
+                                            (= (get-in % [:source :title]) title)))
+                                 x))))))
 
 (defn change-resource
   [r]
@@ -261,10 +276,6 @@
    :subprotocol "postgresql"
    :subname "//localhost:5432/puppetdb"})
 
-;(jdbc/with-db-connection db
-;  (doseq [n (range 50)]
-;    (storage/store-historical-resources (last (take 20 (iterate #(tweak-sr % 0.2) foo))))))
-
 (defn generate-and-submit-superreports!
   [path nagents nmsgs p]
   (let [start-data (json/parse-string (slurp path) true )
@@ -272,13 +283,13 @@
 
     (jdbc/with-db-connection db
       (doseq [host hosts]
+        (println "storing data for host" host)
         (loop [n nmsgs
                state start-data]
           (let [new-state (-> (tweak-sr state p)
                               (assoc :certname host)
                               (assoc :producer_timestamp (time/now))
                               (assoc :transaction_uuid (kitchensink/uuid)))]
-            (println "host" host)
             (storage/store-historical-resources new-state)
             (when (pos? n)
               (recur (dec n) new-state))))))))
