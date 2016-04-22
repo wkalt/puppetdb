@@ -219,20 +219,21 @@
               :status "changed"
               :message "foobar"}}))
 
-;(take 20  (repeatedly random-resource))
-
-
+(def edge-types
+  #{"notifies" "required-by" "subscription-of" "contains" "before"})
 
 (defn add-resource
   [r]
-  (-> r
-      (update :resources conj (random-resource))
-      (update :resources vec)))
+  (let [new-resource (random-resource)
+
+        ]
+    (-> r
+        (update :resources conj new-resource)
+        (update :resources vec))))
 
 (defn delete-resource
   [r]
-  (update r :resources butlast)
-  )
+  (update r :resources butlast))
 
 (defn change-resource
   [r]
@@ -280,8 +281,7 @@
             (println "host" host)
             (storage/store-historical-resources new-state)
             (when (pos? n)
-              (recur (dec n) new-state))))))
-    ))
+              (recur (dec n) new-state))))))))
 
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
