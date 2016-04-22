@@ -1524,51 +1524,6 @@ RETURNING he.id
    received-timestamp :- pls/Timestamp]
   (add-report!* report received-timestamp true))
 
-(defn store-historical-resources [{:keys [resources producer_timestamp certname edges]}]
-  ;; v1: store shit naively
-  (jdbc/with-db-transaction []
-    (maybe-activate-node! certname (now))
-    (let [certname-id (find-certname-id certname)
-          time-range (sutils/munge-tstzrange-for-storage (format "[%s,infinity]" producer_timestamp))
-
-          resources-to-store (->> resources
-                                  (map #(select-keys % [:type :title :parameters]))
-                                  (map #(assoc % :hash (shash/generic-identity-hash %)))
-                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
-          created-resources (->> resources-to-store
-                                 (insert-records* :hist_resources)
-                                 (map (fn [{:keys [id type title]}]
-                                        [{:type type :title title} id]))
-                                 (into {}))
-
-          edges-to-store (for [{:keys [source target relationship]} edges]
-                           {:source_id (get created-resources source)
-                            :certname_id certname-id
-                            :dest_id (get created-resources target)
-                            :type (name relationship)
-                            :time_range time-range})
-          created-edges (insert-records* :hist_edges edges-to-store)
-
-          lifetimes-to-store (->> (vals created-resources)
-                                  (map (fn [id]
-                                         {:hist_resource_id id
-                                          :certname_id certname-id
-                                          :time_range time-range})))
-          created-lifetimes (insert-records* :hist_resource_lifetimes lifetimes-to-store)]
-
-      (log/info "stored data")
-      ))
-
-  ;; v1.5: add resource shas
-
-  ;; v2:
-  ;; 1. figure out what hist_resources need to be stored
-  ;; 2. store the new hist_resources
-  ;; 3. Figure out how hist_resource_lifetimes needs to change (what rows to add, what rows to EOL)
-  ;; 4. Store new hist_resource_lifetime rows, apply EOLs
-  )
-
-
 (defn validate-database-version
   "Check the currently configured database and if it isn't supported,
   notify the user and call fail-fn.  Then (if fail-fn returns) notify

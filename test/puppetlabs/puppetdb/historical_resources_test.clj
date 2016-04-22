@@ -44,6 +44,9 @@
 (deftest-db historical-resources-persistence
   (testing "Persisted catalogs"
     (add-certname! certname)
+    (store-historical-resources (assoc catalog :producer_timestamp (-> 6 days ago)))
+    (store-historical-resources (assoc catalog :producer_timestamp (-> 5 days ago)))
+    (store-historical-resources (assoc catalog :producer_timestamp (-> 4 days ago)))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 3 days ago)))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 2 days ago) :resources {} :edges []))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 1 days ago)))
