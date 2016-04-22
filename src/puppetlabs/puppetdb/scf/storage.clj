@@ -113,6 +113,43 @@
 
 (def storage-metrics-registry (get-in metrics/metrics-registries [:storage :registry]))
 
+(defn certname-exists?
+  "Returns a boolean indicating whether or not the given certname exists in the db"
+  [certname]
+  {:pre [certname]}
+  (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
+                            certname]))))
+
+
+(pls/defn-validated add-certname!
+  "Add the given host to the db"
+  [certname :- String]
+  (jdbc/insert! :certnames {:certname certname}))
+
+(defn timestamp-of-newest-record [entity certname]
+  (let [query {:select [:producer_timestamp]
+               :from [entity]
+               :where [:= :certname certname]
+               :order-by [[:producer_timestamp :desc]]
+               :limit 1}]
+    (:producer_timestamp (first (jdbc/query (hcore/format query))))))
+
+(pls/defn-validated maybe-activate-node!
+  "Reactivate the given host, only if it was deactivated or expired before
+  `time`.  Returns true if the node is activated, or if it was already active.
+
+  Adds the host to the database if it was not already present."
+  [certname :- String
+   time :- pls/Timestamp]
+  (when-not (certname-exists? certname)
+    (add-certname! certname))
+  (let [timestamp (to-timestamp time)
+        replaced  (jdbc/update! :certnames
+                                {:deactivated nil, :expired nil}
+                                ["certname=? AND (deactivated<? OR expired<?)"
+                                 certname timestamp timestamp])]
+    (pos? (first replaced))))
+
 ;; ## Performance metrics
 ;;
 ;; ### Timers for catalog storage
@@ -201,13 +238,6 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Certname querying/deleting
-
-(defn certname-exists?
-  "Returns a boolean indicating whether or not the given certname exists in the db"
-  [certname]
-  {:pre [certname]}
-  (not (empty? (jdbc/query ["SELECT 1 FROM certnames WHERE certname=? LIMIT 1"
-                            certname]))))
 
 (defn delete-certname!
   "Delete the given host from the db"
@@ -878,6 +908,7 @@
 (defn store-historical-resources [{:keys [resources producer_timestamp certname edges]}]
   ;; v1: store shit naively
   (jdbc/with-db-transaction []
+    (maybe-activate-node! certname (now))
     (let [certname-id (find-certname-id certname)
           time-range (sutils/munge-tstzrange-for-storage (format "[%s,)" producer_timestamp))
 
@@ -890,24 +921,21 @@
           created-resources
           (let [old-hash-resource-map (into {} (for [{:keys [hist_resource_id hash]}
                                                      (query-to-vec
-                                                      "
-SELECT hr.hash, hrl.hist_resource_id
-FROM hist_resource_lifetimes hrl
-LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
-WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?
-"
-                                                      certname-id)]
+                                                       "SELECT hr.hash, hrl.hist_resource_id
+                                                        FROM hist_resource_lifetimes hrl
+                                                        LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
+                                                        WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?
+                                                        "
+                                                       certname-id)]
                                                  [hash hist_resource_id]))]
             (diff-fn (kitchensink/keyset old-hash-resource-map) (kitchensink/keyset new-hash-resource-map)
 
                      (fn [hashes]
                        (jdbc/query-to-vec
-                        "
-UPDATE hist_resource_lifetimes hrl
-SET time_range = time_range * ?
-WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
-RETURNING hrl.hist_resource_id
-"
+                         "UPDATE hist_resource_lifetimes hrl
+                          SET time_range = time_range * ?
+                          WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
+                          RETURNING hrl.hist_resource_id"
 
                         (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
                         (->> hashes
@@ -1526,19 +1554,6 @@ RETURNING he.id
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Public
 
-(pls/defn-validated add-certname!
-  "Add the given host to the db"
-  [certname :- String]
-  (jdbc/insert! :certnames {:certname certname}))
-
-(defn timestamp-of-newest-record [entity certname]
-  (let [query {:select [:producer_timestamp]
-               :from [entity]
-               :where [:= :certname certname]
-               :order-by [[:producer_timestamp :desc]]
-               :limit 1}]
-    (:producer_timestamp (first (jdbc/query (hcore/format query))))))
-
 (pls/defn-validated have-record-produced-after?
   [entity :- s/Keyword
    certname :- String
@@ -1557,22 +1572,6 @@ RETURNING he.id
   (some (fn [entity]
           (have-record-produced-after? entity certname timestamp))
         [:catalogs :factsets :reports]))
-
-(pls/defn-validated maybe-activate-node!
-  "Reactivate the given host, only if it was deactivated or expired before
-  `time`.  Returns true if the node is activated, or if it was already active.
-
-  Adds the host to the database if it was not already present."
-  [certname :- String
-   time :- pls/Timestamp]
-  (when-not (certname-exists? certname)
-    (add-certname! certname))
-  (let [timestamp (to-timestamp time)
-        replaced  (jdbc/update! :certnames
-                                {:deactivated nil, :expired nil}
-                                ["certname=? AND (deactivated<? OR expired<?)"
-                                 certname timestamp timestamp])]
-    (pos? (first replaced))))
 
 (pls/defn-validated deactivate-node!
   "Deactivate the given host, recording the current time. If the node is
