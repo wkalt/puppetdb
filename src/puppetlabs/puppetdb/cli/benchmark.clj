@@ -273,10 +273,14 @@
       (doseq [host hosts]
         (loop [n nmsgs
                state start-data]
-          (println "host" host)
-          (storage/store-historical-resources (assoc (change-resource state) :certname host))
-          (when (pos? n)
-            (recur (dec n) state)))))
+          (let [new-state (-> (tweak-sr state p)
+                              (assoc :certname host)
+                              (assoc :producer_timestamp (time/now))
+                              (assoc :transaction_uuid (kitchensink/uuid)))]
+            (println "host" host)
+            (storage/store-historical-resources new-state)
+            (when (pos? n)
+              (recur (dec n) new-state))))))
     ))
 
 (defn update-factset
