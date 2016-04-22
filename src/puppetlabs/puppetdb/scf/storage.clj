@@ -875,15 +875,46 @@ RETURNING hrl.hist_resource_id
                                            (kitchensink/mapvals #(select-keys % [:type :title]))
                                            clojure.set/map-invert
                                            (kitchensink/mapvals #(get created-resources %)))
-          edges-to-store (for [{:keys [source target relationship]} edges]
-                           {:source_id (->> source (get resource-hash-map-for-edges))
-                            :certname_id certname-id
-                            :dest_id (->> source (get resource-hash-map-for-edges))
-                            :type (name relationship)
-                            :time_range time-range})
-          created-edges (insert-records* :hist_edges edges-to-store)]
-      ;;(prn "EDGES: ") (clojure.pprint/pprint created-edges)
-      ;;(prn "RESOURCES: ") (clojure.pprint/pprint created-resources)
+
+          new-edges (for [{:keys [source target relationship]} edges]
+                      {:source_id (->> source (get resource-hash-map-for-edges))
+                       :dest_id (->> source (get resource-hash-map-for-edges))
+                       :type (name relationship)})
+          created-edges
+          (let [old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
+                                             (query-to-vec
+                                              "
+SELECT he.id, he.source_id, he.dest_id, he.type
+FROM hist_edges he
+WHERE upper_inf(he.time_range) and he.certname_id = ?
+"
+                                              certname-id)]
+                                         [{:source_id source_id :dest_id dest_id :type type} id]))]
+            (diff-fn (kitchensink/keyset old-edges-map) (set new-edges)
+
+                     (fn [edges]
+                       (jdbc/query-to-vec
+                        "
+UPDATE hist_edges he
+SET time_range = time_range * ?
+WHERE he.id in (SELECT unnest(?) as id)
+RETURNING he.id
+"
+
+                        (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
+                        (->> edges
+                             (map #(get old-edges-map %))
+                             vec
+                             (sutils/array-to-param "integer" Integer)))
+                       {})
+
+                     (fn [edges]
+                       (->> edges
+                            (map #(assoc % :time_range time-range :certname_id certname-id))
+                            (insert-records* :hist_edges))
+                       {})
+
+                     (fn [edges] {})))]
       nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

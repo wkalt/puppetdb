@@ -45,9 +45,11 @@
   (testing "Persisted catalogs"
     (add-certname! certname)
     (store-historical-resources (assoc catalog :producer_timestamp (-> 3 days ago)))
-    (store-historical-resources (assoc catalog :producer_timestamp (-> 2 days ago) :resources {}))
+    (store-historical-resources (assoc catalog :producer_timestamp (-> 2 days ago) :resources {} :edges []))
     (store-historical-resources (assoc catalog :producer_timestamp (-> 1 days ago)))
-    (store-historical-resources (assoc catalog :producer_timestamp current-time :resources {}))))
+    (store-historical-resources (assoc catalog :producer_timestamp current-time :resources {} :edges []))
+    (clojure.pprint/pprint (query-to-vec "SELECT * FROM hist_edges"))
+    (clojure.pprint/pprint (query-to-vec "SELECT * FROM hist_resource_lifetimes"))))
 
 ;; (testing "should contain proper catalog metadata"
 ;;   (is (= (query-to-vec ["SELECT certname, api_version, catalog_version, producer_timestamp FROM catalogs"])
