@@ -1,6 +1,7 @@
 (ns puppetlabs.puppetdb.mq-listener
   (:import [javax.jms ExceptionListener JMSException MessageListener Session])
   (:require [clojure.tools.logging :as log]
+            [clojure.reflect :as r]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -391,13 +392,14 @@
              :receivers receivers)))
 
   (stop [this {:keys [factory connection receivers] :as context}]
-    (doseq [{:keys [session producer consumer]} receivers]
-      (.close producer)
-      (.close consumer)
-      (.close session))
-    (.close connection)
-    (.close factory)
-    context)
+        (doseq [{:keys [session]} receivers]
+          ;; close the session with a lock to avoid contention with the
+          ;; enqueueing thread. Closing producers/consumers is not necessary
+          ;; because they are closed by the session close.
+          (locking session (.close session)))
+        (.close connection)
+        (.close factory)
+        context)
 
   (register-listener [this pred listener-fn]
     (conj-handler (:listeners (service-context this)) pred listener-fn))
