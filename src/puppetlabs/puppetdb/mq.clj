@@ -233,20 +233,17 @@
   (-to-jms-message x properties session))
 
 (defmacro commit-or-rollback
-  "Commit or rollback a transaction, with the session locked to prevent
-   contention with session closure. Application shutdown can block on execution
-   of body, so body must not block indefinitely."
   [session & body]
-  `(locking ~session (try (let [result# (do ~@body)]
-                            (.commit ~session)
-                            result#)
-                          (catch Throwable ex# (.rollback ~session) (throw ex#)))))
+  `(try (let [result# (do ~@body)]
+          (.commit ~session)
+          result#)
+        (catch Throwable ex# (.rollback ~session) (throw ex#))))
 
 (def connection-schema Connection)
 
 (defn send-message!
   "Sends message with attributes via a new session (sessions are
-  single-threaded)."
+   single-threaded)."
   ([connection endpoint message]
    (send-message! connection endpoint message {}))
   ([connection endpoint message attributes]

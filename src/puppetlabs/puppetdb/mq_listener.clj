@@ -249,6 +249,30 @@
     (log/errorf "[%s] [%s] Exceeded max %d attempts" id command attempts)
     (discard msg nil)))
 
+(def session-closed (doto (.getDeclaredField org.apache.activemq.jms.pool.PooledSession "closed")
+                      (.setAccessible true)))
+
+(defn consumer-closed?
+  [consumer]
+  (try
+    (and (nil? (.getMessageListener consumer))
+         (boolean (.getMessageSelector consumer)))
+    (catch Exception e
+      true)))
+
+(defn session-closed?
+  [session]
+  (.get (.get session-closed session)))
+
+(defn blocking-close
+  [object f]
+  (.close object)
+  (loop [times 5000]
+    (when (and (not (f object))
+               (pos? times))
+      (Thread/sleep 10)
+      (recur (dec times)))))
+
 (defn handle-parse-error
   [msg e discard]
   (log/errorf e "Fatal error parsing command: %s" msg)
@@ -392,11 +416,10 @@
              :receivers receivers)))
 
   (stop [this {:keys [factory connection receivers] :as context}]
-        (doseq [{:keys [session]} receivers]
-          ;; close the session with a lock to avoid contention with the
-          ;; enqueueing thread. Closing producers/consumers is not necessary
-          ;; because they are closed by the session close.
-          (locking session (.close session)))
+        (doseq [{:keys [session producer consumer]} receivers]
+          (.setMessageListener consumer nil)
+          (blocking-close consumer consumer-closed?)
+          (blocking-close session session-closed?))
         (.close connection)
         (.close factory)
         context)
