@@ -252,18 +252,6 @@
 (def session-closed (doto (.getDeclaredField org.apache.activemq.jms.pool.PooledSession "closed")
                       (.setAccessible true)))
 
-(defn consumer-closed?
-  [consumer]
-  (try
-    (and (nil? (.getMessageListener consumer))
-         (boolean (.getMessageSelector consumer)))
-    (catch Exception e
-      true)))
-
-(defn session-closed?
-  [session]
-  (.get (.get session-closed session)))
-
 (defn blocking-close
   [object f]
   (.close object)
@@ -417,9 +405,7 @@
 
   (stop [this {:keys [factory connection receivers] :as context}]
         (doseq [{:keys [session producer consumer]} receivers]
-          (.setMessageListener consumer nil)
-          (blocking-close consumer consumer-closed?)
-          (blocking-close session session-closed?))
+          (.close session))
         (.close connection)
         (.close factory)
         context)
