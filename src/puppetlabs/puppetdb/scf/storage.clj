@@ -480,6 +480,30 @@
            [k v] params]
        {:resource (sutils/munge-hash-for-storage resource-hash) :name (name k) :value (sutils/db-serialize v)}))))
 
+(pls/defn-validated add-params!
+  "Persists the new parameters found in `refs-to-resources` and populates the
+   resource_params_cache."
+  [refs-to-resources :- resource-ref->resource-schema
+   refs-to-hashes :- resource-ref->hash]
+  (let [new-params (new-params-only (resources-exist? (kitchensink/valset refs-to-hashes))
+                                    refs-to-resources
+                                    refs-to-hashes)]
+
+    (update! (:catalog-volatility performance-metrics) (* 2 (count new-params)))
+
+    (insert-records*
+     :resource_params_cache
+     (map (fn [[resource-hash params]]
+            {:resource (sutils/munge-hash-for-storage resource-hash) :parameters (when params (sutils/db-serialize params))})
+          new-params))
+
+    (insert-records*
+     :resource_params
+     (for [[resource-hash params] new-params
+           [k v] params]
+       {:resource (sutils/munge-hash-for-storage resource-hash) :name (name k) :value (sutils/db-serialize v)}))))
+
+
 (def resource-ref?
   "Returns true of the map is a resource reference"
   (every-pred :type :title))
@@ -594,12 +618,42 @@
   (let [old-resources (catalog-resources certname-id)
         diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
-     (add-params! refs-to-resources refs-to-hashes)
-     (utils/diff-fn old-resources
-                    diffable-resources
-                    (delete-catalog-resources! certname-id)
-                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+      (add-params! refs-to-resources refs-to-hashes)
+      (utils/diff-fn old-resources
+                     diffable-resources
+                     (delete-catalog-resources! certname-id)
+                     (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
+                     (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+
+(defn cap-catalog-resources!
+  [certname-id endtime]
+  (fn [hashes-to-cap]
+    (jdbc/query-to-vec
+      "update resource_lifetimes rl
+       set timerange = timerange * ?
+       where rl.resource_id in (select unnest(?) as id)
+       and rl.certname_id = ?
+       returning rl.resource_id"
+      (sutils/munge-tstzrange-for-storage (format "(,%s)" endtime))
+      (->> hashes
+           vec
+           (sutils/array-to-param "integer" Integer)))))
+
+
+(defn add-resources!
+  [certname-id :- Long
+   refs-to-resources :- resource-ref->resource-schema
+   refs-to-hashes :- {resource-ref-schema String}]
+  (let [old-resources (catalog-resources certname-id)
+        diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
+    (add-params! refs-to-resources refs-to-hashes)
+    (utils/diff-fn
+      old-resources
+      diffable-resources
+      (cap-catalog-resource certname-id producer_timestamp)
+      )
+    
+    ))
 
 (pls/defn-validated catalog-edges-map
   "Return all edges for a given catalog id as a map"
@@ -737,6 +791,48 @@
          (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
            (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
            (update-catalog-associations! certname-id catalog refs-to-hashes))))
+
+(pls/defn-validated add-catalog!
+  "Persist the supplied catalog in the database, returning its
+   similarity hash."
+
+  ;; * add new catalog metadata
+  ;; * add/cap resources (delete capped if not storing historical)
+  ;; * add/cap edges (delete capped if not storing historical)
+  ;; * delete metadata that's invalid
+
+  [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
+   received-timestamp :- pls/Timestamp
+   historical-catalogs-limit]
+  (time! (:replace-catalog performance-metrics)
+         (jdbc/with-db-transaction []
+           (let [hash (time! (:catalog-hash performance-metrics)
+                             (shash/catalog-similarity-hash catalog))
+                 {certname-id :certname_id
+                  stored-hash :catalog_hash
+                  latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+             (inc! (:updated-catalog performance-metrics))
+             (time! (:add-new-catalog performance-metrics)
+                    (time! (get performance-metrics
+                                (if (= stored-hash hash)
+                                  (do (inc! (:duplicate-catalog performance-metrics))
+                                      :catalog-hash-match)
+                                  :catalog-hash-miss))
+                           ;; add new catalog metadata
+                           (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+                             (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+                                                         (kitchensink/mapvals shash/resource-identity-hash resources))]
+                               (update-catalog-associations! certname-id catalog refs-to-hashes))
+
+                             (jdbc/delete! :catalogs
+                                           [(str "certname = ? AND "
+                                                 "id NOT IN (SELECT id FROM catalogs "
+                                                 "           WHERE certname=?"
+                                                 "           ORDER BY producer_timestamp DESC LIMIT ?)")
+                                            certname
+                                            certname
+                                            historical-catalogs-limit]))))
+             hash))))
 
 (pls/defn-validated add-catalog!
   "Persist the supplied catalog in the database, returning its

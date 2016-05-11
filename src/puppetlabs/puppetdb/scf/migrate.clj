@@ -1029,6 +1029,83 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn update-schema-for-historical-resources
+  []
+  (jdbc/do-commands
+
+    "create sequence historical_resource_id_seq cycle"
+
+    (sql/create-table-ddl
+      :resources
+      ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('historical_resource_id_seq')"]
+      ["hash" "bytea"]
+      ["type" "text"]
+      ["title" "text"]
+      ["parameters" "jsonb"])
+    
+    (sql/create-table-ddl
+      :resource_lifetimes
+      ["resource_id" "bigint not null primary key"]
+      ["certname_id" "bigint not null"]
+      ["time_range" "tstzrange not null"])
+
+    "create sequence historical_edge_seq cycle"
+    
+    (sql/create-table-ddl
+      :edges_transform
+      ["id" "bigint not null primary key default nextval('historical_edge_seq')"]
+      ["certname_id" "bigint not null"]
+      ["source_id" "bigint not null"]
+      ["target_id" "bigint not null"]
+      ["type" "text not null"]
+      ["time_range" "tstzrange not null"])
+
+    "create sequence params_id_seq cycle"
+
+    (sql/create-table-ddl
+      :resource_params
+      ["resource_id" "bigint not null primary key"]
+      ["name" "text"]
+      ["type" "text"]
+      ["value_integer" "bigint"]
+      ["value_boolean" "boolean"]
+      ["value_float" "double precision"]
+      ["value_short_str" "text"])
+
+    "create sequence resource_string_seq"
+
+    (sql/create-table-ddl
+      :resource_strings
+      ["id" "bigint not null default nextval('resource_string_seq')"]
+      ["hash" "bytea not null"]
+      ["value" "text"])
+    
+    
+    "alter table resources add constraint resources_hash_unique unique (hash)"
+
+    "alter table resource_lifetimes add constraint resource_lifetimes_certname_id
+     foreign key (certname_id) references certnames(id) "
+
+    "alter table resource_lifetimes add constraint resource_lifetimes_resource_id
+     foreign key (resource_id) references resources(id)"
+
+    "alter table edges_transform add constraint edges_transform_certname_id
+     foreign key (certname_id) references certnames(id)"
+
+    "alter table edges_transform add constraint edges_transform_source_id
+     foreign key (source_id) references resources(id)"
+
+    "alter table edges_transform add constraint edges_transform_target_id
+     foreign key (target_id) references resources(id)"
+    
+    "drop table edges"
+    "alter table edges_transform rename to edges"
+
+    "alter table resource_params add constraint resource_params_resource_id
+     foreign key (resource_id) references resources(id)"
+
+    ))
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1051,7 +1128,8 @@
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id})
+   45 index-certnames-latest-report-id
+   46 update-schema-for-historical-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 
