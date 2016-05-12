@@ -824,6 +824,64 @@
      (right-only-fn (or right-only #{}))
      (same-fn (or same #{})))))
 
+(defn cap-resources!
+  [producer-timestamp old-hash-resource-map]
+  (fn [hashes]
+    (jdbc/query-to-vec
+      "UPDATE hist_resource_lifetimes hrl
+       SET time_range = time_range * ?
+       WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
+       RETURNING hrl.hist_resource_id"
+      (sutils/munge-tstzrange-for-storage (format "(,%s)" producer-timestamp))
+      (->> hashes
+           (map #(get old-hash-resource-map %))
+           vec
+           (sutils/array-to-param "integer" Integer)))
+    {}))
+
+(defn add-new-resources!
+  [certname-id time-range new-hash-resource-map]
+  (fn [hashes]
+    (let [r (->> hashes
+                 (map #(get new-hash-resource-map %))
+                 (insert-records* :hist_resources)
+                 (map (juxt :hash :id))
+                 (into {}))]
+      (->> (vals r)
+           (map (fn [id]
+                  {:hist_resource_id id :certname_id certname-id :time_range time-range}))
+           (insert-records* :hist_resource_lifetimes))
+      r)))
+
+(defn update-existing-resources
+  [old-hash-resource-map]
+  (fn [hashes]
+    (select-keys old-hash-resource-map (vec hashes))))
+
+(defn cap-edges!
+  [old-edges-map producer-timestamp]
+  (fn [edges]
+    (jdbc/query-to-vec
+      "UPDATE hist_edges he
+       SET time_range = time_range * ?
+       WHERE he.id in (SELECT unnest(?) as id)
+       RETURNING he.id"
+      (sutils/munge-tstzrange-for-storage (format "(,%s)" producer-timestamp))
+      (->> edges
+           (map #(get old-edges-map %))
+           vec
+           (sutils/array-to-param "integer" Integer)))
+    {}))
+
+(defn add-new-edges!
+  [time-range certname-id]
+  (fn [edges]
+    (println "edges are" edges)
+    (->> edges
+         (map #(assoc % :time_range time-range :certname_id certname-id))
+         (insert-records* :hist_edges))
+    {}))
+
 (defn add-resources!' [certname-id
                        {:keys [resources producer_timestamp certname edges]}]
   ;; v1: store shit naively
@@ -837,91 +895,47 @@
                                   (map #(update % :parameters sutils/munge-jsonb-for-storage)))
           new-hash-resource-map (into {} (for [{:keys [hash] :as resource} resources-to-store]
                                            [hash resource]))
-          created-resources
-          (let [old-hash-resource-map (into {} (for [{:keys [hist_resource_id hash]}
-                                                     (query-to-vec
-                                                       "SELECT hr.hash, hrl.hist_resource_id
-                                                        FROM hist_resource_lifetimes hrl
-                                                        LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
-                                                        WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?
-                                                        "
-                                                       certname-id)]
-                                                 [hash hist_resource_id]))]
-            (diff-fn (kitchensink/keyset old-hash-resource-map) (kitchensink/keyset new-hash-resource-map)
+          old-hash-resource-map (into {} (for [{:keys [hist_resource_id hash]}
+                                               (query-to-vec
+                                                 "SELECT hr.hash, hrl.hist_resource_id
+                                                  FROM hist_resource_lifetimes hrl
+                                                  LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
+                                                  WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?"
+                                                 certname-id)]
+                                           [hash hist_resource_id]))
+          created-resources (diff-fn (kitchensink/keyset old-hash-resource-map) (kitchensink/keyset new-hash-resource-map)
+                                     (cap-resources! producer_timestamp old-hash-resource-map)
+                                     (add-new-resources! certname-id time-range new-hash-resource-map)
+                                     (update-existing-resources old-hash-resource-map))
 
-                     (fn [hashes]
-                       (jdbc/query-to-vec
-                         "UPDATE hist_resource_lifetimes hrl
-                          SET time_range = time_range * ?
-                          WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
-                          RETURNING hrl.hist_resource_id"
-
-                        (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
-                        (->> hashes
-                             (map #(get old-hash-resource-map %))
-                             vec
-                             (sutils/array-to-param "integer" Integer)))
-                       {})
-
-                     (fn [hashes]
-                       (let [r (->> hashes
-                                    (map #(get new-hash-resource-map %))
-                                    (insert-records* :hist_resources)
-                                    (map (juxt :hash :id))
-                                    (into {}))]
-                         (->> (vals r)
-                              (map (fn [id]
-                                     {:hist_resource_id id :certname_id certname-id :time_range time-range}))
-                              (insert-records* :hist_resource_lifetimes))
-                         r))
-
-                     (fn [hashes]
-                       (select-keys old-hash-resource-map (vec hashes)))))
+          _ (println "new hash resource map")
+          _ (clojure.pprint/pprint new-hash-resource-map)
 
           resource-hash-map-for-edges (->> new-hash-resource-map
                                            (kitchensink/mapvals #(select-keys % [:type :title]))
                                            clojure.set/map-invert
                                            (kitchensink/mapvals #(get created-resources %)))
 
-          new-edges (for [{:keys [source target relationship]} edges]
-                      {:source_id (->> source (get resource-hash-map-for-edges))
-                       :dest_id (->> source (get resource-hash-map-for-edges))
-                       :type (name relationship)})
-          created-edges
-          (let [old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
-                                             (query-to-vec
-                                              "
-SELECT he.id, he.source_id, he.dest_id, he.type
-FROM hist_edges he
-WHERE upper_inf(he.time_range) and he.certname_id = ?
-"
-                                              certname-id)]
-                                         [{:source_id source_id :dest_id dest_id :type type} id]))]
-            (diff-fn (kitchensink/keyset old-edges-map) (set new-edges)
+          _ (println "resource-hash-map-for-edges")
+          _ (clojure.pprint/pprint resource-hash-map-for-edges)
 
-                     (fn [edges]
-                       (jdbc/query-to-vec
-                        "
-UPDATE hist_edges he
-SET time_range = time_range * ?
-WHERE he.id in (SELECT unnest(?) as id)
-RETURNING he.id
-"
+          new-edges (for [{:keys [source target relationship] :as edge} edges]
+                      (do (println "EDGE IS" edge)
+                          {:source_id (->> source (get resource-hash-map-for-edges))
+                           :dest_id (->> source (get resource-hash-map-for-edges))
+                           :type (name relationship)}))
 
-                        (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
-                        (->> edges
-                             (map #(get old-edges-map %))
-                             vec
-                             (sutils/array-to-param "integer" Integer)))
-                       {})
-
-                     (fn [edges]
-                       (->> edges
-                            (map #(assoc % :time_range time-range :certname_id certname-id))
-                            (insert-records* :hist_edges))
-                       {})
-
-                     (fn [edges] {})))]
+          old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
+                                       (query-to-vec
+                                         "SELECT he.id, he.source_id, he.dest_id, he.type
+                                          FROM hist_edges he
+                                          WHERE upper_inf(he.time_range) and he.certname_id = ?"
+                                         certname-id)]
+                                   [{:source_id source_id :dest_id dest_id :type type} id]))
+          created-edges (diff-fn (kitchensink/keyset old-edges-map) (set new-edges)
+                                 (cap-edges! old-edges-map producer_timestamp)
+                                 (add-new-edges! time-range certname-id)
+                                 (fn [edges] {}))]
       nil)))
 
 
@@ -1000,6 +1014,7 @@ RETURNING he.id
 ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+<<<<<<< HEAD
 (defn find-certname-id [certname]
   (:id (first (jdbc/query-to-vec "select id from certnames where certname=?" certname))))
 
@@ -1123,6 +1138,8 @@ RETURNING he.id
 ;; store the new report+resource params thing
 
 
+=======
+>>>>>>> ff7f095... foobar
 (pls/defn-validated replace-catalog!
   "Persist the supplied catalog in the database, returning its
    similarity hash."
