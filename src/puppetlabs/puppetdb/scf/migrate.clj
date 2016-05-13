@@ -1050,6 +1050,7 @@
 
 (defn update-schema-for-historical-resources
   []
+  ;; todo: INDEXES
   (jdbc/do-commands
 
     "create sequence historical_resource_id_seq cycle"

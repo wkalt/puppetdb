@@ -726,26 +726,26 @@
 (pls/defn-validated delete-edges!
   "Delete edges for a given certname.
 
-  Edges must be either nil or a collection of lists containing each element
-  of an edge, e.g.:
+   Edges must be either nil or a collection of lists containing each element
+   of an edge, e.g.:
 
-    [[<source> <target> <type>] ...]"
+   [[<source> <target> <type>] ...]"
   [certname :- String
    edges :- edge-db-schema]
 
   (update! (:catalog-volatility performance-metrics) (count edges))
-  (doseq [[source target type] edges]
+  (doseq [[source target relationship] edges]
     ;; This is relatively inefficient. If we have id's for edges, we could do
     ;; this in 1 statement.
     (jdbc/delete! :edges
                   [(str "certname=?"
                         " and source=?::bytea"
                         " and target=?::bytea"
-                        " and type=?")
+                        " and relationship=?")
                    certname
                    (sutils/bytea-escape source)
                    (sutils/bytea-escape target)
-                   type])))
+                   relationship])))
 
 (pls/defn-validated insert-edges!
   "Insert edges for a given certname.
@@ -760,11 +760,11 @@
   ;; Insert rows will not safely accept a nil, so abandon this operation
   ;; earlier.
   (when (seq edges)
-    (let [rows (for [[source target type] edges]
+    (let [rows (for [[source target relationship] edges]
                  {:certname certname
                   :source (sutils/munge-hash-for-storage source)
                   :target (sutils/munge-hash-for-storage target)
-                  :type type})]
+                  :relationship relationship})]
 
       (update! (:catalog-volatility performance-metrics) (count rows))
       (apply jdbc/insert! :edges rows))))
@@ -786,8 +786,8 @@
                    (for [{:keys [source target relationship]} edges
                          :let [source-hash (refs-to-hashes source)
                                target-hash (refs-to-hashes target)
-                               type        (name relationship)]]
-                     [source-hash target-hash type])
+                               relationship (name relationship)]]
+                     [source-hash target-hash relationship])
                    (repeat nil))]
     (utils/diff-fn new-edges
                    (catalog-edges-map certname)
@@ -948,20 +948,46 @@
 
 (defn cap-resources!
   [timerange certname-id]
-  (fn [hashes]
+  (fn [refs-to-hashes]
     (jdbc/query-to-vec
-      "update resource_lifetimes rl
+      "update rl
        set time_range = time_range * ?
+       from resource_lifetimes rl inner join resources r on rl.resource_id=r.id
        where certname_id = ?
-       and rl.resource_id in (select unnest(?) as id)
-       returning rl.resource_id"
+       and upper_inf(time_range)
+       and r.hash=any(?)"
       timerange
       certname-id
-      (->> hashes
-           (map #(get old-hash-resource-map %))
+      (->> (vals refs-to-hashes)
+           (map sutils/munge-hash-for-storage)
            vec
-           (sutils/array-to-param "integer" Integer)))
+           (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))
     {}))
+
+(defn resource-ref->row
+  [refs-to-resources refs-to-hashes resource-ref]
+  (let [{:keys [type title exported
+                parameters tags file line]} (get refs-to-resources resource-ref)]
+    (convert-tags-array
+      {:hash (sutils/munge-hash-for-storage (get refs-to-hashes resource-ref))
+       :type type
+       :title title
+       :tags tags
+       :exported exported
+       :file file
+       :line line
+       :parameters (munge-jsonb-for-storage parameters)})))
+
+(defn insert-resources!
+  [certname-id timerange refs-to-hashes diffable-resources]
+  (fn [refs-to-insert]
+    (update! (:catalo-volatility performance-metrics) (count refs-to-insert))
+    (let [ref->row (partial resource-ref->row refs-to-resources refs-to-hashes)
+          ids (insert-records* :resources (map ref->row refs-to-insert))]
+      (insert-records*
+        :resource_lifetimes
+        (map (fn [id] {:resource_id id :certname_id certname-id :time_range timerange})
+             ids)))))
 
 
 (pls/defn-validated add-resources!'
@@ -978,11 +1004,62 @@
       ;; cap expired resources
       ;; store new resources
 
-     (utils/diff-fn old-resources
-                    diffable-resources
-                    (cap-resources! timerange certname-id)
-                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
-                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
+      ;; todo: rename diffable-resources
+
+      (utils/diff-fn old-resources
+                     diffable-resources
+                     (cap-resources! timerange certname-id)
+                     (insert-resources! certname-id timerange refs-to-hashes diffable-resources)
+                     ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
+                     ; todo is there an update that needs to happen here?
+                     identity))))
+
+(defn catalog-edges-map'
+  [certname :- String]
+  (jdbc/query-with-resultset
+    [(format "select %s as source, %s as target, type from hist_edges
+              where certname_id = ? and upper_inf(time_range)")
+     certname]
+    #(zipmap (map vals (sql/result-set-seq %))
+             (repeat nil))))
+
+(defn cap-edges!
+  [timerange certname-id]
+  (fn [edges]
+
+
+
+    )
+  )
+
+(defn cap-edges
+  [timerange certname-id edges]
+  (when (seq edges)
+    (let [rows (for [[source target type] edges]
+                 {:certname certname
+                  :source (sutils/munge-hash-for-storage source)
+                  :target (sutils/munge-hash-for-storage target)
+                  :type type
+                  }
+                 )])
+    )
+  )
+
+(pls/defn-validated add-edges!
+  [certname :- s/Int
+   edges :- #{edge-schema}
+   refs-to-hashes :- {resource-ref-schema String}]
+  (let [new-edges (zipmap
+                    (for [{:keys [source target relationship]} edges
+                          :let [source-hash (refs-to-hashes source)
+                                target-hash (refs-to-hashes target)
+                                type (name relationship)]]
+                      [source-hash target-hash type])
+                    (repeat nil))]
+    (utils/diff-fn new-edges (catalog-edges-map' certname-id)
+                   (partial cap-edges! certname)
+                   (partial insert-edges!' certname)
+                   identity)))
 
 (defn update-catalog-associations'
   [certname-id
