@@ -22,7 +22,7 @@
             [puppetlabs.puppetdb.facts :as facts]
             [puppetlabs.puppetdb.reports :as reports]
             [puppetlabs.puppetdb.facts :as facts :refer [facts-schema]]
-            [puppetlabs.kitchensink.core :as kitchensink]
+            [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.puppetdb.scf.migrate :as migrate]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.jdbc :as jdbc]
@@ -229,7 +229,7 @@
                                  (fn []
                                    (let [dupes (value (:duplicate-catalog performance-metrics))
                                          new   (value (:updated-catalog performance-metrics))]
-                                     (float (kitchensink/quotient dupes (+ dupes new))))))
+                                     (float (ks/quotient dupes (+ dupes new))))))
    :catalog-volatility (histogram storage-metrics-registry ["catalog-volitilty"])
 
    :replace-facts     (timer storage-metrics-registry ["replace-facts-time"])
@@ -569,7 +569,7 @@
    resource_params_cache."
   [refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- resource-ref->hash]
-  (let [new-params (new-params-only (resources-exist? (kitchensink/valset refs-to-hashes))
+  (let [new-params (new-params-only (resources-exist? (ks/valset refs-to-hashes))
                                     refs-to-resources
                                     refs-to-hashes)]
 
@@ -677,7 +677,7 @@
     {:pre [(every? resource-ref? maybe-updated-refs)]}
     (let [new-resources-with-hash (merge-resource-hash refs-to-hashes (select-keys refs-to-resources maybe-updated-refs))
           updated-resources (->> (diff-resources-metadata old-resources new-resources-with-hash)
-                                 (kitchensink/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
+                                 (ks/mapvals #(utils/update-when % [:resource] sutils/munge-hash-for-storage)))]
 
       (update! (:catalog-volatility performance-metrics) (count updated-resources))
 
@@ -699,7 +699,7 @@
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (catalog-resources certname-id)
-        diffable-resources (kitchensink/mapvals strip-params refs-to-resources)]
+        diffable-resources (ks/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
      (add-params! refs-to-resources refs-to-hashes)
      (utils/diff-fn old-resources
@@ -824,33 +824,20 @@
      (right-only-fn (or right-only #{}))
      (same-fn (or same #{})))))
 
-(defn cap-resources!
-  [producer-timestamp old-hash-resource-map]
-  (fn [hashes]
-    (jdbc/query-to-vec
-      "UPDATE hist_resource_lifetimes hrl
-       SET time_range = time_range * ?
-       WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
-       RETURNING hrl.hist_resource_id"
-      (sutils/munge-tstzrange-for-storage (format "(,%s)" producer-timestamp))
-      (->> hashes
-           (map #(get old-hash-resource-map %))
-           vec
-           (sutils/array-to-param "integer" Integer)))
-    {}))
-
 (defn add-new-resources!
   [certname-id time-range new-hash-resource-map]
   (fn [hashes]
+    (println "hashes to insert")
+    (clojure.pprint/pprint hashes)
     (let [r (->> hashes
                  (map #(get new-hash-resource-map %))
-                 (insert-records* :hist_resources)
+                 (insert-records* :resources)
                  (map (juxt :hash :id))
                  (into {}))]
       (->> (vals r)
            (map (fn [id]
-                  {:hist_resource_id id :certname_id certname-id :time_range time-range}))
-           (insert-records* :hist_resource_lifetimes))
+                  {:resource_id id :certname_id certname-id :time_range time-range}))
+           (insert-records* :resource_lifetimes))
       r)))
 
 (defn update-existing-resources
@@ -882,105 +869,158 @@
          (insert-records* :hist_edges))
     {}))
 
-(defn add-resources!' [certname-id
-                       {:keys [resources producer_timestamp certname edges]}]
-  ;; v1: store shit naively
-  (jdbc/with-db-transaction []
-    (maybe-activate-node! certname (now))
-    (let [time-range (sutils/munge-tstzrange-for-storage (format "[%s,)" producer_timestamp))
+;(defn add-resources!' [certname-id
+;                       {:keys [resources producer_timestamp certname edges]}]
+;  ;; v1: store shit naively
+;  (jdbc/with-db-transaction []
+;    (maybe-activate-node! certname (now))
+;    (let [time-range (sutils/munge-tstzrange-for-storage (format "[%s,)" producer_timestamp))
+;
+;          resources-to-store (->> resources
+;                                  (map #(select-keys % [:type :title :parameters]))
+;                                  (map #(assoc % :hash (shash/generic-identity-hash %)))
+;                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
+;          new-hash-resource-map (into {} (for [{:keys [hash] :as resource} resources-to-store]
+;                                           [hash resource]))
+;          old-hash-resource-map (into {} (for [{:keys [resource_id hash]}
+;                                               (query-to-vec
+;                                                 "SELECT r.hash, rl.resource_id
+;                                                  FROM resource_lifetimes rl
+;                                                  LEFT JOIN resources r ON r.id = rl.resource_id
+;                                                  WHERE upper_inf(rl.time_range) and rl.certname_id = ?"
+;                                                 certname-id)]
+;                                           [hash resource_id]))
+;          created-resources (diff-fn (ks/keyset old-hash-resource-map) (ks/keyset new-hash-resource-map)
+;                                     (cap-resources! producer_timestamp old-hash-resource-map)
+;                                     (add-new-resources! certname-id time-range new-hash-resource-map)
+;                                     (update-existing-resources old-hash-resource-map))
+;
+;          _ (println "new hash resource map")
+;          _ (clojure.pprint/pprint new-hash-resource-map)
+;
+;          resource-hash-map-for-edges (->> new-hash-resource-map
+;                                           (ks/mapvals #(select-keys % [:type :title]))
+;                                           clojure.set/map-invert
+;                                           (ks/mapvals #(get created-resources %)))
+;
+;          _ (println "resource-hash-map-for-edges")
+;          _ (clojure.pprint/pprint resource-hash-map-for-edges)
+;
+;          new-edges (for [{:keys [source target relationship] :as edge} edges]
+;                      (do (println "EDGE IS" edge)
+;                          {:source_id (->> source (get resource-hash-map-for-edges))
+;                           :dest_id (->> source (get resource-hash-map-for-edges))
+;                           :type (name relationship)}))
+;
+;          old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
+;                                       (query-to-vec
+;                                         "SELECT he.id, he.source_id, he.dest_id, he.type
+;                                          FROM hist_edges he
+;                                          WHERE upper_inf(he.time_range) and he.certname_id = ?"
+;                                         certname-id)]
+;                                   [{:source_id source_id :dest_id dest_id :type type} id]))
+;          created-edges (diff-fn (ks/keyset old-edges-map) (set new-edges)
+;                                 (cap-edges! old-edges-map producer_timestamp)
+;                                 (add-new-edges! time-range certname-id)
+;                                 (fn [edges] {}))]
+;      nil)))
 
-          resources-to-store (->> resources
-                                  (map #(select-keys % [:type :title :parameters]))
-                                  (map #(assoc % :hash (shash/generic-identity-hash %)))
-                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
-          new-hash-resource-map (into {} (for [{:keys [hash] :as resource} resources-to-store]
-                                           [hash resource]))
-          old-hash-resource-map (into {} (for [{:keys [hist_resource_id hash]}
-                                               (query-to-vec
-                                                 "SELECT hr.hash, hrl.hist_resource_id
-                                                  FROM hist_resource_lifetimes hrl
-                                                  LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
-                                                  WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?"
-                                                 certname-id)]
-                                           [hash hist_resource_id]))
-          created-resources (diff-fn (kitchensink/keyset old-hash-resource-map) (kitchensink/keyset new-hash-resource-map)
-                                     (cap-resources! producer_timestamp old-hash-resource-map)
-                                     (add-new-resources! certname-id time-range new-hash-resource-map)
-                                     (update-existing-resources old-hash-resource-map))
+(defn existing-catalog-resources
+  "returns the resources hashes keyed by resource reference"
+  [certname-id]
+  (jdbc/query-with-resultset
+    [(format "select type, title, tags, exported, file, line, %s
+              as resource from resources inner join resource_lifetimes
+              on resources.id = resource_lifetimes.resource_id
+              where certname_id = ? and upper_inf(time_range)"
+             (sutils/sql-hash-as-str "hash")) certname-id]
+    (fn [rs]
+      (let [rss (sql/result-set-seq rs)]
+        (zipmap (map #(select-keys % [:type :title]) rss)
+                (jdbc/convert-result-arrays set rss))))))
 
-          _ (println "new hash resource map")
-          _ (clojure.pprint/pprint new-hash-resource-map)
+(defn add-edges!'
+  [certname-id
+   timerange
+   edges
+   refs-to-hashes]
+  )
 
-          resource-hash-map-for-edges (->> new-hash-resource-map
-                                           (kitchensink/mapvals #(select-keys % [:type :title]))
-                                           clojure.set/map-invert
-                                           (kitchensink/mapvals #(get created-resources %)))
-
-          _ (println "resource-hash-map-for-edges")
-          _ (clojure.pprint/pprint resource-hash-map-for-edges)
-
-          new-edges (for [{:keys [source target relationship] :as edge} edges]
-                      (do (println "EDGE IS" edge)
-                          {:source_id (->> source (get resource-hash-map-for-edges))
-                           :dest_id (->> source (get resource-hash-map-for-edges))
-                           :type (name relationship)}))
-
-          old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
-                                       (query-to-vec
-                                         "SELECT he.id, he.source_id, he.dest_id, he.type
-                                          FROM hist_edges he
-                                          WHERE upper_inf(he.time_range) and he.certname_id = ?"
-                                         certname-id)]
-                                   [{:source_id source_id :dest_id dest_id :type type} id]))
-          created-edges (diff-fn (kitchensink/keyset old-edges-map) (set new-edges)
-                                 (cap-edges! old-edges-map producer_timestamp)
-                                 (add-new-edges! time-range certname-id)
-                                 (fn [edges] {}))]
-      nil)))
+(defn cap-resources!
+  [timerange certname-id]
+  (fn [hashes]
+    (jdbc/query-to-vec
+      "update resource_lifetimes rl
+       set time_range = time_range * ?
+       where certname_id = ?
+       and rl.resource_id in (select unnest(?) as id)
+       returning rl.resource_id"
+      timerange
+      certname-id
+      (->> hashes
+           (map #(get old-hash-resource-map %))
+           vec
+           (sutils/array-to-param "integer" Integer)))
+    {}))
 
 
-(pls/defn-validated replace-existing-catalog
-  "New catalogs for a given certname needs to have their metadata, resources and
-  edges updated."
+(pls/defn-validated add-resources!'
+  "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
-   catalog-id :- Long
-   hash :- String
-   catalog :- catalog-schema
-   refs-to-hashes :- {resource-ref-schema String}
-   received-timestamp :- pls/Timestamp]
+   timerange :- s/Any
+   refs-to-resources :- resource-ref->resource-schema
+   refs-to-hashes :- {resource-ref-schema String}]
+  (let [old-resources (existing-catalog-resources certname-id)
+        diffable-resources (ks/mapvals strip-params refs-to-resources)]
+    (jdbc/with-db-transaction []
+     ;(add-params! refs-to-resources refs-to-hashes)
 
-  (inc! (:updated-catalog performance-metrics))
+      ;; cap expired resources
+      ;; store new resources
 
-  (time! (:catalog-hash-miss performance-metrics)
-         (update-catalog-metadata! catalog-id hash catalog received-timestamp)
-         (add-resources!' certname-id catalog)))
+     (utils/diff-fn old-resources
+                    diffable-resources
+                    (cap-resources! timerange certname-id)
+                    (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
+                    (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
 
-(pls/defn-validated add-new-catalog
-  "Creates new catalog metadata and adds the proper associations for the edges and resources"
-  [certname-id :- Long
-   hash :- String
-   catalog :- catalog-schema
-   refs-to-hashes :- {resource-ref-schema String}
-   received-timestamp :- pls/Timestamp]
-  (inc! (:updated-catalog performance-metrics))
-  (time! (:add-new-catalog performance-metrics)
-         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-           (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
-           (add-resources!' certname-id catalog))))
+(defn update-catalog-associations'
+  [certname-id
+   {:keys [resources producer_timestamp certname edges] :as catalog}
+   refs-to-hashes]
 
-(pls/defn-validated add-catalog!
-  "Persist the supplied catalog in the database, returning its
-   similarity hash."
+    (let [open-timerange (->> producer_timestamp
+                              (format "[%s,)")
+                              sutils/munge-tstzrange-for-storage)]
+      (time! (:add-resources performance-metrics)
+             (add-resources!' certname-id open-timerange resources refs-to-hashes))
+
+      (time! (:add-edges performance-metrics)
+             (add-edges!' certname-id open-timerange edges refs-to-hashes))
+
+
+      (println "catalog is")
+      (clojure.pprint/pprint catalog)
+
+      (println "refs to hashes")
+      (clojure.pprint/pprint refs-to-hashes)
+
+      (println "resources are")
+      (clojure.pprint/pprint resources)
+
+      nil))
+
+(pls/defn-validated add-catalog!'
   [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
-   received-timestamp :- pls/Timestamp
-   historical-catalogs-limit]
+   received-timestamp :- pls/Timestamp]
   (time! (:replace-catalog performance-metrics)
          (jdbc/with-db-transaction []
+           (maybe-activate-node! certname (now))
            (let [hash (time! (:catalog-hash performance-metrics)
                              (shash/catalog-similarity-hash catalog))
                  {certname-id :certname_id
                   stored-hash :catalog_hash
-                  latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+                  last-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
              (inc! (:updated-catalog performance-metrics))
              (time! (:add-new-catalog performance-metrics)
                     (time! (get performance-metrics
@@ -989,24 +1029,85 @@
                                       :catalog-hash-match)
                                   :catalog-hash-miss))
                            (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
-
-                             (when-not (some-> latest-producer-timestamp
+                             (when-not (some-> last-producer-timestamp
                                                (.after (to-timestamp producer_timestamp)))
                                (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                                           (kitchensink/mapvals shash/resource-identity-hash resources))]
-                                 (if-not latest-producer-timestamp
+                                                           (ks/mapvals shash/resource-identity-hash resources))]
+                                 (if-not last-producer-timestamp
                                    (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
                                    (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
-                                 (add-resources!' certname-id catalog)))
-                             (jdbc/delete! :catalogs
-                                           [(str "certname = ? AND "
-                                                 "id NOT IN (SELECT id FROM catalogs "
-                                                 "           WHERE certname=?"
-                                                 "           ORDER BY producer_timestamp DESC LIMIT ?)")
-                                            certname
-                                            certname
-                                            historical-catalogs-limit]))))
+                                 (update-catalog-associations' certname-id catalog refs-to-hashes))))))
              hash))))
+
+
+;(pls/defn-validated replace-existing-catalog
+;  "New catalogs for a given certname needs to have their metadata, resources and
+;  edges updated."
+;  [certname-id :- Long
+;   catalog-id :- Long
+;   hash :- String
+;   catalog :- catalog-schema
+;   refs-to-hashes :- {resource-ref-schema String}
+;   received-timestamp :- pls/Timestamp]
+;
+;  (inc! (:updated-catalog performance-metrics))
+;
+;  (time! (:catalog-hash-miss performance-metrics)
+;         (update-catalog-metadata! catalog-id hash catalog received-timestamp)
+;         (add-resources!'' certname-id catalog)))
+;
+;(pls/defn-validated add-new-catalog
+;  "Creates new catalog metadata and adds the proper associations for the edges and resources"
+;  [certname-id :- Long
+;   hash :- String
+;   catalog :- catalog-schema
+;   refs-to-hashes :- {resource-ref-schema String}
+;   received-timestamp :- pls/Timestamp]
+;  (inc! (:updated-catalog performance-metrics))
+;  (time! (:add-new-catalog performance-metrics)
+;         (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+;           (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
+;           (add-resources!'' certname-id catalog))))
+
+;(pls/defn-validated add-catalog!
+;  "Persist the supplied catalog in the database, returning its
+;   similarity hash."
+;  [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
+;   received-timestamp :- pls/Timestamp
+;   historical-catalogs-limit]
+;  (time! (:replace-catalog performance-metrics)
+;         (jdbc/with-db-transaction []
+;           (let [hash (time! (:catalog-hash performance-metrics)
+;                             (shash/catalog-similarity-hash catalog))
+;                 {certname-id :certname_id
+;                  stored-hash :catalog_hash
+;                  latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+;             (inc! (:updated-catalog performance-metrics))
+;             (time! (:add-new-catalog performance-metrics)
+;                    (time! (get performance-metrics
+;                                (if (= stored-hash hash)
+;                                  (do (inc! (:duplicate-catalog performance-metrics))
+;                                      :catalog-hash-match)
+;                                  :catalog-hash-miss))
+;                           (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+;
+;                             (when-not (some-> latest-producer-timestamp
+;                                               (.after (to-timestamp producer_timestamp)))
+;                               (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+;                                                           (ks/mapvals shash/resource-identity-hash resources))]
+;                                 (if-not latest-producer-timestamp
+;                                   (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
+;                                   (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
+;                                 (add-resources!'' certname-id catalog)))
+;                             (jdbc/delete! :catalogs
+;                                           [(str "certname = ? AND "
+;                                                 "id NOT IN (SELECT id FROM catalogs "
+;                                                 "           WHERE certname=?"
+;                                                 "           ORDER BY producer_timestamp DESC LIMIT ?)")
+;                                            certname
+;                                            certname
+;                                            historical-catalogs-limit]))))
+;             hash))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;
@@ -1014,163 +1115,50 @@
 ;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-<<<<<<< HEAD
 (defn find-certname-id [certname]
   (:id (first (jdbc/query-to-vec "select id from certnames where certname=?" certname))))
 
 ;; store the new report+resource params+edges
 ;;
 ;; edges is a set of edges #{Edge} where an edge is {:source String :target String :relationship String}
-(defn store-historical-resources [{:keys [resources producer_timestamp certname edges]}]
-  ;; v1: store shit naively
-  (jdbc/with-db-transaction []
-    (maybe-activate-node! certname (now))
-    (let [certname-id (find-certname-id certname)
-          time-range (sutils/munge-tstzrange-for-storage (format "[%s,)" producer_timestamp))
-
-          resources-to-store (->> resources
-                                  (map #(select-keys % [:type :title :parameters]))
-                                  (map #(assoc % :hash (shash/generic-identity-hash %)))
-                                  (map #(update % :parameters sutils/munge-jsonb-for-storage)))
-          new-hash-resource-map (into {} (for [{:keys [hash] :as resource} resources-to-store]
-                                           [hash resource]))
-          created-resources
-          (let [old-hash-resource-map (into {} (for [{:keys [hist_resource_id hash]}
-                                                     (query-to-vec
-                                                       "SELECT hr.hash, hrl.hist_resource_id
-                                                        FROM hist_resource_lifetimes hrl
-                                                        LEFT JOIN hist_resources hr ON hr.id = hrl.hist_resource_id
-                                                        WHERE upper_inf(hrl.time_range) and hrl.certname_id = ?
-                                                        "
-                                                       certname-id)]
-                                                 [hash hist_resource_id]))]
-            (diff-fn (kitchensink/keyset old-hash-resource-map) (kitchensink/keyset new-hash-resource-map)
-
-                     (fn [hashes]
-                       (jdbc/query-to-vec
-                         "UPDATE hist_resource_lifetimes hrl
-                          SET time_range = time_range * ?
-                          WHERE hrl.hist_resource_id in (SELECT unnest(?) as id)
-                          RETURNING hrl.hist_resource_id"
-
-                        (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
-                        (->> hashes
-                             (map #(get old-hash-resource-map %))
-                             vec
-                             (sutils/array-to-param "integer" Integer)))
-                       {})
-
-                     (fn [hashes]
-                       (let [r (->> hashes
-                                    (map #(get new-hash-resource-map %))
-                                    (insert-records* :hist_resources)
-                                    (map (juxt :hash :id))
-                                    (into {}))]
-                         (->> (vals r)
-                              (map (fn [id]
-                                     {:hist_resource_id id :certname_id certname-id :time_range time-range}))
-                              (insert-records* :hist_resource_lifetimes))
-                         r))
-
-                     (fn [hashes]
-                       (select-keys old-hash-resource-map (vec hashes)))))
-
-          resource-hash-map-for-edges (->> new-hash-resource-map
-                                           (kitchensink/mapvals #(select-keys % [:type :title]))
-                                           clojure.set/map-invert
-                                           (kitchensink/mapvals #(get created-resources %)))
-
-          new-edges (for [{:keys [source target relationship]} edges]
-                      {:source_id (->> source (get resource-hash-map-for-edges))
-                       :dest_id (->> source (get resource-hash-map-for-edges))
-                       :type (name relationship)})
-          created-edges
-          (let [old-edges-map (into {} (for [{:keys [id source_id dest_id type]}
-                                             (query-to-vec
-                                              "
-SELECT he.id, he.source_id, he.dest_id, he.type
-FROM hist_edges he
-WHERE upper_inf(he.time_range) and he.certname_id = ?
-"
-                                              certname-id)]
-                                         [{:source_id source_id :dest_id dest_id :type type} id]))]
-            (diff-fn (kitchensink/keyset old-edges-map) (set new-edges)
-
-                     (fn [edges]
-                       (jdbc/query-to-vec
-                        "
-UPDATE hist_edges he
-SET time_range = time_range * ?
-WHERE he.id in (SELECT unnest(?) as id)
-RETURNING he.id
-"
-
-                        (sutils/munge-tstzrange-for-storage (format "(,%s)" producer_timestamp))
-                        (->> edges
-                             (map #(get old-edges-map %))
-                             vec
-                             (sutils/array-to-param "integer" Integer)))
-                       {})
-
-                     (fn [edges]
-                       (->> edges
-                            (map #(assoc % :time_range time-range :certname_id certname-id))
-                            (insert-records* :hist_edges))
-                       {})
-
-                     (fn [edges] {})))]
-      nil)))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-=======
 (defn find-certname-id [certname]
   (:id (first (jdbc/query-to-vec "select id from certnames where certname=?" certname))))
 
-(defn foo [resources]
-  (let [hash-to-resource (into {} (for [res resources]
-                                    [(:hash res) res]))]
-    (into hash-to-resource (for [[{:keys [hash id]}]
-                                 (jdbc/query-to-vec
-                                  "select id, hash from hist_resources where hash in ?"
-                                  (sutils/array-to-param "text" String (keys hash-to-resource)))]
-                             [hash id]))))
-
 ;; store the new report+resource params thing
 
-
-=======
->>>>>>> ff7f095... foobar
-(pls/defn-validated replace-catalog!
-  "Persist the supplied catalog in the database, returning its
-   similarity hash."
-  ([catalog :- catalog-schema]
-   #_(replace-catalog! catalog (to-timestamp (now))))
-  ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
-    received-timestamp :- pls/Timestamp]
-
-   (time! (:replace-catalog performance-metrics)
-          (jdbc/with-db-transaction []
-            (let [hash (time! (:catalog-hash performance-metrics)
-                              (shash/catalog-similarity-hash catalog))
-                  {catalog-id :catalog_id
-                   stored-hash :catalog_hash
-                   certname-id :certname_id
-                   latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
-              (cond
-                (some-> latest-producer-timestamp
-                        (.after (to-timestamp producer_timestamp)))
-                (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
-
-                (= stored-hash hash)
-                (update-existing-catalog catalog-id hash catalog received-timestamp)
-
-                :else
-                (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                            (kitchensink/mapvals shash/resource-identity-hash resources))]
-                  (if (nil? catalog-id)
-                    (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
-                    (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
-              hash)))))
+;(pls/defn-validated replace-catalog!
+;  "Persist the supplied catalog in the database, returning its
+;   similarity hash."
+;  ([catalog :- catalog-schema]
+;   #_(replace-catalog! catalog (to-timestamp (now))))
+;  ([{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
+;    received-timestamp :- pls/Timestamp]
+;
+;   (time! (:replace-catalog performance-metrics)
+;          (jdbc/with-db-transaction []
+;            (let [hash (time! (:catalog-hash performance-metrics)
+;                              (shash/catalog-similarity-hash catalog))
+;                  {catalog-id :catalog_id
+;                   stored-hash :catalog_hash
+;                   certname-id :certname_id
+;                   latest-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+;              (cond
+;                (some-> latest-producer-timestamp
+;                        (.after (to-timestamp producer_timestamp)))
+;                (log/warnf "Not replacing catalog for certname %s because local data is newer." certname)
+;
+;                (= stored-hash hash)
+;                (update-existing-catalog catalog-id hash catalog received-timestamp)
+;
+;                :else
+;                (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
+;                                            (ks/mapvals shash/resource-identity-hash resources))]
+;                  (if (nil? catalog-id)
+;                    (add-new-catalog certname-id hash catalog refs-to-hashes received-timestamp)
+;                    (replace-existing-catalog certname-id catalog-id hash catalog refs-to-hashes received-timestamp))))
+;              hash)))))
 
 (pls/defn-validated store-catalog!
   "Persist the supplied catalog in the database, returning its similarity hash.
@@ -1182,8 +1170,8 @@ RETURNING he.id
    received-timestamp :- pls/Timestamp]
   (let [historical-catalogs-limit @historical-catalogs-limit]
     (if (> historical-catalogs-limit 0)
-      (add-catalog! catalog received-timestamp historical-catalogs-limit)
-      (replace-catalog! catalog received-timestamp))))
+      (add-catalog!' catalog received-timestamp)
+      (add-catalog!' catalog received-timestamp))))
 
 
 (defn catalog-hash-for-certname
@@ -1542,7 +1530,7 @@ RETURNING he.id
     ;; "Foo" is a class, but "Foo[Bar]" is a type with a title.
     (first
      (filter
-      #(not (or (empty? %) (kitchensink/string-contains? "[" %)))
+      #(not (or (empty? %) (ks/string-contains? "[" %)))
       (reverse containment-path)))))
 
 (def store-resources-column? (atom false))

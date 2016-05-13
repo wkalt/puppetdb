@@ -1048,25 +1048,88 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
-(defn add-awesome-historical-resources
+(defn update-schema-for-historical-resources
   []
   (jdbc/do-commands
-   "create table hist_resources(id serial primary key,
-                                type text,
-                                title text,
-                                hash text,
-                                parameters jsonb)"
 
-   "create table hist_resource_lifetimes(certname_id integer,
-                                         hist_resource_id integer,
-                                         time_range tstzrange)"
+    "create sequence historical_resource_id_seq cycle"
 
-   "create table hist_edges(certname_id integer,
-                            source_id integer,
-                            dest_id integer,
-                            type text,
-                            id serial primary key,
-                            time_range tstzrange)"))
+    (sql/create-table-ddl
+      :resources
+      ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('historical_resource_id_seq')"]
+      ["type" "text"]
+      ["title" "text"]
+      ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
+      ["file" "text"]
+      ["line" "integer"]
+      ["hash" "bytea"]
+      ["exported" "boolean"]
+      ["parameters" "jsonb"])
+
+    (sql/create-table-ddl
+      :resource_lifetimes
+      ["resource_id" "bigint not null primary key"]
+      ["certname_id" "bigint not null"]
+      ["time_range" "tstzrange not null"])
+
+    "create sequence historical_edge_seq cycle"
+
+    (sql/create-table-ddl
+      :hist_edges
+      ["id" "bigint not null primary key default nextval('historical_edge_seq')"]
+      ["certname_id" "bigint not null"]
+      ["source_id" "bigint not null"]
+      ["target_id" "bigint not null"]
+      ["time_range" "tstzrange not null"]
+      ["relationship" "text"]
+      ["type" "text not null"])
+
+    "create sequence params_id_seq cycle"
+
+    (sql/create-table-ddl
+      :resource_params_new
+      ["resource_id" "bigint not null primary key"]
+      ["name" "text"]
+      ["type" "text"]
+      ["value_integer" "bigint"]
+      ["value_boolean" "boolean"]
+      ["value_float" "double precision"]
+      ["value_short_str" "text"]
+      ["value_string_id" "bigint"])
+
+    "create sequence resource_string_seq"
+
+    (sql/create-table-ddl
+      :resource_strings
+      ["id" "bigint not null default nextval('resource_string_seq')"]
+      ["hash" "bytea not null"]
+      ["value" "text"])
+
+
+    "alter table resources add constraint resources_hash_unique unique (hash)"
+
+    "alter table resource_lifetimes add constraint resource_lifetimes_certname_id
+     foreign key (certname_id) references certnames(id) "
+
+    "alter table resource_lifetimes add constraint resource_lifetimes_resource_id
+     foreign key (resource_id) references resources(id)"
+
+    "alter table hist_edges add constraint hist_edges_certname_id
+     foreign key (certname_id) references certnames(id)"
+
+    "alter table hist_edges add constraint hist_edges_source_id
+     foreign key (source_id) references resources(id)"
+
+    "alter table hist_edges add constraint hist_edges_target_id
+     foreign key (target_id) references resources(id)"
+
+    ;"drop table edges"
+    ;"alter table hist_edges rename to edges"
+
+    "alter table resource_params_new add constraint resource_params_resource_id
+     foreign key (resource_id) references resources(id)"
+
+    ))
 
 (def migrations
   "The available migrations, as a map from migration version to migration function."
@@ -1091,7 +1154,7 @@
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
    45 index-certnames-latest-report-id
-   46 add-awesome-historical-resources})
+   46 update-schema-for-historical-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 
