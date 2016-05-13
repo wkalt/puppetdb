@@ -708,21 +708,6 @@
                     (insert-catalog-resources! certname-id refs-to-hashes diffable-resources)
                     (update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)))))
 
-(pls/defn-validated catalog-edges-map
-  "Return all edges for a given catalog id as a map"
-  [certname :- String]
-  ;; Transform the result-set into a map with [source,target,type] as the key
-  ;; and nil as always the value. This just feeds into clojure.data/diff
-  ;; better this way.
-  (jdbc/query-with-resultset
-   [(format "SELECT %s AS source, %s AS target, type FROM edges
-               WHERE certname=?"
-            (sutils/sql-hash-as-str "source")
-            (sutils/sql-hash-as-str "target"))
-    certname]
-   #(zipmap (map vals (sql/result-set-seq %))
-            (repeat nil))))
-
 (pls/defn-validated delete-edges!
   "Delete edges for a given certname.
 
@@ -769,31 +754,31 @@
       (update! (:catalog-volatility performance-metrics) (count rows))
       (apply jdbc/insert! :edges rows))))
 
-(pls/defn-validated replace-edges!
-  "Persist the given edges in the database
-
-  Each edge is looked up in the supplied resources map to find a
-  resource object that corresponds to the edge. We then use that
-  resource's hash for persistence purposes.
-
-  For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
-  then we'll lookup a resource with that key and use its hash."
-  [certname :- String
-   edges :- #{edge-schema}
-   refs-to-hashes :- {resource-ref-schema String}]
-
-  (let [new-edges (zipmap
-                   (for [{:keys [source target relationship]} edges
-                         :let [source-hash (refs-to-hashes source)
-                               target-hash (refs-to-hashes target)
-                               relationship (name relationship)]]
-                     [source-hash target-hash relationship])
-                   (repeat nil))]
-    (utils/diff-fn new-edges
-                   (catalog-edges-map certname)
-                   #(insert-edges! certname %)
-                   #(delete-edges! certname %)
-                   identity)))
+;(pls/defn-validated replace-edges!
+;  "Persist the given edges in the database
+;
+;  Each edge is looked up in the supplied resources map to find a
+;  resource object that corresponds to the edge. We then use that
+;  resource's hash for persistence purposes.
+;
+;  For example, if the source of an edge is {'type' 'Foo' 'title' 'bar'},
+;  then we'll lookup a resource with that key and use its hash."
+;  [certname :- String
+;   edges :- #{edge-schema}
+;   refs-to-hashes :- {resource-ref-schema String}]
+;
+;  (let [new-edges (zipmap
+;                   (for [{:keys [source target relationship]} edges
+;                         :let [source-hash (refs-to-hashes source)
+;                               target-hash (refs-to-hashes target)
+;                               relationship (name relationship)]]
+;                     [source-hash target-hash relationship])
+;                   (repeat nil))]
+;    (utils/diff-fn new-edges
+;                   (catalog-edges-map certname)
+;                   #(insert-edges! certname %)
+;                   #(delete-edges! certname %)
+;                   identity)))
 
 (pls/defn-validated update-existing-catalog
   "When a new incoming catalog has the same hash as an existing catalog, update
@@ -806,15 +791,15 @@
   (time! (:catalog-hash-match performance-metrics)
          (update-catalog-metadata! catalog-id hash catalog received-timestamp)))
 
-(pls/defn-validated update-catalog-associations!
-  "Adds/updates/deletes the edges and resources for the given certname"
-  [certname-id :- Long
-   {:keys [resources edges certname]} :- catalog-schema
-   refs-to-hashes :- {resource-ref-schema String}]
-  (time! (:add-resources performance-metrics)
-         (add-resources! certname-id resources refs-to-hashes))
-  (time! (:add-edges performance-metrics)
-         (replace-edges! certname edges refs-to-hashes)))
+;(pls/defn-validated update-catalog-associations!
+;  "Adds/updates/deletes the edges and resources for the given certname"
+;  [certname-id :- Long
+;   {:keys [resources edges certname]} :- catalog-schema
+;   refs-to-hashes :- {resource-ref-schema String}]
+;  (time! (:add-resources performance-metrics)
+;         (add-resources! certname-id resources refs-to-hashes))
+;  (time! (:add-edges performance-metrics)
+;         (replace-edges! certname edges refs-to-hashes)))
 
 (defn diff-fn
   [left right left-only-fn right-only-fn same-fn]
@@ -823,51 +808,6 @@
      (left-only-fn (or left-only #{}))
      (right-only-fn (or right-only #{}))
      (same-fn (or same #{})))))
-
-(defn add-new-resources!
-  [certname-id time-range new-hash-resource-map]
-  (fn [hashes]
-    (println "hashes to insert")
-    (clojure.pprint/pprint hashes)
-    (let [r (->> hashes
-                 (map #(get new-hash-resource-map %))
-                 (insert-records* :resources)
-                 (map (juxt :hash :id))
-                 (into {}))]
-      (->> (vals r)
-           (map (fn [id]
-                  {:resource_id id :certname_id certname-id :time_range time-range}))
-           (insert-records* :resource_lifetimes))
-      r)))
-
-(defn update-existing-resources
-  [old-hash-resource-map]
-  (fn [hashes]
-    (select-keys old-hash-resource-map (vec hashes))))
-
-(defn cap-edges!
-  [old-edges-map producer-timestamp]
-  (fn [edges]
-    (jdbc/query-to-vec
-      "UPDATE hist_edges he
-       SET time_range = time_range * ?
-       WHERE he.id in (SELECT unnest(?) as id)
-       RETURNING he.id"
-      (sutils/munge-tstzrange-for-storage (format "(,%s)" producer-timestamp))
-      (->> edges
-           (map #(get old-edges-map %))
-           vec
-           (sutils/array-to-param "integer" Integer)))
-    {}))
-
-(defn add-new-edges!
-  [time-range certname-id]
-  (fn [edges]
-    (println "edges are" edges)
-    (->> edges
-         (map #(assoc % :time_range time-range :certname_id certname-id))
-         (insert-records* :hist_edges))
-    {}))
 
 ;(defn add-resources!' [certname-id
 ;                       {:keys [resources producer_timestamp certname edges]}]
@@ -939,29 +879,23 @@
         (zipmap (map #(select-keys % [:type :title]) rss)
                 (jdbc/convert-result-arrays set rss))))))
 
-(defn add-edges!'
-  [certname-id
-   timerange
-   edges
-   refs-to-hashes]
-  )
-
 (defn cap-resources!
   [timerange certname-id]
   (fn [refs-to-hashes]
-    (jdbc/query-to-vec
-      "update rl
-       set time_range = time_range * ?
-       from resource_lifetimes rl inner join resources r on rl.resource_id=r.id
-       where certname_id = ?
-       and upper_inf(time_range)
-       and r.hash=any(?)"
-      timerange
-      certname-id
-      (->> (vals refs-to-hashes)
-           (map sutils/munge-hash-for-storage)
-           vec
-           (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))
+    (when (seq refs-to-hashes)
+      (jdbc/query-to-vec
+        "update resource_lifetimes
+         set time_range = resource_lifetimes.time_range * ?
+         from resource_lifetimes as rl inner join resources r on rl.resource_id=r.id
+         where resource_lifetimes.certname_id = ?
+         and upper_inf(resource_lifetimes.time_range)
+         and r.hash=any(?)"
+        timerange
+        certname-id
+        (->> (vals refs-to-hashes)
+             (map sutils/munge-hash-for-storage)
+             vec
+             (sutils/array-to-param "bytea" org.postgresql.util.PGobject))))
     {}))
 
 (defn resource-ref->row
@@ -976,116 +910,154 @@
        :exported exported
        :file file
        :line line
-       :parameters (munge-jsonb-for-storage parameters)})))
+       :parameters (sutils/munge-jsonb-for-storage parameters)})))
 
 (defn insert-resources!
-  [certname-id timerange refs-to-hashes diffable-resources]
+  [certname-id timerange refs-to-hashes refs-to-resources]
   (fn [refs-to-insert]
-    (update! (:catalo-volatility performance-metrics) (count refs-to-insert))
+    (update! (:catalog-volatility performance-metrics) (count refs-to-insert))
     (let [ref->row (partial resource-ref->row refs-to-resources refs-to-hashes)
-          ids (insert-records* :resources (map ref->row refs-to-insert))]
+          inserted-resources (insert-records* :resources (map ref->row (keys refs-to-insert)))]
       (insert-records*
         :resource_lifetimes
-        (map (fn [id] {:resource_id id :certname_id certname-id :time_range timerange})
-             ids)))))
-
+        (map (fn [{:keys [id]}] {:resource_id id :certname_id certname-id :time_range timerange})
+             inserted-resources))
+      (reduce #(assoc %1 (select-keys %2 [:title :type]) {:id (:id %2)})
+              {} inserted-resources))))
 
 (pls/defn-validated add-resources!'
   "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
-   timerange :- s/Any
+   open-timerange :- s/Any
+   cap-timerange :- s/Any
    refs-to-resources :- resource-ref->resource-schema
    refs-to-hashes :- {resource-ref-schema String}]
   (let [old-resources (existing-catalog-resources certname-id)
         diffable-resources (ks/mapvals strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
-     ;(add-params! refs-to-resources refs-to-hashes)
+      ;(add-params! refs-to-resources refs-to-hashes)
 
       ;; cap expired resources
       ;; store new resources
 
       ;; todo: rename diffable-resources
 
-      (utils/diff-fn old-resources
-                     diffable-resources
-                     (cap-resources! timerange certname-id)
-                     (insert-resources! certname-id timerange refs-to-hashes diffable-resources)
-                     ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
-                     ; todo is there an update that needs to happen here?
-                     identity))))
+      (let [refs-to-ids (diff-fn old-resources
+                                 diffable-resources
+                                 (cap-resources! cap-timerange certname-id)
+                                 (insert-resources! certname-id open-timerange
+                                                    refs-to-hashes diffable-resources)
+                                 ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
+                                 ; todo is there an update that needs to happen here?
+                                 (fn [xs] {}))]
 
-(defn catalog-edges-map'
-  [certname :- String]
+        (println "REFS TO IDS")
+        (clojure.pprint/pprint refs-to-ids)
+        (println "REFS TO HASHES")
+        (clojure.pprint/pprint refs-to-hashes)
+        (merge-with #(assoc %1 :hash %2)
+                    refs-to-ids (select-keys refs-to-hashes (keys refs-to-ids)))))))
+
+(pls/defn-validated catalog-edges-map'
+  [certname-id :- s/Int]
   (jdbc/query-with-resultset
-    [(format "select %s as source, %s as target, type from hist_edges
-              where certname_id = ? and upper_inf(time_range)")
-     certname]
+    [(format "select source_id, target_id, relationship, he.id,
+              %s as source_hash, %s as target_hash from hist_edges he
+              inner join resources as sources on sources.id = he.source_id
+              inner join resources as targets on targets.id = he.target_id
+              where certname_id = ?"
+             (sutils/sql-hash-as-str "sources.hash")
+             (sutils/sql-hash-as-str "targets.hash"))
+     certname-id]
     #(zipmap (map vals (sql/result-set-seq %))
              (repeat nil))))
 
 (defn cap-edges!
-  [timerange certname-id]
-  (fn [edges]
+  [timerange ids edges]
+  (jdbc/query-to-vec
+    "update hist_edges he
+     set time_range = time_range * ?
+     where he.id = any(?)
+     returning 1"
+    timerange
+    (sutils/array-to-param "bigint" Long ids)))
 
+(pls/defn-validated insert-edges!'
+  "Insert edges for a given certname.
 
+  Edges must be either nil or a collection of lists containing each element
+  of an edge, eg:
 
-    )
-  )
+    [[<source> <target> <type>] ...]"
+  [certname-id :- s/Int
+   open-timerange :- s/Any 
+   inserted-resources :- s/Any 
+   edges :- s/Any]
 
-(defn cap-edges
-  [timerange certname-id edges]
+  ;; Insert rows will not safely accept a nil, so abandon this operation
+  ;; earlier.
+  (println "INSERTED RESOURCES")
+  (clojure.pprint/pprint inserted-resources)
+
+  (println "EDGES")
+  (clojure.pprint/pprint edges)
   (when (seq edges)
-    (let [rows (for [[source target type] edges]
-                 {:certname certname
-                  :source (sutils/munge-hash-for-storage source)
-                  :target (sutils/munge-hash-for-storage target)
-                  :type type
-                  }
-                 )])
-    )
-  )
+    (let [rows (for [[source target relationship] edges]
+                 {:certname_id certname-id
+                  :source_id (:id (get inserted-resources source))
+                  :target_id (:id (get inserted-resources target))
+                  :time_range open-timerange
+                  :relationship relationship})]
 
-(pls/defn-validated add-edges!
-  [certname :- s/Int
+      (update! (:catalog-volatility performance-metrics) (count rows))
+      (apply jdbc/insert! :hist_edges rows))))
+
+(pls/defn-validated add-edges!'
+  [certname-id :- s/Int
+   open-timerange :- s/Any
+   cap-timerange :- s/Any
    edges :- #{edge-schema}
-   refs-to-hashes :- {resource-ref-schema String}]
+   refs-to-hashes :- {resource-ref-schema String}
+   inserted-resources :- s/Any]
+  (println "initial edges are")
+  (clojure.pprint/pprint edges)
   (let [new-edges (zipmap
-                    (for [{:keys [source target relationship]} edges
-                          :let [source-hash (refs-to-hashes source)
-                                target-hash (refs-to-hashes target)
-                                type (name relationship)]]
-                      [source-hash target-hash type])
-                    (repeat nil))]
-    (utils/diff-fn new-edges (catalog-edges-map' certname-id)
-                   (partial cap-edges! certname)
-                   (partial insert-edges!' certname)
-                   identity)))
+                    edges
+                    (repeat nil)
+                    (for [{:keys [source target relationship]} edges]
+                      [source-hash target-hash relationship])
+                    (repeat nil))
+        catalog-edges-map (catalog-edges-map' certname-id)
+        existing-edges (zipmap (map #(dissoc % :id) catalog-edges-map) (repeat nil))
+        existing-ids (map :id catalog-edges-map)]
+    (diff-fn existing-edges new-edges
+             (partial cap-edges! cap-timerange existing-ids)
+             (partial insert-edges!' certname-id open-timerange inserted-resources)
+             identity)))
 
 (defn update-catalog-associations'
   [certname-id
    {:keys [resources producer_timestamp certname edges] :as catalog}
    refs-to-hashes]
 
-    (let [open-timerange (->> producer_timestamp
-                              (format "[%s,)")
-                              sutils/munge-tstzrange-for-storage)]
-      (time! (:add-resources performance-metrics)
-             (add-resources!' certname-id open-timerange resources refs-to-hashes))
+  (let [open-timerange (->> producer_timestamp
+                            (format "[%s,)")
+                            sutils/munge-tstzrange-for-storage)
+        cap-timerange (->> producer_timestamp
+                           (format "(,%s]")
+                           sutils/munge-tstzrange-for-storage)]
+    (time! (:add-resources performance-metrics)
+           (let [inserted-resources (add-resources!' certname-id open-timerange cap-timerange
+                                                     resources refs-to-hashes)]
 
-      (time! (:add-edges performance-metrics)
-             (add-edges!' certname-id open-timerange edges refs-to-hashes))
+
+             (time! (:add-edges performance-metrics)
+                    (add-edges!' certname-id open-timerange
+                                 cap-timerange edges refs-to-hashes
+                                 inserted-resources))))
 
 
-      (println "catalog is")
-      (clojure.pprint/pprint catalog)
-
-      (println "refs to hashes")
-      (clojure.pprint/pprint refs-to-hashes)
-
-      (println "resources are")
-      (clojure.pprint/pprint resources)
-
-      nil))
+    nil))
 
 (pls/defn-validated add-catalog!'
   [{:keys [producer_timestamp resources certname] :as catalog} :- catalog-schema
@@ -1097,7 +1069,8 @@
                              (shash/catalog-similarity-hash catalog))
                  {certname-id :certname_id
                   stored-hash :catalog_hash
-                  last-producer-timestamp :producer_timestamp} (latest-catalog-metadata certname)]
+                  last-producer-timestamp :producer_timestamp} (latest-catalog-metadata
+                                                                 certname)]
              (inc! (:updated-catalog performance-metrics))
              (time! (:add-new-catalog performance-metrics)
                     (time! (get performance-metrics
@@ -1105,15 +1078,22 @@
                                   (do (inc! (:duplicate-catalog performance-metrics))
                                       :catalog-hash-match)
                                   :catalog-hash-miss))
-                           (let [catalog-id (:id (add-catalog-metadata! hash catalog received-timestamp))]
+                           (let [catalog-id (:id (add-catalog-metadata!
+                                                   hash catalog received-timestamp))]
                              (when-not (some-> last-producer-timestamp
                                                (.after (to-timestamp producer_timestamp)))
-                               (let [refs-to-hashes (time! (:resource-hashes performance-metrics)
-                                                           (ks/mapvals shash/resource-identity-hash resources))]
+                               (let [refs-to-hashes
+                                     (time! (:resource-hashes performance-metrics)
+                                            (ks/mapvals shash/resource-identity-hash resources))]
                                  (if-not last-producer-timestamp
-                                   (jdbc/insert! :latest_catalogs {:certname_id certname-id :catalog_id catalog-id})
-                                   (jdbc/update! :latest_catalogs {:catalog_id catalog-id} ["certname_id=?" certname-id]))
-                                 (update-catalog-associations' certname-id catalog refs-to-hashes))))))
+                                   (jdbc/insert! :latest_catalogs
+                                                 {:certname_id certname-id
+                                                  :catalog_id catalog-id})
+                                   (jdbc/update! :latest_catalogs
+                                                 {:catalog_id catalog-id}
+                                                 ["certname_id=?" certname-id]))
+                                 (update-catalog-associations' certname-id
+                                                               catalog refs-to-hashes))))))
              hash))))
 
 

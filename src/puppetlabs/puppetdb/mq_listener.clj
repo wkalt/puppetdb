@@ -264,7 +264,7 @@
     (discard msg e)))
 
 ;; The number of times a message can be retried before we discard it
-(def maximum-allowable-retries 16)
+(def maximum-allowable-retries 1)
 
 (defn handle-command-retry
   "Dump the error encountered to the log, and re-publish the message,
