@@ -1064,6 +1064,7 @@
       ["file" "text"]
       ["line" "integer"]
       ["hash" "bytea"]
+      ["certname_id" "bigint not null"]
       ["exported" "boolean"]
       ["parameters" "jsonb"])
 
@@ -1082,8 +1083,7 @@
       ["source_id" "bigint not null"]
       ["target_id" "bigint not null"]
       ["time_range" "tstzrange not null"]
-      ["relationship" "text"]
-      ["type" "text not null"])
+      ["relationship" "text not null"])
 
     "create sequence params_id_seq cycle"
 
@@ -1106,11 +1106,11 @@
       ["hash" "bytea not null"]
       ["value" "text"])
 
-
-    "alter table resources add constraint resources_hash_unique unique (hash)"
+    "alter table resources add constraint resource_certname_id
+     foreign key (certname_id) references certnames(id)"
 
     "alter table resource_lifetimes add constraint resource_lifetimes_certname_id
-     foreign key (certname_id) references certnames(id) "
+     foreign key (certname_id) references certnames(id)"
 
     "alter table resource_lifetimes add constraint resource_lifetimes_resource_id
      foreign key (resource_id) references resources(id)"

@@ -37,8 +37,6 @@
    independently whether or not to submit a catalog during that clock
    tick."
   (:require [clojure.tools.logging :as log]
-            [puppetlabs.puppetdb.jdbc :as jdbc]
-            [puppetlabs.puppetdb.scf.storage :as storage]
             [puppetlabs.puppetdb.catalog.utils :as catutils]
             [puppetlabs.trapperkeeper.logging :as logutils]
             [puppetlabs.trapperkeeper.config :as config]
@@ -193,107 +191,6 @@
       (randomize-map-leaf value)
       value)))
 
-
-(def sr-tweak-rates
-  {:add-resource 0.05
-   :delete-resource 0.05
-   :change-resource 0.9})
-
-
-(defn random-resource
-  []
-  (let [nparams (inc (rand-int 15))]
-    {:type (rand-nth ["Exec" "Package" "File" "User" "Mystery"])
-     :title (random-string (inc (rand-int 20)))
-     :file (random-string (inc (rand-int 30)))
-     :line (str (rand-int 300))
-     :exported "false"
-     :tags (vec (take (rand-int 10) (repeatedly #(random-string 5))))
-     :parameters (zipmap (map keyword
-                              (take nparams (repeatedly #(random-string 10))))
-                         (take nparams (repeatedly #(random-string 10))))
-     :events {:timestamp (time/now)
-              :property "foo"
-              :new_value "bar"
-              :old_value "baz"
-              :status "changed"
-              :message "foobar"}}))
-
-(def edge-types
-  ["notifies" "required-by" "subscription-of" "contains" "before"])
-
-(defn add-resource
-  [r]
-  (let [new-resource (random-resource)
-        random-resource (rand-nth (:resources r))
-        new-edge {:source {:type (:type random-resource)
-                           :title (:title random-resource)}
-                  :target {:type (:type new-resource)
-                           :title (:title new-resource)}
-                  :relationship (rand-nth edge-types)}]
-    (-> r
-        (update :resources conj new-resource)
-        (update :resources vec)
-        (update :edges conj new-edge)
-        (update :edge vec))))
-
-
-(defn delete-resource
-  [r]
-  (let [{:keys [type title] :as rand-resource} (rand-nth (:resources r))]
-    (-> r
-        (update :resources (fn [x]
-                             (filter #(not (and (= (:type %) type)
-                                                (= (:title %) title))) x)))
-        (update :edges (fn [x]
-                         (filter #(not (and (= (get-in % [:source :type]) type)
-                                            (= (get-in % [:source :title]) title)))
-                                 x))))))
-
-(defn change-resource
-  [r]
-  (-> r
-      delete-resource
-      add-resource))
-
-(defn tweak-sr
-  [r p]
-  (let [random-number (rand)]
-    (if (< (rand) p)
-      (cond
-        (< random-number 0.05)
-        (add-resource r)
-
-        (< random-number 0.1)
-        (delete-resource r)
-
-        :else
-        (change-resource r))
-      r)))
-
-(def db
-  {:classname "org.postgresql.Driver"
-   :subprotocol "postgresql"
-   :subname "//localhost:5432/puppetdb"})
-
-(defn generate-and-submit-superreports!
-  [path nagents nmsgs p]
-  (let [start-data (json/parse-string (slurp path) true )
-        hosts (map #(str "host-" %) (range nagents))]
-
-    (jdbc/with-db-connection db
-      (doseq [host hosts]
-        (println "storing data for host" host)
-        (loop [n nmsgs
-               state start-data]
-          (let [new-state (-> (tweak-sr state p)
-                              (assoc :certname host)
-                              (assoc :producer_timestamp (time/now))
-                              (assoc :transaction_uuid (kitchensink/uuid)))]
-            (storage/store-historical-resources new-state)
-            (when (pos? n)
-              (recur (dec n) new-state))))))))
-
 (defn update-factset
   "Updates the producer_timestamp to be current, and randomly updates the leaves
    of the factset based on a percentage provided in `rand-percentage`."
@@ -365,7 +262,6 @@
                 :parse-fn #(Integer/parseInt %)]
                ["-n" "--numhosts NUMHOSTS" "How many hosts to use during simulation (required)"
                 :parse-fn #(Integer/parseInt %)]
-               ["-S" "--superreports SUPERREPORTS" "path to director with superreport"]
                ["-r" "--rand-perc RANDPERC" "What percentage of submitted catalogs are tweaked (int between 0 and 100)"
                 :default 0
                 :parse-fn #(Integer/parseInt %)]
@@ -406,7 +302,7 @@
       (->> tar-reader
            archive/all-entries
            (reduce (process-tar-entry tar-reader) {})))
-    (let [data-paths (select-keys options [:reports :catalogs :facts :superreports])
+    (let [data-paths (select-keys options [:reports :catalogs :facts])
           [data-paths from-cp?] (if (empty? data-paths)
                                   [default-data-paths true]
                                   [data-paths false])]
@@ -555,9 +451,9 @@
 
 (defn benchmark-main
   [& args]
-  (let [{:keys [config rand-perc numhosts nummsgs threads superreports] :as options} (validate-cli! args)
+  (let [{:keys [config rand-perc numhosts nummsgs threads] :as options} (validate-cli! args)
         _ (logutils/configure-logging! (get-in config [:global :logging-config]))
-        {:keys [catalogs reports facts]} {:catalogs nil :reports nil :facts nil}
+        {:keys [catalogs reports facts]} (load-data-from-options options)
         {pdb-host :host pdb-port :port
          :or {pdb-host "127.0.0.1" pdb-port 8080}} (:jetty config)
         base-url (utils/pdb-cmd-base-url pdb-host pdb-port :v1)
@@ -584,54 +480,50 @@
                                    (if reports 1 0)
                                    (if facts 1 0))]
 
-    (if superreports
-      (generate-and-submit-superreports! superreports numhosts nummsgs (* 0.01 rand-perc))
+    (start-rate-monitor rate-monitor-ch run-interval commands-per-puppet-run)
 
+    (dotimes [_ threads]
+      (start-command-sender base-url command-send-ch rate-monitor-ch))
+
+    (when-not catalogs (log/info "No catalogs specified; skipping catalog submission"))
+    (when-not reports (log/info "No reports specified; skipping report submission"))
+    (when-not facts (log/info "No facts specified; skipping fact submission"))
+
+    (if nummsgs
       (do
-        (start-rate-monitor rate-monitor-ch run-interval commands-per-puppet-run)
-
+        (submit-n-messages hosts nummsgs rand-perc command-send-ch)
         (dotimes [_ threads]
-          (start-command-sender base-url command-send-ch rate-monitor-ch))
+          (>!! command-send-ch :stop))
+        (close! command-send-ch))
 
-        (when-not catalogs (log/info "No catalogs specified; skipping catalog submission"))
-        (when-not reports (log/info "No reports specified; skipping report submission"))
-        (when-not facts (log/info "No facts specified; skipping fact submission"))
+      (let [close-to-stop-ch (chan)
+            mq (chan (amq-broker-buffer "benchmark-mq" "benchmark-endpoint"))]
 
-        (if nummsgs
-          (do
-            (submit-n-messages hosts nummsgs rand-perc command-send-ch)
-            (dotimes [_ threads]
-              (>!! command-send-ch :stop))
-            (close! command-send-ch))
+        ;; be sure to clear the temp queue on exit
+        (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
 
-          (let [close-to-stop-ch (chan)
-                mq (chan (amq-broker-buffer "benchmark-mq" "benchmark-endpoint"))]
+        ;; initial queue population
+        (future
+          (println "Populating the queue in the background")
+          (dotimes [n numhosts]
+            (let [h (-> (make-host n)
+                        (assoc :lastrun (rand-lastrun run-interval)))]
+              (>!! mq h)))
 
-            ;; be sure to clear the temp queue on exit
-            (.addShutdownHook (Runtime/getRuntime) (Thread. #(close! mq)))
+          (println "... finished filling the queue, continuing with the simulation."))
 
-            ;; initial queue population
-            (future
-              (println "Populating the queue in the background")
-              (dotimes [n numhosts]
-                (let [h (-> (make-host n)
-                            (assoc :lastrun (rand-lastrun run-interval)))]
-                  (>!! mq h)))
-
-              (println "... finished filling the queue, continuing with the simulation."))
-
-            (let [run-interval-minutes (time/in-minutes run-interval)
-                  hosts-per-second (/ numhosts (* run-interval-minutes 60))
-                  rate-limited-mq-out (chan)]
-              (relay-messages-at-rate mq rate-limited-mq-out hosts-per-second)
-              (pipeline simulation-threads
-                        mq
-                        (map #(update-host % rand-perc (time/now) command-send-ch))
-                        rate-limited-mq-out)
-              (go
-                (<! close-to-stop-ch)
-                (mapv close! [rate-limited-mq-out mq rate-monitor-ch command-send-ch])))
-            close-to-stop-ch))))))
+        (let [run-interval-minutes (time/in-minutes run-interval)
+              hosts-per-second (/ numhosts (* run-interval-minutes 60))
+              rate-limited-mq-out (chan)]
+          (relay-messages-at-rate mq rate-limited-mq-out hosts-per-second)
+          (pipeline simulation-threads
+                    mq
+                    (map #(update-host % rand-perc (time/now) command-send-ch))
+                    rate-limited-mq-out)
+          (go
+            (<! close-to-stop-ch)
+            (mapv close! [rate-limited-mq-out mq rate-monitor-ch command-send-ch])))
+        close-to-stop-ch))))
 
 (defn chan? [x]
   (satisfies? clojure.core.async.impl.protocols/Channel x))
