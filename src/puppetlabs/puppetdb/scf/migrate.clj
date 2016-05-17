@@ -1064,39 +1064,26 @@
       ["file" "text"]
       ["line" "integer"]
       ["hash" "bytea"]
-      ["certname_id" "bigint not null"]
       ["exported" "boolean"]
       ["parameters" "jsonb"])
 
     (sql/create-table-ddl
       :historical_resource_lifetimes
-      ["resource_id" "bigint not null primary key"]
-      ["certname_id" "bigint not null"]
+      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["certname_id" "bigint not null references certnames(id)"]
       ["time_range" "tstzrange not null"])
 
     "create sequence historical_edge_seq cycle"
 
     (sql/create-table-ddl
       :historical_edges
-      ["id" "bigint not null primary key default nextval('historical_edge_seq')"]
-      ["certname_id" "bigint not null"]
-      ["source_id" "bigint not null"]
-      ["target_id" "bigint not null"]
+      ["certname_id" "bigint not null references certnames(id)"]
+      ["source_id" "bigint not null references historical_resources(id)"]
+      ["target_id" "bigint not null references historical_resources(id)"]
       ["time_range" "tstzrange not null"]
-      ["relationship" "text not null"])
+      ["type" "text not null"])
 
     "create sequence params_id_seq cycle"
-
-    (sql/create-table-ddl
-      :historical_resource_params
-      ["resource_id" "bigint not null primary key"]
-      ["name" "text"]
-      ["type" "text"]
-      ["value_integer" "bigint"]
-      ["value_boolean" "boolean"]
-      ["value_float" "double precision"]
-      ["value_short_str" "text"]
-      ["value_string_id" "bigint"])
 
     "create sequence resource_string_seq"
 
@@ -1106,29 +1093,28 @@
       ["hash" "bytea not null"]
       ["value" "text"])
 
-    "alter table historical_resources add constraint resource_certname_id
-     foreign key (certname_id) references certnames(id)"
+    (sql/create-table-ddl
+      :historical_resource_params
+      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["name" "text"]
+      ["type" "text"]
+      ["value_integer" "bigint"]
+      ["value_boolean" "boolean"]
+      ["value_float" "double precision"]
+      ["value_short_str" "text"]
+      ["value_string_id" "bigint references historical_resource_strings(id)"])
 
-    "alter table historical_resource_lifetimes add constraint resource_lifetimes_certname_id
-     foreign key (certname_id) references certnames(id)"
+    (sql/create-table-ddl
+      :historical_events
+      ["report_id" "bigint not null references reports(id)"]
+      ["resource_id" "bigint not null references historical_resources(id)"]
+      ["property" "text"]
+      ["old_value" "text"]
+      ["new_value" "text"])
 
-    "alter table historical_resource_lifetimes add constraint resource_lifetimes_resource_id
-     foreign key (resource_id) references historical_resources(id)"
+    ;; drop resource events resource_type/title columns in favor of a reference
+    ;; to the resource itself
 
-    "alter table historical_edges add constraint hist_edges_certname_id
-     foreign key (certname_id) references certnames(id)"
-
-    "alter table historical_edges add constraint hist_edges_source_id
-     foreign key (source_id) references historical_resources(id)"
-
-    "alter table historical_edges add constraint hist_edges_target_id
-     foreign key (target_id) references historical_resources(id)"
-
-    "alter table historical_resource_params add constraint resource_params_resource_id
-     foreign key (resource_id) references historical_resources(id)"
-
-    "alter table historical_resource_params add constraint resource_params_resource_string
-     foreign key (value_string_id) references historical_resource_strings(id)"
 
     ))
 
