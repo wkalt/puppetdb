@@ -1056,7 +1056,7 @@
     "create sequence historical_resource_id_seq cycle"
 
     (sql/create-table-ddl
-      :resources
+      :historical_resources
       ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('historical_resource_id_seq')"]
       ["type" "text"]
       ["title" "text"]
@@ -1069,7 +1069,7 @@
       ["parameters" "jsonb"])
 
     (sql/create-table-ddl
-      :resource_lifetimes
+      :historical_resource_lifetimes
       ["resource_id" "bigint not null primary key"]
       ["certname_id" "bigint not null"]
       ["time_range" "tstzrange not null"])
@@ -1077,7 +1077,7 @@
     "create sequence historical_edge_seq cycle"
 
     (sql/create-table-ddl
-      :hist_edges
+      :historical_edges
       ["id" "bigint not null primary key default nextval('historical_edge_seq')"]
       ["certname_id" "bigint not null"]
       ["source_id" "bigint not null"]
@@ -1088,7 +1088,7 @@
     "create sequence params_id_seq cycle"
 
     (sql/create-table-ddl
-      :resource_params_new
+      :historical_resource_params
       ["resource_id" "bigint not null primary key"]
       ["name" "text"]
       ["type" "text"]
@@ -1101,34 +1101,34 @@
     "create sequence resource_string_seq"
 
     (sql/create-table-ddl
-      :resource_strings
-      ["id" "bigint not null default nextval('resource_string_seq')"]
+      :historical_resource_strings
+      ["id" "bigint primary key default nextval('resource_string_seq')"]
       ["hash" "bytea not null"]
       ["value" "text"])
 
-    "alter table resources add constraint resource_certname_id
+    "alter table historical_resources add constraint resource_certname_id
      foreign key (certname_id) references certnames(id)"
 
-    "alter table resource_lifetimes add constraint resource_lifetimes_certname_id
+    "alter table historical_resource_lifetimes add constraint resource_lifetimes_certname_id
      foreign key (certname_id) references certnames(id)"
 
-    "alter table resource_lifetimes add constraint resource_lifetimes_resource_id
-     foreign key (resource_id) references resources(id)"
+    "alter table historical_resource_lifetimes add constraint resource_lifetimes_resource_id
+     foreign key (resource_id) references historical_resources(id)"
 
-    "alter table hist_edges add constraint hist_edges_certname_id
+    "alter table historical_edges add constraint hist_edges_certname_id
      foreign key (certname_id) references certnames(id)"
 
-    "alter table hist_edges add constraint hist_edges_source_id
-     foreign key (source_id) references resources(id)"
+    "alter table historical_edges add constraint hist_edges_source_id
+     foreign key (source_id) references historical_resources(id)"
 
-    "alter table hist_edges add constraint hist_edges_target_id
-     foreign key (target_id) references resources(id)"
+    "alter table historical_edges add constraint hist_edges_target_id
+     foreign key (target_id) references historical_resources(id)"
 
-    ;"drop table edges"
-    ;"alter table hist_edges rename to edges"
+    "alter table historical_resource_params add constraint resource_params_resource_id
+     foreign key (resource_id) references historical_resources(id)"
 
-    "alter table resource_params_new add constraint resource_params_resource_id
-     foreign key (resource_id) references resources(id)"
+    "alter table historical_resource_params add constraint resource_params_resource_string
+     foreign key (value_string_id) references historical_resource_strings(id)"
 
     ))
 
