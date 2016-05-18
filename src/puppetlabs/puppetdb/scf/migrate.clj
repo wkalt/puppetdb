@@ -1064,8 +1064,7 @@
       ["file" "text"]
       ["line" "integer"]
       ["hash" "bytea"]
-      ["exported" "boolean"]
-      ["parameters" "jsonb"])
+      ["exported" "boolean"])
 
     (sql/create-table-ddl
       :historical_resource_lifetimes
@@ -1088,12 +1087,6 @@
     "create sequence resource_string_seq"
 
     (sql/create-table-ddl
-      :historical_resource_strings
-      ["id" "bigint primary key default nextval('resource_string_seq')"]
-      ["hash" "bytea not null"]
-      ["value" "text"])
-
-    (sql/create-table-ddl
       :historical_resource_params
       ["resource_id" "bigint not null primary key references historical_resources(id)"]
       ["name" "text"]
@@ -1101,16 +1094,9 @@
       ["value_integer" "bigint"]
       ["value_boolean" "boolean"]
       ["value_float" "double precision"]
-      ["value_short_str" "text"]
-      ["value_string_id" "bigint references historical_resource_strings(id)"])
+      ["value_string" "text"])
 
-    (sql/create-table-ddl
-      :historical_events
-      ["report_id" "bigint not null references reports(id)"]
-      ["resource_id" "bigint not null references historical_resources(id)"]
-      ["property" "text"]
-      ["old_value" "text"]
-      ["new_value" "text"])
+    "alter table resource_events add column resource_id bigint references historical_resources(id)"
 
     ;; drop resource events resource_type/title columns in favor of a reference
     ;; to the resource itself
