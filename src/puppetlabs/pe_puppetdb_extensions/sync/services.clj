@@ -4,6 +4,7 @@
   (:require [clj-time.core :as time]
             [clojure.tools.logging :as log]
             [overtone.at-at :as atat]
+            [puppetlabs.pe-puppetdb-extensions.command :refer [pe-command-service]]
             [metrics.reporters.jmx :as jmx-reporter]
             [puppetlabs.kitchensink.core :as ks]
             [puppetlabs.structured-logging.core :refer [maplog]]
@@ -284,7 +285,8 @@
   PuppetDBSync
   [[:DefaultedConfig get-config]
    [:PuppetDBServer query shared-globals]
-   [:PuppetDBCommandDispatcher enqueue-command response-mult]]
+   [:PuppetDBCommandDispatcher enqueue-command response-mult]
+   PeCommandService]
 
   (init [this context]
         (jmx-reporter/start (:reporter events/sync-metrics))
