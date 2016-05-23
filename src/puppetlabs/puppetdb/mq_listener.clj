@@ -323,11 +323,11 @@
     (s/one message-fn-schema "Message Handler Function")]])
 
 (pls/defn-validated matching-handler
-  "Takes a list of pred/handler pairs and returns the first matching handler
+  "Takes a list of pred/handler pairs and returns the last matching handler
    for the given message"
   [handlers :- handler-schema
    message :- {s/Any s/Any}]
-  (first
+  (last
    (for [[pred handler] handlers
          :when (pred message)]
      handler)))

@@ -1048,6 +1048,64 @@
   (jdbc/do-commands
     "CREATE INDEX idx_certnames_latest_report_id on certnames(latest_report_id)"))
 
+(defn update-schema-for-historical-resources
+  []
+  ;; todo: INDEXES
+  (jdbc/do-commands
+
+    "create sequence historical_resource_id_seq cycle"
+
+    (sql/create-table-ddl
+      :historical_resources
+      ["id" "bigint NOT NULL PRIMARY KEY DEFAULT nextval('historical_resource_id_seq')"]
+      ["type" "text"]
+      ["title" "text"]
+      ["tags" (sutils/sql-array-type-string "TEXT") "NOT NULL"]
+      ["file" "text"]
+      ["line" "integer"]
+      ["hash" "bytea"]
+      ["exported" "boolean"])
+
+    (sql/create-table-ddl
+      :historical_resource_lifetimes
+      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["certname_id" "bigint not null references certnames(id)"]
+      ["time_range" "tstzrange not null"])
+
+    "create sequence historical_edge_seq cycle"
+
+    (sql/create-table-ddl
+      :historical_edges
+      ["certname_id" "bigint not null references certnames(id)"]
+      ["source_id" "bigint not null references historical_resources(id)"]
+      ["target_id" "bigint not null references historical_resources(id)"]
+      ["time_range" "tstzrange not null"]
+      ["type" "text not null"])
+
+    "create sequence params_id_seq cycle"
+
+    "create sequence resource_string_seq"
+
+    (sql/create-table-ddl
+      :historical_resource_params
+      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["name" "text"]
+      ["type" "text"]
+      ["value_integer" "bigint"]
+      ["value_boolean" "boolean"]
+      ["value_float" "double precision"]
+      ["deviation_status" "text"]
+      ["value_string" "text"])
+
+    "alter table resource_events add column resource_id bigint references historical_resources(id)"
+
+    ;; drop resource events resource_type/title columns in favor of a reference
+    ;; to the resource itself
+
+
+    ))
+
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1070,7 +1128,8 @@
    42 add-support-for-historical-catalogs
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
-   45 index-certnames-latest-report-id})
+   45 index-certnames-latest-report-id
+   46 update-schema-for-historical-resources})  
 
 (def desired-schema-version (apply max (keys migrations)))
 
