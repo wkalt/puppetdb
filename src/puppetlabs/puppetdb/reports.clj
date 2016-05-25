@@ -212,7 +212,6 @@
              :producer_timestamp received-time)
       wire-v5->wire-v7))
 
-
 (defn wire-v3->wire-v7
   [report received-time]
   (-> report

@@ -32,7 +32,7 @@ msgid "Permission denied: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:164
-#: src/puppetlabs/puppetdb/middleware.clj:113
+#: src/puppetlabs/puppetdb/middleware.clj:114
 msgid "must accept {0}"
 msgstr ""
 
@@ -43,7 +43,7 @@ msgid "Error streaming response"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:286
-#: src/puppetlabs/puppetdb/middleware.clj:293
+#: src/puppetlabs/puppetdb/middleware.clj:294
 msgid "No information is known about {0} {1}"
 msgstr ""
 
@@ -51,46 +51,46 @@ msgstr ""
 msgid "Processing HTTP request to URI: ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:51
+#: src/puppetlabs/puppetdb/middleware.clj:52
 msgid "{0} rejected by certificate whitelist {1}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:52
+#: src/puppetlabs/puppetdb/middleware.clj:53
 msgid ""
 "The client certificate name {0} doesn't appear in the certificate whitelist. "
 "Is your master''s (or other PuppetDB client''s) certname listed in "
 "PuppetDB''s certificate-whitelist file?"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:127
+#: src/puppetlabs/puppetdb/middleware.clj:128
 msgid "content type {0} not supported"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:143
+#: src/puppetlabs/puppetdb/middleware.clj:144
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:149
+#: src/puppetlabs/puppetdb/middleware.clj:150
 msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:252
+#: src/puppetlabs/puppetdb/middleware.clj:253
 msgid "Processing command with a content-length of {0} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:253
+#: src/puppetlabs/puppetdb/middleware.clj:254
 msgid ""
 "No content length found for POST. POST bodies that are too large could cause "
 "memory-related failures."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:259
+#: src/puppetlabs/puppetdb/middleware.clj:260
 msgid ""
 "content-length of command is {0} bytes and is larger than the maximum "
 "allowed command size of {1} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:264
+#: src/puppetlabs/puppetdb/middleware.clj:265
 msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
