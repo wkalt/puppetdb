@@ -67,8 +67,8 @@
 (def resource-schema
   (merge resource-ref-schema
          {(s/optional-key :exported) Boolean
-          (s/optional-key :file) String
-          (s/optional-key :line) s/Int
+          (s/optional-key :file) (s/maybe String)
+          (s/optional-key :line) (s/maybe s/Int)
           (s/optional-key :tags) #{String}
           (s/optional-key :aliases)#{String}
           (s/optional-key :parameters) {s/Any s/Any}}))
