@@ -3,6 +3,7 @@
             [clojure.set :as set]
             [clojure.tools.logging :as log]
             [clojure.data :as data]
+            [clojure.java.jdbc :as sql]
             [com.rpl.specter :as sp]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.puppetdb.scf.hash :as shash]
@@ -162,23 +163,25 @@
 
 (defn existing-resources
   [certname-id]
-  (jdbc/query-to-vec
-    [(format "select type, title, tags, exported, file, line, %s as resource
-              from historical_resources inner join historical_resource_lifetimes
-              on historical_resources.id = historical_resource_lifetimes.resource_id
-              where historical_resource_lifetimes.certname_id = ?
-              and upper_inf(time_range)"
-             (sutils/sql-hash-as-str "hash")) certname-id]))
+  (jdbc/query-with-resultset
+    ["select type, title, tags, exported, file, line
+      from historical_resources inner join historical_resource_lifetimes
+      on historical_resources.id = historical_resource_lifetimes.resource_id
+      where historical_resource_lifetimes.certname_id = ?
+      and upper_inf(time_range)"
+     certname-id]
+    (fn [rs]
+      (let [rss (sql/result-set-seq rs)]
+        (zipmap (map #(select-keys % [:type :title]) rss)
+                (jdbc/convert-result-arrays set rss))))))
 
 (defn existing-resource-refs
   [certname-id]
   (let [existing-data (jdbc/query-to-vec
-                        [(format "select *
-                                  from historical_resources inner join historical_resource_lifetimes
-                                  on historical_resources.id = historical_resource_lifetimes.resource_id
-                                  where historical_resource_lifetimes.certname_id = ?
-                                  and upper_inf(time_range)"
-                                 (sutils/sql-hash-as-str "hash")) certname-id])]
+                        ["select type, title, id from historical_resources
+                          inner join historical_resource_lifetimes on
+                          historical_resources.id = historical_resource_lifetimes.resource_id
+                          where historical_resource_lifetimes.certname_id = ?  and upper_inf(time_range)" certname-id])]
 
     (into {} (->> existing-data
                   (map (fn [x]
@@ -188,6 +191,7 @@
 (defn cap-resources!
   [timerange certname-id]
   (fn [refs-to-hashes]
+    (println "COUNT RESOURCES TO CAP" (count refs-to-hashes))
     (when (seq refs-to-hashes)
       (jdbc/query-to-vec
         "update historical_resource_lifetimes
@@ -222,6 +226,7 @@
 (defn insert-resources!
   [certname-id timerange refs-to-hashes refs-to-resources]
   (fn [refs-to-insert]
+    (println "COUNT REFS TO INSERT" (count refs-to-insert))
     (let [ref->row (partial resource-ref->row certname-id refs-to-resources
                             refs-to-hashes)
           candidate-rows (map ref->row (keys refs-to-insert))
@@ -240,6 +245,7 @@
    cap-timerange :- s/Any
    refs-to-resources :- storage/resource-ref->resource-schema
    refs-to-hashes :- {storage/resource-ref-schema String}]
+
   (let [old-resources (existing-resources certname-id)
         diffable-resources (ks/mapvals storage/strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
@@ -251,11 +257,8 @@
 
       ;; todo: rename diffable-resources
 
-      (println "OLD RESOURCES ARE")
-      (clojure.pprint/pprint old-resources)
-
-      (let [refs-to-ids (diff-fn old-resources
-                                 diffable-resources
+      (let [refs-to-ids (diff-fn (set old-resources)
+                                 (set diffable-resources)
                                  (cap-resources! cap-timerange certname-id)
                                  (insert-resources! certname-id open-timerange
                                                     refs-to-hashes refs-to-resources)
@@ -268,41 +271,44 @@
 
 (defn existing-edges-map
   [certname-id]
-  (let [existing-data (jdbc/query-to-vec
-                        [(format "select source_id, target_id, relationship, he.id,
-                                  %s as source_hash, sources.type as source_type,
-                                  sources.title as source_title,
-                                  %s as target_hash, targets.type as target_type,
-                                  targets.title as target_title from historical_edges he
-                                  inner join historical_edges_lifetimes hel on
-                                  he.id = hel.edge_id
-                                  inner join historical_resources as sources
-                                  on sources.id = he.source_id
-                                  inner join historical_resources as targets
-                                  on targets.id = he.target_id
-                                  where hel.certname_id = ?
-                                  and upper_inf(hel.time_range)"
-                                 (sutils/sql-hash-as-str "sources.hash")
-                                 (sutils/sql-hash-as-str "targets.hash"))
-                         certname-id])]
-    (->> existing-data
-         (map (fn [x] {:source {:type (:source_type x)
-                                :title (:source_title x)}
-                       :target {:type (:target_type x)
-                                :title (:target_title x)}
-                       :relationship (:relationship x)
-                       :id (:id x)})))))
+  (let [existing-edges (jdbc/query-to-vec
+                         ["select relationship,
+                           sources.type as source_type,
+                           sources.title as source_title,
+                           targets.type as target_type,
+                           targets.title as target_title,
+                           hel.id from historical_edges he
+                           inner join historical_edges_lifetimes hel on
+                           he.id = hel.edge_id
+                           inner join historical_resources as sources
+                           on sources.id = he.source_id
+                           inner join historical_resources as targets
+                           on targets.id = he.target_id
+                           where hel.certname_id = ?
+                           and upper_inf(hel.time_range)"
+                          certname-id])]
+    (zipmap (map #(dissoc % :id) existing-edges)
+            (map :id existing-edges))))
+
+(defn cap-params!
+  [certname-id timerange ids]
+  )
 
 (defn cap-edges!
-  [timerange ids edges]
-  (jdbc/query-to-vec
-    "update historical_edges_lifetimes
-     set time_range = historical_edges_lifetimes.time_range * ?
-     from historical_edges_lifetimes hel inner join historical_edges he
-     on hel.edge_id=he.id where upper_inf(historical_edges_lifetimes.time_range) and he.id = any(?)
-     returning 1"
-    timerange
-    (sutils/array-to-param "bigint" Long ids)))
+  [certname-id timerange refs-to-ids edges]
+  (println "COUNT EDGES TO CAP " (count edges))
+  (let [ids-to-cap (vals (select-keys refs-to-ids (keys edges)))]
+    (jdbc/query-to-vec
+      "update historical_edges_lifetimes
+       set time_range = historical_edges_lifetimes.time_range * ?
+       from historical_edges_lifetimes hel inner join historical_edges he
+       on hel.edge_id=he.id where upper_inf(historical_edges_lifetimes.time_range)
+       and he.id = any(?)
+       and hel.certname_id = ?
+       returning 1"
+      timerange
+      (sutils/array-to-param "bigint" Long ids-to-cap)
+      certname-id)))
 
 (pls/defn-validated insert-edges!
   "Insert edges for a given certname.
@@ -318,7 +324,11 @@
 
   ;; Insert rows will not safely accept a nil, so abandon this operation
   ;; earlier.
+
+  (println "COUNT EDGES TO INSERT" (count edges))
   (when (seq edges)
+    (println "REFS TO IDS")
+    (clojure.pprint/pprint (first refs->ids))
     (let [candidate-rows (for [{:keys [source_title source_type
                                        target_title target_type relationship]} (keys edges)]
                            {:source_id (get refs->ids {:type source_type
@@ -347,19 +357,16 @@
    edges :- #{edge-schema}
    refs-to-hashes :- {storage/resource-ref-schema String}
    inserted-resources :- s/Any]
-  (println "OPTEN TIMERANGE IS IS")
-  (clojure.pprint/pprint open-timerange)
   (let [new-edges (zipmap
                     (map #(update % :relationship name) edges)
                     (repeat nil))
         catalog-edges-map (existing-edges-map certname-id)
-        existing-edges (zipmap (map #(dissoc % :id) catalog-edges-map)
+        existing-edges (zipmap (keys catalog-edges-map)
                                (repeat nil))
-        existing-ids (map :id catalog-edges-map)
         refs->ids (existing-resource-refs certname-id)]
 
     (diff-fn existing-edges new-edges
-             (partial cap-edges! cap-timerange existing-ids)
+             (partial cap-edges! certname-id cap-timerange catalog-edges-map)
              (partial insert-edges! certname-id open-timerange refs->ids)
              identity)))
 
