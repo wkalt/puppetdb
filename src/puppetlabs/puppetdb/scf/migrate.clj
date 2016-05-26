@@ -1076,32 +1076,54 @@
 
     (sql/create-table-ddl
       :historical_edges
-      ["certname_id" "bigint not null references certnames(id)"]
+      ["id" "bigint not null primary key default nextval('historical_edge_seq')"]
       ["source_id" "bigint not null references historical_resources(id)"]
       ["target_id" "bigint not null references historical_resources(id)"]
-      ["time_range" "tstzrange not null"]
-      ["type" "text not null"])
+      ["relationship" "text not null"])
 
-    "create sequence params_id_seq cycle"
+    "create sequence historical_edge_lifetime_seq"
 
-    "create sequence resource_string_seq"
+    (sql/create-table-ddl
+      :historical_edges_lifetimes
+      ["id" "bigint not null default nextval('historical_edge_lifetime_seq')"]
+      ["edge_id" "bigint not null references historical_edges(id)"]
+      ["certname_id" "bigint not null references certnames(id)"]
+      ["time_range" "tstzrange not null"])
+
+    "create sequence resource_string_seq cycle"
+
+    "create sequence historical_resource_params_seq cycle"
+
 
     (sql/create-table-ddl
       :historical_resource_params
-      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["id" "bigint not null primary key default nextval('historical_resource_params_seq')"]
       ["name" "text"]
       ["type" "text"]
       ["value_integer" "bigint"]
       ["value_boolean" "boolean"]
       ["value_float" "double precision"]
-      ["deviation_status" "text"]
       ["value_string" "text"])
+
+    (sql/create-table-ddl
+      :resources_to_params
+      ["resource_id" "bigint not null references historical_resources(id)"]
+      ["param_id" "bigint not null references historical_resource_params(id)"])
+
+    "create sequence historical_resource_param_lifetime_seq cycle"
+
+    (sql/create-table-ddl
+      :historical_resource_param_lifetimes
+      ["id" "bigint not null primary key default nextval('historical_resource_param_lifetime_seq')"]
+      ["resource_id" "bigint not null references historical_resources(id)"]
+      ["certname_id" "bigint not null references certnames(id)"]
+      ["time_range" "tstzrange not null"]
+      ["param_id" "bigint not null references historical_resource_params(id)"]
+      ["deviation_status" "text not null"])
 
     "alter table resource_events add column resource_id bigint references historical_resources(id)"
 
-    ;; drop resource events resource_type/title columns in favor of a reference
-    ;; to the resource itself
-
+    "alter table reports drop column resources"
 
     ))
 
