@@ -1,5 +1,6 @@
 (ns puppetlabs.pe-puppetdb-extensions.command
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
+            [clojure.set :as set]
             [clojure.tools.logging :as log]
             [clojure.data :as data]
             [com.rpl.specter :as sp]
@@ -15,6 +16,63 @@
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.scf.storage :as storage]))
+
+
+(defn transform-tags
+  "Turns a resource's list of tags into a set of strings."
+  [{:keys [tags] :as o}]
+  {:pre [tags
+         (every? string? tags)]
+   :post [(set? (:tags %))]}
+  (update-in o [:tags] set))
+
+(defn transform-resource*
+  "Normalizes the structure of a single `resource`. Right now this just means
+  setifying the tags."
+  [resource]
+  {:pre [(map? resource)]
+   :post [(set? (:tags %))]}
+  (transform-tags (-> resource
+                      (dissoc :events)
+                      (set/rename-keys {:resource_type :type :resource_title :title}))))
+
+(defn transform-resources
+  "Turns the list of resources into a mapping of
+   `{resource-spec resource, ...}`, as well as transforming each resource."
+  [{:keys [resources] :as report}]
+  {:pre  [(coll? resources)
+          (not (map? resources))]
+   :post [(map? (:resources %))
+          (= (count resources) (count (:resources %)))]}
+  (let [new-resources (into {} (for [{:keys [resource_type resource_title] :as resource} resources
+                                     :let [resource-spec    {:type resource_type :title resource_title}
+                                           new-resource     (transform-resource* resource)]]
+                                     [resource-spec new-resource]))
+        result (assoc report :resources new-resources)]
+    result))
+
+(defn transform-edge*
+  "Converts the `relationship` value of `edge` into a
+  keyword."
+  [edge]
+  {:pre [(:relationship edge)]
+   :post [(keyword? (:relationship %))]}
+  (update edge :relationship keyword))
+
+(defn transform-edges
+  "Transforms every edge of the given `catalog` and converts the edges into a set."
+  [{:keys [edges] :as report}]
+  {:pre  [(coll? edges)]
+   :post [(set? (:edges %))
+          (every? keyword? (map :relationship (:edges %)))]}
+  (assoc report :edges (set (map transform-edge* edges))))
+
+(def transform
+  "Applies every transformation to the catalog, converting it from wire format
+  to our internal structure."
+  (comp
+   transform-edges
+   transform-resources))
 
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
@@ -52,6 +110,38 @@
       (update :new_value sutils/db-serialize)
       (assoc :containing_class (find-containing-class (:containment_path event)))))
 
+(defn- resource->skipped-resource-events
+  "Fabricate a skipped resource-event"
+  [resource]
+  (-> resource
+      ;; We also need to grab the timestamp when the resource is `skipped'
+      (select-keys [:type :title :file :line :containment_path :timestamp])
+      (set/rename-keys {:type :resource_type :title :resource_title})
+      (merge {:status "skipped" :property nil :old_value nil :new_value nil :message nil})
+      vector))
+
+(defn- resource->resource-events
+  [{:keys [skipped] :as resource}]
+  (cond
+    (= skipped true)
+    (resource->skipped-resource-events resource)
+
+    ;; If we get an unchanged resource, disregard it
+    (empty? (:events resource))
+    []
+
+    :else
+    (let [resource-metadata (-> resource
+                                (select-keys [:resource_type :resource_title :file :line :containment_path])
+                                (set/rename-keys {:type :resource_type :title :resource_title}))]
+      (map (partial merge resource-metadata) (:events resource)))))
+
+(defn resources->resource-events
+  [resources]
+  (->> resources
+       (mapcat resource->resource-events)
+       vec))
+
 (defn normalize-report
   "Prep the report for comparison/computation of a hash"
   [{:keys [resources] :as report}]
@@ -60,8 +150,10 @@
       (update :end_time to-timestamp)
       (update :producer_timestamp to-timestamp)
       (assoc :resource_events (->> resources
-                                   reports/resources->resource-events
-                                   (map normalize-resource-event)))))
+                                   resources->resource-events
+                                   (map normalize-resource-event)))
+      transform-edges
+      transform-resources))
 
 
 (defn report-command?
@@ -77,6 +169,21 @@
               where historical_resource_lifetimes.certname_id = ?
               and upper_inf(time_range)"
              (sutils/sql-hash-as-str "hash")) certname-id]))
+
+(defn existing-resource-refs
+  [certname-id]
+  (let [existing-data (jdbc/query-to-vec
+                        [(format "select *
+                                  from historical_resources inner join historical_resource_lifetimes
+                                  on historical_resources.id = historical_resource_lifetimes.resource_id
+                                  where historical_resource_lifetimes.certname_id = ?
+                                  and upper_inf(time_range)"
+                                 (sutils/sql-hash-as-str "hash")) certname-id])]
+
+    (into {} (->> existing-data
+                  (map (fn [x]
+                         {{:type (:type x) :title (:title x)}
+                          (:id x)}))))))
 
 (defn cap-resources!
   [timerange certname-id]
@@ -101,18 +208,16 @@
 (defn resource-ref->row
   [certname-id refs-to-resources refs-to-hashes resource-ref]
   (let [{:keys [type title exported
-                parameters tags file line]} (get refs-to-resources resource-ref)
+                parameters tags file line] :as foo} (get refs-to-resources resource-ref)
         hash-string (get refs-to-hashes resource-ref)]
     (storage/convert-tags-array
-      {:hash (sutils/munge-hash-for-storage hash-string)
-       :certname_id certname-id
-       :type type
+      {:type type
        :title title
        :tags tags
-       :exported exported
        :file file
+       :hash (sutils/munge-hash-for-storage hash-string)
        :line line
-       :parameters (sutils/munge-jsonb-for-storage parameters)})))
+       :exported exported})))
 
 (defn insert-resources!
   [certname-id timerange refs-to-hashes refs-to-resources]
@@ -128,40 +233,6 @@
       (reduce #(assoc %1 (select-keys %2 [:title :type]) {:id (:id %2)})
               {} inserted-resources))))
 
-
-(defn add-resources!
-  [certname-id open-timerange cap-timerange resources]
-  (let [old-resources (existing-resources certname-id)
-        ;        diffable-resources (ks/mapvals strip-params)
-        ]
-    (println "old resources are" old-resources)
-    (jdbc/with-db-transaction []
-      ;; add parameters
-      (diff-fn
-        old-resources
-        resources
-        (cap-resources! cap-timerange certname-id)
-        (insert-resources! certname-id open-timerange)
-        (fn [xs] {})))
-    nil))
-
-(defn store-historical-data
-  [certname-id producer-timestamp resources edges]
-  (let [open-timerange (->> producer-timestamp
-                            (format "[%s,)")
-                            sutils/munge-tstzrange-for-storage)
-        cap-timerange (->> producer-timestamp
-                           (format "(,%s]")
-                           sutils/munge-tstzrange-for-storage)
-        inserted-resources (add-resources! certname-id open-timerange cap-timerange
-                                             resources)]
-
-    (println "INSERTED RESOURCES ARE")
-    (clojure.pprint/pprint inserted-resources)
-    
-    )
-  )
-
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
   [certname-id :- Long
@@ -173,11 +244,6 @@
         diffable-resources (ks/mapvals storage/strip-params refs-to-resources)]
     (jdbc/with-db-transaction []
 
-      (println "refs to resources")
-      (clojure.pprint/pprint refs-to-resources)
-
-      (println "refs to hashes")
-      (clojure.pprint/pprint refs-to-hashes)
       ;(add-params! refs-to-resources refs-to-hashes)
 
       ;; cap expired resources
@@ -185,12 +251,14 @@
 
       ;; todo: rename diffable-resources
 
+      (println "OLD RESOURCES ARE")
+      (clojure.pprint/pprint old-resources)
+
       (let [refs-to-ids (diff-fn old-resources
                                  diffable-resources
                                  (cap-resources! cap-timerange certname-id)
                                  (insert-resources! certname-id open-timerange
-                                                    refs-to-resources
-                                                    refs-to-hashes diffable-resources)
+                                                    refs-to-hashes refs-to-resources)
                                  ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
                                  ; todo is there an update that needs to happen here?
                                  (fn [xs] {}))]
@@ -228,10 +296,10 @@
 (defn cap-edges!
   [timerange ids edges]
   (jdbc/query-to-vec
-    "update historical_edges_lifetimes hel
-     set time_range = time_range * ?
-     from historical_edges he inner join historical_edges_lifetimes
-     where he.id = any(?)
+    "update historical_edges_lifetimes
+     set time_range = historical_edges_lifetimes.time_range * ?
+     from historical_edges_lifetimes hel inner join historical_edges he
+     on hel.edge_id=he.id where upper_inf(historical_edges_lifetimes.time_range) and he.id = any(?)
      returning 1"
     timerange
     (sutils/array-to-param "bigint" Long ids)))
@@ -251,22 +319,36 @@
   ;; Insert rows will not safely accept a nil, so abandon this operation
   ;; earlier.
   (when (seq edges)
-    (let [rows (for [{:keys [source target relationship]} (keys edges)]
-                 {:certname_id certname-id
-                  :source_id (get refs->ids source)
-                  :target_id (get refs->ids target)
-                  :time_range open-timerange
-                  :relationship (name relationship)})]
+    (let [candidate-rows (for [{:keys [source_title source_type
+                                       target_title target_type relationship]} (keys edges)]
+                           {:source_id (get refs->ids {:type source_type
+                                                       :title source_title})
+                            :target_id (get refs->ids {:type target_type
+                                                       :title target_title})
+                            :relationship (name relationship)})
+          inserted-edges (storage/insert-records* :historical_edges candidate-rows)]
+      (storage/insert-records*
+        :historical_edges_lifetimes
+        (map (fn [{:keys [id]}] {:edge_id id :certname_id certname-id :time_range open-timerange})
+             inserted-edges))))
+  {})
 
-      (apply jdbc/insert! :hist_edges rows))))
+(def edge-schema
+  {:source_title s/Str
+   :source_type s/Str
+   :target_title s/Str
+   :target_type s/Str
+   :relationship s/Any})
 
 (pls/defn-validated add-edges!
   [certname-id :- s/Int
    open-timerange :- s/Any
    cap-timerange :- s/Any
-   edges :- #{storage/edge-schema}
+   edges :- #{edge-schema}
    refs-to-hashes :- {storage/resource-ref-schema String}
    inserted-resources :- s/Any]
+  (println "OPTEN TIMERANGE IS IS")
+  (clojure.pprint/pprint open-timerange)
   (let [new-edges (zipmap
                     (map #(update % :relationship name) edges)
                     (repeat nil))
@@ -274,7 +356,7 @@
         existing-edges (zipmap (map #(dissoc % :id) catalog-edges-map)
                                (repeat nil))
         existing-ids (map :id catalog-edges-map)
-        refs->ids (existing-resources certname-id)]
+        refs->ids (existing-resource-refs certname-id)]
 
     (diff-fn existing-edges new-edges
              (partial cap-edges! cap-timerange existing-ids)
@@ -295,11 +377,6 @@
     (let [inserted-resources (add-resources! certname-id open-timerange cap-timerange
                                              resources refs-to-hashes)]
 
-
-      (println "inserted resources")
-      (clojure.pprint/pprint inserted-resources)
-
-      
              (add-edges! certname-id open-timerange
                          cap-timerange edges refs-to-hashes
                          inserted-resources))))
@@ -327,7 +404,6 @@
                      :cached_catalog_status cached_catalog_status
                      :metrics (sutils/munge-jsonb-for-storage metrics)
                      :logs (sutils/munge-jsonb-for-storage logs)
-                     :resources (sutils/munge-jsonb-for-storage resources)
                      :noop noop
                      :puppet_version puppet_version
                      :certname certname
@@ -352,7 +428,8 @@
                (map assoc-ids)
                (apply jdbc/insert! :resource_events)))
         (storage/update-latest-report! certname)
-        (store-historical-data certname-id producer_timestamp report)))))
+        (store-historical-data certname-id producer_timestamp
+                               (update report :resources (fn [x] (map #(set/rename-keys % {:resource_title :title :resource_type :type})) x)))))))
 
 (def report-wireformat-schema
   (assoc reports/report-wireformat-schema :edges [s/Any]))
@@ -382,11 +459,9 @@
                                     4 (reports/wire-v4->wire-v7 payload received-timestamp)
                                     5 (reports/wire-v5->wire-v7 payload)
                                     6 (reports/wire-v6->wire-v7 payload)
-                                    payload)
-        validated-payload (cmd/upon-error-throw-fatality
-                           (s/validate report-wireformat-schema latest-version-of-payload))]
+                                    payload)]
     (-> command
-        (assoc :payload validated-payload)
+        (assoc :payload latest-version-of-payload)
         (store-report* db))))
 
 (defn report-listener
@@ -401,7 +476,8 @@
   PeCommandService
   [[:PuppetDBServer shared-globals]
    [:DefaultedConfig get-config]
-   [:MessageListenerService register-listener]]
+   [:MessageListenerService register-listener]
+   PuppetDBCommandDispatcher]
 
   (start [this context]
          (log/info "starting pe command service")
