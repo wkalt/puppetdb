@@ -178,10 +178,7 @@
 (defn existing-resource-refs
   [certname-id]
   (let [existing-data (jdbc/query-to-vec
-                        ["select type, title, id from historical_resources
-                          inner join historical_resource_lifetimes on
-                          historical_resources.id = historical_resource_lifetimes.resource_id
-                          where historical_resource_lifetimes.certname_id = ?  and upper_inf(time_range)" certname-id])]
+                        ["select type, title, resource_id as id from historical_resources inner join historical_resource_lifetimes on historical_resources.id = historical_resource_lifetimes.resource_id where historical_resource_lifetimes.certname_id = ?  and upper_inf(time_range)" certname-id])]
 
     (into {} (->> existing-data
                   (map (fn [x]
@@ -189,10 +186,9 @@
                           (:id x)}))))))
 
 (defn cap-resources!
-  [timerange certname-id]
-  (fn [refs-to-hashes]
-    (println "COUNT RESOURCES TO CAP" (count refs-to-hashes))
-    (when (seq refs-to-hashes)
+  [certname-id timerange refs-to-hashes resources-to-cap]
+  (when (seq resources-to-cap)
+    (let [hashes-to-cap (vals (select-keys refs-to-hashes (keys resources-to-cap)))]
       (jdbc/query-to-vec
         "update historical_resource_lifetimes
          set time_range = historical_resource_lifetimes.time_range * ?
@@ -200,14 +196,15 @@
          where historical_resource_lifetimes.certname_id = ?
          and upper_inf(historical_resource_lifetimes.time_range)
          and r.hash=any(?)
+         and rl.id = historical_resource_lifetimes.id
          returning 1"
         timerange
         certname-id
-        (->> (map :resource (vals refs-to-hashes))
+        (->> hashes-to-cap
              (map sutils/munge-hash-for-storage)
              vec
-             (sutils/array-to-param "bytea" org.postgresql.util.PGobject))))
-    {}))
+             (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))))
+  {})
 
 (defn resource-ref->row
   [certname-id refs-to-resources refs-to-hashes resource-ref]
@@ -223,20 +220,33 @@
        :line line
        :exported exported})))
 
+(defn existing-historical-resources
+  [hashes]
+  (jdbc/query-with-resultset
+    ["select id, type, title from historical_resources where
+      hash = any(?)"
+     (->> hashes
+          vec
+          (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
+    (fn [rs]
+      (let [rss (sql/result-set-sql rs)]
+        (zipmap (map #(select-keys % [:type :title]) rss)
+                (map :id rss))))))
+
 (defn insert-resources!
-  [certname-id timerange refs-to-hashes refs-to-resources]
-  (fn [refs-to-insert]
-    (println "COUNT REFS TO INSERT" (count refs-to-insert))
-    (let [ref->row (partial resource-ref->row certname-id refs-to-resources
-                            refs-to-hashes)
-          candidate-rows (map ref->row (keys refs-to-insert))
-          inserted-resources (storage/insert-records* :historical_resources candidate-rows)]
-      (storage/insert-records*
-        :historical_resource_lifetimes
-        (map (fn [{:keys [id]}] {:resource_id id :certname_id certname-id :time_range timerange})
-             inserted-resources))
-      (reduce #(assoc %1 (select-keys %2 [:title :type]) {:id (:id %2)})
-              {} inserted-resources))))
+  [certname-id timerange refs-to-hashes refs-to-resources resources-to-insert]
+  (let [ref->row (partial resource-ref->row certname-id refs-to-resources
+                          refs-to-hashes)
+        candidate-rows (map ref->row (keys resources-to-insert))
+        existing-candidates (existing-historical-resources (map :hash candidate-rows))
+        rows-to-insert (remove )
+        inserted-resources (storage/insert-records* :historical_resources candidate-rows)]
+    (storage/insert-records*
+      :historical_resource_lifetimes
+      (map (fn [{:keys [id]}] {:resource_id id :certname_id certname-id :time_range timerange})
+           inserted-resources))
+    (reduce #(assoc %1 (select-keys %2 [:title :type]) {:id (:id %2)})
+            {} inserted-resources)))
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -248,6 +258,7 @@
 
   (let [old-resources (existing-resources certname-id)
         diffable-resources (ks/mapvals storage/strip-params refs-to-resources)]
+
     (jdbc/with-db-transaction []
 
       ;(add-params! refs-to-resources refs-to-hashes)
@@ -259,9 +270,8 @@
 
       (let [refs-to-ids (diff-fn (set old-resources)
                                  (set diffable-resources)
-                                 (cap-resources! cap-timerange certname-id)
-                                 (insert-resources! certname-id open-timerange
-                                                    refs-to-hashes refs-to-resources)
+                                 (partial cap-resources! certname-id cap-timerange refs-to-hashes)
+                                 (partial insert-resources! certname-id open-timerange refs-to-hashes refs-to-resources)
                                  ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
                                  ; todo is there an update that needs to happen here?
                                  (fn [xs] {}))]
@@ -290,13 +300,8 @@
     (zipmap (map #(dissoc % :id) existing-edges)
             (map :id existing-edges))))
 
-(defn cap-params!
-  [certname-id timerange ids]
-  )
-
 (defn cap-edges!
   [certname-id timerange refs-to-ids edges]
-  (println "COUNT EDGES TO CAP " (count edges))
   (let [ids-to-cap (vals (select-keys refs-to-ids (keys edges)))]
     (jdbc/query-to-vec
       "update historical_edges_lifetimes
@@ -305,6 +310,7 @@
        on hel.edge_id=he.id where upper_inf(historical_edges_lifetimes.time_range)
        and he.id = any(?)
        and hel.certname_id = ?
+       and hel.id = historical_edges_lifetimes.id
        returning 1"
       timerange
       (sutils/array-to-param "bigint" Long ids-to-cap)
@@ -325,10 +331,7 @@
   ;; Insert rows will not safely accept a nil, so abandon this operation
   ;; earlier.
 
-  (println "COUNT EDGES TO INSERT" (count edges))
   (when (seq edges)
-    (println "REFS TO IDS")
-    (clojure.pprint/pprint (first refs->ids))
     (let [candidate-rows (for [{:keys [source_title source_type
                                        target_title target_type relationship]} (keys edges)]
                            {:source_id (get refs->ids {:type source_type
