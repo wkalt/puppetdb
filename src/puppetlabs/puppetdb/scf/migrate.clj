@@ -1066,9 +1066,12 @@
       ["hash" "bytea"]
       ["exported" "boolean"])
 
+    "create sequence historical_resource_lifetimes_seq"
+
     (sql/create-table-ddl
       :historical_resource_lifetimes
-      ["resource_id" "bigint not null primary key references historical_resources(id)"]
+      ["id" "bigint not null primary key default nextval('historical_resource_lifetimes_seq')"]
+      ["resource_id" "bigint not null references historical_resources(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
       ["time_range" "tstzrange not null"])
 
@@ -1093,7 +1096,6 @@
     "create sequence resource_string_seq cycle"
 
     "create sequence historical_resource_params_seq cycle"
-
 
     (sql/create-table-ddl
       :historical_resource_params
