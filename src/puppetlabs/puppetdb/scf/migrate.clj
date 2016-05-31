@@ -1105,7 +1105,8 @@
       ["value_integer" "bigint"]
       ["value_boolean" "boolean"]
       ["value_float" "double precision"]
-      ["value_string" "text"])
+      ["value_string" "text"]
+      ["value_hash" "bytea not null"])
 
     (sql/create-table-ddl
       :resources_to_params
