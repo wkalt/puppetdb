@@ -1106,6 +1106,7 @@
       ["value_boolean" "boolean"]
       ["value_float" "double precision"]
       ["value_string" "text"]
+      ["value_json" "jsonb"]
       ["value_hash" "bytea not null"])
 
     (sql/create-table-ddl
@@ -1154,7 +1155,7 @@
    43 add-indexes-for-reports-summary-query
    44 add-catalog-uuid-to-reports-and-catalogs
    45 index-certnames-latest-report-id
-   46 update-schema-for-historical-resources})  
+   46 update-schema-for-historical-resources})
 
 (def desired-schema-version (apply max (keys migrations)))
 
