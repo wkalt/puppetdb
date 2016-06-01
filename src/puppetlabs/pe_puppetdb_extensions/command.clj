@@ -250,14 +250,15 @@
     (reduce #(assoc %1 (select-keys %2 [:title :type]) (:id %2))
             {} inserted-resources)))
 
-(defn existing-params
+(defn param-refs->resource-ids
   [certname-id]
   (let [existing-params (jdbc/query-to-vec
-                          "select resource_id, value_hash,
-                           name from historical_resource_params hrp
-                           inner join historical_resource_param_lifetimes hrpl on
-                           hrp.id = hrpl.param_id where certname_id=? and
-                           upper_inf(hrpl.time_range)"
+                          (format "select resource_id, value_hash, value_integer,
+                                   value_boolean, value_float, value_string, value_json,
+                                   name from historical_resource_params hrp
+                                   inner join historical_resource_param_lifetimes hrpl on
+                                   hrp.id = hrpl.param_id where certname_id=? and
+                                   upper_inf(hrpl.time_range)" (sutils/sql-hash-as-str "value_hash"))
                           certname-id)]
 
     (zipmap (map #(dissoc % :resource_id) existing-params)
@@ -267,11 +268,11 @@
   [m]
   (for [[k v] m] {k v}))
 
-(zipmap {:foo "bar" :biz "baz"} (repeat nil))
-
-(reduce #(merge %1 (zipmap (map->kv-vec (:parameters (second %2)))
-                                                    (repeat (first %2)))) {} foo)
-
+(defn munge-param-value
+  [k v]
+  (case k
+    :value_json (sutils/munge-jsonb-for-storage v)
+    v))
 
 (defn associate-param-type
   [{:keys [value] :as p}]
@@ -283,7 +284,7 @@
             (ks/boolean? value) :value_boolean
             (nil? value) nil
             (coll? value) :value_json)]
-    (merge (dissoc p :value) (when k {k value}))))
+    (merge (dissoc p :value) (when k {k (munge-param-value k value)}))))
 
 (defn param->row
   [p]
@@ -295,19 +296,13 @@
 (defn munge-params-for-storage
   [params refs-to-resources]
   (let [separated-params (reduce #(merge %1 (zipmap (map->kv-vec (:parameters (second %2)))
-                                                    (repeat (first %2)))) {} refs-to-resources)       
+                                                    (repeat (first %2)))) {} refs-to-resources)
         row-resource-refs (ks/mapkeys (comp associate-param-type param->row)
                                  separated-params)]
     row-resource-refs))
 
 (defn cap-params!
   [certname-id cap-timerange param-refs->ids params]
-
-  (println "params are")
-  (clojure.pprint/pprint (first params))
-
-  (println "param refs are")
-  (clojure.pprint/pprint (first param-refs->ids))
 
   (jdbc/query-to-vec
     "update historical_resource_param_lifetimes
@@ -324,13 +319,30 @@
     certname-id))
 
 (defn insert-params!
-  [certname-id open-timerange storage-candidates param-refs]
-  (when (seq param-refs)
-    (println "PARAM REFS ARE")
-    (let [rows-to-store (for [{:keys [value_hash name]} (keys param-refs)]
-                          (get storage-candidates {:value_hash value_hash :name name}))
-          ])
-    (clojure.pprint/pprint param-refs))
+  [certname-id open-timerange params->resource-ids params-to-insert]
+  (when (seq params->resource-ids)
+
+    (let [param-refs->ids (ks/mapkeys #(select-keys % [:value_hash :name]) params-to-insert)
+          inserted-params (storage/insert-records* :historical_resource_params
+                                                   (for [k (keys params-to-insert)]
+                                                     (update k :value_hash sutils/munge-hash-for-storage)))]
+
+      (println "param refs->ids")
+      (clojure.pprint/pprint (first param-refs->ids))
+
+      (println "inserted params")
+      (clojure.pprint/pprint (first inserted-params))
+      (storage/insert-records* :historical_resource_param_lifetimes
+                               (map (fn [{:keys [id name value_hash]}]
+                                      {:param_id id :time_range open-timerange
+                                       :certname_id certname-id :deviation_status "notempty"
+                                       :resource_id (get param-refs->ids
+                                                         {:name name
+                                                          :value_hash (apply str (map #(char (bit-and % 255)) value_hash))})})
+                                    inserted-params))
+
+      )
+    )
   )
 
 (defn munge-params-for-comparison
@@ -339,33 +351,20 @@
 
 (defn add-params!
   [certname-id
-   refs-to-resources
+   resource-refs->resources
    cap-timerange
    open-timerange
-   refs-to-ids]
+   resource-refs->resource-ids]
 
-  (println "refs to ids")
-  (clojure.pprint/pprint (first refs-to-ids))
+  (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
+        existing-params->resource-ids (param-refs->resource-ids certname-id)
+        new-params->resource-ids (ks/mapvals #(get resource-refs->resource-ids %)
+                                         (munge-params-for-storage param-candidates resource-refs->resources))
+        ]
 
-  (let [param-candidates (ks/mapvals :parameters refs-to-resources)
-        old-params (existing-params certname-id) 
-        param-refs->ids (existing-params certname-id)
-        candidates-for-storage (ks/mapvals #(get refs-to-ids %)
-                                           (munge-params-for-storage param-candidates refs-to-resources))
-        new-param-refs (munge-params-for-comparison candidates-for-storage)]
-
-    (println "old params are")
-    (clojure.pprint/pprint (first old-params))
-
-    (println "new-param-refs are")
-    (clojure.pprint/pprint (first new-param-refs))
-
-    (println "storage candidates")
-    (clojure.pprint/pprint (first candidates-for-storage))
-
-    (diff-fn old-params new-param-refs
-             (partial cap-params! certname-id cap-timerange param-refs->ids)
-             (partial insert-params! certname-id open-timerange candidates-for-storage)
+    (diff-fn existing-params->resource-ids new-params->resource-ids
+             (partial cap-params! certname-id cap-timerange existing-params->resource-ids)
+             (partial insert-params! certname-id open-timerange new-params->resource-ids)
              identity)))
 
 (defn munge-resources-to-refs
