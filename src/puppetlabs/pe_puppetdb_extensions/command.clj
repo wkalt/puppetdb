@@ -18,7 +18,6 @@
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.scf.storage :as storage]))
 
-
 (defn transform-tags
   "Turns a resource's list of tags into a set of strings."
   [{:keys [tags] :as o}]
@@ -253,7 +252,7 @@
 (defn param-refs->resource-ids
   [certname-id]
   (let [existing-params (jdbc/query-to-vec
-                          (format "select resource_id, value_hash, value_integer,
+                          (format "select resource_id, %s as value_hash, value_integer,
                                    value_boolean, value_float, value_string, value_json,
                                    name from historical_resource_params hrp
                                    inner join historical_resource_param_lifetimes hrpl on
@@ -261,7 +260,8 @@
                                    upper_inf(hrpl.time_range)" (sutils/sql-hash-as-str "value_hash"))
                           certname-id)]
 
-    (zipmap (map #(dissoc % :resource_id) existing-params)
+    (zipmap (map (comp #(dissoc % :resource_id) #(ks/dissoc-if-nil % :value_integer :value_boolean
+                                                                   :value_float :value_string :value_json)) existing-params)
             (map :resource_id existing-params))))
 
 (defn map->kv-vec
@@ -327,23 +327,13 @@
                                                    (for [k (keys params-to-insert)]
                                                      (update k :value_hash sutils/munge-hash-for-storage)))]
 
-      (println "param refs->ids")
-      (clojure.pprint/pprint (first param-refs->ids))
-
-      (println "inserted params")
-      (clojure.pprint/pprint (first inserted-params))
       (storage/insert-records* :historical_resource_param_lifetimes
-                               (map (fn [{:keys [id name value_hash]}]
+                               (map (fn [{:keys [id]} resource_id]
                                       {:param_id id :time_range open-timerange
                                        :certname_id certname-id :deviation_status "notempty"
-                                       :resource_id (get param-refs->ids
-                                                         {:name name
-                                                          :value_hash (apply str (map #(char (bit-and % 255)) value_hash))})})
-                                    inserted-params))
-
-      )
-    )
-  )
+                                       :resource_id resource_id})
+                                    inserted-params
+                                    (vals params-to-insert))))))
 
 (defn munge-params-for-comparison
   [candidates]
@@ -359,8 +349,7 @@
   (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
         existing-params->resource-ids (param-refs->resource-ids certname-id)
         new-params->resource-ids (ks/mapvals #(get resource-refs->resource-ids %)
-                                         (munge-params-for-storage param-candidates resource-refs->resources))
-        ]
+                                             (munge-params-for-storage param-candidates resource-refs->resources))]
 
     (diff-fn existing-params->resource-ids new-params->resource-ids
              (partial cap-params! certname-id cap-timerange existing-params->resource-ids)
