@@ -172,13 +172,15 @@
      certname-id]
     (fn [rs]
       (let [rss (sql/result-set-seq rs)]
-        (zipmap (map #(select-keys % [:type :title]) rss)
-                (jdbc/convert-result-arrays set rss))))))
+        (doall (jdbc/convert-result-arrays set rss))))))
 
 (defn existing-resource-refs
   [certname-id]
   (let [existing-data (jdbc/query-to-vec
-                        ["select type, title, resource_id as id from historical_resources inner join historical_resource_lifetimes on historical_resources.id = historical_resource_lifetimes.resource_id where historical_resource_lifetimes.certname_id = ?  and upper_inf(time_range)" certname-id])]
+                        ["select type, title, resource_id as id
+                          from historical_resources hr inner join
+                          historical_resource_lifetimes hrl on hr.id = hrl.resource_id
+                          where hrl.certname_id = ?  and upper_inf(time_range)" certname-id])]
 
     (into {} (->> existing-data
                   (map (fn [x]
@@ -188,23 +190,24 @@
 (defn cap-resources!
   [certname-id timerange refs-to-hashes resources-to-cap]
   (when (seq resources-to-cap)
-    (let [hashes-to-cap (vals (select-keys refs-to-hashes (keys resources-to-cap)))]
-      (jdbc/query-to-vec
-        "update historical_resource_lifetimes
-         set time_range = historical_resource_lifetimes.time_range * ?
-         from historical_resource_lifetimes as rl inner join historical_resources r on rl.resource_id=r.id
-         where historical_resource_lifetimes.certname_id = ?
-         and upper_inf(historical_resource_lifetimes.time_range)
-         and r.hash=any(?)
-         and rl.id = historical_resource_lifetimes.id
-         returning 1"
-        timerange
-        certname-id
-        (->> hashes-to-cap
-             (map sutils/munge-hash-for-storage)
-             vec
-             (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))))
-  {})
+    (let [hashes-to-cap (vals (select-keys refs-to-hashes (keys resources-to-cap)))
+          updated-rows
+          (jdbc/query-to-vec
+            "update historical_resource_lifetimes
+             set time_range = historical_resource_lifetimes.time_range * ?
+             from historical_resource_lifetimes as rl inner join historical_resources r on rl.resource_id=r.id
+             where historical_resource_lifetimes.certname_id = ?
+             and upper_inf(historical_resource_lifetimes.time_range)
+             and r.hash=any(?)
+             and rl.id = historical_resource_lifetimes.id
+             returning r.id as id, type, title"
+            timerange
+            certname-id
+            (->> hashes-to-cap
+                 (map sutils/munge-hash-for-storage)
+                 vec
+                 (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))]
+      (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} updated-rows))))
 
 (defn resource-ref->row
   [certname-id refs-to-resources refs-to-hashes resource-ref]
@@ -229,7 +232,7 @@
           vec
           (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
     (fn [rs]
-      (let [rss (sql/result-set-sql rs)]
+      (let [rss (sql/result-set-seq rs)]
         (zipmap (map #(select-keys % [:type :title]) rss)
                 (map :id rss))))))
 
@@ -239,14 +242,152 @@
                           refs-to-hashes)
         candidate-rows (map ref->row (keys resources-to-insert))
         existing-candidates (existing-historical-resources (map :hash candidate-rows))
-        rows-to-insert (remove )
         inserted-resources (storage/insert-records* :historical_resources candidate-rows)]
     (storage/insert-records*
       :historical_resource_lifetimes
       (map (fn [{:keys [id]}] {:resource_id id :certname_id certname-id :time_range timerange})
            inserted-resources))
-    (reduce #(assoc %1 (select-keys %2 [:title :type]) {:id (:id %2)})
+    (reduce #(assoc %1 (select-keys %2 [:title :type]) (:id %2))
             {} inserted-resources)))
+
+(defn existing-params
+  [certname-id]
+  (let [existing-params (jdbc/query-to-vec
+                          "select resource_id, value_hash,
+                           name from historical_resource_params hrp
+                           inner join historical_resource_param_lifetimes hrpl on
+                           hrp.id = hrpl.param_id where certname_id=? and
+                           upper_inf(hrpl.time_range)"
+                          certname-id)]
+
+    (zipmap (map #(dissoc % :resource_id) existing-params)
+            (map :resource_id existing-params))))
+
+(defn map->kv-vec
+  [m]
+  (for [[k v] m] {k v}))
+
+(zipmap {:foo "bar" :biz "baz"} (repeat nil))
+
+(reduce #(merge %1 (zipmap (map->kv-vec (:parameters (second %2)))
+                                                    (repeat (first %2)))) {} foo)
+
+
+(defn associate-param-type
+  [{:keys [value] :as p}]
+  (let [k (cond
+            (keyword? value) :value_string
+            (string? value) :value_string
+            (integer? value) :value_integer
+            (float? value) :value_float
+            (ks/boolean? value) :value_boolean
+            (nil? value) nil
+            (coll? value) :value_json)]
+    (merge (dissoc p :value) (when k {k value}))))
+
+(defn param->row
+  [p]
+  (let [p' (first p)]
+    {:name (name (first p'))
+     :value (second p')
+     :value_hash (shash/generic-identity-hash (second p'))}))
+
+(defn munge-params-for-storage
+  [params refs-to-resources]
+  (let [separated-params (reduce #(merge %1 (zipmap (map->kv-vec (:parameters (second %2)))
+                                                    (repeat (first %2)))) {} refs-to-resources)       
+        row-resource-refs (ks/mapkeys (comp associate-param-type param->row)
+                                 separated-params)]
+    row-resource-refs))
+
+(defn cap-params!
+  [certname-id cap-timerange param-refs->ids params]
+
+  (println "params are")
+  (clojure.pprint/pprint (first params))
+
+  (println "param refs are")
+  (clojure.pprint/pprint (first param-refs->ids))
+
+  (jdbc/query-to-vec
+    "update historical_resource_param_lifetimes
+     set time_range = historical_resource_param_lifetimes.time_range * ?
+     from historical_resource_param_lifetimes hrpl inner join historical_resource_params hrp
+     on hrpl.param_id = hrp.id
+     where upper_inf(historical_resource_param_lifetimes.time_range)
+     and hrp.id = any(?)
+     and hrpl.certname_id = ?
+     and hrpl.id = historical_resource_param_lifetimes.id
+     returning 1"
+    cap-timerange
+    (sutils/array-to-param "bigint" Long [])
+    certname-id))
+
+(defn insert-params!
+  [certname-id open-timerange storage-candidates param-refs]
+  (when (seq param-refs)
+    (println "PARAM REFS ARE")
+    (let [rows-to-store (for [{:keys [value_hash name]} (keys param-refs)]
+                          (get storage-candidates {:value_hash value_hash :name name}))
+          ])
+    (clojure.pprint/pprint param-refs))
+  )
+
+(defn munge-params-for-comparison
+  [candidates]
+  (ks/mapkeys #(select-keys % [:value_hash :name]) candidates))
+
+(defn add-params!
+  [certname-id
+   refs-to-resources
+   cap-timerange
+   open-timerange
+   refs-to-ids]
+
+  (println "refs to ids")
+  (clojure.pprint/pprint (first refs-to-ids))
+
+  (let [param-candidates (ks/mapvals :parameters refs-to-resources)
+        old-params (existing-params certname-id) 
+        param-refs->ids (existing-params certname-id)
+        candidates-for-storage (ks/mapvals #(get refs-to-ids %)
+                                           (munge-params-for-storage param-candidates refs-to-resources))
+        new-param-refs (munge-params-for-comparison candidates-for-storage)]
+
+    (println "old params are")
+    (clojure.pprint/pprint (first old-params))
+
+    (println "new-param-refs are")
+    (clojure.pprint/pprint (first new-param-refs))
+
+    (println "storage candidates")
+    (clojure.pprint/pprint (first candidates-for-storage))
+
+    (diff-fn old-params new-param-refs
+             (partial cap-params! certname-id cap-timerange param-refs->ids)
+             (partial insert-params! certname-id open-timerange candidates-for-storage)
+             identity)))
+
+(defn munge-resources-to-refs
+  [resources]
+  (zipmap (map #(select-keys % [:type :title]) resources)
+          (jdbc/convert-result-arrays set resources)))
+
+(defn conserved-resource-ids
+  [certname-id refs-to-hashes resources-to-fetch]
+  (let [hashes-to-fetch (vals (select-keys refs-to-hashes (keys resources-to-fetch)))
+        referenced-resources (jdbc/query-to-vec
+                               "select type, title, hr.id from historical_resources hr
+                                inner join historical_resource_lifetimes hrl on
+                                hr.id = hrl.resource_id
+                                where certname_id = ? and hash = any(?)
+                                and upper_inf(hrl.time_range)"
+                               certname-id
+                               (->> hashes-to-fetch
+                                    (map sutils/munge-hash-for-storage)
+                                    vec
+                                    (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))]
+    (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -257,27 +398,27 @@
    refs-to-hashes :- {storage/resource-ref-schema String}]
 
   (let [old-resources (existing-resources certname-id)
+        old-resource-refs (munge-resources-to-refs old-resources)
         diffable-resources (ks/mapvals storage/strip-params refs-to-resources)]
 
-    (jdbc/with-db-transaction []
 
-      ;(add-params! refs-to-resources refs-to-hashes)
+    (jdbc/with-db-transaction []
 
       ;; cap expired resources
       ;; store new resources
 
       ;; todo: rename diffable-resources
 
-      (let [refs-to-ids (diff-fn (set old-resources)
+      (let [known-resources (diff-fn (set old-resource-refs)
                                  (set diffable-resources)
                                  (partial cap-resources! certname-id cap-timerange refs-to-hashes)
                                  (partial insert-resources! certname-id open-timerange refs-to-hashes refs-to-resources)
                                  ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
                                  ; todo is there an update that needs to happen here?
-                                 (fn [xs] {}))]
+                                 (partial conserved-resource-ids certname-id refs-to-hashes))]
 
-        (merge-with #(assoc %1 :hash %2)
-                    refs-to-ids (select-keys refs-to-hashes (keys refs-to-ids)))))))
+        known-resources
+        ))))
 
 (defn existing-edges-map
   [certname-id]
@@ -358,7 +499,6 @@
    open-timerange :- s/Any
    cap-timerange :- s/Any
    edges :- #{edge-schema}
-   refs-to-hashes :- {storage/resource-ref-schema String}
    inserted-resources :- s/Any]
   (let [new-edges (zipmap
                     (map #(update % :relationship name) edges)
@@ -384,12 +524,13 @@
         cap-timerange (->> producer_timestamp
                            (format "(,%s]")
                            sutils/munge-tstzrange-for-storage)]
-    (let [inserted-resources (add-resources! certname-id open-timerange cap-timerange
+    (let [refs->resource-ids (add-resources! certname-id open-timerange cap-timerange
                                              resources refs-to-hashes)]
 
-             (add-edges! certname-id open-timerange
-                         cap-timerange edges refs-to-hashes
-                         inserted-resources))))
+      (add-params! certname-id resources cap-timerange open-timerange refs->resource-ids)
+
+      (add-edges! certname-id open-timerange
+                  cap-timerange edges refs->resource-ids))))
 
 (defn store-historical-data
   [certname-id producer-timestamp {:keys [resources] :as report}]
