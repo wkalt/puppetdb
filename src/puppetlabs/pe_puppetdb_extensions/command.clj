@@ -15,6 +15,7 @@
             [schema.core :as s]
             [puppetlabs.puppetdb.schema :as pls :refer [defn-validated]]
             [puppetlabs.puppetdb.scf.storage-utils :as sutils]
+            [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.scf.storage :as storage]))
 
@@ -225,16 +226,11 @@
 
 (defn existing-historical-resources
   [hashes]
-  (jdbc/query-with-resultset
-    ["select id, type, title from historical_resources where
-      hash = any(?)"
-     (->> hashes
-          vec
-          (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
-    (fn [rs]
-      (let [rss (sql/result-set-seq rs)]
-        (zipmap (map #(select-keys % [:type :title]) rss)
-                (map :id rss))))))
+  (jdbc/query-to-vec
+    "select id, hash, type, title from historical_resources where hash=any(?)"
+    (->> hashes
+         vec
+         (sutils/array-to-param "bytea" org.postgresql.util.PGobject))))
 
 (defn insert-resources!
   [certname-id timerange refs-to-hashes refs-to-resources resources-to-insert]
@@ -243,13 +239,16 @@
                           refs-to-hashes)
         candidate-rows (map ref->row (keys resources-to-insert))
         existing-candidates (existing-historical-resources (map :hash candidate-rows))
-        inserted-resources (storage/insert-records* :historical_resources candidate-rows)]
+        existing-hashes (set (map :hash existing-candidates))
+        inserted-resources (storage/insert-records* :historical_resources
+                                                    (filter #(contains? existing-hashes (:hash %)) candidate-rows))
+        relevant-resources (concat existing-candidates inserted-resources)]
     (storage/insert-records*
       :historical_resource_lifetimes
       (map (fn [{:keys [id]}] {:resource_id id :certname_id certname-id :time_range timerange})
-           inserted-resources))
+           relevant-resources))
     (reduce #(assoc %1 (select-keys %2 [:title :type]) (:id %2))
-            {} inserted-resources)))
+            {} relevant-resources)))
 
 (defn param-refs->resource-ids
   [certname-id]
@@ -262,8 +261,10 @@
                                    upper_inf(hrpl.time_range)" (sutils/sql-hash-as-str "value_hash"))
                           certname-id)]
 
-    (zipmap (map (comp #(dissoc % :resource_id) #(ks/dissoc-if-nil % :value_integer :value_boolean
-                                                                   :value_float :value_string :value_json)) existing-params)
+    (zipmap (->> existing-params
+                 (map (comp #(dissoc % :resource_id) #(utils/update-when % [:value_json] sutils/parse-db-json)
+                            #(ks/dissoc-if-nil % :value_integer :value_boolean
+                                               :value_float :value_string :value_json))))
             (map :resource_id existing-params))))
 
 (defn map->kv-vec
@@ -286,7 +287,7 @@
             (ks/boolean? value) :value_boolean
             (nil? value) nil
             (coll? value) :value_json)]
-    (merge (dissoc p :value) (when k {k (munge-param-value k value)}))))
+    (merge (dissoc p :value) (when k {k value}))))
 
 (defn param->row
   [p]
@@ -323,12 +324,15 @@
 
 (defn insert-params!
   [certname-id open-timerange params->resource-ids params-to-insert]
+
   (when (seq params->resource-ids)
 
     (let [param-refs->ids (ks/mapkeys #(select-keys % [:value_hash :name]) params-to-insert)
           inserted-params (storage/insert-records* :historical_resource_params
                                                    (for [k (keys params-to-insert)]
-                                                     (update k :value_hash sutils/munge-hash-for-storage)))]
+                                                     (-> k
+                                                         (update :value_hash sutils/munge-hash-for-storage)
+                                                         (utils/update-when [:value_json] sutils/munge-jsonb-for-storage))))]
 
       (storage/insert-records* :historical_resource_param_lifetimes
                                (map (fn [{:keys [id]} resource_id]
