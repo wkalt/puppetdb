@@ -241,7 +241,7 @@
         existing-candidates (existing-historical-resources (map :hash candidate-rows))
         existing-hashes (set (map :hash existing-candidates))
         inserted-resources (storage/insert-records* :historical_resources
-                                                    (filter #(contains? existing-hashes (:hash %)) candidate-rows))
+                                                    (remove #(contains? existing-hashes (:hash %)) candidate-rows))
         relevant-resources (concat existing-candidates inserted-resources)]
     (storage/insert-records*
       :historical_resource_lifetimes
