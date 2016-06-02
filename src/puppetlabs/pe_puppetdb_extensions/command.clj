@@ -188,6 +188,7 @@
 
 (defn cap-resources!
   [certname-id timerange refs-to-hashes resources-to-cap]
+
   (when (seq resources-to-cap)
     (let [hashes-to-cap (vals (select-keys refs-to-hashes (keys resources-to-cap)))
           updated-rows
@@ -237,6 +238,7 @@
 
 (defn insert-resources!
   [certname-id timerange refs-to-hashes refs-to-resources resources-to-insert]
+
   (let [ref->row (partial resource-ref->row certname-id refs-to-resources
                           refs-to-hashes)
         candidate-rows (map ref->row (keys resources-to-insert))
@@ -304,19 +306,20 @@
 (defn cap-params!
   [certname-id cap-timerange param-refs->ids params]
 
-  (jdbc/query-to-vec
-    "update historical_resource_param_lifetimes
-     set time_range = historical_resource_param_lifetimes.time_range * ?
-     from historical_resource_param_lifetimes hrpl inner join historical_resource_params hrp
-     on hrpl.param_id = hrp.id
-     where upper_inf(historical_resource_param_lifetimes.time_range)
-     and hrp.id = any(?)
-     and hrpl.certname_id = ?
-     and hrpl.id = historical_resource_param_lifetimes.id
-     returning 1"
-    cap-timerange
-    (sutils/array-to-param "bigint" Long [])
-    certname-id))
+  (let [ids-to-cap (vals (select-keys param-refs->ids (keys params)))]
+    (jdbc/query-to-vec
+      "update historical_resource_param_lifetimes
+       set time_range = historical_resource_param_lifetimes.time_range * ?
+       from historical_resource_param_lifetimes hrpl inner join historical_resource_params hrp
+       on hrpl.param_id = hrp.id
+       where upper_inf(historical_resource_param_lifetimes.time_range)
+       and hrp.id = any(?)
+       and hrpl.certname_id = ?
+       and hrpl.id = historical_resource_param_lifetimes.id
+       returning 1"
+      cap-timerange
+      (sutils/array-to-param "bigint" Long ids-to-cap)
+      certname-id)))
 
 (defn insert-params!
   [certname-id open-timerange params->resource-ids params-to-insert]
@@ -348,8 +351,9 @@
 
   (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
         existing-params->resource-ids (param-refs->resource-ids certname-id)
+        params->resource-refs (munge-params-for-storage param-candidates resource-refs->resources)
         new-params->resource-ids (ks/mapvals #(get resource-refs->resource-ids %)
-                                             (munge-params-for-storage param-candidates resource-refs->resources))]
+                                             params->resource-refs)]
 
     (diff-fn existing-params->resource-ids new-params->resource-ids
              (partial cap-params! certname-id cap-timerange existing-params->resource-ids)
@@ -363,6 +367,7 @@
 
 (defn conserved-resource-ids
   [certname-id refs-to-hashes resources-to-fetch]
+
   (let [hashes-to-fetch (vals (select-keys refs-to-hashes (keys resources-to-fetch)))
         referenced-resources (jdbc/query-to-vec
                                "select type, title, hr.id from historical_resources hr
@@ -375,7 +380,7 @@
                                     (map sutils/munge-hash-for-storage)
                                     vec
                                     (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))]
-    (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
+        (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -384,6 +389,7 @@
    cap-timerange :- s/Any
    refs-to-resources :- storage/resource-ref->resource-schema
    refs-to-hashes :- {storage/resource-ref-schema String}]
+
 
   (let [old-resources (existing-resources certname-id)
         old-resource-refs (munge-resources-to-refs old-resources)
@@ -397,13 +403,13 @@
 
       ;; todo: rename diffable-resources
 
-      (let [known-resources (diff-fn (set old-resource-refs)
-                                 (set diffable-resources)
-                                 (partial cap-resources! certname-id cap-timerange refs-to-hashes)
-                                 (partial insert-resources! certname-id open-timerange refs-to-hashes refs-to-resources)
-                                 ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
-                                 ; todo is there an update that needs to happen here?
-                                 (partial conserved-resource-ids certname-id refs-to-hashes))]
+      (let [known-resources (diff-fn old-resource-refs
+                                     diffable-resources
+                                     (partial cap-resources! certname-id cap-timerange refs-to-hashes)
+                                     (partial insert-resources! certname-id open-timerange refs-to-hashes refs-to-resources)
+                                     ;(update-catalog-resources! certname-id refs-to-hashes diffable-resources old-resources)
+                                     ; todo is there an update that needs to happen here?
+                                     (partial conserved-resource-ids certname-id refs-to-hashes))]
 
         known-resources
         ))))
@@ -515,14 +521,19 @@
     (let [refs->resource-ids (add-resources! certname-id open-timerange cap-timerange
                                              resources refs-to-hashes)]
 
+
       (add-params! certname-id resources cap-timerange open-timerange refs->resource-ids)
 
       (add-edges! certname-id open-timerange
                   cap-timerange edges refs->resource-ids))))
 
+(defn resource-identity-hash
+  [resource]
+  (shash/generic-identity-hash (dissoc resource :parameters)))
+
 (defn store-historical-data
   [certname-id producer-timestamp {:keys [resources] :as report}]
-  (let [refs-to-hashes (ks/mapvals shash/resource-identity-hash resources)]
+  (let [refs-to-hashes (ks/mapvals resource-identity-hash resources)]
     (update-report-associations certname-id report refs-to-hashes)))
 
 (defn add-report!*
