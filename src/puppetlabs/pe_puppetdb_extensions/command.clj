@@ -397,10 +397,59 @@
          vec
          (sutils/array-to-param "bigint" Long))))
 
+;(count (set ll-list))
+;(count ll-list)
+;(count my-lifetimes)
+;(count my-lifetimes)
+;
+;(first my-lifetimes)
+;(first ll-list)
+
+(first with-existing)
+
+(def id-lists (map :resource_id (vals with-existing)))
+
+(map count id-lists)
+
+(nth id-lists 3)
+
+(map count (map set id-lists))
+
+
+(count ll-list)
+(count (set ll-list))
+
+(count with-existing)
+(count with-all)
+
+(first bundles)
+
+(def foo (map vector
+       (map #(get-in % [:parameters :value_hash]) bundles)
+       (map :resource_id bundles)))
+
+(count foo)
+(count (set foo))
+
+(def bar (set (map vector
+                   (map #(get-in % [:parameters :value_hash]) bundles)
+                   (map :resource_id bundles))))
+
+(count bundles)
+
+(count foo)
+
+(count bar)
+
+
+(def my-agg (reduce build-hash-map {} bundles))
+
 (defn insert-params!
   [certname-id open-timerange params->resource-ids param-bundles]
 
   (when (seq params->resource-ids)
+
+    (def bundles param-bundles)
 
     (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
@@ -409,26 +458,27 @@
 
           inserted-params (storage/insert-records* :historical_resource_params params-to-insert) 
 
-          _ (def inserted inserted-params)
-
           with-all-params (reduce #(assoc-in %1 [(String. (:value_hash %2)) :param_id] (:id %2)) with-existing-params inserted-params)
 
+          _ (def with-all with-all-params)
+
           lifetime-list (param-refs->lifetime-list with-all-params)
+          _ (def ll-list lifetime-list)
           existing (existing-lifetimes lifetime-list)
-          lifetimes-to-insert (remove (set existing) lifetime-list)]
+          _ (def my-lifetimes existing)
+          lifetimes-to-insert (remove (set existing) lifetime-list)
 
-      (println (count lifetimes-to-insert))
-      (println (first lifetimes-to-insert))
-      (println (first existing))
+      _ (println "COUNT INSERTED " (count inserted-params))
 
-      (storage/insert-records* :historical_resource_param_lifetimes
-                               (map (fn [{:keys [param_id resource_id]}]
-                                      {:param_id param_id
-                                       :resource_id resource_id
-                                       :certname_id certname-id
-                                       :time_range open-timerange
-                                       :deviation_status "notempty"})
-                                    lifetimes-to-insert)))))
+      lifetimes-inserted (storage/insert-records* :historical_resource_param_lifetimes
+                                                  (map (fn [{:keys [param_id resource_id]}]
+                                                         {:param_id param_id
+                                                          :resource_id resource_id
+                                                          :certname_id certname-id
+                                                          :time_range open-timerange
+                                                          :deviation_status "notempty"})
+                                                       lifetimes-to-insert))]
+      (println "LIFETIMES INSERTED" (count lifetimes-inserted)))))
 
 (defn munge-params-for-comparison
   [candidates]
