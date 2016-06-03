@@ -351,68 +351,84 @@
       (sutils/array-to-param "bigint" Long ids-to-cap)
       certname-id)))
 
+(defn munge-hash-for-storage
+  [h]
+  (byte-array (map byte h)))
+
 (defn existing-params
   [hash->resource-map]
   (let [hashes-to-check (keys hash->resource-map)
         munged-hashes (->> hashes-to-check
-                           (map sutils/munge-hash-for-storage)
                            vec
-                           (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
+                           (sutils/array-to-param "bytea" (type (first hashes-to-check))))
 
-        existing-rows (jdbc/query-to-vec (format "select id, %s as value_hash, name from historical_resource_params
-                                                  where value_hash = any(?)"
-                                                 (sutils/sql-hash-as-str "value_hash"))
+        existing-rows (jdbc/query-to-vec "select id, value_hash, name from historical_resource_params
+                                          where value_hash = any(?)"
+                                                 
                                          munged-hashes)]
 
-    (reduce #(assoc-in %1 [(:value_hash %2) :param_id] (:id %2)) hash->resource-map existing-rows)))
+    (reduce #(assoc-in %1 [(apply str (map char (:value_hash %2))) :param_id] (:id %2)) hash->resource-map existing-rows)))
 
 (defn build-hash-map
   [m {:keys [parameters resource_id]}]
-  (let [value-hash (:value_hash parameters)]
-    (update-in m [value-hash :resource_id] conj resource_id)
-    (update m value-hash
-            #(utils/assoc-when % :parameters (update parameters :value_hash sutils/munge-hash-for-storage)))))
+  (let [string-hash (:value_hash parameters)
+        value-hash (munge-hash-for-storage (:value_hash parameters))]
+    (-> m
+        (update-in [string-hash :resource_id] conj resource_id)
+        (update string-hash
+                #(utils/assoc-when % :parameters (assoc parameters :value_hash value-hash))))))
 
-(defn maparray->insertseq
-  [rows ks]
-  (for [row a]
-    (for [k ks]
-      (k row))))
+(defn param-refs->lifetime-list
+  [param-refs]
+  (let [gather-resource-refs (fn [acc x]
+                               (let [{:keys [param_id resource_id]} (val x)]
+                                 (apply conj acc (map (fn [y] {:resource_id y
+                                                               :param_id param_id})
+                                                      resource_id))))]
+    (reduce gather-resource-refs [] param-refs)))
+
+(defn existing-lifetimes
+  [lifetime-list]
+  (jdbc/query-to-vec
+    "select resource_id, param_id from historical_resource_param_lifetimes
+     where upper_inf(time_range) and param_id = any(?)"
+    (->> lifetime-list
+         (map :param_id)
+         vec
+         (sutils/array-to-param "bigint" Long))))
 
 (defn insert-params!
   [certname-id open-timerange params->resource-ids param-bundles]
 
   (when (seq params->resource-ids)
 
-    (let [candidate-rows (->> param-bundles
-                              (map #(update-in % [:parameters :value_hash] sutils/munge-hash-for-storage)))
-          aggregated-param-refs (reduce build-hash-map {} param-bundles)
+    (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
+          _ (def with-existing with-existing-params)
           params-to-insert (map (comp :parameters second) (remove (fn [[k v]] (:param_id v)) with-existing-params))
 
           inserted-params (storage/insert-records* :historical_resource_params params-to-insert) 
 
-          _ (println "INSERTED PARAMS")
-          _ (clojure.pprint/pprint inserted-params)
+          _ (def inserted inserted-params)
 
-          _ (def foo (:value_hash (first inserted-params)))
+          with-all-params (reduce #(assoc-in %1 [(String. (:value_hash %2)) :param_id] (:id %2)) with-existing-params inserted-params)
 
-          param-refs->ids (ks/mapkeys #(select-keys % [:value_hash :name]) params-to-insert)
-          candidate-rows (map #(update % :value_hash sutils/munge-hash-for-storage) (keys params-to-insert))
-          existing-param-keys (existing-params (map :value_hash candidate-rows))
-          existing-hashes (set (map :value_hash existing-param-keys))
-          inserted-params (storage/insert-records* :historical_resource_params
-                                                   (->> candidate-rows
-                                                        (remove #(contains? existing-hashes (:value_hash %)))
-                                                        (map #(utils/update-when % [:value_json] sutils/munge-jsonb-for-storage))))]
+          lifetime-list (param-refs->lifetime-list with-all-params)
+          existing (existing-lifetimes lifetime-list)
+          lifetimes-to-insert (remove (set existing) lifetime-list)]
+
+      (println (count lifetimes-to-insert))
+      (println (first lifetimes-to-insert))
+      (println (first existing))
 
       (storage/insert-records* :historical_resource_param_lifetimes
-                               (map (fn [{:keys [id name value_hash]}]
-                                      (let [resource-id (get param-refs->ids {:name name :value_hash value_hash})]
-                                        {:param_id id :time_range open-timerange
-                                         :certname_id certname-id :deviation_status "notempty"
-                                         :resource_id resource-id}))
-                                    (concat inserted-params existing-param-keys))))))
+                               (map (fn [{:keys [param_id resource_id]}]
+                                      {:param_id param_id
+                                       :resource_id resource_id
+                                       :certname_id certname-id
+                                       :time_range open-timerange
+                                       :deviation_status "notempty"})
+                                    lifetimes-to-insert)))))
 
 (defn munge-params-for-comparison
   [candidates]
