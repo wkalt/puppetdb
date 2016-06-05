@@ -265,7 +265,7 @@
             (ks/boolean? value) :value_boolean
             (nil? value) nil
             (coll? value) :value_json)]
-    (merge (dissoc p :value) (when k {k (munge-param-value k value)}))))
+    (merge (dissoc p :value) (when k {k value}))))
 
 
 (defn bundle-params
@@ -291,7 +291,8 @@
                           certname-id)]
 
     (zipmap (->> existing-params
-                 (map (comp #(dissoc % :resource_id) #(utils/update-when % [:value_json] sutils/parse-db-json)
+                 (map (comp #(dissoc % :resource_id)
+                            #(utils/update-when % [:value_json] sutils/parse-db-json)
                             #(ks/dissoc-if-nil % :value_integer :value_boolean
                                                :value_float :value_string :value_json))))
             (map :resource_id existing-params))))
@@ -299,21 +300,25 @@
 (defn param-bundles
   [certname-id]
   (let [param-columns [:value_integer :value_boolean :value_float
-                       :value_string :value_json]
+                       :value_string :value_json :type]
         existing-params (jdbc/query-to-vec
-                          (format "select resource_id, %s as value_hash, value_integer,
-                                   value_boolean, value_float, value_string, value_json,
-                                   name, type from historical_resource_params hrp
-                                   inner join historical_resource_param_lifetimes hrpl on
-                                   hrp.id = hrpl.param_id where certname_id=? and
-                                   upper_inf(hrpl.time_range)"
-                                  (sutils/sql-hash-as-str "value_hash"))
+                          "select hrp.id as param_id,
+                           resource_id, value_hash, value_integer,
+                           value_boolean, value_float, value_string, value_json,
+                           name, type from historical_resource_params hrp
+                           inner join historical_resource_param_lifetimes hrpl on
+                           hrp.id = hrpl.param_id where certname_id=? and
+                           upper_inf(hrpl.time_range)"
                           certname-id)]
 
-    (->> existing-params
-         (map (fn [x] {:resource_id (:resource_id x)
-                       :parameters (-> (apply ks/dissoc-if-nil x param-columns)
-                                       (dissoc :resource_id))})))))
+    (zipmap
+      (map (fn [x] {:resource_id (:resource_id x)
+                    :parameters (-> (apply ks/dissoc-if-nil x param-columns)
+                                    (utils/update-when [:value_json] sutils/parse-db-json)
+                                    (update :value_hash #(apply str (map char %)))
+                                    (dissoc :resource_id :param_id))})
+           existing-params)
+      (map :param_id existing-params))))
 
 (defn map->kv-vec
   [m]
@@ -335,15 +340,15 @@
     row-resource-refs))
 
 (defn cap-params!
-  [certname-id cap-timerange param-bundles]
-  (let [ids-to-cap (map :resource_id param-bundles)]
+  [certname-id cap-timerange full-param-bundles bundle-keys]
+  (let [ids-to-cap (vals (select-keys full-param-bundles bundle-keys))]
     (jdbc/query-to-vec
       "update historical_resource_param_lifetimes
        set time_range = historical_resource_param_lifetimes.time_range * ?
        from historical_resource_param_lifetimes hrpl inner join historical_resource_params hrp
        on hrpl.param_id = hrp.id
        where upper_inf(historical_resource_param_lifetimes.time_range)
-       and hrp.id = any(?)
+       and hrpl.param_id = any(?)
        and hrpl.certname_id = ?
        and hrpl.id = historical_resource_param_lifetimes.id
        returning 1"
@@ -362,103 +367,82 @@
                            vec
                            (sutils/array-to-param "bytea" (type (first hashes-to-check))))
 
-        existing-rows (jdbc/query-to-vec "select id, value_hash, name from historical_resource_params
-                                          where value_hash = any(?)"
-                                                 
+        existing-rows (jdbc/query-to-vec "select name, param_id, value_hash
+                                          from historical_resource_params hrp
+                                          inner join historical_resource_param_lifetimes hrpl on
+                                          hrp.id=hrpl.param_id
+                                          where upper_inf (time_range) and
+                                          value_hash = any(?)"
                                          munged-hashes)]
 
-    (reduce #(assoc-in %1 [(apply str (map char (:value_hash %2))) :param_id] (:id %2)) hash->resource-map existing-rows)))
+    (reduce #(assoc-in %1 [{:name (:name %2)
+                            :hash (apply str (map char (:value_hash %2)))}
+                           :param_id]
+                       (:id %2)) hash->resource-map existing-rows)))
 
 (defn build-hash-map
   [m {:keys [parameters resource_id]}]
   (let [string-hash (:value_hash parameters)
-        value-hash (munge-hash-for-storage (:value_hash parameters))]
+        value-hash (munge-hash-for-storage (:value_hash parameters))
+        n (:name parameters)]
     (-> m
-        (update-in [string-hash :resource_id] conj resource_id)
-        (update string-hash
+        (update-in [{:name n :hash string-hash} :resource_id] conj resource_id)
+        (update {:name n :hash string-hash}
                 #(utils/assoc-when % :parameters (assoc parameters :value_hash value-hash))))))
 
 (defn param-refs->lifetime-list
   [param-refs]
   (let [gather-resource-refs (fn [acc x]
-                               (let [{:keys [param_id resource_id]} (val x)]
+                               (let [{:keys [param_id resource_id parameters]} (val x)]
                                  (apply conj acc (map (fn [y] {:resource_id y
-                                                               :param_id param_id})
+                                                               :param_id param_id
+                                                               :name (:name parameters)
+                                                               })
                                                       resource_id))))]
     (reduce gather-resource-refs [] param-refs)))
 
 (defn existing-lifetimes
   [lifetime-list]
   (jdbc/query-to-vec
-    "select resource_id, param_id from historical_resource_param_lifetimes
+    "select resource_id, param_id, name from historical_resource_param_lifetimes
      where upper_inf(time_range) and param_id = any(?)"
     (->> lifetime-list
          (map :param_id)
          vec
          (sutils/array-to-param "bigint" Long))))
 
-;(count (set ll-list))
-;(count ll-list)
-;(count my-lifetimes)
-;(count my-lifetimes)
-;
-;(first my-lifetimes)
-;(first ll-list)
-
-(first with-existing)
-
-(def id-lists (map :resource_id (vals with-existing)))
-
-(map count id-lists)
-
-(nth id-lists 3)
-
-(map count (map set id-lists))
-
-
-(count ll-list)
-(count (set ll-list))
-
-(count with-existing)
-(count with-all)
-
-(first bundles)
-
-(def foo (map vector
-       (map #(get-in % [:parameters :value_hash]) bundles)
-       (map :resource_id bundles)))
-
-(count foo)
-(count (set foo))
-
-(def bar (set (map vector
-                   (map #(get-in % [:parameters :value_hash]) bundles)
-                   (map :resource_id bundles))))
-
-(count bundles)
-
-(count foo)
-
-(count bar)
-
-
-(def my-agg (reduce build-hash-map {} bundles))
+;(println (first with-all))
+;(println (first my-params-to-insert))
+;(println (first my-inserted-params))
 
 (defn insert-params!
-  [certname-id open-timerange params->resource-ids param-bundles]
+  [certname-id open-timerange param-bundles]
 
-  (when (seq params->resource-ids)
+  (def insert-bundles param-bundles)
 
-    (def bundles param-bundles)
+  (when (seq param-bundles)
 
     (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
           _ (def with-existing with-existing-params)
-          params-to-insert (map (comp :parameters second) (remove (fn [[k v]] (:param_id v)) with-existing-params))
+          params-to-insert (vec (set (map (comp #(utils/update-when % [:value_json]
+                                                                    sutils/munge-jsonb-for-storage)
+                                                :parameters
+                                                second)
+                                          (remove (fn [[k v]] (:param_id v)) with-existing-params))))
 
-          inserted-params (storage/insert-records* :historical_resource_params params-to-insert) 
+          _ (def my-params-to-insert params-to-insert)
 
-          with-all-params (reduce #(assoc-in %1 [(String. (:value_hash %2)) :param_id] (:id %2)) with-existing-params inserted-params)
+          inserted-params (map #(assoc %1 :param_id (:id %2) :name (:name %2))
+                               (storage/insert-records* :historical_resource_params
+                                                        (map #(dissoc % :name) params-to-insert))
+                               params-to-insert)
+
+          _ (def my-inserted-params inserted-params)
+
+          with-all-params (reduce #(assoc-in %1 [{:hash (String. (:value_hash %2))
+                                                  :name (:name %2)} :param_id]
+                                             (:id %2)) with-existing-params inserted-params)
 
           _ (def with-all with-all-params)
 
@@ -471,14 +455,18 @@
       _ (println "COUNT INSERTED " (count inserted-params))
 
       lifetimes-inserted (storage/insert-records* :historical_resource_param_lifetimes
-                                                  (map (fn [{:keys [param_id resource_id]}]
+                                                  (map (fn [{:keys [param_id
+                                                                    resource_id
+                                                                    name
+                                                                    ]}]
                                                          {:param_id param_id
+                                                          :name name
                                                           :resource_id resource_id
                                                           :certname_id certname-id
                                                           :time_range open-timerange
                                                           :deviation_status "notempty"})
                                                        lifetimes-to-insert))]
-      (println "LIFETIMES INSERTED" (count lifetimes-inserted)))))
+      )))
 
 (defn munge-params-for-comparison
   [candidates]
@@ -491,6 +479,22 @@
                       (bundle-params (:parameters (second x)) resource_id))))
        flatten))
 
+;(take 3 (first d))
+;
+;(= (set (map :parameters existing-bundles2)) (set (map :parameters new-bundles2)))
+;
+;(def d2 (clojure.data/diff (set (map (comp #(dissoc % :value_hash) :parameters) existing-bundles2))
+;                           (set (map (comp #(dissoc % :value_hash) :parameters) new-bundles2))))
+;
+;(take 5 (second d2))
+;
+;(map count d2)
+;
+;(map count d)
+;
+;(count existing-bundles2)
+
+
 (defn add-params!
   [certname-id
    resource-refs->resources
@@ -498,18 +502,28 @@
    open-timerange
    resource-refs->resource-ids]
 
+  (println "HELLO WORLD")
+
+  (def my-refs->resources resource-refs->resources)
+  (def my-refs->ids resource-refs->resource-ids)
+
   (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
         new-param-bundles (get-resource-parameters resource-refs->resources resource-refs->resource-ids)
-        existing-param-bundles (param-bundles certname-id)
+        existing-param-bundles (param-bundles certname-id)]
 
-        existing-params->resource-ids (param-refs->resource-ids certname-id)
-        params->resource-refs (munge-params-for-storage param-candidates resource-refs->resources)
-        new-params->resource-ids (ks/mapvals #(get resource-refs->resource-ids %)
-                                             params->resource-refs)]
+    (println "DIFFCOUNTS" (map count (clojure.data/diff (set (keys existing-param-bundles))
+                                                        (set new-param-bundles))))
 
-    (diff-fn (set existing-param-bundles) (set new-param-bundles)
-             (partial cap-params! certname-id cap-timerange)
-             (partial insert-params! certname-id open-timerange new-params->resource-ids)
+    (println "EXISTING" (first (keys existing-param-bundles)))
+    (println "NEW" (first new-param-bundles))
+
+
+    (diff-fn (set (keys existing-param-bundles))
+             (set new-param-bundles)
+             (partial cap-params! certname-id cap-timerange existing-param-bundles)
+             ;identity
+             ;identity
+             (partial insert-params! certname-id open-timerange)
              identity)))
 
 (defn munge-resources-to-refs
@@ -521,6 +535,7 @@
   [certname-id refs-to-hashes resources-to-fetch]
 
   (let [hashes-to-fetch (vals (select-keys refs-to-hashes (keys resources-to-fetch)))
+        _ (println "COUNT OF HASHES TO FETCH" (count hashes-to-fetch))
         referenced-resources (jdbc/query-to-vec
                                "select type, title, hr.id from historical_resources hr
                                 inner join historical_resource_lifetimes hrl on
@@ -532,7 +547,11 @@
                                     (map sutils/munge-hash-for-storage)
                                     vec
                                     (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))]
-        (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
+
+    (println "COUNT OF REFERENCED" (count referenced-resources))
+    (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
+
+;(count known-resources1)
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
