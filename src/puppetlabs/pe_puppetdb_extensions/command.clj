@@ -411,48 +411,31 @@
          vec
          (sutils/array-to-param "bigint" Long))))
 
-;(println (first with-all))
-;(println (first my-params-to-insert))
-;(println (first my-inserted-params))
-
 (defn insert-params!
   [certname-id open-timerange param-bundles]
-
-  (def insert-bundles param-bundles)
 
   (when (seq param-bundles)
 
     (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
-          _ (def with-existing with-existing-params)
           params-to-insert (vec (set (map (comp #(utils/update-when % [:value_json]
                                                                     sutils/munge-jsonb-for-storage)
                                                 :parameters
                                                 second)
                                           (remove (fn [[k v]] (:param_id v)) with-existing-params))))
 
-          _ (def my-params-to-insert params-to-insert)
-
           inserted-params (map #(assoc %1 :param_id (:id %2) :name (:name %2))
                                (storage/insert-records* :historical_resource_params
                                                         (map #(dissoc % :name) params-to-insert))
                                params-to-insert)
 
-          _ (def my-inserted-params inserted-params)
-
           with-all-params (reduce #(assoc-in %1 [{:hash (String. (:value_hash %2))
                                                   :name (:name %2)} :param_id]
                                              (:id %2)) with-existing-params inserted-params)
 
-          _ (def with-all with-all-params)
-
           lifetime-list (param-refs->lifetime-list with-all-params)
-          _ (def ll-list lifetime-list)
           existing (existing-lifetimes lifetime-list)
-          _ (def my-lifetimes existing)
           lifetimes-to-insert (remove (set existing) lifetime-list)
-
-      _ (println "COUNT INSERTED " (count inserted-params))
 
       lifetimes-inserted (storage/insert-records* :historical_resource_param_lifetimes
                                                   (map (fn [{:keys [param_id
@@ -479,22 +462,6 @@
                       (bundle-params (:parameters (second x)) resource_id))))
        flatten))
 
-;(take 3 (first d))
-;
-;(= (set (map :parameters existing-bundles2)) (set (map :parameters new-bundles2)))
-;
-;(def d2 (clojure.data/diff (set (map (comp #(dissoc % :value_hash) :parameters) existing-bundles2))
-;                           (set (map (comp #(dissoc % :value_hash) :parameters) new-bundles2))))
-;
-;(take 5 (second d2))
-;
-;(map count d2)
-;
-;(map count d)
-;
-;(count existing-bundles2)
-
-
 (defn add-params!
   [certname-id
    resource-refs->resources
@@ -502,21 +469,9 @@
    open-timerange
    resource-refs->resource-ids]
 
-  (println "HELLO WORLD")
-
-  (def my-refs->resources resource-refs->resources)
-  (def my-refs->ids resource-refs->resource-ids)
-
   (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
         new-param-bundles (get-resource-parameters resource-refs->resources resource-refs->resource-ids)
         existing-param-bundles (param-bundles certname-id)]
-
-    (println "DIFFCOUNTS" (map count (clojure.data/diff (set (keys existing-param-bundles))
-                                                        (set new-param-bundles))))
-
-    (println "EXISTING" (first (keys existing-param-bundles)))
-    (println "NEW" (first new-param-bundles))
-
 
     (diff-fn (set (keys existing-param-bundles))
              (set new-param-bundles)
@@ -535,7 +490,6 @@
   [certname-id refs-to-hashes resources-to-fetch]
 
   (let [hashes-to-fetch (vals (select-keys refs-to-hashes (keys resources-to-fetch)))
-        _ (println "COUNT OF HASHES TO FETCH" (count hashes-to-fetch))
         referenced-resources (jdbc/query-to-vec
                                "select type, title, hr.id from historical_resources hr
                                 inner join historical_resource_lifetimes hrl on
@@ -548,7 +502,6 @@
                                     vec
                                     (sutils/array-to-param "bytea" org.postgresql.util.PGobject)))]
 
-    (println "COUNT OF REFERENCED" (count referenced-resources))
     (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} referenced-resources)))
 
 ;(count known-resources1)
