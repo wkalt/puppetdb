@@ -120,6 +120,13 @@
    #(and (map? %)
          (valid-jdbc-query? (:results-query %)))))
 
+(defn convert-array
+  [a f]
+  (cond
+    (kitchensink/array? a) (f a)
+    (isa? (class a) java.sql.Array) (f (.getArray a)))
+  :else a)
+
 (defn convert-result-arrays
   "Converts Java and JDBC arrays in a result set using the provided function
   (eg. vec, set). Values which aren't arrays are unchanged."
@@ -131,6 +138,16 @@
                      (isa? (class %) java.sql.Array) (f (.getArray %))
                      :else %)]
        (map #(kitchensink/mapvals convert %) result-set))))
+
+(defn convert-result-arrays'
+  ([result-set ks]
+   (convert-result-arrays' ks vec))
+  ([f ks result-set]
+   (let [convert #(cond
+                    (kitchensink/array? %) (f %)
+                    (isa? (class %) java.sql.Array) (f (.getArray %))
+                    :else %)]
+     (map #(kitchensink/mapvals convert ks %) result-set))))
 
 (defn limited-query-to-vec
   "Take a limit and an SQL query (with optional parameters), and return the
