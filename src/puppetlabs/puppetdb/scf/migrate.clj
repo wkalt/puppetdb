@@ -1100,7 +1100,6 @@
     (sql/create-table-ddl
       :historical_resource_params
       ["id" "bigint not null primary key default nextval('historical_resource_params_seq')"]
-      ["name" "text"]
       ["type" "text"]
       ["value_integer" "bigint"]
       ["value_boolean" "boolean"]
@@ -1119,6 +1118,7 @@
     (sql/create-table-ddl
       :historical_resource_param_lifetimes
       ["id" "bigint not null primary key default nextval('historical_resource_param_lifetime_seq')"]
+      ["name" "text not null"]
       ["resource_id" "bigint not null references historical_resources(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
       ["time_range" "tstzrange not null"]
