@@ -162,7 +162,7 @@
      certname-id]
     (fn [rs]
       (let [rss (sql/result-set-seq rs)]
-        (doall (jdbc/convert-result-arrays set rss))))))
+        (doall (jdbc/convert-result-arrays' set [:tags] rss))))))
 
 (defn existing-resource-refs
   [certname-id]
@@ -418,6 +418,7 @@
         new-param-bundles (get-resource-parameters resource-refs->resources
                                                    resource-refs->resource-ids)
         existing-param-bundles (param-bundles certname-id)]
+
     (diff-fn (set (keys existing-param-bundles))
              (set new-param-bundles)
              (partial cap-params! certname-id cap-timerange existing-param-bundles)
@@ -426,8 +427,9 @@
 
 (defn munge-resources-to-refs
   [resources]
-  (zipmap (map #(select-keys % [:type :title]) resources)
-          (jdbc/convert-result-arrays set resources)))
+  (reduce #(assoc %1 (select-keys %2 [:type :title])
+                  %2)
+          {} resources))
 
 (defn conserved-resource-ids
   [certname-id refs-to-hashes resources-to-fetch]
