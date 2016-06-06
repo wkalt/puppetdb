@@ -70,13 +70,6 @@
           (every? keyword? (map :relationship (:edges %)))]}
   (assoc report :edges (set (map transform-edge* edges))))
 
-(def transform
-  "Applies every transformation to the catalog, converting it from wire format
-  to our internal structure."
-  (comp
-   transform-edges
-   transform-resources))
-
 (defn find-containing-class
   "Given a containment path from Puppet, find the outermost 'class'."
   [containment-path]
@@ -269,24 +262,6 @@
                                 :value_hash (shash/generic-identity-hash value)})
                  :resource_id resource_id})))))
 
-(defn param-refs->resource-ids
-  [certname-id]
-  (let [existing-params (jdbc/query-to-vec
-                          (format "select resource_id, %s as value_hash, value_integer,
-                                   value_boolean, value_float, value_string, value_json,
-                                   name from historical_resource_params hrp
-                                   inner join historical_resource_param_lifetimes hrpl on
-                                   hrp.id = hrpl.param_id where certname_id=? and
-                                   upper_inf(hrpl.time_range)"
-                                  (sutils/sql-hash-as-str "value_hash"))
-                          certname-id)]
-    (zipmap (->> existing-params
-                 (map (comp #(dissoc % :resource_id)
-                            #(utils/update-when % [:value_json] sutils/parse-db-json)
-                            #(ks/dissoc-if-nil % :value_integer :value_boolean
-                                               :value_float :value_string :value_json))))
-            (map :resource_id existing-params))))
-
 (defn param-bundles
   [certname-id]
   (let [param-columns [:value_integer :value_boolean :value_float
@@ -308,17 +283,6 @@
                                     (dissoc :resource_id :param_id))})
            existing-params)
       (map :param_id existing-params))))
-
-(defn map->kv-vec
-  [m]
-  (for [[k v] m] {k v}))
-
-(defn param->row
-  [p]
-  (let [p' (first p)]
-    {:name (name (first p'))
-     :value (second p')
-     :value_hash (shash/generic-identity-hash (second p'))}))
 
 (defn cap-params!
   [certname-id cap-timerange full-param-bundles bundle-keys]
