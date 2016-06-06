@@ -1066,6 +1066,8 @@
       ["hash" "bytea"]
       ["exported" "boolean"])
 
+    "create index historical_resource_hash_idx on historical_resources(hash)"
+
     "create sequence historical_resource_lifetimes_seq"
 
     (sql/create-table-ddl
@@ -1074,6 +1076,12 @@
       ["resource_id" "bigint not null references historical_resources(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
       ["time_range" "tstzrange not null"])
+
+    "create index historical_resource_lifetimes_certname_id on historical_resource_lifetimes(certname_id)"
+    "create index historical_resource_lifetimes_resource_id on historical_resource_lifetimes(resource_id)"
+    "create index historical_resource_lifetimes_timerange_idx on historical_resource_lifetimes using gist(time_range)"
+    "create index historical_resource_lifetimes_functional_idx on historical_resource_lifetimes (upper_inf(time_range))"
+
 
     "create sequence historical_edge_seq cycle"
 
@@ -1084,6 +1092,9 @@
       ["target_id" "bigint not null references historical_resources(id)"]
       ["relationship" "text not null"])
 
+    "create index historical_edges_source_id on historical_edges(source_id)"
+    "create index historical_edges_target_id on historical_edges(target_id)"
+
     "create sequence historical_edge_lifetime_seq"
 
     (sql/create-table-ddl
@@ -1092,6 +1103,11 @@
       ["edge_id" "bigint not null references historical_edges(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
       ["time_range" "tstzrange not null"])
+
+    "create index historical_edges_lifetimes_certname_id on historical_edges_lifetimes(certname_id)"
+    "create index historical_edges_lifetimes_edge_id on historical_edges_lifetimes(edge_id)"
+    "create index historical_edges_lifetimes_timerange_idx on historical_edges_lifetimes using gist(time_range)"
+    "create index historical_edges_lifetimes_functional_idx on historical_edges_lifetimes (upper_inf(time_range))"
 
     "create sequence resource_string_seq cycle"
 
@@ -1107,6 +1123,8 @@
       ["value_string" "text"]
       ["value_json" "jsonb"]
       ["value_hash" "bytea not null"])
+
+    "create index historical_resource_params_hash on historical_resource_params(value_hash)"
 
     (sql/create-table-ddl
       :resources_to_params
@@ -1124,6 +1142,13 @@
       ["time_range" "tstzrange not null"]
       ["param_id" "bigint not null references historical_resource_params(id)"]
       ["deviation_status" "text not null"])
+
+    "create index historical_resource_param_lifetimes_certname_id on historical_resource_param_lifetimes(certname_id)"
+    "create index historical_resource_param_lifetimes_param_id on historical_resource_param_lifetimes(param_id)"
+    "create index historical_resource_param_lifetimes_resource_id on historical_resource_param_lifetimes(resource_id)"
+    "create index historical_resource_param_lifetimes_name on historical_resource_param_lifetimes(name)"
+    "create index historical_resource_param_lifetimes_timerange_idx on historical_resource_param_lifetimes using gist(time_range)"
+    "create index historical_resource_param_lifetimes_functional_idx on historical_resource_param_lifetimes (upper_inf(time_range))"
 
     "alter table resource_events add column resource_id bigint references historical_resources(id)"
 
