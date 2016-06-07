@@ -164,10 +164,10 @@
 (defn existing-resources
   [certname-id]
   (jdbc/query-with-resultset
-    ["select type, title, tags, exported, file, line
-      from historical_resources inner join historical_resource_lifetimes
-      on historical_resources.id = historical_resource_lifetimes.resource_id
-      where historical_resource_lifetimes.certname_id = ?
+    ["select type, title, tags, exported, file, line, hash, hr.id
+      from historical_resources hr inner join historical_resource_lifetimes hrl
+      on hr.id = hrl.resource_id
+      where hrl.certname_id = ?
       and upper_inf(time_range)"
      certname-id]
     (fn [rs]
@@ -470,26 +470,17 @@
 (defn munge-resources-to-refs
   [resources]
   (reduce #(assoc %1 (select-keys %2 [:type :title])
-                  %2)
+                  (dissoc %2 :id :hash))
           {} resources))
 
 (defn conserved-resource-ids
-  [certname-id refs-to-hashes resources-to-fetch]
-  (let [hashes-to-fetch (vals (select-keys refs-to-hashes (keys resources-to-fetch)))]
-    (jdbc/query-with-resultset
-      ["select type, title, hr.id from historical_resources hr
-        inner join historical_resource_lifetimes hrl on
-        hr.id = hrl.resource_id
-        where certname_id = ? and hash = any(?)
-        and upper_inf(hrl.time_range)"
-       certname-id
-       (->> hashes-to-fetch
-            (map sutils/munge-hash-for-storage)
-            vec
-            (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
-      (fn [rs]
-        (let [rss (sql/result-set-seq rs)]
-          (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} rss))))))
+  [certname-id refs-to-hashes old-resources resources-to-fetch]
+  (let [hashes-to-fetch (set (vals (select-keys refs-to-hashes (keys resources-to-fetch))))
+        retained-resources (filter #(contains? hashes-to-fetch (bytea->string (:hash %)))
+                                   old-resources)]
+    (def retained retained-resources)
+    (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2))
+            {} retained-resources)))
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -499,19 +490,17 @@
    refs-to-resources :- storage/resource-ref->resource-schema
    refs-to-hashes :- {storage/resource-ref-schema String}]
 
-  (let [old-resource-refs (-> certname-id
-                              existing-resources
-                              munge-resources-to-refs)
+  (let [old-resources (existing-resources certname-id)
         new-resource-refs (ks/mapvals storage/strip-params refs-to-resources)]
 
-    (println "RESOURCE DIFFS" (map count (clojure.data/diff old-resource-refs new-resource-refs)))
     (jdbc/with-db-transaction []
-      (diff-fn old-resource-refs
+      (diff-fn (munge-resources-to-refs old-resources)
                new-resource-refs
                (partial cap-resources! certname-id cap-timerange)
                (partial insert-resources! certname-id open-timerange
                         refs-to-hashes refs-to-resources)
-               (partial conserved-resource-ids certname-id refs-to-hashes)))))
+               (partial conserved-resource-ids certname-id refs-to-hashes
+                        old-resources)))))
 
 (defn existing-edges-map
   [certname-id]
