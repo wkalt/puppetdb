@@ -193,8 +193,17 @@
   (shash/generic-identity-hash
     (select-keys resource [:tags :exported :file :type :line :title])))
 
+;(jdbc/with-transacted-connection my-db
+;  (jdbc/query-to-vec
+;    "update historical_resource_params
+;     set value_integer=10
+;     where value_hash=?
+;     returning value_hash"
+;    (string->bytea "edcf235521c68ed8f533c5a517e165881be0fbd7")
+;  ))
+
 (defn cap-resources!
-  [certname-id cap-timerange refs-to-hashes resources-to-cap]
+  [certname-id cap-timerange resources-to-cap]
   (when (seq resources-to-cap)
     (let [hashes-to-cap (map resource-identity-hash (vals resources-to-cap))]
       (jdbc/query-with-resultset
@@ -242,14 +251,29 @@
       (let [rss (sql/result-set-seq rs)]
         (into [] rss)))))
 
+(count candidate-rs)
+(count existing-cand)
+
+(def hashes (set (map (comp bytea->string :hash) existing-cand)))
+(def new-hashes (map #(.getValue (:hash %)) candidate-rs))
+
+(println new-hashes)
+
+(count (remove #(contains? (set (map (comp bytea->string :hash) existing-cand))
+                           (.getValue (:hash %)))
+               candidate-rs))
+
 (defn insert-resources!
   [certname-id open-timerange refs-to-hashes refs-to-resources resources-to-insert]
   (let [ref->row (partial resource-ref->row certname-id refs-to-resources refs-to-hashes)
         candidate-rows (map ref->row (keys resources-to-insert))
         existing-candidates (existing-historical-resources (map :hash candidate-rows))
-        existing-hashes (set (map :hash existing-candidates))
+        _ (def existing-cand existing-candidates)
+        _ (def candidate-rs candidate-rows)
+        existing-hashes (set (map (comp bytea->string :hash) existing-candidates))
         inserted-resources (storage/insert-records* :historical_resources
-                                                    (remove #(contains? existing-hashes (:hash %))
+                                                    (remove #(contains? existing-hashes
+                                                                        (.getValue (:hash %)))
                                                             candidate-rows))
         relevant-resources (concat existing-candidates inserted-resources)]
     (storage/insert-records* :historical_resource_lifetimes
@@ -496,7 +520,7 @@
     (jdbc/with-db-transaction []
       (diff-fn old-resource-refs
                new-resource-refs
-               (partial cap-resources! certname-id cap-timerange refs-to-hashes)
+               (partial cap-resources! certname-id cap-timerange)
                (partial insert-resources! certname-id open-timerange
                         refs-to-hashes refs-to-resources)
                (partial conserved-resource-ids certname-id refs-to-hashes)))))
