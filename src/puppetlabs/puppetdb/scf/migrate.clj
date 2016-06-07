@@ -1122,7 +1122,7 @@
       ["value_float" "double precision"]
       ["value_string" "text"]
       ["value_json" "jsonb"]
-      ["value_hash" "bytea not null"])
+      ["value_hash" "bytea not null unique"])
 
     "create index historical_resource_params_hash on historical_resource_params(value_hash)"
 
