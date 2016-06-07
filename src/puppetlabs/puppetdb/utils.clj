@@ -331,3 +331,20 @@
      ~@body
      (catch Exception _#
        nil)))
+
+(defn distinct-by
+  "Returns a lazy sequence of the elements of coll with duplicates removed.
+   Returns a stateful transducer when no collection is provided."
+  {:added "1.0"
+   :static true}
+  [f coll]
+  (let [step (fn step [xs seen]
+               (lazy-seq
+                 ((fn [[x :as xs] seen]
+                    (when-let [s (seq xs)]
+                      (let [fx (f x)]
+                        (if (contains? seen fx)
+                          (recur (rest s) seen)
+                          (cons x (step (rest s) (conj seen fx)))))))
+                  xs seen)))]
+    (step coll #{})))
