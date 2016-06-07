@@ -236,7 +236,7 @@
        :title title
        :tags tags
        :file file
-       :hash (sutils/munge-hash-for-storage hash-string)
+       :hash hash-string
        :line line
        :exported exported})))
 
@@ -245,36 +245,24 @@
   (jdbc/query-with-resultset
     ["select id, hash, type, title from historical_resources where hash=any(?)"
      (->> hashes
+          (map sutils/munge-hash-for-storage)
           vec
           (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
     (fn [rs]
       (let [rss (sql/result-set-seq rs)]
         (into [] rss)))))
 
-(count candidate-rs)
-(count existing-cand)
-
-(def hashes (set (map (comp bytea->string :hash) existing-cand)))
-(def new-hashes (map #(.getValue (:hash %)) candidate-rs))
-
-(println new-hashes)
-
-(count (remove #(contains? (set (map (comp bytea->string :hash) existing-cand))
-                           (.getValue (:hash %)))
-               candidate-rs))
-
 (defn insert-resources!
   [certname-id open-timerange refs-to-hashes refs-to-resources resources-to-insert]
   (let [ref->row (partial resource-ref->row certname-id refs-to-resources refs-to-hashes)
         candidate-rows (map ref->row (keys resources-to-insert))
         existing-candidates (existing-historical-resources (map :hash candidate-rows))
-        _ (def existing-cand existing-candidates)
-        _ (def candidate-rs candidate-rows)
         existing-hashes (set (map (comp bytea->string :hash) existing-candidates))
-        inserted-resources (storage/insert-records* :historical_resources
-                                                    (remove #(contains? existing-hashes
-                                                                        (.getValue (:hash %)))
-                                                            candidate-rows))
+        inserted-resources (storage/insert-records*
+                             :historical_resources
+                             (->> candidate-rows
+                                  (remove #(contains? existing-hashes (:hash %)))
+                                  (map #(update % :hash string->bytea))))
         relevant-resources (concat existing-candidates inserted-resources)]
     (storage/insert-records* :historical_resource_lifetimes
                              (map (fn [{:keys [id]}] {:resource_id id
