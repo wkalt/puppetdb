@@ -2,6 +2,7 @@
   (:import [javax.xml.bind DatatypeConverter])
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.set :as set]
+            [clojure.string :as str]
             [clojure.tools.logging :as log]
             [clojure.data :as data]
             [clojure.java.jdbc :as sql]
@@ -19,6 +20,14 @@
             [puppetlabs.puppetdb.utils :as utils]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.puppetdb.scf.storage :as storage]))
+
+(defn string->bytea
+  [s]
+  (DatatypeConverter/parseHexBinary s))
+
+(defn bytea->string
+  [h]
+  (str/lower-case (DatatypeConverter/printHexBinary h)))
 
 (def report-wireformat-schema
   (assoc reports/report-wireformat-schema :edges [s/Any]))
@@ -179,10 +188,15 @@
                       (map (fn [x] {{:type (:type x) :title (:title x)}
                                     (:id x)}))))))))
 
+(defn resource-identity-hash
+  [resource]
+  (shash/generic-identity-hash
+    (select-keys resource [:tags :exported :file :type :line :title])))
+
 (defn cap-resources!
   [certname-id cap-timerange refs-to-hashes resources-to-cap]
   (when (seq resources-to-cap)
-    (let [hashes-to-cap (vals (select-keys refs-to-hashes (keys resources-to-cap)))]
+    (let [hashes-to-cap (map resource-identity-hash (vals resources-to-cap))]
       (jdbc/query-with-resultset
         ["update historical_resource_lifetimes
           set time_range = historical_resource_lifetimes.time_range * ?
@@ -291,7 +305,7 @@
                      {:resource_id (:resource_id y)
                       :parameters (-> (apply ks/dissoc-if-nil y param-columns)
                                       (utils/update-when [:value_json] sutils/parse-db-json)
-                                      (update :value_hash #(apply str (map char %)))
+                                      (update :value_hash bytea->string)
                                       (dissoc :resource_id :param_id))}
                      (:param_id y))) {} rss))))))
 
@@ -313,95 +327,39 @@
        certname-id]
       (constantly #{}))))
 
-(defn munge-hash-for-storage
-  [h]
-  (byte-array (map byte h)))
-
-(def this-hash "88e3567eaaec869f2188bee8291812b3faa70818")
-
-(String. (munge-hash-for-storage this-hash))
-(defn munge-hash-for-storage [s] (DatatypeConverter/parseHexBinary s))
-
-(DatatypeConverter/printHexBinary (munge-hash-for-storage this-hash))
-
-(jdbc/with-transacted-connection my-db
-  (let [munged-hash (sutils/munge-hash-for-storage this-hash)]
-    (jdbc/query-to-vec
-      "select value_hash from historical_resource_params where value_hash=any(?)"
-      (sutils/array-to-param "bytea" (type munged-hash) [munged-hash]))))
-
-(jdbc/with-transacted-connection my-db
-  (let [munged-hash (munge-hash-for-storage this-hash)]
-    (jdbc/query-to-vec
-      "select value_hash from historical_resource_params where value_hash=any(?)"
-      (sutils/array-to-param "bytea" (type munged-hash) [munged-hash]))))
-
-(jdbc/with-transacted-connection my-db
-  (sql/db-do-prepared
-    my-db
-    "insert into historical_resource_params (value_hash) values (?)"
-     [(DatatypeConverter/parseHexBinary this-hash)]))
-
-(map int (DatatypeConverter/parseHexBinary this-hash))
-
-;(hash->str (.getBytes "foo"))
-;
-;(jdbc/with-transacted-connection my-db
-;  (jdbc/query-to-vec
-;    "select value_hash from historical_resource_params where value_hash=?"
-;    (munge-hash-for-storage this-hash)))
-;
-;
-;(jdbc/with-transacted-connection my-db
-;  (let [munged-hashes (map munge-hash-for-storage hashes)
-;        hash-array (->> munged-hashes
-;                        vec
-;                        (sutils/array-to-param "bytea" (type (first munged-hashes))))]
-;    (jdbc/query-to-vec
-;      "select value_hash from historical_resource_params where value_hash=any(?)"
-;      hash-array)
-;    )
-;  )
-
 (defn existing-params
   [hash->resource-map]
   (let [hashes-to-check (map :hash (keys hash->resource-map))
         munged-hashes (->> hashes-to-check
-                           (map munge-hash-for-storage)
+                           (map sutils/munge-hash-for-storage)
                            vec
-                           (sutils/array-to-param "bytea" (type (first hashes-to-check))))
-
+                           (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
         result (jdbc/query-to-vec
-                 ["select name, param_id, value_hash
-                   from historical_resource_params hrp
-                   inner join historical_resource_param_lifetimes hrpl on
-                   hrp.id=hrpl.param_id
-                   where upper_inf (time_range) and
-                   value_hash = any(?)"
-                  munged-hashes])]
-
-    (def hashes hashes-to-check)
-    (def my-result result)
+                 "select name, param_id, value_hash
+                  from historical_resource_params hrp
+                  inner join historical_resource_param_lifetimes hrpl on
+                  hrp.id=hrpl.param_id
+                  where value_hash = any(?)"
+                 munged-hashes)]
 
     (jdbc/query-with-resultset
       ["select name, param_id, value_hash
         from historical_resource_params hrp
         inner join historical_resource_param_lifetimes hrpl on
         hrp.id=hrpl.param_id
-        where upper_inf (time_range) and
-        value_hash = any(?)"
+        where value_hash = any(?)"
        munged-hashes]
       (fn [rs]
         (let [rss (sql/result-set-seq rs)]
           (reduce #(assoc-in %1 [{:name (:name %2)
-                                  :hash (apply str (map char (:value_hash %2)))}
+                                  :hash (bytea->string (byte-array (:value_hash %2)))}
                                  :param_id]
-                             (:id %2)) hash->resource-map rss))))))
+                             (:param_id %2)) hash->resource-map rss))))))
 
 (defn build-hash-map
   [m {:keys [parameters resource_id]}]
   (let [{:keys [value_hash name]} parameters
-        munged-hash (munge-hash-for-storage value_hash)]
+        munged-hash (string->bytea value_hash)]
     (-> m
         (update-in [{:name name :hash value_hash} :resource_id] conj resource_id)
         (update {:name name :hash value_hash}
@@ -430,31 +388,34 @@
       (let [rss (sql/result-set-seq rs)]
         (into [] rss)))))
 
-(defn hash->str
-  [h]
-  (apply str (map char h)))
-
 (defn insert-params!
   [certname-id open-timerange param-bundles]
   (when (seq param-bundles)
     (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
-          _ (def existing with-existing-params)
-          params-to-insert (vec (set (map (comp #(utils/update-when % [:value_json]
-                                                                    sutils/munge-jsonb-for-storage)
+          params-to-insert (vec (set (map (comp #(utils/update-when
+                                                   % [:value_json]
+                                                   sutils/munge-jsonb-for-storage)
                                                 :parameters
                                                 second)
-                                          (remove (fn [[k v]] (:param_id v)) with-existing-params))))
-          inserted-records (storage/insert-records* :historical_resource_params
-                                                    (utils/distinct-by (fn [x] (hash->str (:value_hash x)))
-                                                                       (map #(dissoc % :name) params-to-insert)))
-          hashes->ids (reduce #(assoc %1 (hash->str (:value_hash %2)) (:id %2)) {} inserted-records)
-          params-with-ids (map #(assoc % :param_id (get hashes->ids (hash->str (:value_hash %))))
+                                          (remove (fn [[k v]]
+                                                    (:param_id v)) with-existing-params))))
+          inserted-records (storage/insert-records*
+                             :historical_resource_params
+                             (utils/distinct-by
+                               (fn [x] (bytea->string (:value_hash x)))
+                               (map #(dissoc % :name) params-to-insert)))
+          hashes->ids (reduce #(assoc %1 (bytea->string (:value_hash %2)) (:id %2))
+                              {} inserted-records)
+
+          params-with-ids (map #(assoc % :param_id
+                                       (get hashes->ids (bytea->string (:value_hash %))))
                                params-to-insert)
 
-          with-all-params (reduce #(assoc-in %1 [{:hash (String. (:value_hash %2))
+          with-all-params (reduce #(assoc-in %1 [{:hash (bytea->string (:value_hash %2))
                                                   :name (:name %2)} :param_id]
-                                             (:param_id %2)) with-existing-params params-with-ids)
+                                             (:param_id %2))
+                                  with-existing-params params-with-ids)
 
           lifetime-list (param-refs->lifetime-list with-all-params)
           existing (existing-lifetimes lifetime-list)
@@ -530,6 +491,8 @@
                               existing-resources
                               munge-resources-to-refs)
         new-resource-refs (ks/mapvals storage/strip-params refs-to-resources)]
+
+    (println "RESOURCE DIFFS" (map count (clojure.data/diff old-resource-refs new-resource-refs)))
     (jdbc/with-db-transaction []
       (diff-fn old-resource-refs
                new-resource-refs
@@ -646,12 +609,9 @@
       (add-edges! certname-id open-timerange
                   cap-timerange edges refs->resource-ids))))
 
-(defn resource-identity-hash
-  [resource]
-  (shash/generic-identity-hash (dissoc resource :parameters)))
-
 (defn store-historical-data
   [certname-id producer-timestamp {:keys [resources] :as report}]
+  (def the-resources resources)
   (let [refs-to-hashes (ks/mapvals resource-identity-hash resources)]
     (update-report-associations certname-id report refs-to-hashes)))
 
