@@ -1,4 +1,5 @@
 (ns puppetlabs.pe-puppetdb-extensions.storage
+  (:import [javax.xml.bind DatatypeConverter])
   (:require [puppetlabs.trapperkeeper.core :refer [defservice]]
             [clojure.set :as set]
             [clojure.tools.logging :as log]
@@ -291,7 +292,7 @@
                       :parameters (-> (apply ks/dissoc-if-nil y param-columns)
                                       (utils/update-when [:value_json] sutils/parse-db-json)
                                       (update :value_hash #(apply str (map char %)))
-                                      (dissoc :resource_id :param_id))}   
+                                      (dissoc :resource_id :param_id))}
                      (:param_id y))) {} rss))))))
 
 (defn cap-params!
@@ -316,12 +317,71 @@
   [h]
   (byte-array (map byte h)))
 
+(def this-hash "88e3567eaaec869f2188bee8291812b3faa70818")
+
+(String. (munge-hash-for-storage this-hash))
+(defn munge-hash-for-storage [s] (DatatypeConverter/parseHexBinary s))
+
+(DatatypeConverter/printHexBinary (munge-hash-for-storage this-hash))
+
+(jdbc/with-transacted-connection my-db
+  (let [munged-hash (sutils/munge-hash-for-storage this-hash)]
+    (jdbc/query-to-vec
+      "select value_hash from historical_resource_params where value_hash=any(?)"
+      (sutils/array-to-param "bytea" (type munged-hash) [munged-hash]))))
+
+(jdbc/with-transacted-connection my-db
+  (let [munged-hash (munge-hash-for-storage this-hash)]
+    (jdbc/query-to-vec
+      "select value_hash from historical_resource_params where value_hash=any(?)"
+      (sutils/array-to-param "bytea" (type munged-hash) [munged-hash]))))
+
+(jdbc/with-transacted-connection my-db
+  (sql/db-do-prepared
+    my-db
+    "insert into historical_resource_params (value_hash) values (?)"
+     [(DatatypeConverter/parseHexBinary this-hash)]))
+
+(map int (DatatypeConverter/parseHexBinary this-hash))
+
+;(hash->str (.getBytes "foo"))
+;
+;(jdbc/with-transacted-connection my-db
+;  (jdbc/query-to-vec
+;    "select value_hash from historical_resource_params where value_hash=?"
+;    (munge-hash-for-storage this-hash)))
+;
+;
+;(jdbc/with-transacted-connection my-db
+;  (let [munged-hashes (map munge-hash-for-storage hashes)
+;        hash-array (->> munged-hashes
+;                        vec
+;                        (sutils/array-to-param "bytea" (type (first munged-hashes))))]
+;    (jdbc/query-to-vec
+;      "select value_hash from historical_resource_params where value_hash=any(?)"
+;      hash-array)
+;    )
+;  )
+
 (defn existing-params
   [hash->resource-map]
-  (let [hashes-to-check (keys hash->resource-map)
+  (let [hashes-to-check (map :hash (keys hash->resource-map))
         munged-hashes (->> hashes-to-check
+                           (map munge-hash-for-storage)
                            vec
-                           (sutils/array-to-param "bytea" (type (first hashes-to-check))))]
+                           (sutils/array-to-param "bytea" (type (first hashes-to-check))))
+
+        result (jdbc/query-to-vec
+                 ["select name, param_id, value_hash
+                   from historical_resource_params hrp
+                   inner join historical_resource_param_lifetimes hrpl on
+                   hrp.id=hrpl.param_id
+                   where upper_inf (time_range) and
+                   value_hash = any(?)"
+                  munged-hashes])]
+
+    (def hashes hashes-to-check)
+    (def my-result result)
 
     (jdbc/query-with-resultset
       ["select name, param_id, value_hash
@@ -370,23 +430,32 @@
       (let [rss (sql/result-set-seq rs)]
         (into [] rss)))))
 
+(defn hash->str
+  [h]
+  (apply str (map char h)))
+
 (defn insert-params!
   [certname-id open-timerange param-bundles]
   (when (seq param-bundles)
     (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
+          _ (def existing with-existing-params)
           params-to-insert (vec (set (map (comp #(utils/update-when % [:value_json]
                                                                     sutils/munge-jsonb-for-storage)
                                                 :parameters
                                                 second)
                                           (remove (fn [[k v]] (:param_id v)) with-existing-params))))
-          inserted-params (map #(assoc %1 :param_id (:id %2) :name (:name %2))
-                               (storage/insert-records* :historical_resource_params
-                                                        (map #(dissoc % :name) params-to-insert))
+          inserted-records (storage/insert-records* :historical_resource_params
+                                                    (utils/distinct-by (fn [x] (hash->str (:value_hash x)))
+                                                                       (map #(dissoc % :name) params-to-insert)))
+          hashes->ids (reduce #(assoc %1 (hash->str (:value_hash %2)) (:id %2)) {} inserted-records)
+          params-with-ids (map #(assoc % :param_id (get hashes->ids (hash->str (:value_hash %))))
                                params-to-insert)
+
           with-all-params (reduce #(assoc-in %1 [{:hash (String. (:value_hash %2))
                                                   :name (:name %2)} :param_id]
-                                             (:id %2)) with-existing-params inserted-params)
+                                             (:param_id %2)) with-existing-params params-with-ids)
+
           lifetime-list (param-refs->lifetime-list with-all-params)
           existing (existing-lifetimes lifetime-list)
           lifetimes-to-insert (remove (set existing) lifetime-list)]
@@ -650,6 +719,7 @@
                puppet_version certname)))
 
 (defn store-report [{:keys [payload version annotations] :as command} db]
+  (def my-db db)
   (let [{received-timestamp :received} annotations
         latest-version-of-payload (case version
                                     3 (reports/wire-v3->wire-v7 payload received-timestamp)
