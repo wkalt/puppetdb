@@ -193,15 +193,6 @@
   (shash/generic-identity-hash
     (select-keys resource [:tags :exported :file :type :line :title])))
 
-;(jdbc/with-transacted-connection my-db
-;  (jdbc/query-to-vec
-;    "update historical_resource_params
-;     set value_integer=10
-;     where value_hash=?
-;     returning value_hash"
-;    (string->bytea "edcf235521c68ed8f533c5a517e165881be0fbd7")
-;  ))
-
 (defn cap-resources!
   [certname-id cap-timerange resources-to-cap]
   (when (seq resources-to-cap)
