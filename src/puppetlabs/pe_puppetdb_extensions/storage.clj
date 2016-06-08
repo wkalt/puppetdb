@@ -293,9 +293,8 @@
                        :value_string :value_json :type]]
     (jdbc/query-with-resultset
       ["select hrp.id as param_id,
-        resource_id, value_hash, value_integer,
-        value_boolean, value_float, value_string, value_json,
-        name, type from historical_resource_params hrp
+        resource_id, value_hash,
+        name from historical_resource_params hrp
         inner join historical_resource_param_lifetimes hrpl on
         hrp.id = hrpl.param_id where certname_id=? and
         upper_inf(hrpl.time_range)"
@@ -392,9 +391,10 @@
         (into [] rss)))))
 
 (defn insert-params!
-  [certname-id open-timerange param-bundles]
-  (when (seq param-bundles)
-    (let [aggregated-param-refs (reduce build-hash-map {} param-bundles)
+  [certname-id open-timerange full-param-bundles bundles-to-insert]
+  (when (seq bundles-to-insert)
+    (let [param-bundles (vals (select-keys full-param-bundles bundles-to-insert))
+          aggregated-param-refs (reduce build-hash-map {} param-bundles)
           with-existing-params (existing-params aggregated-param-refs)
           params-to-insert (vec (set (map (comp #(utils/update-when
                                                    % [:value_json]
@@ -441,6 +441,10 @@
        ;; todo I don't like this
        flatten))
 
+(defn new-param-bundles->bundle-refs
+  [acc p]
+  (assoc acc (update p :parameters #(select-keys % [:name :value_hash])) p))
+
 (defn add-params!
   [certname-id
    resource-refs->resources
@@ -450,12 +454,13 @@
   (let [param-candidates (ks/mapvals :parameters resource-refs->resources)
         new-param-bundles (get-resource-parameters resource-refs->resources
                                                    resource-refs->resource-ids)
-        existing-param-bundles (param-bundles certname-id)]
+        existing-param-bundles (param-bundles certname-id)
+        new-params-to-diff (reduce new-param-bundles->bundle-refs {} new-param-bundles)]
 
     (diff-fn (set (keys existing-param-bundles))
-             (set new-param-bundles)
+             (set (keys new-params-to-diff))
              (partial cap-params! certname-id cap-timerange existing-param-bundles)
-             (partial insert-params! certname-id open-timerange)
+             (partial insert-params! certname-id open-timerange new-params-to-diff)
              identity)))
 
 (defn munge-resources-to-refs
