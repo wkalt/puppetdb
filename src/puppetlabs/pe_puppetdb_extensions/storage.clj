@@ -193,10 +193,17 @@
   (shash/generic-identity-hash
     (select-keys resource [:tags :exported :file :type :line :title])))
 
+(println )
+
 (defn cap-resources!
-  [certname-id cap-timerange resources-to-cap]
+  [certname-id cap-timerange old-resource-refs resources-to-cap]
   (when (seq resources-to-cap)
-    (let [hashes-to-cap (map resource-identity-hash (vals resources-to-cap))]
+    (let [ids-to-cap (map :id (vals (select-keys old-resource-refs (keys resources-to-cap))))]
+
+
+      (def ids-to-cap ids-to-cap)
+      ;(def my-resources old-resource-refs)
+
       (jdbc/query-with-resultset
         ["update historical_resource_lifetimes
           set time_range = historical_resource_lifetimes.time_range * ?
@@ -204,15 +211,12 @@
           historical_resources r on rl.resource_id=r.id
           where historical_resource_lifetimes.certname_id = ?
           and upper_inf(historical_resource_lifetimes.time_range)
-          and r.hash=any(?)
+          and r.id=any(?)
           and rl.id = historical_resource_lifetimes.id
           returning r.id as id, type, title"
          cap-timerange
          certname-id
-         (->> hashes-to-cap
-              (map sutils/munge-hash-for-storage)
-              vec
-              (sutils/array-to-param "bytea" org.postgresql.util.PGobject))]
+         (sutils/array-to-param "bigint" Long ids-to-cap)]
         (fn [rs]
           (let [rss (sql/result-set-seq rs)]
             (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} rss)))))))
@@ -463,17 +467,12 @@
 
 (defn munge-resources-to-refs
   [resources]
-  (reduce #(assoc %1 (select-keys %2 [:type :title])
-                  (dissoc %2 :id :hash))
+  (reduce #(assoc %1 (select-keys %2 [:type :title]) %2)
           {} resources))
 
 (defn conserved-resource-ids
   [certname-id refs-to-hashes old-resources resources-to-fetch]
-  (let [hashes-to-fetch (set (vals (select-keys refs-to-hashes (keys resources-to-fetch))))
-        retained-resources (filter #(contains? hashes-to-fetch (bytea->string (:hash %)))
-                                   old-resources)]
-    (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2))
-            {} retained-resources)))
+  (ks/mapvals :id (select-keys old-resources (keys resources-to-fetch))))
 
 (pls/defn-validated add-resources!
   "Persist the given resource and associate it with the given catalog."
@@ -483,13 +482,15 @@
    refs-to-resources :- storage/resource-ref->resource-schema
    refs-to-hashes :- {storage/resource-ref-schema String}]
 
-  (let [old-resources (existing-resources certname-id)
+  (let [old-resources (-> certname-id
+                          existing-resources
+                          munge-resources-to-refs)
         new-resource-refs (ks/mapvals storage/strip-params refs-to-resources)]
 
     (jdbc/with-db-transaction []
-      (diff-fn (munge-resources-to-refs old-resources)
+      (diff-fn (ks/mapvals #(dissoc % :hash :id) old-resources)
                new-resource-refs
-               (partial cap-resources! certname-id cap-timerange)
+               (partial cap-resources! certname-id cap-timerange old-resources)
                (partial insert-resources! certname-id open-timerange
                         refs-to-hashes refs-to-resources)
                (partial conserved-resource-ids certname-id refs-to-hashes
