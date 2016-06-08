@@ -289,27 +289,24 @@
 
 (defn param-bundles
   [certname-id]
-  (let [param-columns [:value_integer :value_boolean :value_float
-                       :value_string :value_json :type]]
-    (jdbc/query-with-resultset
-      ["select hrp.id as param_id,
-        resource_id, value_hash,
-        name from historical_resource_params hrp
-        inner join historical_resource_param_lifetimes hrpl on
-        hrp.id = hrpl.param_id where certname_id=? and
-        upper_inf(hrpl.time_range)"
-       certname-id]
-      (fn [rs]
-        (let [rss (sql/result-set-seq rs)]
-          (reduce
-            (fn [x y]
-              (assoc x
-                     {:resource_id (:resource_id y)
-                      :parameters (-> (apply ks/dissoc-if-nil y param-columns)
-                                      (utils/update-when [:value_json] sutils/parse-db-json)
-                                      (update :value_hash bytea->string)
-                                      (dissoc :resource_id :param_id))}
-                     (:param_id y))) {} rss))))))
+  (jdbc/query-with-resultset
+    ["select hrp.id as param_id,
+      resource_id, value_hash,
+      name from historical_resource_params hrp
+      inner join historical_resource_param_lifetimes hrpl on
+      hrp.id = hrpl.param_id where certname_id=? and
+      upper_inf(hrpl.time_range)"
+     certname-id]
+    (fn [rs]
+      (let [rss (sql/result-set-seq rs)]
+        (reduce
+          (fn [x y]
+            (assoc x
+                   {:resource_id (:resource_id y)
+                    :parameters (-> y
+                                    (update :value_hash bytea->string)
+                                    (dissoc :resource_id :param_id))}
+                   (:param_id y))) {} rss)))))
 
 (defn cap-params!
   [certname-id cap-timerange full-param-bundles bundle-keys]
@@ -392,6 +389,7 @@
 
 (defn insert-params!
   [certname-id open-timerange full-param-bundles bundles-to-insert]
+  (def my-bundles bundles-to-insert)
   (when (seq bundles-to-insert)
     (let [param-bundles (vals (select-keys full-param-bundles bundles-to-insert))
           aggregated-param-refs (reduce build-hash-map {} param-bundles)
