@@ -478,7 +478,6 @@
   (let [hashes-to-fetch (set (vals (select-keys refs-to-hashes (keys resources-to-fetch))))
         retained-resources (filter #(contains? hashes-to-fetch (bytea->string (:hash %)))
                                    old-resources)]
-    (def retained retained-resources)
     (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2))
             {} retained-resources)))
 
