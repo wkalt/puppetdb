@@ -643,6 +643,12 @@
   (let [refs-to-hashes (ks/mapvals resource-identity-hash resources)]
     (update-report-associations certname-id report refs-to-hashes)))
 
+(defn previous-resource-hash
+  [certname-id]
+  (parse-db-hash (first (jdbc/query "select resource_hash from certnames
+                                     inner join reports on certnames.latest_report_id = reports.id
+                                     where certnames.id = ?" certname-id))))
+
 (defn add-report!*
   [orig-report
    received-timestamp]
@@ -654,7 +660,10 @@
         report-hash (shash/report-identity-hash report)]
     (jdbc/with-db-transaction []
       (let [certname-id (storage/certname-id certname)
+            old-resource-hash (previous-resource-hash certname-id)
+            resource-hash (shash/generic-identity-hash [resources edges])
             row-map {:hash (sutils/munge-hash-for-storage report-hash)
+                     :resource_hash (sutils/munge-hash-for-storage resource-hash)
                      :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
                      :catalog_uuid (sutils/munge-uuid-for-storage catalog_uuid)
                      :code_id code_id
@@ -684,9 +693,11 @@
                (sp/transform [sp/ALL :containment_path] #(some-> % sutils/to-jdbc-varchar-array))
                (map assoc-ids)
                (apply jdbc/insert! :resource_events)))
-        ;(storage/update-latest-report! certname)
+        (storage/update-latest-report! certname)
+        (when-not (= old-resource-hash resource-hash)
         (store-historical-data certname-id producer_timestamp
-                                  (update report :resources (fn [x] (map #(set/rename-keys % {:resource_title :title :resource_type :type})) x)))))))
+                                  (update report :resources
+                                          (fn [x] (map #(set/rename-keys % {:resource_title :title :resource_type :type})) x))))))))
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
