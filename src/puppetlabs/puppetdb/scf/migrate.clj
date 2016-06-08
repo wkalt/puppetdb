@@ -1154,6 +1154,8 @@
 
     "alter table reports drop column resources"
 
+    "alter table reports add column resource_hash bytea"
+
     ))
 
 
