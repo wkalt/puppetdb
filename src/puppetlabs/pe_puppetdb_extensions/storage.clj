@@ -198,11 +198,44 @@
 (defn cap-resources!
   [certname-id cap-timerange old-resource-refs resources-to-cap]
   (when (seq resources-to-cap)
-    (let [ids-to-cap (map :id (vals (select-keys old-resource-refs (keys resources-to-cap))))]
+    (let [ids-to-cap (map :id (vals (select-keys old-resource-refs (keys resources-to-cap))))
+          id-array (sutils/array-to-param "bigint" Long ids-to-cap)]
+
+      ;; any param and edge lifetimes associated with resources being capped
+      ;; can be assumed to be capped as well. Doing this here reduces load on
+      ;; diffing down the road.
 
 
-      (def ids-to-cap ids-to-cap)
-      ;(def my-resources old-resource-refs)
+      ;; todo: might want db-do-prepared for these
+      (jdbc/query-with-resultset
+        ["update historical_resource_param_lifetimes
+          set time_range = historical_resource_param_lifetimes.time_range * ?
+          from historical_resource_param_lifetimes hrpl inner join historical_resource_params hrp
+          on hrpl.param_id = hrp.id
+          where upper_inf(historical_resource_param_lifetimes.time_range)
+          and hrpl.resource_id = any(?)
+          and hrpl.certname_id = ?
+          and hrpl.id = historical_resource_param_lifetimes.id
+          returning 1"
+         cap-timerange
+         id-array
+         certname-id]
+        identity)
+
+      (jdbc/query-with-resultset
+        ["update historical_edges_lifetimes
+          set time_range = historical_edges_lifetimes.time_range * ?
+          from historical_edges_lifetimes hel inner join historical_edges he
+          on hel.edge_id=he.id where upper_inf(historical_edges_lifetimes.time_range)
+          and (he.target_id = any(?) or he.source_id = any(?))
+          and hel.certname_id = ?
+          and hel.id = historical_edges_lifetimes.id
+          returning 1"
+         cap-timerange
+         id-array
+         id-array
+         certname-id]
+        (constantly #{}))
 
       (jdbc/query-with-resultset
         ["update historical_resource_lifetimes
@@ -216,7 +249,7 @@
           returning r.id as id, type, title"
          cap-timerange
          certname-id
-         (sutils/array-to-param "bigint" Long ids-to-cap)]
+         id-array]
         (fn [rs]
           (let [rss (sql/result-set-seq rs)]
             (reduce #(assoc %1 (select-keys %2 [:type :title]) (:id %2)) {} rss)))))))
