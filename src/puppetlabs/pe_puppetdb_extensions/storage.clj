@@ -235,7 +235,7 @@
          id-array
          id-array
          certname-id]
-        (constantly #{}))
+        identity)
 
       (jdbc/query-with-resultset
         ["update historical_resource_lifetimes
