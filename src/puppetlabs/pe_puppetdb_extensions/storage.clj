@@ -193,8 +193,6 @@
   (shash/generic-identity-hash
     (select-keys resource [:tags :exported :file :type :line :title])))
 
-(println )
-
 (defn cap-resources!
   [certname-id cap-timerange old-resource-refs resources-to-cap]
   (when (seq resources-to-cap)
@@ -424,49 +422,55 @@
       (let [rss (sql/result-set-seq rs)]
         (into [] rss)))))
 
+(defn existing-param-hashes->ids
+    [hashes]
+    (let [hash-array (->> hashes
+                          (map sutils/munge-hash-for-storage)
+                          vec
+                          (sutils/array-to-param "bytea" org.postgresql.util.PGobject))
+          existing-pairs (jdbc/query
+                             ["select id, value_hash from historical_resource_params
+                               where value_hash=any(?)"
+                              hash-array])]
+        (reduce #(assoc %1 (bytea->string (:value_hash %2)) (:id %2)) {} existing-pairs)))
+
 (defn insert-params!
   [certname-id open-timerange full-param-bundles bundles-to-insert]
-  (def my-bundles bundles-to-insert)
   (when (seq bundles-to-insert)
     (let [param-bundles (vals (select-keys full-param-bundles bundles-to-insert))
-          aggregated-param-refs (reduce build-hash-map {} param-bundles)
-          with-existing-params (existing-params aggregated-param-refs)
-          params-to-insert (vec (set (map (comp #(utils/update-when
-                                                   % [:value_json]
-                                                   sutils/munge-jsonb-for-storage)
-                                                :parameters
-                                                second)
-                                          (remove (fn [[k v]]
-                                                    (:param_id v)) with-existing-params))))
+          existing-hashes->ids (->> param-bundles
+                                    (map (comp :value_hash :parameters))
+                                    existing-param-hashes->ids)
+          stripped-bundles (remove #(contains? (set (keys existing-hashes->ids))
+                                               (-> % :parameters :value_hash))
+                                   param-bundles)
           inserted-records (storage/insert-records*
-                             :historical_resource_params
-                             (utils/distinct-by
-                               (fn [x] (bytea->string (:value_hash x)))
-                               (map #(dissoc % :name) params-to-insert)))
-          hashes->ids (reduce #(assoc %1 (bytea->string (:value_hash %2)) (:id %2))
-                              {} inserted-records)
+                               :historical_resource_params
+                               (->> stripped-bundles
+                                    (map :parameters)
+                                    (map #(dissoc % :name))
+                                    set
+                                    (map #(update % :value_hash string->bytea))
+                                    (map #(utils/update-when % [:value_json]
+                                                             sutils/munge-jsonb-for-storage))))
+          all-hashes->ids (->> inserted-records
+                               (reduce #(assoc %1 (bytea->string (:value_hash %2)) (:id %2)) {})
+                               (merge existing-hashes->ids))
 
-          params-with-ids (map #(assoc % :param_id
-                                       (get hashes->ids (bytea->string (:value_hash %))))
-                               params-to-insert)
+          params-with-ids (map #(assoc % :param_id (get all-hashes->ids
+                                                        (-> % :parameters :value_hash)))
+                               bundles-to-insert)
+          rows-to-insert (map (fn [{:keys [param_id resource_id parameters]}]
+                                  {:param_id param_id
+                                   :name (:name parameters)
+                                   :resource_id resource_id
+                                   :certname_id certname-id
+                                   :time_range open-timerange
+                                   :deviation_status "notempty"})
+                              params-with-ids)]
 
-          with-all-params (reduce #(assoc-in %1 [{:hash (bytea->string (:value_hash %2))
-                                                  :name (:name %2)} :param_id]
-                                             (:param_id %2))
-                                  with-existing-params params-with-ids)
-
-          lifetime-list (param-refs->lifetime-list with-all-params)
-          existing (existing-lifetimes lifetime-list)
-          lifetimes-to-insert (remove (set existing) lifetime-list)]
-      (storage/insert-records* :historical_resource_param_lifetimes
-                               (map (fn [{:keys [param_id resource_id name]}]
-                                      {:param_id param_id
-                                       :name name
-                                       :resource_id resource_id
-                                       :certname_id certname-id
-                                       :time_range open-timerange
-                                       :deviation_status "notempty"})
-                                    lifetimes-to-insert)))))
+          (storage/insert-records* :historical_resource_param_lifetimes
+                                   rows-to-insert))))
 
 (defn get-resource-parameters
   [resource-refs->resources resource-refs->resource-ids]
@@ -645,9 +649,12 @@
 
 (defn previous-resource-hash
   [certname-id]
-  (parse-db-hash (first (jdbc/query "select resource_hash from certnames
-                                     inner join reports on certnames.latest_report_id = reports.id
-                                     where certnames.id = ?" certname-id))))
+  (some-> (jdbc/query ["select resource_hash from certnames
+                        inner join reports on certnames.latest_report_id = reports.id
+                        where certnames.id = ?" certname-id])
+          first
+          :resource_hash
+          bytea->string))
 
 (defn add-report!*
   [orig-report
@@ -661,7 +668,7 @@
     (jdbc/with-db-transaction []
       (let [certname-id (storage/certname-id certname)
             old-resource-hash (previous-resource-hash certname-id)
-            resource-hash (shash/generic-identity-hash [resources edges])
+            resource-hash (shash/catalog-similarity-hash report)
             row-map {:hash (sutils/munge-hash-for-storage report-hash)
                      :resource_hash (sutils/munge-hash-for-storage resource-hash)
                      :transaction_uuid (sutils/munge-uuid-for-storage transaction_uuid)
@@ -695,9 +702,9 @@
                (apply jdbc/insert! :resource_events)))
         (storage/update-latest-report! certname)
         (when-not (= old-resource-hash resource-hash)
-        (store-historical-data certname-id producer_timestamp
-                                  (update report :resources
-                                          (fn [x] (map #(set/rename-keys % {:resource_title :title :resource_type :type})) x))))))))
+          (store-historical-data certname-id producer_timestamp
+                                 (update report :resources
+                                         (fn [x] (map #(set/rename-keys % {:resource_title :title :resource_type :type})) x))))))))
 
 (s/defn add-report!
   "Add a report and all of the associated events to the database."
@@ -710,7 +717,7 @@
   (let [{id :id received-timestamp :received} annotations
         {:keys [certname puppet_version] :as report} payload
         producer-timestamp (to-timestamp (:producer_timestamp payload (now)))]
-    (jdbc/with-transacted-connection db
+    (jdbc/with-transacted-connection' db :repeatable-read
       (storage/maybe-activate-node! certname producer-timestamp)
       (add-report! report received-timestamp))
     (log/infof "[%s] [%s] puppet v%s - %s"
