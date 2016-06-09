@@ -44,7 +44,7 @@
   [db]
   (fn [command]
     (log/info "received pe report")
-    (let [timing (time (st/store-report command db))]
+    (let [timing (with-out-str (time (st/store-report command db)))]
       (swap! timings conj (parse-timing-str (str timing)))
       (log/info (str timing)))))
 

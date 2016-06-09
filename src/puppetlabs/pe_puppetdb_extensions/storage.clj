@@ -441,7 +441,8 @@
           existing-hashes->ids (->> param-bundles
                                     (map (comp :value_hash :parameters))
                                     existing-param-hashes->ids)
-          stripped-bundles (remove #(contains? (set (keys existing-hashes->ids))
+          existing-hashes (set (keys existing-hashes->ids))
+          stripped-bundles (remove #(contains? existing-hashes
                                                (-> % :parameters :value_hash))
                                    param-bundles)
           inserted-records (storage/insert-records*
