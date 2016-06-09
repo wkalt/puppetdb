@@ -24,12 +24,28 @@
   [x]
   (= (:command x) "store report"))
 
+(def timings (atom []))
+
+(defn avg
+  [nums]
+  (/ (apply + nums) (count nums)))
+
+#_(avg (deref timings))
+
+#_(reset! timings [])
+
+#_(count (deref timings))
+
+(defn parse-timing-str
+  [s]
+  (read-string (re-find #"\d*\.?\d+" s)))
 
 (defn report-listener
   [db]
   (fn [command]
     (log/info "received pe report")
     (let [timing (time (st/store-report command db))]
+      (swap! timings conj (parse-timing-str (str timing)))
       (log/info (str timing)))))
 
 (defprotocol PeCommandService)
