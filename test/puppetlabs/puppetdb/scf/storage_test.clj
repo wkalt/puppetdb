@@ -12,7 +12,8 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.testutils :as tu]
             [puppetlabs.puppetdb.testutils.db
-             :refer [*db* diff-schema-maps schema-info-map with-test-db]]
+             :refer [*db* diff-schema-maps schema-info-map with-test-db
+                     deftest-db]]
             [metrics.histograms :refer [sample histogram]]
             [metrics.counters :as counters]
             [schema.core :as s]
@@ -40,10 +41,6 @@
   (jdbc/do-prepared
    "update certnames set expired = ? where certname=? and expired is null"
    [(to-timestamp expire-time) certname]))
-
-;; When only one db is needed.
-(defmacro deftest-db [name & body]
-  `(deftest ~name (with-test-db ~@body)))
 
 (defn-validated factset-map :- {s/Str s/Str}
   "Return all facts and their values for a given certname as a map"

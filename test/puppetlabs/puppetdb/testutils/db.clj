@@ -390,3 +390,7 @@ WHERE NOT nspname LIKE 'pg%';")
                         "\nRight Only:\n" (pprint-str right-only)
                         "\nSame:\n" (pprint-str same)))
                  diff-list)))
+
+;; When only one db is needed.
+(defmacro deftest-db [name & body]
+  `(deftest ~name (with-test-db ~@body)))
