@@ -325,8 +325,10 @@
    off the queue."
   [base-url certname cmd version payload]
   (let [timeout-seconds 20]
+    (log/info "GETTING RESPONSE")
     (let [response (pdb-client/submit-command-via-http!
                      base-url certname cmd version payload timeout-seconds)]
+      (log/info "RESPONSE IS" response)
       (if (>= (:status response) 400)
         (throw (ex-info "Command processing failed" {:response response}))
         response))))
