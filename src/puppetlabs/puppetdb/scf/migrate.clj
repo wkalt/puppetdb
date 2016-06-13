@@ -1094,6 +1094,7 @@
 
     "create index historical_edges_source_id on historical_edges(source_id)"
     "create index historical_edges_target_id on historical_edges(target_id)"
+    "create index historical_edges_relationship_idx on historical_edges(relationship)"
 
     "create sequence historical_edge_lifetime_seq"
 
