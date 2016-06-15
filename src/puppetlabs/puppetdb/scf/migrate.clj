@@ -1157,6 +1157,8 @@
 
     "alter table reports add column resource_hash bytea"
 
+    "alter table reports add column last_transaction_uuid uuid"
+
     ))
 
 
