@@ -99,6 +99,16 @@
    (doseq [function-name (sutils/sql-current-connection-function-names)]
           (drop-function! function-name))))
 
+(defn delete-db-data!
+  ([config]
+   (jdbc/with-db-connection config (delete-db-data!)))
+  ([]
+   (let [table-names (jdbc/query-to-vec
+                       "select table_name from information_schema.tables where
+                        table_schema = current_schema()")]
+     (doseq [{:keys [table_name]} table-names]
+       (jdbc/do-commands (format "truncate table %s cascade" table_name))))))
+
 (def ^:private pdb-test-id (env :pdb-test-id))
 
 (def ^:private template-name
