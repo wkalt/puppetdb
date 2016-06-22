@@ -1075,7 +1075,7 @@
       ["id" "bigint not null primary key default nextval('historical_resource_lifetimes_seq')"]
       ["resource_id" "bigint not null references historical_resources(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
-      ["time_range" "tstzrange not null"])
+      ["time_range" "tstzrange not null check (time_range <> 'empty')"])
 
     "create index historical_resource_lifetimes_certname_id on historical_resource_lifetimes(certname_id)"
     "create index historical_resource_lifetimes_resource_id on historical_resource_lifetimes(resource_id)"
@@ -1103,7 +1103,7 @@
       ["id" "bigint not null default nextval('historical_edge_lifetime_seq')"]
       ["edge_id" "bigint not null references historical_edges(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
-      ["time_range" "tstzrange not null"])
+      ["time_range" "tstzrange not null check (time_range <> 'empty')"])
 
     "create index historical_edges_lifetimes_certname_id on historical_edges_lifetimes(certname_id)"
     "create index historical_edges_lifetimes_edge_id on historical_edges_lifetimes(edge_id)"
@@ -1140,7 +1140,7 @@
       ["name" "text not null"]
       ["resource_id" "bigint not null references historical_resources(id)"]
       ["certname_id" "bigint not null references certnames(id)"]
-      ["time_range" "tstzrange not null"]
+      ["time_range" "tstzrange not null check (time_range <> 'empty')"]
       ["param_id" "bigint not null references historical_resource_params(id)"]
       ["deviation_status" "text not null"])
 
