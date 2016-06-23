@@ -360,15 +360,18 @@
    (and (= command-name received-command-name)
         (supported-version? command-name received-version))))
 
+(def command-processing-fns
+  (atom {"replace catalog" replace-catalog
+         "replace facts" replace-facts
+         "store report" store-report
+         "deactivate node" deactivate-node}))
+
 (defn process-command!
   "Takes a command object and processes it to completion. Dispatch is
-  based on the command's name and version information"
+   based on the command's name and version information"
   [{command-name :command version :version :as command} db]
-  (condp supported-command-version? [command-name version]
-    "replace catalog" (replace-catalog command db)
-    "replace facts" (replace-facts command db)
-    "store report" (store-report command db)
-    "deactivate node" (deactivate-node command db)))
+  (when (supported-version? command-name version)
+    ((get @command-processing-fns command-name) command db)))
 
 (defn warn-deprecated
   "Logs a deprecation warning message for the given `command` and `version`"
