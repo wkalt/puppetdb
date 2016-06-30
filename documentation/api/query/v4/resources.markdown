@@ -55,6 +55,8 @@ See [the AST query language page][ast] for the full list of available operators.
 
 * `resource` (string): a SHA-1 hash of the resource's type, title, and parameters, for identification.
 
+* `parameters` (json): a JSON hash of the resource's parameters.
+
 ### Subquery relationships
 
 The following list contains related entities that can be used to constrain the result set using implicit subqueries. For more information, consult the documentation for [subqueries][subqueries].
@@ -152,6 +154,27 @@ this route.
       "title" : "bar",
       "type" : "User",
       "certname" : "host2.mydomain.com"}]
+
+    curl -X GET http://localhost:8080/pdb/query/v4/resources -d 'query=["=","parameters.groups", "users"]'
+
+    [{"parameters" : {
+        "uid" : "1001,
+        "shell" : "/bin/bash",
+        "managehome" : false,
+        "gid" : "1001,
+        "home" : "/home/bar,
+        "groups" : "users,
+        "ensure" : "present"
+     },
+     "line" : 20,
+     "resource" : "514cc3d67baf20c1c5e053e6a74b249558031311",
+     "file" : "/etc/puppetlabs/code/environments/production/manifests/site.pp",
+     "exported" : false,
+     "environment": "production",
+     "tags" : [ "foo", "bar" ],
+     "title" : "bar",
+     "type" : "User",
+     "certname" : "host2.mydomain.com"}]
 
 ## `/pdb/query/v4/resources/<TYPE>/<TITLE>`
 

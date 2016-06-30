@@ -264,6 +264,34 @@
       (apply assoc m new-kvs)
       m)))
 
+;; (defn smart-split
+;;   "Splits a string on . unless the . is contained within a quoted substring."
+;;   [string]
+;;   (let [quoted (re-seq #"\".*?\"" string)
+;;         replacements (map #(string/replace % #"\." "#&#") quoted)
+;;         replacement-pairs (map vector quoted replacements)
+;;         replaced-string (reduce #(string/replace %1 (re-pattern (first %2)) (second %2)) string replacement-pairs)
+;;         split-replaced-string (string/split replaced-string #"\.")]
+;;     (map #(string/replace % (re-pattern "#&#") ".") split-replaced-string)))
+
+(defn smart-split
+  "Splits a string on . unless the . is contained within a quoted substring."
+  [string]
+  (let [split (string/split string #"\.")]
+    (loop [[s & splits] split
+           temp []
+           result []
+           quoted false]
+      (if (nil? s)
+        result
+        (if quoted
+          (if (= \" (last s))
+            (recur splits [] (conj result (string/join "." (conj temp s))) false)
+            (recur splits (conj temp s) result true))
+          (if (and (= \" (first s)) (not (= \" (last s))))
+            (recur splits (conj temp s) result true)
+            (recur splits [] (conj result s) false)))))))
+
 (defn str-schema
   "Function for converting a schema with keyword keys to
    to one with string keys. Doens't walk the map so nested
@@ -340,3 +368,9 @@
          (binding [*out* *err*]
            (println ex#))
          (throw ex#)))))
+
+(defn maybe-strip-escaped-quotes
+  [s]
+  (if (= \" (first s) (last s))
+    (subs s 1 (dec (count s)))
+    s))

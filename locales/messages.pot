@@ -220,18 +220,18 @@ msgstr ""
 msgid "{0} operator does not support object ''{1}'' for event counts"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:68
+#: src/puppetlabs/puppetdb/query_eng.clj:70
 msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:195
-#: src/puppetlabs/puppetdb/query_eng.clj:201
+#: src/puppetlabs/puppetdb/query_eng.clj:197
+#: src/puppetlabs/puppetdb/query_eng.clj:203
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:206
+#: src/puppetlabs/puppetdb/query_eng.clj:208
 msgid "Caught PSQL processing exception"
 msgstr ""
 
