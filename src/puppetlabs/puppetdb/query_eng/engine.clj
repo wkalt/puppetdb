@@ -129,7 +129,7 @@
                              "environment" {:type :string
                                             :queryable? true
                                             :field :environments.environment}
-                             "facts" {:type :queryable-json
+                             "facts" {:type :json
                                       :queryable? true
                                       :field {:select [[(h/json-object-agg :name :value) :facts]]
                                               :from [[{:select [:fp.name  :fv.value]
@@ -1132,11 +1132,8 @@
      (-plan->sql subquery)])
 
   JsonContainsExpression
-  (-plan->sql [{:keys [field value column-data]}]
-    (case field
-      "facts" (su/fact-json-contains field value)
-      "trusted" (su/fact-json-contains field value)
-      "parameters" (su/json-contains field value)))
+  (-plan->sql [{:keys [field value]}]
+    (su/json-contains field value))
 
   BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
@@ -1287,11 +1284,26 @@
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
 
+(defn validate-dotted-field
+  [dotted-field]
+  (re-find #"(facts|trusted)\..+" dotted-field))
+
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
   [node]
   (cm/match [node]
+
+            [[(op :guard #{"=" ">" "<" "<=" ">="}) (column :guard validate-dotted-field) value]]
+            (when (= :inventory (get-in (meta node) [:query-context :entity]))
+              (let [path (facts/dotted-path->queryable-regex-path column)]
+                (println "MY PATH IS" path)
+                ["in" "certname"
+                 ["extract" "certname"
+                  ["select_fact_contents"
+                   ["and"
+                    ["~>" "path" path]
+                    [op "value" value]]]]]))
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
@@ -1394,7 +1406,7 @@
                                       ["select_latest_report"]]]
 
                                     (throw (IllegalArgumentException.
-                                             (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
+                                            (format "Field 'latest_report?' not supported on endpoint '%s'" entity))))]
               (if value
                 expanded-latest
                 ["not" expanded-latest]))
