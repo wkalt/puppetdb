@@ -242,13 +242,6 @@
            factpath-to-string)
        "$"))
 
-(defn dotted-path->queryable-regex-path
-  [dotted-path]
-  (-> dotted-path
-      utils/smart-split
-      rest
-      factpath-regexp-to-regexp))
-
  (defn wire-v4->wire-v5
    "Takes a v4 formatted replace facts command and upgrades it to a v5 facts command"
    [facts]

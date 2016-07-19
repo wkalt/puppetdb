@@ -66,7 +66,13 @@
       ["=" "facts.my_structured_fact.foo.baz" 3]
       #{response2}
 
+      ["<=" "facts.my_structured_fact.foo.baz" 4]
+      #{response2}
+
       ["=" "trusted.foo.baz" "bar"]
+      #{response1}
+
+      ["~" "trusted.foo.baz" "ba.*"]
       #{response1}
 
       ["=" "facts.my_weird_fact.blah.\"dotted.thing\".\"quoted\"thing\"" "foo"]

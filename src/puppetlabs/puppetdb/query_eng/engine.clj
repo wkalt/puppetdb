@@ -24,8 +24,14 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Plan - functions/transformations of the internal query plan
 
+(defn validate-dotted-field
+  [dotted-field]
+  (println "MY DOTTED FIELD IS " dotted-field)
+  (and (string? dotted-field) (re-find #"(facts|trusted)\..+" dotted-field)))
+
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
+                              (s/conditional validate-dotted-field String)
                               {:select s/Any s/Any s/Any}))
 
 (def column-schema
@@ -185,6 +191,7 @@
                               "resources" {:columns ["certname"]}}
 
               :dotted-fields ["facts\\..*" "trusted\\..*"]
+              :entity :inventory
               :subquery? false}))
 
 (def nodes-query
@@ -1135,7 +1142,7 @@
   (-plan->sql [{:keys [field value]}]
     (su/json-contains field value))
 
-  BinaryExpression
+ BinaryExpression
   (-plan->sql [{:keys [column operator value]}]
     (apply vector
            :or
@@ -1284,10 +1291,6 @@
 (def binary-operators
   #{"=" ">" "<" ">=" "<=" "~"})
 
-(defn validate-dotted-field
-  [dotted-field]
-  (re-find #"(facts|trusted)\..+" dotted-field))
-
 (defn expand-query-node
   "Expands/normalizes the user provided query to a minimal subset of the
   query language"
@@ -1296,14 +1299,21 @@
 
             [[(op :guard #{"=" ">" "<" "<=" ">="}) (column :guard validate-dotted-field) value]]
             (when (= :inventory (get-in (meta node) [:query-context :entity]))
-              (let [path (facts/dotted-path->queryable-regex-path column)]
+              (let [path (rest (utils/smart-split  column))
+                    value-column (cond 
+                                   (string? value) "value_string"
+                                   (ks/boolean? value) "value_boolean"
+                                   (integer? value) "value_integer"
+                                   (float? value) "value_float"
+                                   :else (throw (IllegalArgumentException.
+                                                 (format  "Value %s of type %s unsupported." value (type value)))))]
                 (println "MY PATH IS" path)
                 ["in" "certname"
                  ["extract" "certname"
                   ["select_fact_contents"
                    ["and"
                     ["~>" "path" path]
-                    [op "value" value]]]]]))
+                    [op value-column value]]]]]))
 
             [[(op :guard #{"=" "<" ">" "<=" ">="}) "value" (value :guard #(number? %))]]
             ["or" [op "value_integer" value] [op "value_float" value]]
