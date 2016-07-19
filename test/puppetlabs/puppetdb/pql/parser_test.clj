@@ -539,9 +539,9 @@
 
   (testing "field"
     (are [in] (= (parse in :start :field)
-                 (vec (concat [:field] (utils/smart-split in))))
+                 (vec (concat [:field] (utils/smart-split in false))))
          "certname"
-         "value"                                   
+         "value"
          "field_underscore"
          "facts.operatingsystem.κόσμε"
          "facts.\"quoted field\".foo"

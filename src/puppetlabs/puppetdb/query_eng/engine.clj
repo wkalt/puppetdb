@@ -26,12 +26,10 @@
 
 (defn validate-dotted-field
   [dotted-field]
-  (println "MY DOTTED FIELD IS " dotted-field)
   (and (string? dotted-field) (re-find #"(facts|trusted)\..+" dotted-field)))
 
 (def field-schema (s/cond-pre s/Keyword
                               SqlCall SqlRaw
-                              (s/conditional validate-dotted-field String)
                               {:select s/Any s/Any s/Any}))
 
 (def column-schema
@@ -1214,11 +1212,11 @@
 (defn path->nested-map
   "Given path a.b.c and value d, produce {a {b {c d}}}"
   [path value]
-  (reduce #(assoc {} (utils/maybe-strip-escaped-quotes %2) %1)
+  (reduce #(assoc {} (utils/maybe-strip-escaped-quotes true %2) %1)
           (reverse (conj (vec path) value))))
 
 (defn parse-dot-query
-  "Transforms a dotted query into a JSON structure appropriate 
+  "Transforms a dotted query into a JSON structure appropriate
   for comparison in the database."
   [{:keys [field value] :as node} state]
   (let [[column & path] (utils/smart-split field)]
@@ -1297,17 +1295,19 @@
   [node]
   (cm/match [node]
 
-            [[(op :guard #{"=" ">" "<" "<=" ">="}) (column :guard validate-dotted-field) value]]
+            [[(op :guard #{"=" ">" "<" "<=" ">=" "~"}) (column :guard validate-dotted-field) value]]
             (when (= :inventory (get-in (meta node) [:query-context :entity]))
-              (let [path (rest (utils/smart-split  column))
-                    value-column (cond 
+              (let [[blob & path] (utils/smart-split column)
+                    path (if (= blob "trusted")
+                           (cons blob path)
+                           path)
+                    value-column (cond
                                    (string? value) "value_string"
                                    (ks/boolean? value) "value_boolean"
                                    (integer? value) "value_integer"
                                    (float? value) "value_float"
                                    :else (throw (IllegalArgumentException.
                                                  (format  "Value %s of type %s unsupported." value (type value)))))]
-                (println "MY PATH IS" path)
                 ["in" "certname"
                  ["extract" "certname"
                   ["select_fact_contents"

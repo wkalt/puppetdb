@@ -67,7 +67,7 @@
       #{response2}
 
       ["<=" "facts.my_structured_fact.foo.baz" 4]
-      #{response2}
+      #{response1 response2}
 
       ["=" "trusted.foo.baz" "bar"]
       #{response1}
