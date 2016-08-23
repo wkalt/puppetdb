@@ -456,6 +456,7 @@
   "Nil/empty safe insert-records, see java.jdbc's insert-records for more "
   [table :- s/Keyword
    record-coll :- [{s/Keyword s/Any}]]
+  (println "YO" record-coll)
   (when (seq record-coll)
     (apply jdbc/insert! table record-coll)))
 

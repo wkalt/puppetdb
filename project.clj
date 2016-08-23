@@ -15,10 +15,12 @@
 (def tk-status-version "0.4.0")
 (def i18n-version "0.2.2")
 
-(def pdb-jvm-opts
-  (case (System/getProperty "java.specification.version")
-    "1.7" ["-XX:MaxPermSize=200M"]
-    []))
+;(def pdb-jvm-opts
+;  (case (System/getProperty "java.specification.version")
+;    "1.7" ["-XX:MaxPermSize=200M"]
+;    []))
+
+(def pdb-jvm-opts ["-Xmx192M" "-XX:+HeapDumpOnOutOfMemoryError"])
 
 (defproject puppetlabs/puppetdb pdb-version
   :description "Puppet-integrated catalog and fact storage"

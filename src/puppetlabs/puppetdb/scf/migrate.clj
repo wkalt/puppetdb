@@ -1084,19 +1084,17 @@
     "delete from catalogs where id not in (select catalog_id from latest_catalogs)"
     "drop table latest_catalogs"))
 
+(defn munge-and-insert
+  [munge-fn table]
+  (fn [row]
+    (jdbc/insert! (name table) (munge-fn row))))
+
 (defn migrate-through-app
-  "stream data from table1 through the application and into table2, applying
-   munge-fn to each row"
   [table1 table2 column-list batchsize munge-fn]
   (let [columns (string/join "," column-list)]
-    (jdbc/query-with-resultset
-      [(format "select %s from %s" columns (name table1))]
-      (fn [rs]
-        (->> (sql/result-set-seq rs)
-             (map munge-fn)
-             (partition-all batchsize)
-             (map #(insert-records* (name table2) %))
-             dorun)))))
+    (jdbc/query [(format "select %s from %s" columns (name table1))]
+                :row-fn (munge-and-insert munge-fn table2)
+                :result-set-fn count)))
 
 (defn resource-params-cache-parameters-to-jsonb
   []
@@ -1109,7 +1107,7 @@
     :resource_params_cache
     :resource_params_cache_transform
     ["encode(resource::bytea, 'hex') as resource" "parameters"]
-    500
+    1
     #(-> %
          (update :parameters (comp sutils/munge-jsonb-for-storage json/parse-string))
          (update :resource sutils/munge-hash-for-storage)))
@@ -1147,7 +1145,7 @@
     :fact_values_transform
     ["id" "encode(value_hash::bytea, 'hex') as value_hash" "value_type_id"
      "value_integer" "value_float" "value_string" "value_boolean" "value"]
-    500
+    1
     #(-> %
          (update :value (comp sutils/munge-jsonb-for-storage json/parse-string))
          (update :value_hash sutils/munge-hash-for-storage)))
@@ -1284,6 +1282,7 @@
 
   This function will return true iff any migrations were run."
   [db-connection-pool]
+  (def my-pool db-connection-pool)
   (let [applied-migration-versions (applied-migrations)
         latest-applied-migration (last applied-migration-versions)
         known-migrations (apply sorted-set (keys migrations))
