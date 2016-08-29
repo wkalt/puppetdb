@@ -9,11 +9,12 @@
             [puppetlabs.kitchensink.core :as kitchensink]
             [puppetlabs.puppetdb.cheshire :as json]
             [slingshot.slingshot :refer [try+ throw+]]
-            [puppetlabs.puppetdb.metrics.core :as metrics]
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [puppetlabs.puppetdb.command :as cmd]
+            [metrics.counters :refer [counter inc! dec!]]
+            [puppetlabs.puppetdb.command :refer [cmd-metric global-metric create-metrics
+                                                 mq-metrics-registry metrics] :as cmd]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
@@ -25,79 +26,6 @@
             [puppetlabs.puppetdb.queue :as queue]))
 
 ;; ## Performance counters
-
-;; For each command (and globally), add command-processing
-;; metrics. The hierarchy of command-processing metrics has the
-;; following form:
-;;
-;;     {"global"
-;;        {:seen <meter>
-;;         :processed <meter>
-;;         :fatal <meter>
-;;         :retried <meter>
-;;         :discarded <meter>
-;;         :processing-time <timer>
-;;         :retry-counts <histogram>
-;;        }
-;;      "command name"
-;;        {<version number>
-;;           {:seen <meter>
-;;            :processed <meter>
-;;            :fatal <meter>
-;;            :retried <meter>
-;;            :discarded <meter>
-;;            :processing-time <timer>
-;;            :retry-counts <histogram>
-;;           }
-;;        }
-;;     }
-;;
-;; The `"global"` hierarchy contains metrics aggregated across all
-;; commands.
-;;
-;; * `:seen`: the number of commands (valid or not) encountered
-;;
-;; * `:processeed`: the number of commands successfully processed
-;;
-;; * `:fatal`: the number of fatal errors
-;;
-;; * `:retried`: the number of commands re-queued for retry
-;;
-;; * `:discarded`: the number of commands discarded for exceeding the
-;;   maximum allowable retry count
-;;
-;; * `:processing-time`: how long it takes to process a command
-;;
-;; * `:retry-counts`: histogram containing the number of times
-;;   messages have been retried prior to suceeding
-;;
-(def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
-
-(defn create-metrics [prefix]
-  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
-    {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
-     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
-     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
-     :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
-     :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
-     :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
-     :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
-     :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
-     :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
-
-(def metrics (atom {:global (create-metrics [:global])}))
-
-(defn global-metric
-  "Returns the metric identified by `name` in the `\"global\"` metric
-  hierarchy"
-  [name]
-  {:pre [(keyword? name)]}
-  (get-in @metrics [:global name]))
-
-(defn cmd-metric
-  [cmd version name]
-  {:pre [(keyword? name)]}
-  (get-in @metrics [(keyword (str cmd version)) name]))
 
 (defn create-metrics-for-command!
   "Create a subtree of metrics for the given command and version (if
@@ -215,8 +143,9 @@
 
          (try+
           (call-with-command-metrics command version retries
-                                     #(process-message cmd))
-          (queue/ack-command q cmd)
+                                     #(do (process-message cmd)
+                                          (queue/ack-command q cmd)
+                                          (cmd/update-queue-depth! command version dec!)))
 
           (catch fatal? obj
             (mark! (global-metric :fatal))

@@ -73,7 +73,12 @@
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
             [schema.core :as s]
+            [metrics.meters :refer [meter mark!]]
+            [metrics.histograms :refer [histogram update!]]
+            [metrics.timers :refer [timer time!]]
+            [metrics.counters :refer [counter inc! dec!]]
             [puppetlabs.puppetdb.config :as conf]
+            [metrics.counters :refer [counter inc! dec!]]
             [puppetlabs.puppetdb.time :refer [to-timestamp]]
             [clj-time.core :refer [now]]
             [clojure.set :as set]
@@ -86,8 +91,47 @@
 
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
-(def metrics (atom {:command-parse-time (timer mq-metrics-registry
-                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
+(defn current-queue-depth
+  [vardir]
+  )
+
+(defn create-metrics [prefix]
+  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
+    {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
+     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+     :command-parse-time (timer mq-metrics-registry (to-metric-name-fn :command-parse-time))
+     :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+     :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+     :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
+     :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+     :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
+     :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+     :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
+
+(def metrics (atom {:global (create-metrics [:global])}))
+
+;(def metrics (atom {:command-parse-time (timer mq-metrics-registry
+;                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
+
+(defn global-metric
+  "Returns the metric identified by `name` in the `\"global\"` metric
+  hierarchy"
+  [name]
+  {:pre [(keyword? name)]}
+  (get-in @metrics [:global name]))
+
+(defn cmd-metric
+  [cmd version name]
+  {:pre [(keyword? name)]}
+  (get-in @metrics [(keyword (str cmd version)) name]))
+
+(defn update-queue-depth!
+  [command version action]
+  (action (global-metric :depth))
+ ; (action (cmd-metric command version :depth))
+
+  )
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -232,6 +276,7 @@
     (.acquire write-semaphore)
     (async/>!! command-chan
                (queue/store-command q command version certname command-stream command-callback))
+    (update-queue-depth! command version inc!)
     (finally
       (.release write-semaphore)
       (when command-stream
