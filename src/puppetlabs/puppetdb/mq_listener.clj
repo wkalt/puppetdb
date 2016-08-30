@@ -77,11 +77,10 @@
 
 (defn- update-cmd-stats
   "Updates stats to reflect the receipt of the named command."
-  [stats command size]
+  [stats command]
   (let [addnp (fn [v n] (+ (or v 0) n))]
     (-> stats
-        (update :depth inc!)
-        (update :size inc! size))))
+        (update :depth inc!))))
 
 (defn parse-metadata [s]
   ;; NOTE: changes here may affect the DLO, e.g. it currently assumes
@@ -105,10 +104,9 @@
     (reduce (fn [stats p]
               (if-let [cmeta (and (.endsWith p ".json")
                                   (parse-cmd-filename (-> p .getFileName str)))]
-                      (update-cmd-stats (:command cmeta) (Files/size p))
+                      (update-cmd-stats (:command cmeta))
                       stats))
-            {:depth (counter mq-metrics-registry (to-metric-name-fn :depth))
-             :size (counter mq-metrics-registry (to-metric-name-fn :size))}
+            {:depth (counter mq-metrics-registry (to-metric-name-fn :depth))}
             path-stream)))
 
 (defn create-metrics [prefix queue-directory]
@@ -251,7 +249,8 @@
        (do
          (process-message cmdref)
          (queue/ack-command q {:entry (queue/cmdref->entry cmdref)}))
-       (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
+       (let [{:keys [certname command version
+                     annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
              retries (count (:attempts annotations))]
          (try+
            (call-with-command-metrics stockdir command version retries
