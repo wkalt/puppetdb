@@ -74,7 +74,6 @@
 ;;   messages have been retried prior to suceeding
 ;;
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
-(def queue-directory "/Users/wyatt/work/puppetdb-mq-tmp/stockpile/cmd/q")
 
 (defn- update-cmd-stats
   "Updates stats to reflect the receipt of the named command."
@@ -104,7 +103,6 @@
   [queue-dir to-metric-name-fn]
   (with-open [path-stream (Files/newDirectoryStream (get-path queue-dir))]
     (reduce (fn [stats p]
-              (println "PATH IS" p)
               (if-let [cmeta (and (.endsWith p ".json")
                                   (parse-cmd-filename (-> p .getFileName str)))]
                       (update-cmd-stats (:command cmeta) (Files/size p))
@@ -129,7 +127,7 @@
         (initialize-depth to-metric-name-fn)
         (merge base-metrics))))
 
-(def metrics (atom {:global (create-metrics [:global] queue-directory)}))
+(def metrics (atom {}))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -153,11 +151,11 @@
   "Create a subtree of metrics for the given command and version (if
   present).  If a subtree of metrics already exists, this function is
   a no-op."
-  [command version]
+  [command version stockdir]
   (let [storage-path [(keyword (str command version))]]
     (when (= ::not-found (get-in @metrics storage-path ::not-found))
       (swap! metrics assoc-in storage-path
-             (create-metrics [(keyword command) (keyword (str version))] queue-directory)))))
+             (create-metrics [(keyword command) (keyword (str version))] stockdir)))))
 
 (defn fatal?
   "Tests if the supplied exception is a fatal command-processing
@@ -224,8 +222,8 @@
 
 (defn call-with-command-metrics
   "Invokes `f` including the related metrics updates"
-  [command version retries f]
-  (create-metrics-for-command! command version)
+  [stockdir command version retries f]
+  (create-metrics-for-command! command version stockdir)
 
   (mark-both-metrics! command version :seen)
   (update-both-metrics! command version :retry-counts retries)
@@ -245,7 +243,7 @@
   "Processes the message via (process-message msg), retrying messages
   that fail via (delay-message msg), and discarding messages that have
   fatal errors or have exceeded their maximum allowed attempts."
-  [q dlo delay-message process-message]
+  [q dlo stockdir delay-message process-message]
   (fn [cmdref]
     (try+
      ;; If the message is a delete?, there's no need to parse it
@@ -257,8 +255,8 @@
        (let [{:keys [certname command version annotations id payload] :as cmd} (queue/cmdref->cmd q cmdref)
              retries (count (:attempts annotations))]
          (try+
-          (call-with-command-metrics command version retries
-                                     #(process-message cmd))
+           (call-with-command-metrics stockdir command version retries
+                                      #(process-message cmd))
           (queue/ack-command q cmd)
           (update-depth command version dec!)
 
@@ -333,9 +331,10 @@
 (defn create-command-consumer
   "Create and return a command handler. This function does the work of
   consuming/storing a command. Handled commands are acknowledged here"
-  [q command-chan dlo delay-pool command-handler]
+  [q command-chan stockdir dlo delay-pool command-handler]
   (let [handle-message (message-handler q
                                         dlo
+                                        stockdir
                                         (send-delayed-message command-chan
                                                               delay-pool)
                                         command-handler)]
@@ -370,12 +369,17 @@
     (let [config (get-config)
           command-threadpool (create-command-handler-threadpool (conf/mq-thread-count config))
           command-handler #(process-message this %)
-          {:keys [command-chan q dlo]} (shared-globals)
+          {:keys [command-chan q dlo stockdir]} (shared-globals)
           delay-pool (:delay-pool context)
-          handle-cmd (create-command-consumer q command-chan
+          handle-cmd (create-command-consumer q
+                                              command-chan
+                                              stockdir
                                               dlo
                                               delay-pool
                                               command-handler)]
+
+      (reset! metrics {:global (create-metrics [:global] stockdir)})
+
       (doto (Thread. (fn []
                        (gtp/dochan command-threadpool handle-cmd command-chan)))
         (.setDaemon false)

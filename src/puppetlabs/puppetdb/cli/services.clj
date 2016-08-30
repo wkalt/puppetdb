@@ -360,6 +360,7 @@
                    :dlo (dlo/initialize (get-path stockdir "discard")
                                         (get-in metrics-registries
                                                 [:dlo :registry]))
+                   :stockdir stockdir
                    :command-chan command-chan}
           clean-lock (ReentrantLock.)]
 
