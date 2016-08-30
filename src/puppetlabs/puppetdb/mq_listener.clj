@@ -13,6 +13,7 @@
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
+            [metrics.counters :refer [counter inc! dec!]]
             [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
@@ -74,18 +75,46 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (defn create-metrics [prefix]
-  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)]
-    {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
-     :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
-     :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
-     :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
-     :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
-     :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
-     :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
-     :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
-     :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}))
+  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)
+        base-metrics {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+                      :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
+                      :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+                      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+                      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+                      :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+                      :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
+                      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
+                      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
+                      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+                      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}]))
 
 (def metrics (atom {:global (create-metrics [:global])}))
+
+(defn- parse-cmd-filename [s]
+  (let [rx #"([0-9+])-(.*)"]
+    (when-let [[_ id qmeta] (re-matches rx s)]
+      (parse-metadata qmeta))))
+
+(defn- update-cmd-stats
+  "Updates stats to reflect the receipt of the named command."
+  [stats command size]
+  (let [addnp (fn [v n] (+ (or v 0) n))]
+    (-> stats
+        (update-in ["all" :count] inc)
+        (update-in ["all" :size] addnp size)
+        (update-in [command :count] addnp 1)
+        (update-in [command :size] addnp size))))
+
+(defn initialize-depth
+  [queue-directory]
+  (with-open [path-stream (Files/newDirectoryStream queue-dir)]
+    (reduce (fn [stats p]
+              (if-lef [cmeta (and (.endsWith p ".json")
+                                  (parse-cmd-filename (-> p .getFileName str)))]
+                      (update-cmd-stats (:command cmeta) (Files/size p))
+                      stats))
+            {"all" {:count 0 :size 0}}
+            path-stream)))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -170,6 +199,12 @@
   (update! (global-metric k) v)
   (update! (cmd-metric command version k) v))
 
+(defn update-depth
+  [command version action!]
+  (action! (global-metric :depth))
+  ;(action! (cmd-metric command version :depth))
+  )
+
 (defn call-with-command-metrics
   "Invokes `f` including the related metrics updates"
   [command version retries f]
@@ -217,6 +252,8 @@
           (call-with-command-metrics command version retries
                                      #(process-message cmd))
           (queue/ack-command q cmd)
+          (update-depth! command version dec!)
+
 
           (catch fatal? obj
             (mark! (global-metric :fatal))
