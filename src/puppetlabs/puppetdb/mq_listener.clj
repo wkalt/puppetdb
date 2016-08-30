@@ -1,9 +1,11 @@
 (ns puppetlabs.puppetdb.mq-listener
   (:import [java.util.concurrent Semaphore ThreadPoolExecutor TimeUnit SynchronousQueue
             RejectedExecutionException ExecutorService]
+           [java.nio.file Files Paths Path]
            [org.apache.commons.lang3.concurrent BasicThreadFactory BasicThreadFactory$Builder])
   (:require [clojure.tools.logging :as log]
             [puppetlabs.i18n.core :as i18n]
+            [puppetlabs.puppetdb.nio :refer [get-path]]
             [puppetlabs.puppetdb.command.dlo :as dlo]
             [puppetlabs.puppetdb.mq :as mq]
             [puppetlabs.kitchensink.core :as kitchensink]
@@ -14,7 +16,6 @@
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
             [metrics.counters :refer [counter inc! dec!]]
-            [puppetlabs.puppetdb.command :as cmd]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
@@ -73,48 +74,62 @@
 ;;   messages have been retried prior to suceeding
 ;;
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
-
-(defn create-metrics [prefix]
-  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)
-        base-metrics {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
-                      :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
-                      :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
-                      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
-                      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
-                      :depth (counter mq-metrics-registry (to-metric-name-fn :depth))
-                      :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
-                      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
-                      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
-                      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
-                      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}]))
-
-(def metrics (atom {:global (create-metrics [:global])}))
-
-(defn- parse-cmd-filename [s]
-  (let [rx #"([0-9+])-(.*)"]
-    (when-let [[_ id qmeta] (re-matches rx s)]
-      (parse-metadata qmeta))))
+(def queue-directory "/Users/wyatt/work/puppetdb-mq-tmp/stockpile/cmd/q")
 
 (defn- update-cmd-stats
   "Updates stats to reflect the receipt of the named command."
   [stats command size]
   (let [addnp (fn [v n] (+ (or v 0) n))]
     (-> stats
-        (update-in ["all" :count] inc)
-        (update-in ["all" :size] addnp size)
-        (update-in [command :count] addnp 1)
-        (update-in [command :size] addnp size))))
+        (update :depth inc!)
+        (update :size inc! size))))
+
+(defn parse-metadata [s]
+  ;; NOTE: changes here may affect the DLO, e.g. it currently assumes
+  ;; the trailing .json.
+  (let [rx #"([0-9]+)_([^_]+)_([0-9]+)_(.*)\.json"]
+    (when-let [[_ id stamp command version certname] (re-matches rx meta)]
+      {:id id
+       :stamp stamp
+       :version version
+       :command command
+       :certname certname})))
+
+(defn- parse-cmd-filename [s]
+  (let [rx #"([0-9+])-(.*)"]
+    (when-let [[_ id qmeta] (re-matches rx s)]
+      (parse-metadata qmeta))))
 
 (defn initialize-depth
-  [queue-directory]
-  (with-open [path-stream (Files/newDirectoryStream queue-dir)]
+  [queue-dir to-metric-name-fn]
+  (with-open [path-stream (Files/newDirectoryStream (get-path queue-dir))]
     (reduce (fn [stats p]
-              (if-lef [cmeta (and (.endsWith p ".json")
+              (println "PATH IS" p)
+              (if-let [cmeta (and (.endsWith p ".json")
                                   (parse-cmd-filename (-> p .getFileName str)))]
                       (update-cmd-stats (:command cmeta) (Files/size p))
                       stats))
-            {"all" {:count 0 :size 0}}
+            {:depth (counter mq-metrics-registry (to-metric-name-fn :depth))
+             :size (counter mq-metrics-registry (to-metric-name-fn :size))}
             path-stream)))
+
+(defn create-metrics [prefix queue-directory]
+  (let [to-metric-name-fn #(metrics/keyword->metric-name prefix %)
+        base-metrics {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
+                      :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
+                      :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+                      :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
+                      :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
+                      :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))
+                      :processed (meter mq-metrics-registry (to-metric-name-fn :processed))
+                      :fatal (meter mq-metrics-registry (to-metric-name-fn :fatal))
+                      :retried (meter mq-metrics-registry (to-metric-name-fn :retried))
+                      :discarded (meter mq-metrics-registry (to-metric-name-fn :discarded))}]
+    (-> queue-directory
+        (initialize-depth to-metric-name-fn)
+        (merge base-metrics))))
+
+(def metrics (atom {:global (create-metrics [:global] queue-directory)}))
 
 (defn global-metric
   "Returns the metric identified by `name` in the `\"global\"` metric
@@ -122,6 +137,12 @@
   [name]
   {:pre [(keyword? name)]}
   (get-in @metrics [:global name]))
+
+(defn update-depth
+  [command version action!]
+  (action! (global-metric :depth))
+  ;(action! (cmd-metric command version :depth))
+  )
 
 (defn cmd-metric
   [cmd version name]
@@ -136,7 +157,7 @@
   (let [storage-path [(keyword (str command version))]]
     (when (= ::not-found (get-in @metrics storage-path ::not-found))
       (swap! metrics assoc-in storage-path
-             (create-metrics [(keyword command) (keyword (str version))])))))
+             (create-metrics [(keyword command) (keyword (str version))] queue-directory)))))
 
 (defn fatal?
   "Tests if the supplied exception is a fatal command-processing
@@ -191,18 +212,14 @@
   "Calls `mark!` on the global and command specific metric for `k`"
   [command version k]
   (mark! (global-metric k))
-  (mark! (cmd-metric command version k)))
+ ; (mark! (cmd-metric command version k))
+  )
 
 (defn update-both-metrics!
   "Calls `update!` on the global and command specific metric for `k`"
   [command version k v]
   (update! (global-metric k) v)
-  (update! (cmd-metric command version k) v))
-
-(defn update-depth
-  [command version action!]
-  (action! (global-metric :depth))
-  ;(action! (cmd-metric command version :depth))
+ ; (update! (cmd-metric command version k) v)
   )
 
 (defn call-with-command-metrics
@@ -220,15 +237,6 @@
    (let [command-result (f)]
      (mark-both-metrics! command version :processed)
      command-result)))
-
-(defn parse-command
-  [msg]
-  (try+
-   (cmd/parse-command msg)
-   (catch AssertionError e
-     (throw+ {:kind ::parse-error} e "Error parsing command"))
-   (catch Exception e
-     (throw+ {:kind ::parse-error} e "Error parsing command"))))
 
 (defn discard-message [message exception q dlo]
   (dlo/discard-cmdref message exception q dlo))
@@ -252,7 +260,7 @@
           (call-with-command-metrics command version retries
                                      #(process-message cmd))
           (queue/ack-command q cmd)
-          (update-depth! command version dec!)
+          (update-depth command version dec!)
 
 
           (catch fatal? obj

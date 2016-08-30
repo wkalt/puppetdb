@@ -25,11 +25,15 @@ msgstr ""
 msgid "Another cleanup is already in progress"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/command.clj:425
+#: src/puppetlabs/puppetdb/command.clj:405
 msgid "Exception throw in L1 retry attempt {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/config.clj:369
+#: src/puppetlabs/puppetdb/command/dlo.clj:140
+msgid "DLO path {0} is not a directory"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/config.clj:383
 msgid ""
 "Configuring the route for `{0}` is not allowed. The default route is `{1}` "
 "and server is `{2}`."
@@ -55,7 +59,7 @@ msgid "Error streaming response"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/http.clj:286
-#: src/puppetlabs/puppetdb/middleware.clj:294
+#: src/puppetlabs/puppetdb/middleware.clj:296
 msgid "No information is known about {0} {1}"
 msgstr ""
 
@@ -74,52 +78,52 @@ msgid ""
 "PuppetDB''s certificate-whitelist file?"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:128
+#: src/puppetlabs/puppetdb/middleware.clj:129
 msgid "content type {0} not supported"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:144
+#: src/puppetlabs/puppetdb/middleware.clj:146
 msgid "Missing required query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:150
+#: src/puppetlabs/puppetdb/middleware.clj:152
 msgid "Unsupported query parameter ''{0}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:253
+#: src/puppetlabs/puppetdb/middleware.clj:255
 msgid "Processing command with a content-length of {0} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:254
+#: src/puppetlabs/puppetdb/middleware.clj:256
 msgid ""
 "No content length found for POST. POST bodies that are too large could cause "
 "memory-related failures."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:260
+#: src/puppetlabs/puppetdb/middleware.clj:262
 msgid ""
 "content-length of command is {0} bytes and is larger than the maximum "
 "allowed command size of {1} bytes"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/middleware.clj:265
+#: src/puppetlabs/puppetdb/middleware.clj:267
 msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:250
-msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/mq_listener.clj:255
-msgid "Fatal error parsing command: {0}"
-msgstr ""
-
-#: src/puppetlabs/puppetdb/mq_listener.clj:265
+#: src/puppetlabs/puppetdb/mq_listener.clj:266
 msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:283
+#: src/puppetlabs/puppetdb/mq_listener.clj:272
 msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:288
+msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/mq_listener.clj:292
+msgid "Fatal error parsing command: {0}"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/pql.clj:24
@@ -228,27 +232,35 @@ msgstr ""
 msgid "Invalid entity ''{0}'' in query"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:197
 #: src/puppetlabs/puppetdb/query_eng.clj:203
+#: src/puppetlabs/puppetdb/query_eng.clj:209
 msgid ""
 "Error executing query ''{0}'' with query options ''{1}''. Returning a 400 "
 "error code."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng.clj:208
+#: src/puppetlabs/puppetdb/query_eng.clj:214
 msgid "Caught PSQL processing exception"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng/engine.clj:1306
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1310
 msgid "Value {0} of type {1} unsupported."
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng/engine.clj:1310
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1314
 msgid "Operator ''{0}'' not allowed on value ''{1}''"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/query_eng/engine.clj:1419
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1423
 msgid "Field 'latest_report?' not supported on endpoint ''{0}''"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1909
+msgid "Unsupported subquery `{0}` - did you mean `{1}`?"
+msgstr ""
+
+#: src/puppetlabs/puppetdb/query_eng/engine.clj:1910
+msgid "Unsupported subquery `{0}`"
 msgstr ""
 
 #: src/puppetlabs/puppetdb/threadpool.clj:18

@@ -69,6 +69,7 @@
             [puppetlabs.puppetdb.schema :refer [defn-validated]]
             [puppetlabs.puppetdb.utils :as utils]
             [slingshot.slingshot :refer [try+ throw+]]
+            [puppetlabs.puppetdb.mq-listener :as mql]
             [puppetlabs.puppetdb.command.constants :refer [command-names]]
             [puppetlabs.trapperkeeper.services
              :refer [defservice service-context]]
@@ -80,6 +81,7 @@
             [clojure.core.async :as async]
             [puppetlabs.puppetdb.mq :as mq]
             [metrics.timers :refer [timer time!]]
+            [metrics.counters :refer [inc!]]
             [puppetlabs.puppetdb.metrics.core :as metrics]
             [puppetlabs.puppetdb.queue :as queue]
             [clj-time.coerce :as tcoerce]))
@@ -473,6 +475,7 @@
           result (do-enqueue-command q command-chan write-semaphore command version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
+      (mql/update-depth command version inc!)
       result))
 
   (response-mult [this]
