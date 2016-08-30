@@ -468,13 +468,15 @@
 
   (enqueue-command [this command version certname command-stream command-callback]
     (let [config (get-config)
-          q (:q (shared-globals))
+          {:keys [q stockdir]} (shared-globals)
           command-chan (:command-chan (shared-globals))
           write-semaphore (:write-semaphore (service-context this))
           command (if (string? command) command (command-names command))
-          result (do-enqueue-command q command-chan write-semaphore command version certname command-stream command-callback)]
+          result (do-enqueue-command q command-chan write-semaphore command
+                                     version certname command-stream command-callback)]
       ;; Obviously assumes that if do-* doesn't throw, msg is in
       (swap! (:stats (service-context this)) update :received-commands inc)
+      (mql/create-metrics-for-command! command version stockdir)
       (mql/update-depth command version inc!)
       result))
 

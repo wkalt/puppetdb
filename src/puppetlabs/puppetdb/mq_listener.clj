@@ -136,16 +136,15 @@
   {:pre [(keyword? name)]}
   (get-in @metrics [:global name]))
 
-(defn update-depth
-  [command version action!]
-  (action! (global-metric :depth))
-  ;(action! (cmd-metric command version :depth))
-  )
-
 (defn cmd-metric
   [cmd version name]
   {:pre [(keyword? name)]}
   (get-in @metrics [(keyword (str cmd version)) name]))
+
+(defn update-depth
+  [command version action!]
+  (action! (global-metric :depth))
+  (action! (cmd-metric command version :depth)))
 
 (defn create-metrics-for-command!
   "Create a subtree of metrics for the given command and version (if
@@ -210,14 +209,14 @@
   "Calls `mark!` on the global and command specific metric for `k`"
   [command version k]
   (mark! (global-metric k))
- ; (mark! (cmd-metric command version k))
+  (mark! (cmd-metric command version k))
   )
 
 (defn update-both-metrics!
   "Calls `update!` on the global and command specific metric for `k`"
   [command version k v]
   (update! (global-metric k) v)
- ; (update! (cmd-metric command version k) v)
+  (update! (cmd-metric command version k) v)
   )
 
 (defn call-with-command-metrics

@@ -110,19 +110,19 @@ msgstr ""
 msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:269
+#: src/puppetlabs/puppetdb/mq_listener.clj:264
 msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:275
+#: src/puppetlabs/puppetdb/mq_listener.clj:270
 msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:291
+#: src/puppetlabs/puppetdb/mq_listener.clj:286
 msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:295
+#: src/puppetlabs/puppetdb/mq_listener.clj:290
 msgid "Fatal error parsing command: {0}"
 msgstr ""
 
