@@ -7,7 +7,6 @@
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as constants]
-            [clojure.string :as str :refer [re-quote-replacement]]
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
@@ -32,10 +31,10 @@
 
 (defn- metadata-rx [valid-commands]
   (re-pattern (str
-               "([0-9]+)_("
-               (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
-                                  valid-commands))
-               ")_([0-9]+)_(.*)\\.json")))
+                "([0-9]+)_("
+                (str/join "|" (map #(format "(?:%s)" (re-quote-replacement %))
+                                   valid-commands))
+                ")_([0-9]+)_(.*)\\.json")))
 
 (defn metadata-parser
   ([] (metadata-parser metadata-command-names))
