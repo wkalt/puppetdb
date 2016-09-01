@@ -19,7 +19,7 @@
 (def ^:private parse-cmd-filename
   (let [parse-metadata (metadata-parser command-names)]
     (fn [s]
-      (let [rx #"([0-9+])-(.*)"]
+      (let [rx #"([0-9]+)-(.*)"]
         (when-let [[_ id qmeta] (re-matches rx s)]
           (parse-metadata qmeta))))))
 

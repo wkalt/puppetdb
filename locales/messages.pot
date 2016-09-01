@@ -29,7 +29,7 @@ msgstr ""
 msgid "Exception throw in L1 retry attempt {0}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/command/dlo.clj:117
+#: src/puppetlabs/puppetdb/command/dlo.clj:122
 msgid "DLO path {0} is not a directory"
 msgstr ""
 
@@ -110,19 +110,19 @@ msgstr ""
 msgid "Command rejected due to size exceeding max-command-size"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:267
+#: src/puppetlabs/puppetdb/mq_listener.clj:269
 msgid "[{0}] [{1}] Fatal error on attempt {2} for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:273
+#: src/puppetlabs/puppetdb/mq_listener.clj:275
 msgid "[{0}] [{1}] Retrying after attempt {2} for {3}, due to: {4}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:289
+#: src/puppetlabs/puppetdb/mq_listener.clj:291
 msgid "[{0}] [{1}] Exceeded max {2} attempts for {3}"
 msgstr ""
 
-#: src/puppetlabs/puppetdb/mq_listener.clj:293
+#: src/puppetlabs/puppetdb/mq_listener.clj:295
 msgid "Fatal error parsing command: {0}"
 msgstr ""
 

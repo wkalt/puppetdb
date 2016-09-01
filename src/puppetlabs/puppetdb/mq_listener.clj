@@ -15,7 +15,7 @@
             [metrics.meters :refer [meter mark!]]
             [metrics.histograms :refer [histogram update!]]
             [metrics.timers :refer [timer time!]]
-            [metrics.counters :refer [counter inc! dec!]]
+            [metrics.counters :refer [counter inc! dec! value]]
             [puppetlabs.trapperkeeper.services :refer [defservice service-context service-id]]
             [schema.core :as s]
             [puppetlabs.puppetdb.config :as conf]
@@ -78,6 +78,7 @@
 (defn- update-cmd-stats
   "Updates stats to reflect the receipt of the named command."
   [stats command]
+  (println "command is" command)
   (let [addnp (fn [v n] (+ (or v 0) n))]
     (-> stats
         (update :depth inc!))))
@@ -85,8 +86,8 @@
 (defn parse-metadata [s]
   ;; NOTE: changes here may affect the DLO, e.g. it currently assumes
   ;; the trailing .json.
-  (let [rx #"([0-9]+)_([^_]+)_([0-9]+)_(.*)\.json"]
-    (when-let [[_ id stamp command version certname] (re-matches rx meta)]
+  (let [rx #"([0-9]+)-([0-9]+)_([^_]+)_([0-9]+)_(.*)\.json"]
+    (when-let [[_ id stamp command version certname] (re-matches rx s)]
       {:id id
        :stamp stamp
        :version version
@@ -94,17 +95,18 @@
        :certname certname})))
 
 (defn- parse-cmd-filename [s]
-  (let [rx #"([0-9+])-(.*)"]
+  (let [rx #"([0-9]+)-(.*)"]
     (when-let [[_ id qmeta] (re-matches rx s)]
-      (parse-metadata qmeta))))
+      (parse-metadata s))))
 
 (defn initialize-depth
   [queue-dir to-metric-name-fn]
   (with-open [path-stream (Files/newDirectoryStream (get-path queue-dir))]
     (reduce (fn [stats p]
-              (if-let [cmeta (and (.endsWith p ".json")
+              (if-let [cmeta (and (.endsWith (.toString p) ".json")
                                   (parse-cmd-filename (-> p .getFileName str)))]
-                      (update-cmd-stats (:command cmeta))
+                (do
+                  (update-cmd-stats stats (:command cmeta)))
                       stats))
             {:depth (counter mq-metrics-registry (to-metric-name-fn :depth))}
             path-stream)))
