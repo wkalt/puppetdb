@@ -117,6 +117,8 @@
         base-metrics {:processing-time (timer mq-metrics-registry (to-metric-name-fn :processing-time))
                       :retry-persistence-time (timer mq-metrics-registry (to-metric-name-fn :retry-persistence-time))
                       :generate-retry-message-time (timer mq-metrics-registry (to-metric-name-fn :generate-retry-message-time))
+                      :message-persistence-time (timer mq-metrics-registry
+                                                       (to-metric-name-fn :message-persistence-time))
                       :retry-counts (histogram mq-metrics-registry (to-metric-name-fn :retry-counts))
                       :seen (meter mq-metrics-registry (to-metric-name-fn :seen))
                       :invalidated (counter mq-metrics-registry (to-metric-name-fn :invalidated))

@@ -17,7 +17,8 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (def metrics (atom {:message-persistence-time (timer mq-metrics-registry
-                                                     (metrics/keyword->metric-name [:global] :message-persistence-time))}))
+                                                     (metrics/keyword->metric-name
+                                                       [:global] :message-persistence-time))}))
 
 (defn- set-usage!*
   "Internal helper function for setting `SystemUsage` values on a `BrokerService`

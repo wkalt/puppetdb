@@ -89,7 +89,10 @@
 (def mq-metrics-registry (get-in metrics/metrics-registries [:mq :registry]))
 
 (def metrics (atom {:command-parse-time (timer mq-metrics-registry
-                                               (metrics/keyword->metric-name [:global] :command-parse-time))}))
+                                               (metrics/keyword->metric-name [:global] :command-parse-time))
+                    :message-persistence-time (timer mq-metrics-registry
+                                                     (metrics/keyword->metric-name [:global]
+                                                                                   :message-persistence-time))}))
 
 (defn fatality
   "Create an object representing a fatal command-processing exception
@@ -221,7 +224,7 @@
 
 (defn-validated do-enqueue-command
   "Submits command to the mq-endpoint of mq-connection and returns
-  its id. Annotates the command via annotate-command."
+   its id. Annotates the command via annotate-command."
   [q
    command-chan
    ^Semaphore write-semaphore
@@ -232,8 +235,9 @@
    command-callback]
   (try
     (.acquire write-semaphore)
-    (async/>!! command-chan
-               (queue/store-command q command version certname command-stream command-callback))
+    (time! (get @metrics :message-persistence-time)
+           (async/>!! command-chan
+                      (queue/store-command q command version certname command-stream command-callback)))
     (finally
       (.release write-semaphore)
       (when command-stream

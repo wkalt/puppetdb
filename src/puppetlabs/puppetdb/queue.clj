@@ -7,6 +7,7 @@
             [clj-time.coerce :as tcoerce]
             [puppetlabs.puppetdb.cheshire :as json]
             [puppetlabs.puppetdb.command.constants :as constants]
+            [metrics.timers :refer [timer time!]]
             [clj-time.core :as time]
             [puppetlabs.kitchensink.core :as kitchensink]
             [slingshot.slingshot :refer [throw+]]
