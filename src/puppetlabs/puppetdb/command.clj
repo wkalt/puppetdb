@@ -277,8 +277,8 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-catalog! catalog received))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :replace-catalog) certname)))
+    (log/info (i18n/trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                        id (tcoerce/to-long received) (command-names :replace-catalog) certname))))
 
 (defn replace-catalog [{:keys [payload received version] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -296,8 +296,8 @@
     (jdbc/with-transacted-connection' db :repeatable-read
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/replace-facts! fact-data))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :replace-facts) certname)))
+    (log/info (i18n/trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                        id (tcoerce/to-long received) (command-names :replace-facts) certname))))
 
 (defn replace-facts [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
@@ -332,8 +332,8 @@
       (when-not (scf-storage/certname-exists? certname)
         (scf-storage/add-certname! certname))
       (scf-storage/deactivate-node! certname producer-timestamp))
-    (log/infof (i18n/trs "[%s-%d] '%s' command processed for %s")
-               id (tcoerce/to-long received) (command-names :deactivate-node) certname)))
+    (log/info (i18n/trs "[{0}-{1}] ''{2}'' command processed for {3}"
+                        id (tcoerce/to-long received) (command-names :deactivate-node) certname))))
 
 (defn deactivate-node [{:keys [payload version] :as command} db]
   (-> command
@@ -352,12 +352,12 @@
     (jdbc/with-transacted-connection db
       (scf-storage/maybe-activate-node! certname producer-timestamp)
       (scf-storage/add-report! report received))
-    (log/infof (i18n/trs "[%s-%d] '%s' puppet v%s command processed for %s")
-               id
-               (tcoerce/to-long received)
-               (command-names :store-report)
-               puppet_version
-               certname)))
+    (log/info (i18n/trs "[{0}-{1}] ''{2}'' from puppet v{3} command processed for {4}"
+                        id
+                        (tcoerce/to-long received)
+                        (command-names :store-report)
+                        puppet_version
+                        certname))))
 
 (defn store-report [{:keys [payload version received] :as command} db]
   (let [validated-payload (upon-error-throw-fatality
