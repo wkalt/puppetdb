@@ -1252,6 +1252,53 @@
   (jdbc/do-commands
     "create index resource_params_cache_parameters_idx on resource_params_cache using gin (parameters)"))
 
+(defn create-views-for-graphql
+	[]
+	(jdbc/do-commands
+		"create schema graphql"
+
+		"create view graphql.reports as
+	 SELECT reports.receive_time AS receive_time, reports.corrective_change AS corrective_change, reports.code_id AS code_id, reports.noop AS noop, reports.certname AS certname, reports.puppet_version AS puppet_version, encode(reports.hash::bytea, 'hex') AS hash, reports.cached_catalog_status AS cached_catalog_status, reports.transaction_uuid::text AS transaction_uuid, reports.configuration_version AS configuration_version, report_statuses.status AS status, producers.name AS producer, reports.catalog_uuid::text AS catalog_uuid, (SELECT row_to_json(t) FROM (SELECT coalesce(logs, CAST(logs_json AS jsonb)) AS data, format('/pdb/query/v4/reports/%s/logs', encode(hash::bytea, 'hex')) AS href) t) AS logs, reports.noop_pending AS noop_pending, reports.end_time AS end_time, environments.environment AS environment, reports.start_time AS start_time, (SELECT row_to_json(event_data) FROM (SELECT json_agg(row_to_json(t)) AS data, format('/pdb/query/v4/reports/%s/events', encode(hash::bytea, 'hex')) AS href FROM (SELECT re.status, re.timestamp, re.resource_type, re.resource_title, re.property, re.corrective_change,CAST(re.new_value AS jsonb), CAST(re.old_value AS jsonb), re.message, re.file, re.line, re.containment_path, re.containing_class FROM resource_events re WHERE reports.id = re.report_id) t) event_data) AS resource_events, (SELECT row_to_json(t) FROM (SELECT coalesce(metrics, CAST(metrics_json AS jsonb)) AS data, format('/pdb/query/v4/reports/%s/metrics', encode(hash::bytea, 'hex')) AS href) t) AS metrics, reports.producer_timestamp AS producer_timestamp, reports.report_format AS report_format FROM reports LEFT JOIN environments ON environments.id = reports.environment_id LEFT JOIN producers ON producers.id = reports.producer_id LEFT JOIN report_statuses ON reports.status_id = report_statuses.id"
+
+		"create view graphql.certnames as
+	 SELECT reports.corrective_change AS latest_report_corrective_change, certnames.deactivated AS deactivated, certnames.expired AS expired, reports_environment.environment AS report_environment, certnames.certname AS certname, fs.timestamp AS facts_timestamp, facts_environment.environment AS facts_environment, reports.cached_catalog_status AS cached_catalog_status, report_statuses.status AS latest_report_status, encode(reports.hash::bytea, 'hex') AS latest_report_hash, catalogs.timestamp AS catalog_timestamp, reports.noop_pending AS latest_report_noop_pending, reports.end_time AS report_timestamp, reports.noop AS latest_report_noop, catalog_environment.environment AS catalog_environment FROM certnames LEFT JOIN catalogs ON catalogs.certname = certnames.certname LEFT JOIN factsets fs ON certnames.certname = fs.certname LEFT JOIN reports ON certnames.latest_report_id = reports.id LEFT JOIN environments catalog_environment ON catalog_environment.id = catalogs.environment_id LEFT JOIN report_statuses ON reports.status_id = report_statuses.id LEFT JOIN environments facts_environment ON facts_environment.id = fs.environment_id LEFT JOIN environments reports_environment ON reports_environment.id = reports.environment_id"
+
+		"create view graphql.resources as
+	 SELECT encode(resources.resource::bytea, 'hex') AS resource, c.certname AS certname, tags AS tags, exported AS exported, line AS line, title AS title, type AS type, e.environment AS environment, file AS file, rpc.parameters AS parameters FROM catalog_resources resources INNER JOIN certnames ON resources.certname_id = certnames.id INNER JOIN catalogs c ON c.certname = certnames.certname LEFT JOIN environments e ON c.environment_id = e.id LEFT JOIN resource_params_cache rpc ON rpc.resource = resources.resource"
+
+		"create view graphql.catalogs as
+	 SELECT c.code_id AS code_id, c.certname AS certname, encode(c.hash::bytea, 'hex') AS hash, c.transaction_uuid::text AS transaction_uuid, producers.name AS producer, c.catalog_uuid::text AS catalog_uuid, e.environment AS environment, (SELECT row_to_json(edge_data) FROM (SELECT json_agg(row_to_json(t)) AS data, format('/pdb/query/v4/catalogs/%s/edges', c.certname) AS href FROM (SELECT sources.type AS source_type, sources.title AS source_title, targets.type AS target_type, targets.title AS target_title, edges.type AS relationship FROM edges INNER JOIN catalog_resources sources ON (edges.source = sources.resource AND sources.certname_id = certnames.id) INNER JOIN catalog_resources targets ON (edges.target = targets.resource AND targets.certname_id = certnames.id) WHERE edges.certname = c.certname) t) edge_data) AS edges, c.catalog_version AS version, c.producer_timestamp AS producer_timestamp, (SELECT row_to_json(resource_data) FROM (SELECT json_agg(row_to_json(t)) AS data, format('/pdb/query/v4/catalogs/%s/resources', c.certname) AS href FROM (SELECT encode(cr.resource::bytea, 'hex') AS resource, cr.type, cr.title, cr.tags, cr.exported, cr.file, cr.line, CAST(rpc.parameters AS json) AS parameters FROM catalog_resources cr INNER JOIN resource_params_cache rpc ON rpc.resource = cr.resource WHERE cr.certname_id = certnames.id) t) resource_data) AS resources FROM catalogs c LEFT JOIN environments e ON c.environment_id = e.id LEFT JOIN certnames ON c.certname = certnames.certname LEFT JOIN producers ON producers.id = c.producer_id"
+
+		"create view graphql.events as
+	 SELECT message AS message, old_value AS old_value, reports.receive_time AS report_receive_time, events.corrective_change AS corrective_change, containment_path AS containment_path, reports.certname AS certname, timestamp AS timestamp, reports.end_time AS run_end_time, reports.configuration_version AS configuration_version, new_value AS new_value, resource_title AS resource_title, status AS status, property AS property, resource_type AS resource_type, line AS line, environments.environment AS environment, containing_class AS containing_class, reports.start_time AS run_start_time, file AS file, encode(reports.hash::bytea, 'hex')AS report FROM resource_events events INNER JOIN reports ON events.report_id = reports.id LEFT JOIN environments ON reports.environment_id = environments.id"
+
+    "create view graphql.fact_paths as
+		 SELECT DISTINCT type AS type, path AS path FROM fact_paths fp INNER JOIN facts f ON f.fact_path_id = fp.id INNER JOIN value_types vt ON f.value_type_id = vt.id WHERE f.value_type_id <> 5"
+
+"create view graphql.facts as
+ SELECT fs.certname AS certname, fp.name AS name, f.value AS value, env.environment AS environment FROM factsets fs INNER JOIN facts f ON fs.id = f.factset_id INNER JOIN fact_paths fp ON f.fact_path_id = fp.id INNER JOIN value_types vt ON vt.id = f.value_type_id LEFT JOIN environments env ON fs.environment_id = env.id WHERE fp.depth = 0"
+
+
+"create view graphql.fact_contents as
+ SELECT fs.certname AS certname, fp.path AS path, fp.name AS name, f.value AS value, env.environment AS environment FROM factsets fs INNER JOIN facts f ON fs.id = f.factset_id INNER JOIN fact_paths fp ON f.fact_path_id = fp.id INNER JOIN value_types vt ON f.value_type_id = vt.id LEFT JOIN environments env ON fs.environment_id = env.id WHERE vt.id <> 5"
+
+
+    "create view graphql.inventory as
+     SELECT certnames.certname AS certname, fs.timestamp AS timestamp, environments.environment AS environment, (SELECT json_object_agg(name, value) AS facts FROM(SELECT fp.name, f.value FROM facts f INNER JOIN fact_paths fp ON fp.id = f.fact_path_id INNER JOIN value_types vt ON vt.id = f.value_type_id WHERE (fp.depth = 0 AND f.factset_id = fs.id)) facts_data) AS facts, (SELECT f.value AS trusted FROM facts f INNER JOIN fact_paths fp ON fp.id = f.fact_path_id INNER JOIN value_types vt ON vt.id = f.value_type_id WHERE (fp.depth = 0 AND f.factset_id = fs.id AND fp.name = 'trusted')) AS trusted FROM factsets fs LEFT JOIN environments ON fs.environment_id = environments.id LEFT JOIN producers ON fs.producer_id = producers.id LEFT JOIN certnames ON fs.certname = certnames.certname"
+
+
+    "create view graphql.fact_names as
+     SELECT DISTINCT name AS name FROM fact_paths fp  ORDER BY name"
+
+
+    "create view graphql.environments as
+     SELECT environment AS name FROM environments "
+
+
+    "create view graphql.factsets as
+     SELECT timestamp AS timestamp, (SELECT row_to_json(facts_data) FROM (SELECT json_agg(row_to_json(t)) AS data, format('/pdb/query/v4/factsets/%s/facts', factsets.certname) AS href FROM (SELECT fp.name, CAST(f.value AS jsonb) FROM facts f INNER JOIN fact_paths fp ON fp.id = f.fact_path_id INNER JOIN value_types vt ON vt.id = f.value_type_id WHERE (depth = 0 AND f.factset_id = factsets.id)) t) facts_data) AS facts, factsets.certname AS certname, encode(factsets.hash::bytea, 'hex') AS hash, factsets.producer_timestamp AS producer_timestamp, producers.name AS producer, environments.environment AS environment FROM factsets LEFT JOIN environments ON factsets.environment_id = environments.id LEFT JOIN producers ON producers.id = factsets.producer_id"))
+
+
 (def migrations
   "The available migrations, as a map from migration version to migration function."
   {28 init-through-2-3-8
@@ -1287,7 +1334,8 @@
    55 index-certnames-unique-latest-report-id
    56 merge-fact-values-into-facts
    57 add-package-tables
-   58 add-gin-index-on-resource-params-cache})
+   58 add-gin-index-on-resource-params-cache
+   59 create-views-for-graphql })
 
 (def desired-schema-version (apply max (keys migrations)))
 
