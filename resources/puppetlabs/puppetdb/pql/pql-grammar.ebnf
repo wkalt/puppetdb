@@ -100,7 +100,7 @@ field = #'[a-zA-Z0-9_]+\??' | (dottedfield, fieldpath);
 <valueregexp>      = string;
 <valueregexparray> = groupedregexplist;
 <valueordered>      = integer | real | string; (* Dates are parsed as strings *)
-<valuematch>       = string | integer | real | boolean;
+<valuematch>       = any;
 <valuein>          = query | groupedliterallist;
 
 groupedregexplist = <lbracket>, [<whitespace>], regexplist, [<whitespace>], <rbracket>;
@@ -108,7 +108,7 @@ groupedregexplist = <lbracket>, [<whitespace>], regexplist, [<whitespace>], <rbr
 
 groupedliterallist = <lbracket>, [<whitespace>], literallist, [<whitespace>], <rbracket>;
 <literallist>      = literal, [ [<whitespace>], <','>, [<whitespace>], literallist ];
-<literal>          = string | integer | real | boolean;
+<literal>          = any;
 
 (* Boolean operators *)
 <and> = <'and'>;
@@ -157,6 +157,12 @@ orderparam = !('asc' | 'desc') field, [<whitespace> direction], [<whitespace>];
 boolean = true | false;
 true = <"true">;
 false = <"false">;
+
+(* Arrays *)
+array = lbracket, [<whitespace>], literallist, [<whitespace>] rbracket
+
+(* Any *)
+<any> = string | integer | real | boolean | array ;
 
 (* Numbers *)
 integer    = [negative], digits;
